@@ -218,10 +218,10 @@ export default function AdminDashboard() {
                             </div>
                             <div style={{
                                 width: '52px', height: '52px', borderRadius: '14px',
-                                background: stat.gradient, display: 'flex',
+                                background: 'hsl(var(--primary))', display: 'flex',
                                 alignItems: 'center', justifyContent: 'center',
-                                boxShadow: `0 4px 15px ${stat.glow}`,
-                                color: stat.color
+                                boxShadow: `0 8px 16px rgba(0,0,0,0.15)`,
+                                color: '#ffffff'
                             }}>
                                 <stat.icon size={26} strokeWidth={2.5} />
                             </div>

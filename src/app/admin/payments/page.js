@@ -167,8 +167,8 @@ export default function PaymentGatewayPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '2rem', fontWeight: 800, margin: 0 }}>
-                        <CreditCard size={30} color="hsl(var(--primary))" />
-                        Payment Gateway Integration
+                    <CreditCard size={32} color="hsl(var(--text-main))" />
+                    Payment Gateway Integration
                     </h1>
                     <p style={{ color: 'hsl(var(--text-muted))', margin: '0.25rem 0 0', fontSize: '0.9rem' }}>
                         Manage transactions and configure your Razorpay & PhonePe accounts.
@@ -218,14 +218,20 @@ export default function PaymentGatewayPage() {
                     {/* Stat Cards */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                         {[
-                            { label: 'Total Revenue', value: `₹${stats.revenue.toLocaleString()}`, icon: IndianRupee, color: 'var(--primary)', bg: 'hsl(var(--primary) / 0.12)' },
-                            { label: 'Paid Orders', value: stats.paid, icon: CheckCircle, color: 'hsl(var(--success))', bg: 'hsl(var(--success) / 0.12)' },
-                            { label: 'Pending', value: stats.pending, icon: Clock, color: 'hsl(var(--accent))', bg: 'hsl(var(--accent) / 0.12)' },
-                            { label: 'Failed / Cancelled', value: stats.failed, icon: XCircle, color: 'hsl(var(--danger))', bg: 'hsl(var(--danger) / 0.12)' },
+                            { label: 'Total Revenue', value: `₹${stats.revenue.toLocaleString()}`, icon: IndianRupee },
+                            { label: 'Paid Orders', value: stats.paid, icon: CheckCircle },
+                            { label: 'Pending', value: stats.pending, icon: Clock },
+                            { label: 'Failed / Cancelled', value: stats.failed, icon: XCircle },
                         ].map((s, i) => (
                             <div key={i} className="card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid hsl(var(--border-subtle))' }}>
-                                <div style={{ width: 44, height: 44, borderRadius: 12, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <s.icon size={22} color={s.color} />
+                                <div style={{ 
+                                    width: 44, height: 44, borderRadius: 12, 
+                                    background: 'hsl(var(--primary))', 
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                    flexShrink: 0,
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                                }}>
+                                    <s.icon size={22} color="#ffffff" />
                                 </div>
                                 <div>
                                     <p style={{ margin: 0, fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</p>
