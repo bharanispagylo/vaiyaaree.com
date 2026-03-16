@@ -24,16 +24,17 @@
 }
 
 .checkoutCard {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--bg-card);
+    border: 1px solid hsl(var(--border-subtle));
     border-radius: 20px;
     padding: 2.5rem;
+    box-shadow: var(--shadow-sm);
 }
 
 .cardTitle {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 2rem;
     letter-spacing: -0.01em;
     text-transform: none;
@@ -66,7 +67,7 @@
 .formGroupFull label {
     font-size: 0.7rem;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
     margin-bottom: 0.75rem;
     letter-spacing: 0.1em;
 }
@@ -74,11 +75,11 @@
 .formGroup input,
 .formGroupFull textarea,
 .formGroup select {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.1);
     border-radius: 12px;
     padding: 0.85rem 1.25rem;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 0.95rem;
     outline: none;
     transition: all 0.2s;
@@ -86,8 +87,8 @@
 
 .formGroup input:focus,
 .formGroupFull textarea:focus {
-    border-color: rgba(37, 163, 102, 0.4);
-    background: rgba(255, 255, 255, 0.07);
+    border-color: hsl(var(--primary) / 0.4);
+    background: hsl(var(--text-main) / 0.07);
 }
 
 .paymentOptions {
@@ -102,15 +103,15 @@
     gap: 1.5rem;
     padding: 1.5rem;
     border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid hsl(var(--border-subtle));
+    background: var(--bg-card);
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .activeRadio {
-    border-color: rgba(37, 163, 102, 0.5);
-    background: rgba(37, 163, 102, 0.05);
+    border-color: hsl(var(--primary) / 0.5);
+    background: hsl(var(--primary) / 0.05);
 }
 
 .paymentMeta {
@@ -122,11 +123,11 @@
 }
 
 .paymentDesc {
-    background: rgba(255, 255, 255, 0.04);
+    background: hsl(var(--text-main) / 0.04);
     padding: 1.5rem;
     border-radius: 8px;
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
     margin-top: 1rem;
     position: relative;
 }
@@ -138,12 +139,12 @@
     left: 20px;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
-    border-bottom: 8px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 8px solid hsl(var(--text-main) / 0.04);
 }
 
 .summaryCard {
-    background: #121827;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--bg-card);
+    border: 1px solid hsl(var(--border-subtle));
     padding: 0;
     position: sticky;
     top: 100px;
@@ -159,13 +160,13 @@
 
 .summaryHeader {
     padding: 1.5rem 2rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid hsl(var(--text-main) / 0.05);
 }
 
 .summaryHeader h3 {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .summaryBody {
@@ -177,7 +178,7 @@
     justify-content: space-between;
     font-size: 0.75rem;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-dim));
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 1.5rem;
@@ -187,20 +188,20 @@
     display: flex;
     justify-content: space-between;
     font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: hsl(var(--text-muted));
     margin-bottom: 1.5rem;
     line-height: 1.4;
 }
 
 .summaryItem span:last-child {
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
     white-space: nowrap;
 }
 
 .summaryDivider {
     height: 1px;
-    background: rgba(255, 255, 255, 0.05);
+    background: hsl(var(--text-main) / 0.05);
     margin: 1.5rem 0;
 }
 
@@ -214,7 +215,7 @@
 
 .summaryRow span:first-child {
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .summaryTotalRow {
@@ -222,49 +223,53 @@
     justify-content: space-between;
     margin-top: 1.5rem;
     padding-top: 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid hsl(var(--text-main) / 0.05);
 }
 
 .summaryTotalRow span {
     font-size: 1rem;
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .totalPrice {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #25a366;
+    color: hsl(var(--primary));
 }
 
 .taxNote {
     font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
     margin-top: 4px;
 }
 
 .freeText {
-    color: #2ecc71;
+    color: hsl(var(--primary));
     font-weight: 800;
 }
 
 .placeOrderBtn {
     width: calc(100% - 4rem);
     margin: 0 2rem 2rem;
-    background: #333;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     border: none;
-    padding: 1rem;
-    font-weight: 700;
-    font-size: 0.85rem;
+    padding: 1.1rem;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 0.9rem;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
 }
 
 .placeOrderBtn:hover:not(:disabled) {
-    background: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.1);
 }
 
 .razorpayBrand {
@@ -282,7 +287,7 @@
 .privacyNote {
     margin-top: 3rem;
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
     line-height: 1.6;
 }
 
@@ -294,8 +299,8 @@
 }
 
 .successCard {
-    background: #121827;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--bg-card);
+    border: 1px solid hsl(var(--border-subtle));
     border-radius: 20px;
     padding: 4rem 3rem;
     text-align: center;
@@ -309,14 +314,14 @@
 
 .successMeta {
     margin: 2rem 0;
-    background: rgba(255, 255, 255, 0.03);
+    background: hsl(var(--text-main) / 0.03);
     padding: 1.5rem;
     border-radius: 12px;
 }
 
 .orderIdTag {
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 0.5rem;
 }
 
@@ -324,14 +329,14 @@
     display: flex;
     justify-content: space-between;
     font-weight: 600;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid hsl(var(--text-main) / 0.05);
     padding-top: 1rem;
     margin-top: 1rem;
 }
 
 .waBtn {
     width: 100%;
-    background: #25d366;
+    background: hsl(var(--primary));
     color: #fff;
     border: none;
     padding: 1rem;
@@ -346,7 +351,7 @@
 }
 
 .successCard h2 {
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 2rem;
     font-weight: 800;
     margin-bottom: 0.5rem;
@@ -374,25 +379,25 @@
     display: flex;
     justify-content: space-between;
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: hsl(var(--text-dim));
     margin-top: 0.5rem;
 }
 
 .successTaxRow span:last-child {
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.8);
+    color: hsl(var(--text-muted));
 }
 
 .successTotalRow {
     margin-top: 1rem;
     padding-top: 0.8rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    color: #fff !important;
+    border-top: 1px solid hsl(var(--text-main) / 0.1);
+    color: hsl(var(--text-main)) !important;
 }
 
 .successTotalRow strong {
     font-size: 1.1rem;
-    color: #25a366;
+    color: hsl(var(--primary));
 }
 
 .detailCard {
@@ -400,8 +405,8 @@
     align-items: center;
     gap: 1rem;
     padding: 1rem 1.5rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: hsl(var(--text-main) / 0.03);
+    border: 1px solid hsl(var(--text-main) / 0.05);
     border-radius: 12px;
 }
 
@@ -416,7 +421,7 @@
 
 .detailCard strong {
     font-size: 1rem;
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .successActions {
@@ -429,7 +434,7 @@
 .downloadBtn {
     width: 100%;
     background: rgba(37, 163, 102, 0.1);
-    color: #25a366;
+    color: hsl(var(--primary));
     border: 1px solid rgba(37, 163, 102, 0.2);
     padding: 1rem;
     border-radius: 12px;
@@ -450,8 +455,8 @@
 .downloadBtn.disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.3);
+    background: hsl(var(--text-main) / 0.05);
+    color: hsl(var(--text-dim) / 0.6);
     border-color: transparent;
 }
 
@@ -473,7 +478,7 @@
 }
 
 .secondaryBtn {
-    color: rgba(255, 255, 255, 0.5);
+    color: hsl(var(--text-muted));
     text-decoration: none;
 }
 
@@ -484,8 +489,8 @@
 
 .primaryBtn {
     display: inline-block;
-    background: #25a366;
-    color: #fff;
+    background: hsl(var(--primary));
+    color: hsl(var(--text-on-primary));
     text-decoration: none;
     padding: 1rem 2.5rem;
     border-radius: 50px;
@@ -496,6 +501,6 @@
 }
 
 .primaryBtn:hover {
-    background: #2db875;
+    background: hsl(var(--primary));
     transform: translateY(-2px);
 }

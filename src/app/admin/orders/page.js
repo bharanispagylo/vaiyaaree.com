@@ -152,7 +152,7 @@ export default function OrdersPage() {
             });
             const channelData = [
                 { name: 'Website', value: channels.WEBSITE, color: 'hsl(195 85% 45%)' },
-                { name: 'WhatsApp', value: channels.WHATSAPP, color: '#25D366' }
+                { name: 'WhatsApp', value: channels.WHATSAPP, color: 'hsl(var(--primary))' }
             ];
 
             // 4. Status Data (from filtered set)
@@ -327,35 +327,6 @@ export default function OrdersPage() {
         setOrderItems(newItems);
     };
 
-    const handleDeleteAllOrders = async () => {
-        const confirm1 = window.confirm('🚨 WARNING: You are about to delete ALL orders from the database. This action is IRREVERSIBLE. Are you absolutely certain?');
-        if (!confirm1) return;
-
-        const confirm2 = window.prompt('To confirm, please type DELETE ALL ORDERS below:');
-        if (confirm2 !== 'DELETE ALL ORDERS') {
-            alert('Verification failed. Orders were NOT deleted.');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // 1. Delete all order items first
-            const { error: itemsError } = await supabase.from('order_items').delete().neq('order_id', '0'); // Hack to delete all
-            if (itemsError) throw itemsError;
-
-            // 2. Delete all orders
-            const { error: ordersError } = await supabase.from('orders').delete().neq('status', 'DRAFT');
-            if (ordersError) throw ordersError;
-
-            setNotification({ message: '✅ All orders have been wiped.', type: 'success' });
-            fetchOrders();
-        } catch (err) {
-            console.error('Bulk Delete Error:', err);
-            setNotification({ message: '❌ Critical failure during deletion', type: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleDeleteOrder = async (orderId) => {
         if (!window.confirm('Are you sure you want to PERMANENTLY delete this order? This cannot be undone.')) return;
@@ -528,25 +499,11 @@ export default function OrdersPage() {
                                     <p>Manage and track all customer orders • {orders.length} total</p>
                                 </div>
                                 <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <button onClick={() => setIsAddingOrder(true)} className="btn btn-primary" style={{ background: 'linear-gradient(135deg, #a855f7, #7c3aed)', border: 'none' }}>
+                                    <button onClick={() => setIsAddingOrder(true)} className="btn btn-primary" style={{ background: 'hsl(var(--primary))', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
                                         <Plus size={16} /> Add Manual Order
                                     </button>
                                     <button onClick={fetchOrders} className="btn btn-secondary">
                                         <RefreshCw size={16} /> Refresh
-                                    </button>
-                                    <button
-                                        onClick={handleDeleteAllOrders}
-                                        className="btn"
-                                        style={{
-                                            background: 'rgba(239, 68, 68, 0.1)',
-                                            color: '#f87171',
-                                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                                            fontWeight: 600,
-                                            fontSize: '0.8rem',
-                                            padding: '0.45rem 1rem'
-                                        }}
-                                    >
-                                        <Trash2 size={16} /> Wipe All Orders
                                     </button>
                                 </div>
                             </div>
@@ -580,7 +537,7 @@ export default function OrdersPage() {
                                                             padding: '0.4rem 1rem', borderRadius: '9999px', fontSize: '0.8rem',
                                                             fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
                                                             background: sourceFilter === src
-                                                                ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? '#25D366' : 'hsl(var(--bg-panel))'
+                                                                ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? 'hsl(var(--primary))' : 'hsl(var(--bg-panel))'
                                                                 : 'hsl(var(--bg-card))',
                                                             color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
                                                             border: '1px solid hsl(var(--border-subtle))'
@@ -849,7 +806,7 @@ export default function OrdersPage() {
                                                                                 display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
                                                                                 padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
                                                                                 background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : 'rgba(37,211,102,0.12)',
-                                                                                color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : '#25D366',
+                                                                                color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : 'hsl(var(--primary))',
                                                                                 border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
                                                                             }}>
                                                                                 {src === 'WEBSITE' ? '🌐' : '💬'} {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
@@ -1032,25 +989,25 @@ export default function OrdersPage() {
                                                         placeholder="Customer Name"
                                                         value={selectedOrder.customer_name || ''}
                                                         onChange={e => setSelectedOrder({ ...selectedOrder, customer_name: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'white', fontSize: '0.85rem' }}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                     />
                                                     <input
                                                         placeholder="Phone"
                                                         value={selectedOrder.customer_phone || ''}
                                                         onChange={e => setSelectedOrder({ ...selectedOrder, customer_phone: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'white', fontSize: '0.85rem' }}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                     />
                                                     <textarea
                                                         rows={2}
                                                         placeholder="Delivery Address"
                                                         value={selectedOrder.delivery_address || ''}
                                                         onChange={e => setSelectedOrder({ ...selectedOrder, delivery_address: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'white', fontSize: '0.85rem', resize: 'none' }}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'none' }}
                                                     />
                                                     <select
                                                         value={selectedOrder.shipping_state || 'Tamil Nadu'}
                                                         onChange={e => setSelectedOrder({ ...selectedOrder, shipping_state: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'white', fontSize: '0.85rem' }}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                     >
                                                         {['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra', 'Delhi', 'Gujarat', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
                                                     </select>
@@ -1123,7 +1080,7 @@ export default function OrdersPage() {
                                                             updateOrderStatus(selectedOrder.id, newStatus);
                                                         }
                                                     }}
-                                                    style={{ padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
+                                                    style={{ padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}
                                                 >
                                                     {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
@@ -1225,19 +1182,19 @@ export default function OrdersPage() {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Customer Name</label>
-                                            <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }} />
+                                            <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>WhatsApp Phone</label>
-                                            <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }} />
+                                            <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div style={{ gridColumn: 'span 1' }}>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Delivery Address</label>
-                                            <textarea rows={1} placeholder="Full address..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', resize: 'none' }} />
+                                            <textarea rows={1} placeholder="Full address..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
-                                            <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}>
+                                            <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
                                                 <option value="Tamil Nadu">Tamil Nadu</option>
                                                 <option value="Kerala">Kerala</option>
                                                 <option value="Karnataka">Karnataka</option>
@@ -1259,7 +1216,7 @@ export default function OrdersPage() {
                                                     placeholder="Search product..."
                                                     value={productSearch}
                                                     onChange={e => setProductSearch(e.target.value)}
-                                                    style={{ width: '100%', padding: '0.85rem 0.85rem 0.85rem 2.5rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
+                                                    style={{ width: '100%', padding: '0.85rem 0.85rem 0.85rem 2.5rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}
                                                 />
                                                 {productSearch && (
                                                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '10px', marginTop: '5px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
@@ -1273,7 +1230,7 @@ export default function OrdersPage() {
                                                                 }
                                                                 setProductSearch('');
                                                             }} style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between' }}>
-                                                                <span>{p.name}</span>
+                                                                <span style={{ color: 'hsl(var(--text-main))' }}>{p.name}</span>
                                                                 <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>₹{p.price.toLocaleString()}</span>
                                                             </div>
                                                         ))}
@@ -1290,7 +1247,7 @@ export default function OrdersPage() {
                                                         <input type="number" min="1" value={item.quantity} onChange={e => {
                                                             const val = parseInt(e.target.value);
                                                             setNewOrder({ ...newOrder, items: newOrder.items.map((it, i) => i === idx ? { ...it, quantity: val } : it) });
-                                                        }} style={{ width: '60px', padding: '0.5rem', borderRadius: '5px', background: 'hsl(var(--bg-app))', border: '1px solid gray', color: 'white', textAlign: 'center' }} />
+                                                        }} style={{ width: '60px', padding: '0.5rem', borderRadius: '5px', background: 'hsl(var(--bg-app))', border: '1px solid gray', color: 'hsl(var(--text-main))', textAlign: 'center' }} />
                                                     </div>
                                                     <div style={{ width: '100px', textAlign: 'right', fontWeight: 800 }}>₹{(item.price * item.quantity).toLocaleString()}</div>
                                                     <button onClick={() => setNewOrder({ ...newOrder, items: newOrder.items.filter((_, i) => i !== idx) })} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer' }}><Trash2 size={16} /></button>
@@ -1464,11 +1421,11 @@ export default function OrdersPage() {
                 .card-sub { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
                 .btn-wa-link { 
                     display: inline-flex; align-items: center; gap: 0.5rem; 
-                    padding: 0.6rem 1rem; background: #25D36615; color: #25D366; 
-                    border: 1px solid #25D36630; border-radius: 8px; font-weight: 700; 
+                    padding: 0.6rem 1rem; background: hsl(var(--primary))15; color: hsl(var(--primary)); 
+                    border: 1px solid hsl(var(--primary))30; border-radius: 8px; font-weight: 700; 
                     font-size: 0.85rem; text-decoration: none; transition: 0.2s;
                 }
-                .btn-wa-link:hover { background: #25D36625; transform: translateY(-1px); }
+                .btn-wa-link:hover { background: hsl(var(--primary))25; transform: translateY(-1px); }
                 .badge-btn { 
                     padding: 0.4rem 0.8rem; border-radius: 99px; font-size: 0.75rem; 
                     font-weight: 700; cursor: pointer; border: none; transition: 0.2s;

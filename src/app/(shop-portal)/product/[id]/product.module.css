@@ -9,7 +9,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
     background: transparent;
     border: none;
     font-size: 0.95rem;
@@ -24,7 +24,7 @@
 }
 
 .backButton:hover {
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .mainSection {
@@ -43,8 +43,8 @@
     max-height: 600px;
     object-fit: contain;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.02);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    background: hsl(var(--text-main) / 0.02);
+    box-shadow: var(--shadow-card);
 }
 
 .productDetails {
@@ -56,7 +56,7 @@
 .productName {
     font-size: 2.5rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 1rem;
     line-height: 1.1;
 }
@@ -64,7 +64,7 @@
 .priceTag {
     font-size: 1.75rem;
     font-weight: 700;
-    color: #25a366;
+    color: hsl(var(--primary));
     margin-bottom: 1.5rem;
 }
 
@@ -89,7 +89,7 @@
 }
 
 .description {
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
     line-height: 1.8;
     font-size: 1rem;
     margin-bottom: 2rem;
@@ -104,7 +104,7 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
     margin-bottom: 1rem;
     font-weight: 700;
 }
@@ -118,23 +118,23 @@
 .variantChip {
     padding: 0.6rem 1.25rem;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.7);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.1);
+    color: hsl(var(--text-muted));
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .variantChip:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+    background: hsl(var(--text-main) / 0.08);
+    color: hsl(var(--text-main));
 }
 
 .activeVariant {
-    background: rgba(37, 163, 102, 0.15) !important;
-    border-color: #25a366 !important;
-    color: #25a366 !important;
+    background: hsl(var(--primary) / 0.15) !important;
+    border-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary)) !important;
 }
 
 .actions {
@@ -147,16 +147,15 @@
 .qtySelector {
     display: flex;
     align-items: center;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--text-main) / 0.05);
+    border: 1px solid hsl(var(--text-main) / 0.1);
     border-radius: 12px;
-    overflow: hidden;
 }
 
 .qtySelector button {
     background: none;
     border: none;
-    color: #fff;
+    color: hsl(var(--text-main));
     padding: 0.75rem 1rem;
     font-size: 1rem;
     cursor: pointer;
@@ -169,46 +168,48 @@
 
 .addToCartBtn {
     flex: 1;
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     border: none;
     padding: 1rem 2rem;
     border-radius: 12px;
     font-weight: 800;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
 }
 
 .addToCartBtn:hover:not(:disabled) {
-    background: #2db875;
     transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.1);
 }
 
 .addToCartBtn:disabled {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.3);
+    background: hsl(var(--text-main) / 0.1);
+    color: hsl(var(--text-dim));
     cursor: not-allowed;
 }
 
 .meta {
     padding-top: 2rem;
     margin-top: 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid hsl(var(--text-main) / 0.05);
 }
 
 .metaItem {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: hsl(var(--text-dim));
     margin-bottom: 0.5rem;
 }
 
 .metaItem strong {
-    color: rgba(255, 255, 255, 0.8);
+    color: hsl(var(--text-muted));
     font-weight: 600;
     margin-right: 0.5rem;
 }
@@ -219,13 +220,13 @@
     align-items: center;
     gap: 1.5rem;
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
 }
 
 .shareIcons {
     display: flex;
     gap: 1rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
 }
 
 .shareIcons svg {
@@ -234,19 +235,19 @@
 }
 
 .shareIcons svg:hover {
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 /* ── RELATED PRODUCTS ─────────────────────────────────────────────────────── */
 .relatedSection {
     padding-top: 5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid hsl(var(--text-main) / 0.05);
 }
 
 .sectionTitle {
     font-size: 1.75rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 2.5rem;
     text-align: center;
 }
@@ -262,17 +263,18 @@
     text-align: center;
     padding: 10rem 0;
     font-size: 1.25rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
 }
 
 .notFound button {
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     border: none;
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 2rem;
     border-radius: 8px;
     margin-left: 1rem;
     cursor: pointer;
+    font-weight: 700;
 }
 
 @media (max-width: 1024px) {

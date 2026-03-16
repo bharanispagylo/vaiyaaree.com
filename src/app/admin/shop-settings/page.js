@@ -120,7 +120,7 @@ export default function ShopSettingsPage() {
                                 type="text"
                                 value={settings.shop_name || ''}
                                 onChange={(e) => handleUpdate('shop_name', e.target.value)}
-                                placeholder="Cast Prince"
+                                placeholder="Caste Print"
                             />
                         </div>
                         <div className="field-group">
@@ -262,16 +262,16 @@ export default function ShopSettingsPage() {
                 .fields-stack { display: flex; flex-direction: column; gap: 1.5rem; }
                 .grid-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
                 
-                .field-group { display: flex; flex-direction: column; gap: 0.6rem; }
-                .field-group label { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-muted)); display: flex; align-items: center; gap: 0.5rem; text-transform: uppercase; }
-                .field-group .hint { font-size: 0.7rem; color: #666; margin: 0 0 0.5rem; }
+                .label { display: block; font-size: 0.75rem; font-weight: 700; color: rgba(255, 255, 255, 0.7); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+                .field-group label { font-size: 0.75rem; font-weight: 700; color: rgba(255, 255, 255, 0.7); display: flex; align-items: center; gap: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+                .field-group .hint { font-size: 0.7rem; color: rgba(255, 255, 255, 0.4); margin: 0 0 0.5rem; }
 
                 input, textarea {
-                    width: 100%; padding: 0.85rem 1rem; background: hsl(var(--bg-app)); 
-                    border: 1px solid hsl(var(--border-subtle)); border-radius: 12px; 
-                    color: #fff; font-size: 0.95rem; outline: none; transition: 0.2s;
+                    width: 100%; padding: 0.85rem 1rem; background: rgba(255, 255, 255, 0.05); 
+                    border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; 
+                    color: #ffffff; font-size: 0.95rem; outline: none; transition: 0.2s;
                 }
-                input:focus, textarea:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 15px hsl(var(--primary) / 0.1); }
+                input:focus, textarea:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 15px hsl(var(--primary) / 0.1); background: rgba(255, 255, 255, 0.08); }
                 textarea { resize: none; }
 
                 .input-with-preview { display: flex; gap: 1rem; align-items: flex-start; }

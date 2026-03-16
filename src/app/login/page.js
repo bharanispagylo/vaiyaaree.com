@@ -98,36 +98,36 @@ export default function UnifiedLoginPage() {
     return (
         <div style={{
             minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#0a0a0a', padding: '1.5rem', fontFamily: 'sans-serif', color: '#fff'
+            background: 'hsl(var(--bg-app))', padding: '1.5rem', fontFamily: 'sans-serif', color: 'hsl(var(--text-main))'
         }}>
             <div style={{
-                maxWidth: '440px', width: '100%', background: '#141414', padding: '2.5rem',
-                borderRadius: '1.5rem', border: '1px solid #222', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
+                maxWidth: '440px', width: '100%', background: 'hsl(var(--bg-card))', padding: '2.5rem',
+                borderRadius: '1.5rem', border: '1px solid hsl(var(--border-subtle))', boxShadow: 'var(--shadow-card)'
             }}>
                 <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
                         <div style={{
-                            width: '64px', height: '64px', background: 'white', borderRadius: '50%',
+                            width: '64px', height: '64px', background: 'hsl(var(--primary))', borderRadius: '50%',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 0 20px rgba(255,255,255,0.1)'
+                            boxShadow: '0 10px 20px hsl(var(--primary) / 0.2)'
                         }}>
                             <span style={{ fontSize: '2rem' }}>💮</span>
                         </div>
                     </div>
-                    <h1 style={{ fontSize: '1.85rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em' }}>Cast Prince</h1>
-                    <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
+                    <h1 style={{ fontSize: '1.85rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em', color: 'hsl(var(--text-main))' }}>Caste Print</h1>
+                    <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
                         {role === 'admin' ? 'Business Admin Portal' : 'Customer Shop Portal'}
                     </p>
                 </div>
 
                 {/* Role Switcher */}
-                <div style={{ display: 'flex', background: '#1a1a1a', padding: '5px', borderRadius: '14px', marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', background: 'hsl(var(--bg-app))', padding: '5px', borderRadius: '14px', marginBottom: '2.5rem', border: '1px solid hsl(var(--border-subtle))' }}>
                     <button
                         onClick={() => { setRole('admin'); setError(''); }}
                         style={{
                             flex: 1, padding: '12px', borderRadius: '10px', border: 'none',
-                            background: role === 'admin' ? '#333' : 'transparent',
-                            color: role === 'admin' ? '#fff' : '#666',
+                            background: role === 'admin' ? 'hsl(var(--primary))' : 'transparent',
+                            color: role === 'admin' ? 'white' : 'hsl(var(--text-muted))',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                             fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: '0.2s'
                         }}
@@ -138,8 +138,8 @@ export default function UnifiedLoginPage() {
                         onClick={() => { setRole('user'); setError(''); setStep(1); }}
                         style={{
                             flex: 1, padding: '12px', borderRadius: '10px', border: 'none',
-                            background: role === 'user' ? '#333' : 'transparent',
-                            color: role === 'user' ? '#fff' : '#666',
+                            background: role === 'user' ? 'hsl(var(--primary))' : 'transparent',
+                            color: role === 'user' ? 'white' : 'hsl(var(--text-muted))',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                             fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: '0.2s'
                         }}
@@ -152,11 +152,11 @@ export default function UnifiedLoginPage() {
                 {role === 'admin' && (
                     <form onSubmit={handleAdminLogin}>
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: '#888' }}>
+                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: 'hsl(var(--text-muted))' }}>
                                 Username
                             </label>
                             <div style={{ position: 'relative' }}>
-                                <User size={20} style={{ position: 'absolute', left: '1.1rem', top: '50%', transform: 'translateY(-50%)', color: '#444' }} />
+                                <User size={20} style={{ position: 'absolute', left: '1.1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-dim))' }} />
                                 <input
                                     type="text"
                                     placeholder="Enter username"
@@ -165,8 +165,8 @@ export default function UnifiedLoginPage() {
                                     required
                                     style={{
                                         width: '100%', padding: '1rem 1rem 1rem 3.25rem',
-                                        borderRadius: '0.9rem', border: '1px solid #222',
-                                        background: '#0a0a0a', color: '#fff', boxSizing: 'border-box',
+                                        borderRadius: '0.9rem', border: '1px solid hsl(var(--border-subtle))',
+                                        background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', boxSizing: 'border-box',
                                         fontSize: '0.95rem', outline: 'none', transition: '0.2s'
                                     }}
                                 />
@@ -174,11 +174,11 @@ export default function UnifiedLoginPage() {
                         </div>
 
                         <div style={{ marginBottom: '2rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: '#888' }}>
+                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: 'hsl(var(--text-muted))' }}>
                                 Password
                             </label>
                             <div style={{ position: 'relative' }}>
-                                <Lock size={20} style={{ position: 'absolute', left: '1.1rem', top: '50%', transform: 'translateY(-50%)', color: '#444' }} />
+                                <Lock size={20} style={{ position: 'absolute', left: '1.1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-dim))' }} />
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     placeholder="Enter password"
@@ -187,15 +187,15 @@ export default function UnifiedLoginPage() {
                                     required
                                     style={{
                                         width: '100%', padding: '1rem 3.25rem 1rem 3.25rem',
-                                        borderRadius: '0.9rem', border: '1px solid #222',
-                                        background: '#0a0a0a', color: '#fff', boxSizing: 'border-box',
+                                        borderRadius: '0.9rem', border: '1px solid hsl(var(--border-subtle))',
+                                        background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', boxSizing: 'border-box',
                                         fontSize: '0.95rem', outline: 'none'
                                     }}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    style={{ position: 'absolute', right: '1.1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#444', cursor: 'pointer' }}
+                                    style={{ position: 'absolute', right: '1.1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'hsl(var(--text-dim))', cursor: 'pointer' }}
                                 >
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
@@ -205,10 +205,11 @@ export default function UnifiedLoginPage() {
                         {error && <div style={{ color: '#ff4d4d', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
 
                         <button type="submit" disabled={loading} style={{
-                            width: '100%', padding: '1.1rem', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', color: '#fff',
+                            width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: '#fff',
                             border: 'none', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                            cursor: 'pointer', transition: 'transform 0.1s active:scale-95', marginBottom: '1.5rem'
+                            cursor: 'pointer', transition: 'transform 0.1s active:scale-95', marginBottom: '1.5rem',
+                            boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
                         }}>
                             {loading ? <Loader2 className="animate-spin" size={20} /> : <>🚀 Login to Dashboard</>}
                         </button>
@@ -225,11 +226,11 @@ export default function UnifiedLoginPage() {
                         {step === 1 ? (
                             <form onSubmit={handleSendOTP}>
                                 <div style={{ marginBottom: '2rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: '#888' }}>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: 'hsl(var(--text-muted))' }}>
                                         WhatsApp Number
                                     </label>
                                     <div style={{ position: 'relative' }}>
-                                        <Phone size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: '#444' }} />
+                                        <Phone size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-dim))' }} />
                                         <input
                                             type="tel"
                                             placeholder="Enter mobile number"
@@ -238,19 +239,19 @@ export default function UnifiedLoginPage() {
                                             required
                                             style={{
                                                 width: '100%', padding: '1rem 1rem 1rem 3.5rem',
-                                                borderRadius: '0.9rem', border: '1px solid #222',
-                                                background: '#0a0a0a', color: '#fff', boxSizing: 'border-box',
+                                                borderRadius: '0.9rem', border: '1px solid hsl(var(--border-subtle))',
+                                                background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', boxSizing: 'border-box',
                                                 fontSize: '1rem', outline: 'none'
                                             }}
                                         />
                                     </div>
                                 </div>
 
-                                {error && <div style={{ color: '#ff4d4d', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
+                                {error && <div style={{ color: 'hsl(var(--danger))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
 
 
                                 <button type="submit" disabled={loading} style={{
-                                    width: '100%', padding: '1.1rem', background: 'linear-gradient(135deg, #25d366, #128c7e)', color: '#fff',
+                                    width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: '#fff',
                                     border: 'none', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                                     cursor: 'pointer', marginBottom: '1.5rem'
@@ -261,22 +262,21 @@ export default function UnifiedLoginPage() {
                                 </button>
 
                                 <div style={{ textAlign: 'center', padding: '0 1rem' }}>
-                                    <p style={{ fontSize: '0.8rem', color: '#666', lineHeight: 1.5 }}>
+                                    <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', lineHeight: 1.5 }}>
                                         New customer? Send any message to our WhatsApp and your account will be created automatically! 🌸
                                     </p>
                                 </div>
                             </form>
-
                         ) : (
                             <form onSubmit={handleVerifyOTP}>
                                 <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1.25rem', background: 'rgba(37, 211, 102, 0.1)', borderRadius: '50px', color: '#25D366', fontSize: '0.85rem', fontWeight: 700 }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1.25rem', background: 'hsl(var(--success) / 0.1)', borderRadius: '50px', color: 'hsl(var(--success))', fontSize: '0.85rem', fontWeight: 700 }}>
                                         <CheckCircle2 size={18} /> Verifying {phone}
                                     </div>
                                 </div>
 
                                 <div style={{ marginBottom: '2rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: '#888', textAlign: 'center' }}>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: 'hsl(var(--text-muted))', textAlign: 'center' }}>
                                         Enter 6-Digit Code
                                     </label>
                                     <input
@@ -288,26 +288,26 @@ export default function UnifiedLoginPage() {
                                         required
                                         style={{
                                             width: '100%', padding: '1.1rem',
-                                            borderRadius: '0.9rem', border: '1px solid #222',
-                                            background: '#0a0a0a', color: '#fff', boxSizing: 'border-box',
+                                            borderRadius: '0.9rem', border: '1px solid hsl(var(--border-subtle))',
+                                            background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', boxSizing: 'border-box',
                                             fontSize: '1.5rem', outline: 'none', letterSpacing: '8px', textAlign: 'center'
                                         }}
                                     />
                                 </div>
 
-                                {error && <div style={{ color: '#ff4d4d', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
+                                {error && <div style={{ color: 'hsl(var(--danger))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
 
                                 <button type="submit" disabled={loading} style={{
-                                    width: '100%', padding: '1.1rem', background: '#fff', color: '#000',
+                                    width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: 'white',
                                     border: 'none', borderRadius: '1rem', fontWeight: 700, fontSize: '1.1rem',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer', boxShadow: '0 5px 15px hsl(var(--primary) / 0.2)'
                                 }}>
                                     {loading ? <Loader2 className="animate-spin" size={20} /> : 'Verify & Continue'}
                                 </button>
 
                                 <button type="button" onClick={() => setStep(1)} style={{
                                     width: '100%', marginTop: '1.5rem', background: 'none', border: 'none',
-                                    color: '#555', fontSize: '0.85rem', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600
+                                    color: 'hsl(var(--text-dim))', fontSize: '0.85rem', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600
                                 }}>
                                     Try a different number
                                 </button>
@@ -316,8 +316,8 @@ export default function UnifiedLoginPage() {
                     </>
                 )}
 
-                <div style={{ marginTop: '3rem', textAlign: 'center', borderTop: '1px solid #222', paddingTop: '1.5rem' }}>
-                    <p style={{ fontSize: '0.75rem', color: '#444', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <div style={{ marginTop: '3rem', textAlign: 'center', borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1.5rem' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-dim))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                         <ShieldCheck size={14} /> Secure Admin Access Only
                     </p>
                 </div>

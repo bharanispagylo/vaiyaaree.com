@@ -112,10 +112,10 @@ export default function WhatsAppSettingsPage() {
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
                             <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.7rem', color: 'hsl(var(--primary))', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.7rem', color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                                     <ChevronRight size={14} /> {setting.key.replace('wa_', '').replace(/_/g, ' ')}
                                 </label>
-                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.4rem', lineHeight: 1.5 }}>
+                                <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '0.4rem', lineHeight: 1.5 }}>
                                     {setting.description}
                                 </p>
                             </div>
@@ -137,8 +137,8 @@ export default function WhatsAppSettingsPage() {
                                         placeholder="https://..."
                                         style={{
                                             width: '100%', padding: '1rem 3rem 1rem 1rem', borderRadius: '12px',
-                                            border: '1px solid hsl(var(--border-subtle))',
-                                            background: 'hsl(var(--bg-app))', color: 'white', outline: 'none'
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            background: 'rgba(255, 255, 255, 0.05)', color: '#ffffff', outline: 'none'
                                         }}
                                     />
                                 </div>
@@ -150,8 +150,8 @@ export default function WhatsAppSettingsPage() {
                                 rows={Math.max(3, setting.value.split('\n').length)}
                                 style={{
                                     width: '100%', padding: '1.25rem', borderRadius: '16px',
-                                    border: '1px solid hsl(var(--border-subtle))',
-                                    background: 'hsl(var(--bg-app))', color: 'white',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    background: 'rgba(255, 255, 255, 0.05)', color: '#ffffff',
                                     fontFamily: 'inherit', fontSize: '0.95rem', lineHeight: 1.6,
                                     outline: 'none', resize: 'vertical',
                                     boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'

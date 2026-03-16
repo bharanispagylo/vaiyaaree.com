@@ -343,7 +343,7 @@ export default function InvoiceReportPage() {
             {/* Results Table */}
             <div className="card shadow-premium" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase' }}>
                         Showing {filteredOrders.length} Results
                     </div>
                     {loading && <RefreshCw size={16} className="animate-spin" style={{ color: 'hsl(var(--primary))' }} />}
@@ -388,9 +388,9 @@ export default function InvoiceReportPage() {
                                         <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
                                             <span style={{
                                                 fontSize: '0.65rem', fontWeight: 800, padding: '4px 10px', borderRadius: '99px',
-                                                background: o.status === 'DELIVERED' ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--bg-panel))',
-                                                color: o.status === 'DELIVERED' ? 'hsl(var(--success))' : 'hsl(var(--text-muted))',
-                                                border: `1px solid ${o.status === 'DELIVERED' ? 'hsl(var(--success) / 0.2)' : 'hsl(var(--border-subtle))'}`
+                                                background: o.status === 'DELIVERED' || o.status === 'PAID' ? 'hsl(var(--primary))' : 'hsl(var(--bg-app))',
+                                                color: o.status === 'DELIVERED' || o.status === 'PAID' ? 'white' : 'hsl(var(--text-main))',
+                                                border: `1px solid ${o.status === 'DELIVERED' || o.status === 'PAID' ? 'transparent' : 'hsl(var(--border-subtle))'}`
                                             }}>{o.status}</span>
                                         </td>
                                     </tr>

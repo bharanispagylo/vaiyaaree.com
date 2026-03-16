@@ -5,46 +5,34 @@
   --font-heading: 'Roboto', sans-serif;
   --font-body: 'Roboto', sans-serif;
 
-  /* Premium Midnight & Gold Palette (Refined) */
-  --bg-app: 222 47% 7%;
-  /* #0A0F1C - Deep Royal navy */
-  --bg-panel: 222 40% 10%;
-  /* #0F1629 - Slightly lighter navy */
-  --bg-card: 222 40% 13%;
-  /* #141C33 - Card surface */
+  /* Premium Black & Monochromatic Palette */
+  --bg-app: 0 0% 98%;           /* #f9f9f9 - Ultra-light neutral grey */
+  --bg-panel: 0 0% 5%;           /* #0d0d0d - Deep Matte Black for Sidebar/Header */
+  --bg-card: 0 0% 100%;          /* #ffffff - Pure White for Cards */
+  --bg-input: 0 0% 100%;
 
-  /* Green Accents */
-  --primary: 152 76% 45%;
-  /* Emerald Green */
-  --primary-light: 152 70% 60%;
-  --primary-dark: 152 60% 35%;
+  /* Premium Black Accents */
+  --primary: 0 0% 10%;           /* #1a1a1a - Matte Black */
+  --primary-light: 0 0% 25%;     /* Medium-dark charcoal */
+  --primary-dark: 0 0% -5%;      /* Pure deep black */
 
-  --secondary: 265 50% 60%;
-  /* #9B72CF - Royal Purple (Subtle) */
+  --secondary: 210 10% 25%;     /* Dark slate blue/grey */
 
-  /* Text Colors */
-  --text-main: 210 20% 98%;
-  /* #F8FAFC - Chalk White */
-  --text-muted: 215 15% 75%;
-  /* #BCC5D1 - Silver Gray */
-  --text-dim: 215 15% 50%;
-  /* #64748B - Steel Gray */
+  /* Text Colors - Professional Monochrome System */
+  --text-main: 0 0% 5%;          /* #0d0d0d - Pure Black/Deepest Grey */
+  --text-muted: 0 0% 35%;        /* #595959 - Mid Grey (Visible on both) */
+  --text-dim: 0 0% 60%;          /* #999999 - Light Grey */
+  --text-on-primary: 0 0% 100%;
 
   /* UI Elements */
-  --border-subtle: 217 32% 18%;
-  /* Subtle Divider */
-  --border-bright: 217 32% 28%;
-  /* Highlight Divider */
+  --border-subtle: 0 0% 92%;     /* Light grey border */
+  --border-bright: 0 0% 88%;
 
-  /* Functional Colors */
-  --success: 152 76% 40%;
-  /* Emerald */
-  --warning: 32 95% 60%;
-  /* Amber */
-  --danger: 345 80% 60%;
-  /* Crimson */
-  --info: 195 85% 55%;
-  /* Cyan */
+  /* Functional Colors (Monochromatic Neutralized) */
+  --success: 0 0% 20%;           /* Dark charcoal for success */
+  --warning: 0 0% 40%;           /* Medium charcoal for warning */
+  --danger: 0 0% 30%;            /* Dark charcoal for danger */
+  --info: 0 0% 40%;              /* Grey for info */
 
   /* Dimensions & Spacing */
   --radius-sm: 0.5rem;
@@ -53,13 +41,13 @@
   --sidebar-width: 17.5rem;
 
   /* Premium Effects */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-  --shadow-card: 0 10px 30px -10px rgb(0 0 0 / 0.5);
-  --shadow-glow: 0 0 25px -5px hsl(var(--primary) / 0.25);
+  --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.05);
+  --shadow-card: 0 10px 40px -10px rgb(0 0 0 / 0.08);
+  --shadow-glow: 0 0 20px -5px rgb(0 0 0 / 0.1);
 
-  /* Glassmorphism */
-  --glass-bg: linear-gradient(145deg, hsl(var(--bg-card) / 0.6), hsl(var(--bg-card) / 0.4));
-  --glass-border: 1px solid hsl(var(--text-main) / 0.08);
+  /* Glassmorphism for Light Theme */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -74,9 +62,6 @@ body {
   color: hsl(var(--text-main));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-image:
-    radial-gradient(circle at 0% 0%, hsl(var(--secondary) / 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 100% 100%, hsl(var(--primary) / 0.05) 0%, transparent 50%);
   background-attachment: fixed;
   line-height: 1.6;
 }
@@ -198,30 +183,29 @@ p {
   gap: 1rem;
   padding: 0.85rem 1rem;
   border-radius: var(--radius);
-  color: hsl(var(--text-muted));
+  color: rgba(255, 255, 255, 0.7);
   font-size: 0.925rem;
-  font-weight: 500;
+  font-weight: 600;
   border: 1px solid transparent;
   /* Prevent layout shift */
   transition: all 0.2s;
 }
 
 .sidebar a:hover {
-  background: hsl(var(--text-main) / 0.05);
-  color: hsl(var(--text-main));
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
 
 .sidebar a.active {
-  background: linear-gradient(90deg, hsl(var(--primary) / 0.15), transparent);
-  border: 1px solid hsl(var(--primary) / 0.2);
-  color: hsl(var(--primary));
+  background: hsl(var(--bg-app) / 0.1);
+  border: 1px solid hsl(var(--bg-app) / 0.2);
+  color: #fff;
   font-weight: 600;
-  box-shadow: 0 4px 12px -5px hsl(var(--primary) / 0.2);
 }
 
 .sidebar a.active svg {
-  stroke: hsl(var(--primary));
-  filter: drop-shadow(0 0 5px hsl(var(--primary) / 0.5));
+  stroke: #ffffff;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
 }
 
 /* ── Glass Cards ── */
@@ -291,14 +275,21 @@ table {
 
 th {
   text-align: left;
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.5rem;
   color: hsl(var(--text-dim));
   font-family: var(--font-body);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-weight: 600;
+  font-weight: 700;
   border-bottom: 1px solid hsl(var(--border-subtle));
+}
+
+/* Fix for table headers on dark background (bg-panel) */
+thead[style*="background: hsl(var(--bg-panel))"] th,
+thead[style*="bg-panel"] th {
+  color: #ffffff !important;
+  opacity: 1;
 }
 
 td {
@@ -437,11 +428,11 @@ tr:hover td {
 }
 
 .admin-input {
-  background: hsl(var(--bg-app));
+  background: var(--bg-input);
   border: 1px solid hsl(var(--border-subtle));
   padding: 0.75rem 1rem;
   border-radius: 8px;
-  color: white;
+  color: hsl(var(--text-main));
   font-family: inherit;
   font-size: 0.9rem;
   outline: none;
@@ -456,11 +447,11 @@ tr:hover td {
 
 .admin-input-select {
   appearance: none;
-  background: hsl(var(--bg-card));
+  background: var(--bg-input);
   border: 1px solid hsl(var(--border-subtle));
   padding: 0.75rem 1rem;
   border-radius: 8px;
-  color: white;
+  color: hsl(var(--text-main));
   font-family: inherit;
   font-size: 0.9rem;
   outline: none;

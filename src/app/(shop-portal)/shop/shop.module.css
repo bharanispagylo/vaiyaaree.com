@@ -9,10 +9,10 @@
 
 /* ── SIDEBAR ── */
 .shopSidebar {
-    width: 280px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
+    width: 300px;
+    background: hsl(var(--bg-card));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: var(--radius-lg);
     padding: 1.5rem;
     height: calc(100vh - 120px);
     position: sticky;
@@ -39,7 +39,7 @@
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 1.25rem;
     font-weight: 700;
     opacity: 0.9;
@@ -65,21 +65,21 @@
     padding: 0.6rem 0.75rem;
     border-radius: 10px;
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .categoryLink:hover,
 .categoryLinkActive {
-    background: rgba(37, 163, 102, 0.15);
-    color: #25a366;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
     padding-left: 1rem;
 }
 
 .categoryCount {
     font-size: 0.75rem;
-    opacity: 0.5;
+    color: hsl(var(--text-dim) / 0.5);
 }
 
 .sidebarSearch {
@@ -91,23 +91,23 @@
 .sidebarSearch svg {
     position: absolute;
     left: 0.75rem;
-    color: rgba(255, 255, 255, 0.35);
+    color: hsl(var(--text-dim) / 0.5);
 }
 
 .sidebarSearch input {
     width: 100%;
     padding: 0.7rem 1rem 0.7rem 2.5rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.08);
     border-radius: 10px;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 0.9rem;
     outline: none;
     transition: border-color 0.2s;
 }
 
 .sidebarSearch input:focus {
-    border-color: rgba(37, 163, 102, 0.4);
+    border-color: hsl(var(--primary) / 0.5);
 }
 
 .checkboxLabel {
@@ -115,25 +115,25 @@
     align-items: center;
     gap: 10px;
     cursor: pointer;
-    color: rgba(255, 255, 255, 0.7);
+    color: hsl(var(--text-muted));
     font-size: 0.9rem;
     transition: color 0.2s;
 }
 
 .checkboxLabel:hover {
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .checkboxLabel input {
-    accent-color: #25a366;
+    accent-color: hsl(var(--primary));
     width: 16px;
     height: 16px;
 }
 
 .sidebarClearBtn {
     background: none;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.4);
+    border: 1px solid hsl(var(--text-main) / 0.1);
+    color: hsl(var(--text-dim));
     padding: 0.75rem;
     border-radius: 10px;
     font-size: 0.75rem;
@@ -144,9 +144,9 @@
 }
 
 .sidebarClearBtn:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.2);
+    background: hsl(var(--text-main) / 0.05);
+    color: hsl(var(--text-main));
+    border-color: hsl(var(--text-main) / 0.2);
 }
 
 /* ── MAIN CONTENT ── */
@@ -164,14 +164,14 @@
 .pageMainTitle {
     font-size: 2.2rem;
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin: 0;
     letter-spacing: -0.01em;
 }
 
 .resultCount {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: hsl(var(--text-muted));
 }
 
 .instrumentationBar {
@@ -180,9 +180,10 @@
     align-items: center;
     margin-bottom: 2.5rem;
     padding: 1rem 1.5rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
+    background: hsl(var(--bg-card));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
 }
 
 .instrumentLeft {
@@ -201,18 +202,18 @@
 .toolbarSearch svg {
     position: absolute;
     left: 1rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
     pointer-events: none;
 }
 
 .toolbarSearch input {
     width: 100%;
     padding: 0.7rem 1rem 0.7rem 2.85rem;
-    background: rgba(255, 255, 255, 0.03);
+    background: hsl(var(--text-main) / 0.03);
     background-color: transparent !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid hsl(var(--text-main) / 0.1);
     border-radius: 12px;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 0.9rem;
     font-weight: 500;
     outline: none;
@@ -220,13 +221,13 @@
 }
 
 .toolbarSearch input:focus {
-    border-color: rgba(37, 163, 102, 0.5);
-    background: rgba(255, 255, 255, 0.08);
+    border-color: hsl(var(--primary) / 0.5);
+    background: hsl(var(--text-main) / 0.08);
     box-shadow: 0 0 0 4px rgba(37, 163, 102, 0.1);
 }
 
 .toolbarSearch input::placeholder {
-    color: rgba(255, 255, 255, 0.45);
+    color: hsl(var(--text-dim));
     font-weight: 400;
 }
 
@@ -236,17 +237,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.3);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.08);
+    color: hsl(var(--text-dim));
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .viewBtn.active {
-    background: rgba(37, 163, 102, 0.15);
-    color: #25a366;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
     border-color: rgba(37, 163, 102, 0.3);
 }
 
@@ -266,9 +267,9 @@
     align-items: center;
     gap: 8px;
     padding: 0.6rem 1.25rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #fff;
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.08);
+    color: hsl(var(--text-main));
     border-radius: 10px;
     font-size: 0.9rem;
     font-weight: 600;
@@ -278,9 +279,9 @@
 
 .filterToggleBtn:hover,
 .filterPanelOpen {
-    background: rgba(37, 163, 102, 0.12);
-    border-color: rgba(37, 163, 102, 0.3);
-    color: #25a366;
+    background: hsl(var(--primary) / 0.12);
+    border-color: hsl(var(--primary) / 0.3);
+    color: hsl(var(--primary));
 }
 
 .sortWrapper {
@@ -292,14 +293,14 @@
 .sortIcon {
     position: absolute;
     left: 1rem;
-    color: #25a366;
+    color: hsl(var(--primary));
     pointer-events: none;
 }
 
 .sortSelect {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #fff;
+    background: hsl(var(--text-main) / 0.08);
+    border: 1px solid hsl(var(--text-main) / 0.08);
+    color: hsl(var(--text-main));
     padding: 0.7rem 1.25rem 0.7rem 2.75rem;
     border-radius: 10px;
     font-size: 0.9rem;
@@ -311,8 +312,8 @@
 }
 
 .sortSelect option {
-    background: #0a0e1a;
-    color: #fff;
+    background: hsl(var(--bg-card));
+    color: hsl(var(--text-main));
 }
 
 .sortSelect:hover {
@@ -321,8 +322,8 @@
 
 /* ── FILTER PANEL ── */
 .filterExpandedPanel {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.1);
     border-radius: 20px;
     padding: 2.5rem;
     margin-bottom: 3rem;
@@ -350,7 +351,7 @@
 
 .filterGroup h4 {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
     margin-bottom: 1.5rem;
     letter-spacing: 0.1em;
 }
@@ -363,9 +364,9 @@
 }
 
 .pricePresets button {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.7);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.08);
+    color: hsl(var(--text-muted));
     padding: 0.75rem;
     border-radius: 12px;
     font-size: 0.85rem;
@@ -375,14 +376,14 @@
 
 .pricePresets button:hover,
 .activeBracket {
-    background: rgba(37, 163, 102, 0.15) !important;
-    border-color: #25a366 !important;
-    color: #25a366 !important;
+    background: hsl(var(--primary) / 0.1) !important;
+    border-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary)) !important;
 }
 
 .customPriceRange h5 {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
     margin-bottom: 1rem;
 }
 
@@ -395,8 +396,8 @@
 
 .priceInputItem {
     flex: 1;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.08);
     border-radius: 10px;
     padding: 0.6rem;
     display: flex;
@@ -405,13 +406,13 @@
 }
 
 .priceInputItem span {
-    color: rgba(255, 255, 255, 0.3);
+    color: hsl(var(--text-dim) / 0.5);
 }
 
 .priceInputItem input {
     background: none;
     border: none;
-    color: #fff;
+    color: hsl(var(--text-main));
     width: 100%;
     outline: none;
     font-size: 0.9rem;
@@ -420,14 +421,14 @@
 .priceSeparator {
     width: 10px;
     height: 1px;
-    background: rgba(255, 255, 255, 0.2);
+    background: hsl(var(--text-main) / 0.2);
 }
 
 .applyCustomBtn {
     width: 100%;
     padding: 0.6rem;
-    background: #25a366;
-    color: #fff;
+    background: hsl(var(--primary));
+    color: hsl(var(--text-muted));
     border: none;
     border-radius: 8px;
     font-weight: 700;
@@ -437,7 +438,7 @@
 }
 
 .applyCustomBtn:hover {
-    background: #2db875;
+    background: hsl(var(--primary-dark));
 }
 
 .tagFilters {
@@ -447,9 +448,9 @@
 }
 
 .filterTag {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.6);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.08);
+    color: hsl(var(--text-muted));
     padding: 0.6rem 1.25rem;
     border-radius: 10px;
     font-size: 0.85rem;
@@ -458,15 +459,15 @@
 }
 
 .tagActive {
-    background: rgba(37, 163, 102, 0.15) !important;
-    border-color: #25a366 !important;
-    color: #25a366 !important;
+    background: hsl(var(--primary) / 0.1) !important;
+    border-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary)) !important;
 }
 
 .filterPanelActions {
     margin-top: 3rem;
     padding-top: 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid hsl(var(--text-main) / 0.05);
     display: flex;
     justify-content: flex-end;
     align-items: center;
@@ -476,20 +477,20 @@
 .resetAllBtn {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
     font-weight: 700;
     cursor: pointer;
     font-size: 0.9rem;
 }
 
 .resetAllBtn:hover {
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .doneBtn {
     padding: 0.8rem 2.5rem;
-    background: #25a366;
-    color: #fff;
+    background: hsl(var(--primary));
+    color: hsl(var(--text-main));
     border: none;
     border-radius: 12px;
     font-weight: 700;
@@ -510,9 +511,9 @@
     align-items: center;
     gap: 8px;
     padding: 0.4rem 0.8rem;
-    background: rgba(37, 163, 102, 0.1);
-    border: 1px solid rgba(37, 163, 102, 0.2);
-    color: #25a366;
+    background: hsl(var(--primary) / 0.1);
+    border: 1px solid hsl(var(--primary) / 0.2);
+    color: hsl(var(--primary));
     border-radius: 8px;
     font-size: 0.8rem;
     font-weight: 600;
@@ -546,20 +547,20 @@
 .noResults {
     text-align: center;
     padding: 5rem 2rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
 }
 
 .noResults h3 {
     margin: 1.5rem 0 0.5rem;
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .resetSearchBtn {
     margin-top: 2rem;
     padding: 0.8rem 2rem;
-    background: rgba(37, 163, 102, 0.15);
-    border: 1px solid #25a366;
-    color: #25a366;
+    background: hsl(var(--primary) / 0.1);
+    border: 1px solid hsl(var(--primary));
+    color: hsl(var(--primary));
     border-radius: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -574,7 +575,7 @@
 
 .skeleton {
     aspect-ratio: 1/1.2;
-    background: rgba(255, 255, 255, 0.03);
+    background: hsl(var(--text-main) / 0.03);
     border-radius: 20px;
     animation: pulse 1.5s infinite;
 }
@@ -597,7 +598,7 @@
 .sidebarOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(4px);
     z-index: 1000;
 }

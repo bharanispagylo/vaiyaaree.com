@@ -15,7 +15,7 @@ export default function InvoicesPage() {
     const [invoicePage, setInvoicePage] = useState(1);
     const INVOICES_PER_PAGE = 20;
     const [settings, setSettings] = useState({
-        shop_name: 'Cast Prince',
+        shop_name: 'Caste Print',
         shop_logo: '',
         shop_address: '',
         shop_gstin: '',
@@ -114,7 +114,7 @@ export default function InvoicesPage() {
                 }}>
                     <div>
                         <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800 }}>Invoices</h1>
-                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Generate and manage customer billing records • {invoices.length} total</p>
+                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Manage and generate professional invoices for Caste Print orders</p>
                     </div>
                     <Link
                         href="/admin/invoices/settings"
@@ -137,7 +137,7 @@ export default function InvoicesPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
                     <div className="card" style={{ padding: '1.5rem' }}>
                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Billed</div>
-                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', fontFamily: 'var(--font-heading)' }}>₹{totalRevenue.toLocaleString()}</div>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', fontFamily: 'var(--font-heading)', color: 'hsl(var(--text-main))' }}>₹{totalRevenue.toLocaleString()}</div>
                     </div>
                     <div className="card" style={{ padding: '1.5rem' }}>
                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--success))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Paid</div>
@@ -236,7 +236,7 @@ export default function InvoicesPage() {
                                 <button onClick={printInvoice} className="btn btn-primary" style={{ padding: '0.6rem 1.25rem' }}>
                                     <Printer size={18} /> Print Invoice
                                 </button>
-                                <a href={`https://wa.me/${selectedInvoice.customer_phone}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', background: '#25D36620', color: '#25D366', borderColor: '#25D36640' }}>
+                                <a href={`https://wa.me/${selectedInvoice.customer_phone}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', background: 'hsl(var(--primary))20', color: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary))40' }}>
                                     <MessageCircle size={18} /> Send via WhatsApp
                                 </a>
                             </div>
@@ -248,7 +248,7 @@ export default function InvoicesPage() {
                             color: 'black', fontFamily: 'Roboto, sans-serif'
                         }}>
                             {/* Invoice Header */}
-                            <div style={{ padding: '3rem', borderBottom: '3px solid #6366f1', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ padding: '3rem', borderBottom: '3px solid hsl(var(--primary))', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                                         {settings.shop_logo ? (
@@ -262,7 +262,7 @@ export default function InvoicesPage() {
                                     {settings.shop_gstin && <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.25rem' }}>GSTIN: {settings.shop_gstin}</p>}
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1' }}>INVOICE</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>INVOICE</div>
                                     <div style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '0.25rem', color: '#374151' }}>#{selectedInvoice.id}</div>
                                     <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.25rem' }}>
                                         {new Date(selectedInvoice.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -364,7 +364,7 @@ export default function InvoicesPage() {
                                             <div style={{ height: '1px', background: '#e5e7eb', margin: '0.5rem 0' }} />
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
                                                 <span style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>Grand Total:</span>
-                                                <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#6366f1' }}>₹{(selectedInvoice.total_amount || 0).toLocaleString()}</span>
+                                                <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>₹{(selectedInvoice.total_amount || 0).toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>

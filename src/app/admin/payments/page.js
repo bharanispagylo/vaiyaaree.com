@@ -22,7 +22,7 @@ const METHOD_ICONS = {
     PhonePe: { color: '#5e17eb', label: 'PhonePe', icon: '📱' },
     UPI: { color: '#00b300', label: 'UPI', icon: '📲' },
     COD: { color: '#f59e0b', label: 'COD', icon: '💵' },
-    WhatsApp: { color: '#25d366', label: 'WhatsApp', icon: '💬' },
+    WhatsApp: { color: 'hsl(var(--primary))', label: 'WhatsApp', icon: '💬' },
 };
 
 export default function PaymentGatewayPage() {

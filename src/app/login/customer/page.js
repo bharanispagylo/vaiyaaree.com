@@ -65,8 +65,8 @@ export default function CustomerLoginPage() {
 
             <div className={styles.card}>
                 <div className={styles.logo}>
-                    <div className={styles.logoIcon}>🌸</div>
-                    <h1 className={styles.brand}>Cast Prince</h1>
+                    <div className={styles.logoIcon}>💮</div>
+                    <h1 className={styles.brand}>Caste Print</h1>
                     <p className={styles.subtitle}>Welcome Back!</p>
                 </div>
 

@@ -103,8 +103,8 @@ function PaymentPageInner({ orderId }) {
                 key: data.keyId,
                 amount: data.amount,
                 currency: data.currency || 'INR',
-                name: 'Cast Prince',
-                description: `Order #${orderId}`,
+                name: "Caste Print",
+                description: `Payment for Order #${orderId}`,
                 image: '/favicon.ico',
                 order_id: data.razorpayOrderId,
                 prefill: {
@@ -177,52 +177,56 @@ function PaymentPageInner({ orderId }) {
 
     // ── Loading ──
     if (loading) return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d0d', color: 'white' }}>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))' }}>
             <div style={{ textAlign: 'center' }}>
-                <div style={{ width: 48, height: 48, border: '3px solid #c2185b', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-                <p style={{ color: '#666' }}>Loading your order...</p>
+                <div style={{ width: 48, height: 48, border: '3px solid hsl(var(--primary))', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+                <p style={{ color: 'hsl(var(--text-muted))' }}>Loading your order...</p>
             </div>
         </div>
     );
 
     // ── Order Not Found ──
     if (!order && paymentStatus === 'failed' && !error.includes('failed')) return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d0d', color: '#ef4444', fontSize: '1.2rem' }}>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--bg-app))', color: 'hsl(var(--danger))', fontSize: '1.2rem' }}>
             Order not found.
         </div>
     );
 
     // ── Success Screen ──
     if (paymentStatus === 'success') return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0d0d0d 0%, #1a0a14 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: 'Inter, sans-serif' }}>
-            <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 24, padding: '3rem 2.5rem', maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }}>
-                <div style={{ width: 80, height: 80, background: 'rgba(16,185,129,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', border: '2px solid rgba(16,185,129,0.4)' }}>
-                    <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#10b981" strokeWidth="2.5">
+        <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: 'Inter, sans-serif' }}>
+            <div style={{ background: 'white', border: '1px solid hsl(var(--border-subtle))', borderRadius: 24, padding: '3rem 2.5rem', maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-card)' }}>
+                <div style={{ width: 80, height: 80, background: 'hsl(var(--success) / 0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', border: '2px solid hsl(var(--success) / 0.4)' }}>
+                    <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="hsl(var(--success))" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h1 style={{ color: 'white', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.5rem' }}>Payment Successful! 🎉</h1>
-                <p style={{ color: '#888', marginBottom: '1.5rem' }}>Order <span style={{ color: 'white', fontFamily: 'monospace' }}>#{orderId}</span> has been confirmed.</p>
+                <h1 style={{ color: 'hsl(var(--text-main))', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.5rem' }}>Payment Successful! 🎉</h1>
+                <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>Order <span style={{ color: 'hsl(var(--primary))', fontWeight: 700, fontFamily: 'monospace' }}>#{orderId}</span> has been confirmed.</p>
 
-                <div style={{ background: '#111', borderRadius: 16, padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'left', border: '1px solid #222' }}>
-                    <p style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Order Summary</p>
+                <div style={{ background: 'hsl(var(--bg-app))', borderRadius: 16, padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'left', border: '1px solid hsl(var(--border-subtle))' }}>
+                    <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem', fontWeight: 700 }}>Order Summary</p>
                     {(order?.order_items || []).map((item, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: i < (order?.order_items?.length || 0) - 1 ? '1px solid #1e1e1e' : 'none' }}>
-                            <span style={{ color: '#bbb', fontSize: '0.9rem' }}>{item.product_name} <span style={{ color: '#555' }}>×{item.quantity}</span></span>
-                            <span style={{ color: 'white', fontWeight: 700 }}>₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: i < (order?.order_items?.length || 0) - 1 ? '1px solid hsl(var(--border-subtle))' : 'none' }}>
+                            <span style={{ color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}>{item.product_name} <span style={{ color: 'hsl(var(--text-muted))' }}>×{item.quantity}</span></span>
+                            <span style={{ color: 'hsl(var(--text-main))', fontWeight: 700 }}>₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
                         </div>
                     ))}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #333' }}>
-                        <span style={{ color: '#888', fontWeight: 600 }}>Total Paid</span>
-                        <span style={{ color: '#c2185b', fontWeight: 800, fontSize: '1.1rem' }}>₹{order?.total_amount?.toLocaleString()}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '2px solid hsl(var(--border-subtle))' }}>
+                        <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Total Paid</span>
+                        <span style={{ color: 'hsl(var(--primary))', fontWeight: 800, fontSize: '1.25rem' }}>₹{order?.total_amount?.toLocaleString()}</span>
                     </div>
                 </div>
 
-                <p style={{ color: '#555', fontSize: '0.82rem', marginBottom: '2rem' }}>📲 Invoice sent to your WhatsApp number</p>
+                <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', marginBottom: '2rem' }}>📲 Invoice sent to your WhatsApp number</p>
 
                 <button
                     onClick={() => router.push('/shop')}
-                    style={{ width: '100%', padding: '0.9rem', background: 'linear-gradient(135deg, #c2185b, #e91e8c)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '1rem', cursor: 'pointer' }}
+                    style={{ 
+                        width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: 'white', 
+                        border: 'none', borderRadius: 16, fontWeight: 700, fontSize: '1rem', 
+                        cursor: 'pointer', boxShadow: '0 10px 20px hsl(var(--primary) / 0.2)'
+                    }}
                 >
                     Continue Shopping →
                 </button>
@@ -236,39 +240,39 @@ function PaymentPageInner({ orderId }) {
         <>
             <Script src="https://checkout.razorpay.com/v1/checkout.js" onLoad={() => setSdkReady(true)} strategy="afterInteractive" />
 
-            <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0d0d0d 0%, #1a0a14 100%)', padding: '2rem 1rem', fontFamily: 'Inter, sans-serif' }}>
+            <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', padding: '2rem 1rem', fontFamily: 'Inter, sans-serif' }}>
                 <div style={{ maxWidth: 480, margin: '0 auto' }}>
 
                     {/* Header */}
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                        <h2 style={{ color: 'white', fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Checkout</h2>
-                        <p style={{ color: '#c2185b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem' }}>Cast Prince — Secure Payment</p>
+                        <h2 style={{ color: 'hsl(var(--text-main))', fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Checkout</h2>
+                        <p style={{ color: 'hsl(var(--primary))', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem', fontWeight: 700 }}>Caste Print — Secure Payment</p>
                     </div>
 
                     {/* Order Summary Card */}
-                    <div style={{ background: '#1a1a1a', borderRadius: 20, overflow: 'hidden', border: '1px solid #2a2a2a', marginBottom: '1.5rem' }}>
-                        <div style={{ background: 'linear-gradient(135deg, #b71c1c, #c2185b)', padding: '2rem', textAlign: 'center' }}>
-                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem' }}>Total Amount</p>
+                    <div style={{ background: 'white', borderRadius: 24, overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))', marginBottom: '1.5rem', boxShadow: 'var(--shadow-card)' }}>
+                        <div style={{ background: 'hsl(var(--primary))', padding: '2.5rem 2rem', textAlign: 'center' }}>
+                            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem', fontWeight: 700 }}>Total Amount</p>
                             <h3 style={{ color: 'white', fontSize: '3rem', fontWeight: 800, margin: 0 }}>₹{order?.total_amount?.toLocaleString()}</h3>
                         </div>
                         <div style={{ padding: '1.5rem' }}>
-                            <p style={{ color: '#555', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>Order Items</p>
+                            <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem', fontWeight: 700 }}>Order Items</p>
                             {(order?.order_items || []).map((item, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', borderBottom: i < (order?.order_items?.length || 0) - 1 ? '1px solid #222' : 'none' }}>
-                                    <span style={{ color: '#ccc', fontSize: '0.9rem' }}>{item.product_name} <span style={{ color: '#555' }}>×{item.quantity}</span></span>
-                                    <span style={{ color: 'white', fontWeight: 700 }}>₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: i < (order?.order_items?.length || 0) - 1 ? '1px solid hsl(var(--bg-app))' : 'none' }}>
+                                    <span style={{ color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600 }}>{item.product_name} <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 400 }}>×{item.quantity}</span></span>
+                                    <span style={{ color: 'hsl(var(--text-main))', fontWeight: 800 }}>₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
                                 </div>
                             ))}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #333' }}>
-                                <span style={{ color: '#888' }}>Customer</span>
-                                <span style={{ color: '#ccc', fontWeight: 600 }}>{order?.customer_name}</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '1rem', borderTop: '2px solid hsl(var(--bg-app))' }}>
+                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Customer</span>
+                                <span style={{ color: 'hsl(var(--text-main))', fontWeight: 700 }}>{order?.customer_name}</span>
                             </div>
                         </div>
                     </div>
 
                     {/* Error */}
                     {error && (
-                        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '0.85rem 1rem', borderRadius: 12, marginBottom: '1rem', fontSize: '0.875rem' }}>
+                        <div style={{ background: 'hsl(var(--danger) / 0.1)', border: '1px solid hsl(var(--danger) / 0.3)', color: 'hsl(var(--danger))', padding: '1rem', borderRadius: 16, marginBottom: '1.5rem', fontSize: '0.875rem', fontWeight: 600 }}>
                             ⚠️ {error}
                         </div>
                     )}
@@ -279,7 +283,7 @@ function PaymentPageInner({ orderId }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {[
                             { id: 'razorpay', enabled: settings.razorpay_enabled, title: settings.razorpay_title, handler: handleRazorpay, color: '#3395FF', bg: '#072654', char: 'R', subtitle: 'Cards, UPI, NetBanking' },
-                            { id: 'phonepe', enabled: settings.phonepe_enabled, title: settings.phonepe_title, handler: handlePhonePe, color: '#5e17eb', bg: '#white', char: 'Pe', subtitle: 'Direct UPI & PhonePe App' }
+                            { id: 'phonepe', enabled: settings.phonepe_enabled, title: settings.phonepe_title, handler: handlePhonePe, color: '#5e17eb', bg: 'white', char: 'Pe', subtitle: 'Direct UPI & PhonePe App' }
                         ]
                             .filter(g => g.enabled)
                             .sort((a, b) => a.id === settings.default_gateway ? -1 : 1)
@@ -289,24 +293,24 @@ function PaymentPageInner({ orderId }) {
                                     onClick={g.handler}
                                     disabled={!!activeGateway}
                                     style={{
-                                        width: '100%', padding: '1.25rem', borderRadius: 16, border: '1px solid #2a2a2a', cursor: activeGateway ? 'not-allowed' : 'pointer', transition: '0.2s', position: 'relative', overflow: 'hidden', textAlign: 'left',
-                                        background: activeGateway === g.id ? '#111' : '#1a1a1a',
-                                        boxShadow: (activeGateway === g.id || (activeGateway === null && g.id === settings.default_gateway)) ? '0 10px 20px rgba(0,0,0,0.4)' : '0 10px 20px rgba(0,0,0,0.2)',
-                                        border: (activeGateway === null && g.id === settings.default_gateway) ? `1px solid ${g.id === 'razorpay' ? '#3395FF' : '#5e17eb'}55` : '1px solid #2a2a2a'
+                                        width: '100%', padding: '1.25rem', borderRadius: 20, border: '1px solid hsl(var(--border-subtle))', cursor: activeGateway ? 'not-allowed' : 'pointer', transition: '0.2s', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                                        background: activeGateway === g.id ? 'hsl(var(--bg-app))' : 'white',
+                                        boxShadow: (activeGateway === g.id || (activeGateway === null && g.id === settings.default_gateway)) ? 'var(--shadow-card)' : 'var(--shadow-sm)',
+                                        borderColor: (activeGateway === null && g.id === settings.default_gateway) ? 'hsl(var(--primary) / 0.5)' : 'hsl(var(--border-subtle))'
                                     }}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                                         <div style={{ width: 44, height: 44, background: g.id === 'phonepe' ? '#5e17eb' : g.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: g.id === 'phonepe' ? 'white' : g.color, fontWeight: 900, fontSize: '1.2rem' }}>{g.char}</div>
                                         <div style={{ flex: 1 }}>
-                                            <p style={{ margin: 0, fontWeight: 700, color: 'white' }}>{g.title}</p>
-                                            <p style={{ margin: 0, fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{g.subtitle}</p>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'hsl(var(--text-main))' }}>{g.title}</p>
+                                            <p style={{ margin: 0, fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{g.subtitle}</p>
                                         </div>
-                                        <div style={{ color: g.id === 'phonepe' ? '#5e17eb' : g.color }}>
-                                            {activeGateway === g.id ? <div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> : '→'}
+                                        <div style={{ color: 'hsl(var(--primary))', fontWeight: 800 }}>
+                                            {activeGateway === g.id ? <div style={{ width: 20, height: 20, border: '2px solid hsl(var(--primary) / 0.2)', borderTopColor: 'hsl(var(--primary))', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> : '→'}
                                         </div>
                                     </div>
                                     {g.id === settings.default_gateway && !activeGateway && (
-                                        <div style={{ position: 'absolute', top: 0, right: 0, background: g.id === 'razorpay' ? '#3395FF' : '#5e17eb', color: 'white', fontSize: '0.6rem', padding: '2px 8px', borderRadius: '0 0 0 8px', fontWeight: 800 }}>RECOMMENDED</div>
+                                        <div style={{ position: 'absolute', top: 0, right: 0, background: 'hsl(var(--primary))', color: 'white', fontSize: '0.6rem', padding: '2px 8px', borderRadius: '0 0 0 10px', fontWeight: 800 }}>RECOMMENDED</div>
                                     )}
                                 </button>
                             ))
@@ -339,8 +343,8 @@ function PaymentPageInner({ orderId }) {
 export default function PaymentPage({ params }) {
     return (
         <Suspense fallback={
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d0d' }}>
-                <div style={{ width: 48, height: 48, border: '3px solid #c2185b', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--bg-app))' }}>
+                <div style={{ width: 48, height: 48, border: '3px solid hsl(var(--primary))', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
         }>

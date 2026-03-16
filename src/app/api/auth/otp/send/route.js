@@ -49,7 +49,7 @@ export async function POST(req) {
         }
 
         // 3. Send via WhatsApp Service
-        const waMsg = `💮 *Your Cast Prince Login Code*\n\nYour verification code is: *${otp}*\n\nPlease enter this on the website to continue. Code expires in 10 minutes.`;
+        const waMsg = `💮 *Your Caste Print Login Code*\n\nYour verification code is: *${otp}*\n\nPlease enter this on the website to continue. Code expires in 10 minutes.`;
         const waResult = await sendText(cleanPhone, waMsg);
 
         if (waResult?.error) {

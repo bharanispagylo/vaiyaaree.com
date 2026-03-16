@@ -808,7 +808,7 @@ export default function ProductsPage() {
                                     padding: '0.45rem 0.8rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: 600,
                                     background: viewMode === 'table' ? 'hsl(var(--primary))' : 'transparent',
-                                    color: viewMode === 'table' ? 'white' : 'hsl(var(--text-muted))',
+                                    color: viewMode === 'table' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
                                     transition: 'all 0.2s'
                                 }}>
                                 <List size={15} /> Table
@@ -820,7 +820,7 @@ export default function ProductsPage() {
                                     padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
                                     background: viewMode === 'card' ? 'hsl(var(--primary))' : 'transparent',
-                                    color: viewMode === 'card' ? 'white' : 'hsl(var(--text-muted))',
+                                    color: viewMode === 'card' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
                                     transition: 'all 0.2s'
                                 }}>
                                 <LayoutGrid size={14} /> Cards
@@ -832,7 +832,7 @@ export default function ProductsPage() {
                                     padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
                                     background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
-                                    color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
+                                    color: viewMode === 'analytics' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
                                     transition: 'all 0.2s'
                                 }}>
                                 <TrendingUp size={14} /> Analysis
@@ -850,7 +850,7 @@ export default function ProductsPage() {
                                     <button key={r} onClick={() => setTimeRange(r)} style={{
                                         padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
                                         background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
-                                        color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
+                                        color: timeRange === r ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
                                     }}>{r}</button>
                                 ))}
                             </div>
@@ -1019,7 +1019,7 @@ export default function ProductsPage() {
                                                 <button onClick={() => copyLink(product)} title="Copy Link" className="btn btn-secondary" style={{ padding: '0.4rem', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
                                                     {copiedId === product.id ? <Check size={15} /> : <LinkIcon size={15} />}
                                                 </button> */}
-                                                        <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: '#25D366' }}>
+                                                        <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
                                                             <Share2 size={15} />
                                                         </button>
                                                         <button onClick={() => openEditModal(product)} className="btn btn-secondary" style={{ padding: '0.4rem' }}><Edit size={15} /></button>
@@ -1109,7 +1109,7 @@ export default function ProductsPage() {
                                                         <PackageIcon size={13} />
                                                     </button>
                                                     <button onClick={() => shareToStatus(product)}
-                                                        className="btn btn-secondary" style={{ padding: '0.5rem', flex: '0.5', color: '#25D366' }}>
+                                                        className="btn btn-secondary" style={{ padding: '0.5rem', flex: '0.5', color: 'hsl(var(--primary))' }}>
                                                         <Share2 size={13} />
                                                     </button>
                                                     <button onClick={() => handleDelete(product.id)}
@@ -1155,7 +1155,7 @@ export default function ProductsPage() {
                                     <button type="button" onClick={() => setProductType('simple')} style={{
                                         flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
                                         background: productType === 'simple' ? 'hsl(var(--primary))' : 'transparent',
-                                        color: productType === 'simple' ? 'white' : 'hsl(var(--text-muted))',
+                                        color: productType === 'simple' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
                                         fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                                     }}>
                                         <PackageIcon size={16} /> Simple Saree
@@ -1163,7 +1163,7 @@ export default function ProductsPage() {
                                     <button type="button" onClick={() => setProductType('variant')} style={{
                                         flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
                                         background: productType === 'variant' ? 'hsl(var(--primary))' : 'transparent',
-                                        color: productType === 'variant' ? 'white' : 'hsl(var(--text-muted))',
+                                        color: productType === 'variant' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
                                         fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                                     }}>
                                         <LayoutGrid size={16} /> Variant Saree

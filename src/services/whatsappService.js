@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════════════
-//  Cast Prince — WHATSAPP BUSINESS BOT (Premium Edition)
+//  Caste Print — WHATSAPP BUSINESS BOT (Premium Edition)
 // ════════════════════════════════════════════════════════════════════════════════
 
 import { createClient } from '@supabase/supabase-js';
@@ -174,7 +174,7 @@ export async function sendButtons(to, bodyText, buttons) {
     });
 }
 
-export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Cast Prince • Premium Collection") {
+export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Caste Print • Premium Collection") {
     const finalSections = Array.isArray(sections) && sections[0].rows ? sections : [{ title: "Options", rows: sections }];
     
     // Truncate sections for WhatsApp limits
@@ -318,7 +318,7 @@ async function generateAndUploadInvoice(order) {
         const doc = new jsPDF();
 
         // Header
-        doc.setFontSize(22); doc.text("Cast Prince", 105, 20, { align: "center" });
+        doc.setFontSize(22); doc.text("Caste Print", 105, 20, { align: "center" });
         doc.setFontSize(10); doc.text(`Order ID: #${order.id}`, 15, 35);
         doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 40);
 
@@ -502,7 +502,7 @@ export async function sendMainMenu(to) {
     );
 
     // Build shop URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprince.vercel.app');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://casteprint.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
     // ── SIMPLIFIED FLOW (More robust for Vercel/V21.0) ──
@@ -1049,7 +1049,7 @@ export async function finalizeOrder(to, method, orderId) {
         // Build UPI deep link — opens GPay / PhonePe / any UPI app with amount pre-filled
         const rawAmount = order?.total_amount || 0;
         const upiId = 'samypranesh@okicici';
-        const payeeName = 'Cast Prince+Sarees';
+        const payeeName = 'Caste Print+Sarees';
         const note = `Order+${orderId}`;
         const upiLink = `upi://pay?pa=${upiId}\u0026pn=${payeeName}\u0026am=${rawAmount}\u0026cu=INR\u0026tn=${note}`;
 
@@ -1108,7 +1108,7 @@ export async function handleTrackOrder(to) {
 }
 
 export async function handleContact(to) {
-    const contactMsg = await getConfig('wa_contact_message', "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\nsupport@castprince.com");
+    const contactMsg = await getConfig('wa_contact_message', "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\nsupport@casteprint.com");
     await sendText(to, contactMsg);
 }
 
@@ -1345,7 +1345,7 @@ export async function processIncomingMessage(body) {
                         if (order.payment_method === 'UPI' && order.status === 'AWAITING_PAYMENT') {
                             const rawAmount = order.total_amount || 0;
                             const upiId = 'samypranesh@okicici';
-                            const payeeName = 'Cast Prince+Sarees';
+                            const payeeName = 'Caste Print+Sarees';
                             const upiLink = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${rawAmount}&cu=INR&tn=Order+${orderId}`;
 
                             await sendText(from,
@@ -1434,7 +1434,7 @@ export async function processIncomingMessage(body) {
             if (id === 'menu_main') return await sendMainMenu(from);
             if (id === 'menu_shop_web') {
                 // Customer tapped "Shop Now" — send the shopping website URL
-                const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprince.vercel.app');
+                const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://casteprint.vercel.app');
                 const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(from)}`;
                 return await sendText(from,
                     `🛍️ *Open our Online Store:*\n\n👆 Tap the link below to browse & order sarees:\n\n${shopUrl}\n\n✨ You can browse our full collection, add to cart and place your order directly from the website!\n\nAfter placing your order, you'll be redirected back here with your order confirmation. 💮`

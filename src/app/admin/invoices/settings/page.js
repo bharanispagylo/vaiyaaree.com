@@ -13,7 +13,7 @@ import MediaPicker from '@/components/MediaPicker';
 export default function InvoiceSettingsPage() {
     const router = useRouter();
     const [settings, setSettings] = useState({
-        shop_name: 'Cast Prince',
+        shop_name: 'Caste Print',
         shop_logo: '',
         shop_address: '',
         shop_gstin: '',
@@ -119,13 +119,13 @@ export default function InvoiceSettingsPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
                         <div>
                             <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Shop Branding Name</label>
-                            <input type="text" value={settings.shop_name} onChange={e => setSettings({ ...settings, shop_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', outline: 'none' }} />
+                            <input type="text" value={settings.shop_name} onChange={e => setSettings({ ...settings, shop_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
                         </div>
 
                         <div>
                             <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Logo Image URL</label>
                             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                <input type="text" value={settings.shop_logo} onChange={e => setSettings({ ...settings, shop_logo: e.target.value })} placeholder="https://..." style={{ flex: 1, padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', outline: 'none' }} />
+                                <input type="text" value={settings.shop_logo} onChange={e => setSettings({ ...settings, shop_logo: e.target.value })} placeholder="https://..." style={{ flex: 1, padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
                                 <button type="button" onClick={() => setShowMediaPicker(true)} className="btn btn-secondary" style={{ padding: '0.75rem', height: 'auto' }} title="Open Media Library">
                                     <Upload size={18} />
                                 </button>
@@ -139,28 +139,28 @@ export default function InvoiceSettingsPage() {
 
                         <div>
                             <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Store Physical Address</label>
-                            <textarea rows={3} value={settings.shop_address} onChange={e => setSettings({ ...settings, shop_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', resize: 'none', outline: 'none', lineHeight: 1.5 }} />
+                            <textarea rows={3} value={settings.shop_address} onChange={e => setSettings({ ...settings, shop_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none', outline: 'none', lineHeight: 1.5 }} />
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                             <div>
                                 <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>GSTIN Number</label>
-                                <input type="text" value={settings.shop_gstin} onChange={e => setSettings({ ...settings, shop_gstin: e.target.value })} placeholder="Optional" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', outline: 'none' }} />
+                                <input type="text" value={settings.shop_gstin} onChange={e => setSettings({ ...settings, shop_gstin: e.target.value })} placeholder="Optional" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>WhatsApp Contact</label>
-                                <input type="text" value={settings.business_phone} onChange={e => setSettings({ ...settings, business_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', outline: 'none' }} />
+                                <input type="text" value={settings.business_phone} onChange={e => setSettings({ ...settings, business_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
                             </div>
                         </div>
 
                         <div>
                             <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Personalized Footer Greeting</label>
-                            <input type="text" value={settings.bill_footer} onChange={e => setSettings({ ...settings, bill_footer: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', outline: 'none' }} />
+                            <input type="text" value={settings.bill_footer} onChange={e => setSettings({ ...settings, bill_footer: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
                         </div>
 
                         <div>
                             <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Terms & Conditions (Official)</label>
-                            <textarea rows={6} value={settings.bill_terms} onChange={e => setSettings({ ...settings, bill_terms: e.target.value })} placeholder="One rule per line..." style={{ width: '100%', padding: '1rem', borderRadius: '15px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'white', lineHeight: 1.6, fontSize: '0.85rem', outline: 'none' }} />
+                            <textarea rows={6} value={settings.bill_terms} onChange={e => setSettings({ ...settings, bill_terms: e.target.value })} placeholder="One rule per line..." style={{ width: '100%', padding: '1rem', borderRadius: '15px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', lineHeight: 1.6, fontSize: '0.85rem', outline: 'none' }} />
                         </div>
                     </div>
                 </div>

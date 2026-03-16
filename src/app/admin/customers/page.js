@@ -527,7 +527,7 @@ function CustomersPage() {
                                                     value={editedCustomer.name}
                                                     onChange={(e) => setEditedCustomer({ ...editedCustomer, name: e.target.value })}
                                                     className="admin-input"
-                                                    style={{ width: '100%', padding: '0.75rem', background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', color: 'white' }}
+                                                    style={{ width: '100%', padding: '0.75rem', background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}
                                                 />
                                             ) : (
                                                 <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCustomer.name}</div>
@@ -550,7 +550,7 @@ function CustomersPage() {
                                                     onChange={(e) => setEditedCustomer({ ...editedCustomer, address: e.target.value })}
                                                     className="admin-input"
                                                     rows={4}
-                                                    style={{ width: '100%', padding: '0.75rem', background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', color: 'white', fontFamily: 'inherit' }}
+                                                    style={{ width: '100%', padding: '0.75rem', background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontFamily: 'inherit' }}
                                                 />
                                             ) : (
                                                 <div style={{ fontSize: '0.95rem', background: 'hsl(var(--bg-panel) / 0.5)', padding: '1rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', lineHeight: 1.6 }}>
@@ -570,7 +570,7 @@ function CustomersPage() {
                                             </div>
                                         </div>
 
-                                        <a href={`https://wa.me/${selectedCustomer.phone}`} target="_blank" rel="noreferrer" className="btn" style={{ background: '#25D366', color: 'white', width: '100%', justifyContent: 'center', padding: '1rem', fontWeight: 700, fontSize: '1rem', boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)', marginTop: '1rem' }}>
+                                        <a href={`https://wa.me/${selectedCustomer.phone}`} target="_blank" rel="noreferrer" className="btn" style={{ background: 'hsl(var(--primary))', color: 'white', width: '100%', justifyContent: 'center', padding: '1rem', fontWeight: 700, fontSize: '1rem', boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)', marginTop: '1rem' }}>
                                             <MessageCircle size={20} /> Chat with Customer
                                         </a>
                                     </div>
@@ -604,7 +604,7 @@ function CustomersPage() {
                                                                         type="number"
                                                                         value={editedOrderData.total_amount}
                                                                         onChange={(e) => setEditedOrderData({ ...editedOrderData, total_amount: e.target.value })}
-                                                                        style={{ width: '100%', padding: '0.5rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'white' }}
+                                                                        style={{ width: '100%', padding: '0.5rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'hsl(var(--text-main))' }}
                                                                     />
                                                                 </div>
                                                                 <div>
@@ -612,7 +612,7 @@ function CustomersPage() {
                                                                     <select
                                                                         value={editedOrderData.payment_method}
                                                                         onChange={(e) => setEditedOrderData({ ...editedOrderData, payment_method: e.target.value })}
-                                                                        style={{ width: '100%', padding: '0.5rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'white' }}
+                                                                        style={{ width: '100%', padding: '0.5rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'hsl(var(--text-main))' }}
                                                                     >
                                                                         {['CASH ON DELIVERY', 'UPI', 'BANK TRANSFER', 'PREPAID'].map(m => <option key={m} value={m}>{m}</option>)}
                                                                     </select>

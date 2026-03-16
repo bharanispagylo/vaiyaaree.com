@@ -54,12 +54,9 @@ export default function ShopHeader() {
                         <button className={styles.hamburgerBtn} onClick={toggleMobileMenu}>
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
-                        <Link href="/shop" className={styles.logo}>
-                            <span className={styles.logoIcon}>💮</span>
-                            <div className={styles.logoText}>
-                                <div className={styles.logoName}>Cast Prince</div>
-                                <div className={styles.logoTagline}>Premium Ethnic Collections</div>
-                            </div>
+                        <Link href="/" className={styles.logo}>
+                            <div className={styles.logoIcon}>💮</div>
+                            <span className={styles.logoName}>Caste Print</span>
                         </Link>
                     </div>
 

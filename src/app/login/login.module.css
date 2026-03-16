@@ -3,7 +3,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0a0a0f;
+    background: hsl(var(--bg-app));
     position: relative;
     overflow: hidden;
     font-family: 'Roboto', sans-serif;
@@ -29,7 +29,7 @@
 .circle1 {
     width: 420px;
     height: 420px;
-    background: #c026d3;
+    background: hsl(var(--primary));
     top: -100px;
     left: -100px;
 }
@@ -37,7 +37,7 @@
 .circle2 {
     width: 350px;
     height: 350px;
-    background: #7c3aed;
+    background: hsl(var(--primary-dark));
     bottom: -80px;
     right: -80px;
     animation-delay: -3s;
@@ -46,7 +46,7 @@
 .circle3 {
     width: 280px;
     height: 280px;
-    background: #ec4899;
+    background: hsl(var(--primary));
     top: 50%;
     left: 55%;
     animation-delay: -5s;
@@ -66,14 +66,14 @@
 
 /* Card */
 .card {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--bg-card));
+    border: 1px solid hsl(var(--border-subtle));
     backdrop-filter: blur(24px);
     border-radius: 24px;
     padding: 48px 40px;
     width: 100%;
     max-width: 420px;
-    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-xl);
     position: relative;
     z-index: 1;
 }
@@ -100,10 +100,11 @@
 
 .subtitle {
     font-size: 13px;
-    color: #a78bfa;
+    color: hsl(var(--primary));
     margin: 0;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+    font-weight: 600;
 }
 
 /* Form */
@@ -158,8 +159,8 @@
 }
 
 .input:focus {
-    border-color: #a78bfa;
-    background: rgba(167, 139, 250, 0.08);
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.08);
 }
 
 .eyeBtn {
@@ -192,25 +193,27 @@
 /* Button */
 .btn {
     padding: 14px;
-    background: linear-gradient(135deg, #7c3aed 0%, #c026d3 100%);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dark)) 100%);
     color: #fff;
     border: none;
     border-radius: 12px;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     margin-top: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     min-height: 50px;
+    box-shadow: 0 10px 20px hsl(var(--primary) / 0.2);
 }
 
 .btn:hover:not(:disabled) {
-    opacity: 0.9;
     transform: translateY(-1px);
+    box-shadow: 0 12px 24px hsl(var(--primary) / 0.3);
+    filter: brightness(1.1);
 }
 
 .btn:disabled {

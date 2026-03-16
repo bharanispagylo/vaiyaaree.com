@@ -10,9 +10,9 @@
     gap: 2rem;
     margin-bottom: 3rem;
     padding: 2.5rem 3rem;
-    background: linear-gradient(135deg, rgba(37, 163, 102, 0.08), rgba(10, 14, 26, 0.4));
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--text-main) / 0.04));
     border-radius: 24px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid hsl(var(--text-main) / 0.05);
     backdrop-filter: blur(10px);
 }
 
@@ -20,8 +20,8 @@
     width: 100px;
     height: 100px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #25a366, #1a8a4e);
-    color: #fff;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
+    color: hsl(var(--text-on-primary));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -32,13 +32,13 @@
 .headerInfo h2 {
     font-size: 2rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 0.5rem;
 }
 
 .userPhone {
     font-size: 1.1rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
 }
 
 .profileLayout {
@@ -48,8 +48,8 @@
 
 .profileSection {
     flex: 2;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: hsl(var(--text-main) / 0.03);
+    border: 1px solid hsl(var(--text-main) / 0.05);
     border-radius: 20px;
     padding: 3rem;
 }
@@ -57,7 +57,7 @@
 .sectionTitle {
     font-size: 1.25rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 2.5rem;
     letter-spacing: -0.01em;
 }
@@ -84,7 +84,7 @@
 .formGroupFull label {
     font-size: 0.75rem;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
     margin-bottom: 0.85rem;
     letter-spacing: 0.1em;
     display: flex;
@@ -94,11 +94,11 @@
 
 .formGroup input,
 .formGroupFull textarea {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--text-main) / 0.1);
     border-radius: 12px;
     padding: 1rem 1.25rem;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 1rem;
     outline: none;
     transition: all 0.2s;
@@ -106,28 +106,30 @@
 
 .formGroup input:focus,
 .formGroupFull textarea:focus {
-    border-color: rgba(37, 163, 102, 0.4);
-    background: rgba(255, 255, 255, 0.07);
+    border-color: hsl(var(--primary) / 0.4);
+    background: hsl(var(--text-main) / 0.07);
 }
 
 .saveBtn {
     margin-top: 3rem;
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     border: none;
-    padding: 1rem 3rem;
+    padding: 1rem 3.5rem;
     border-radius: 50px;
     font-weight: 800;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 10px;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
 }
 
 .saveBtn:hover:not(:disabled) {
-    background: #2db875;
     transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.1);
 }
 
 .profileSidebar {
@@ -135,8 +137,8 @@
 }
 
 .sidebarCard {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: hsl(var(--text-main) / 0.03);
+    border: 1px solid hsl(var(--text-main) / 0.05);
     border-radius: 20px;
     padding: 2rem;
 }
@@ -148,7 +150,7 @@
 
 .sidebarCard p {
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: hsl(var(--text-muted));
     line-height: 1.6;
     margin-bottom: 2rem;
 }
@@ -158,8 +160,8 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    background: #25d366;
-    color: #fff;
+    background: hsl(var(--primary));
+    color: hsl(var(--text-on-primary));
     text-decoration: none;
     padding: 1rem;
     border-radius: 12px;
@@ -179,14 +181,22 @@
 }
 
 .btnPrimary {
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     border: none;
-    padding: 1rem 2rem;
+    padding: 1rem 3rem;
     border-radius: 50px;
     font-weight: 800;
     cursor: pointer;
     margin-top: 2rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
+}
+
+.btnPrimary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.1);
 }
 
 @media (max-width: 768px) {

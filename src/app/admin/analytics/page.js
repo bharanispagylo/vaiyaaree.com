@@ -293,7 +293,7 @@ export default function AnalyticsHub() {
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie data={data.channelData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
-                                    {data.channelData.map((entry, index) => <Cell key={index} fill={index === 0 ? '#6366f1' : '#25D366'} />)}
+                                    {data.channelData.map((entry, index) => <Cell key={index} fill={index === 0 ? '#6366f1' : 'hsl(var(--primary))'} />)}
                                 </Pie>
                                 <Tooltip />
                                 <Legend verticalAlign="bottom" />

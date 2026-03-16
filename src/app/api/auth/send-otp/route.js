@@ -47,7 +47,7 @@ export async function POST(req) {
         }
 
         // 4. Send OTP via WhatsApp Service (Simplified and Robust)
-        const message = `🌸 *Cast Prince* 🌸\n\nYour verification code is: *${otpCode}*\n\nThis code expires in 10 minutes. Please do not share it with anyone.`;
+        const message = `🌸 *Caste Print* 🌸\n\nYour verification code is: *${otpCode}*\n\nThis code expires in 10 minutes. Please do not share it with anyone.`;
 
         const waResult = await sendText(cleanPhone, message);
 

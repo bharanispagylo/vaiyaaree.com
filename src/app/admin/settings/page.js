@@ -16,7 +16,7 @@ export default function SettingsPage() {
     return (
         <div className="animate-enter">
             <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ marginBottom: '0.5rem' }}>Settings</h1>
+                <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: 800 }}>Caste Print Settings</h1>
                 <p>Manage your store preferences and configuration</p>
             </div>
 
@@ -52,7 +52,7 @@ export default function SettingsPage() {
                             <div style={{ display: 'grid', gap: '1.75rem', maxWidth: '600px' }}>
                                 <div>
                                     <label className="label">Store Name</label>
-                                    <input className="input-field" defaultValue="Cast Prince Premium" />
+                                    <input className="input-field" defaultValue="Caste Print Premium" />
                                 </div>
                                 <div>
                                     <label className="label">Store Description (SEO)</label>
@@ -143,7 +143,7 @@ export default function SettingsPage() {
                                 </div>
                                 <div>
                                     <label className="label">Support Email</label>
-                                    <input className="input-field" defaultValue="support@castprince.com" />
+                                    <input className="input-field" defaultValue="support@casteprint.com" />
                                 </div>
                                 <div style={{ marginTop: '1rem' }}>
                                     <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Instagram size={14} /> Instagram Profile URL</label>

@@ -3,7 +3,7 @@ import PortalWrapper from '@/components/PortalWrapper';
 import styles from './portal.module.css';
 
 export const metadata = {
-    title: 'Cast Prince — Shop Premium Collections',
+    title: 'Caste Print — Shop Premium Collections',
     description: 'Browse and order premium silk & cotton sarees online. Kanjivaram, Banarasi, Designer sarees with free shipping. Order via WhatsApp.',
     keywords: 'saree, silk saree, cotton saree, buy saree online, kanjivaram, banarasi saree, designer saree',
 };

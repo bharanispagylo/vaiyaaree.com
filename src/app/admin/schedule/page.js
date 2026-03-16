@@ -227,7 +227,7 @@ export default function SchedulePostPage() {
         padding: '0.35rem 0.9rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600,
         cursor: 'pointer', transition: 'all 0.2s', border: 'none',
         background: active ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
-        color: active ? 'white' : 'hsl(var(--text-muted))',
+        color: active ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
         outline: active ? 'none' : '1px solid hsl(var(--border-subtle))',
     });
 

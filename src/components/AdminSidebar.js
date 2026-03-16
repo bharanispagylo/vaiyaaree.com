@@ -42,23 +42,19 @@ export default function AdminSidebar({ isOpen }) {
                 borderBottom: '1px solid hsl(var(--border-subtle))'
             }}>
                 <div style={{
-                    width: '42px', height: '42px', borderRadius: '12px',
-                    background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.5rem', color: 'white',
-                    boxShadow: '0 8px 16px hsl(var(--primary) / 0.3)',
-                    border: '1px solid hsl(var(--primary-light) / 0.2)'
+                    fontSize: '2rem',
+                    filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.2))'
                 }}>
-                    C
+                    💮
                 </div>
                 <div>
                     <h1 style={{
                         fontSize: '1.1rem', fontWeight: 800, margin: 0,
                         fontFamily: 'var(--font-heading)', letterSpacing: '0.02em',
-                        color: 'white'
-                    }}>Cast Prince</h1>
+                        color: '#ffffff'
+                    }}>Caste Print</h1>
                     <p style={{
-                        fontSize: '0.6rem', color: 'hsl(var(--primary))', margin: 0,
+                        fontSize: '0.6rem', color: 'rgba(255, 255, 255, 0.6)', margin: 0,
                         textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800
                     }}>Executive Dashboard</p>
                 </div>
@@ -67,9 +63,9 @@ export default function AdminSidebar({ isOpen }) {
             {/* WhatsApp Status */}
             <div style={{
                 margin: '0 0 1.5rem', padding: '0.75rem 1rem',
-                background: 'hsl(var(--success) / 0.1)',
+                background: 'rgba(255, 255, 255, 0.03)',
                 borderRadius: 'var(--radius)',
-                border: '1px solid hsl(var(--success) / 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
                 display: 'flex', alignItems: 'center', gap: '0.85rem'
             }}>
                 <div style={{ position: 'relative', display: 'flex' }}>
@@ -77,8 +73,8 @@ export default function AdminSidebar({ isOpen }) {
                     <div style={{ position: 'absolute', inset: -4, borderRadius: '50%', background: 'hsl(var(--success))', opacity: 0.3, animation: 'pulse 2s infinite' }} />
                 </div>
                 <div>
-                    <span style={{ color: 'hsl(var(--success))', fontWeight: 700, fontSize: '0.75rem', display: 'block' }}>WhatsApp Active</span>
-                    <span style={{ color: 'hsl(var(--success) / 0.8)', fontSize: '0.65rem', display: 'block' }}>Bot is online</span>
+                    <span style={{ color: 'white', fontWeight: 700, fontSize: '0.75rem', display: 'block' }}>WhatsApp Active</span>
+                    <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem', display: 'block' }}>Bot is online</span>
                 </div>
             </div>
 
@@ -106,22 +102,22 @@ export default function AdminSidebar({ isOpen }) {
                     style={{
                         display: 'flex', alignItems: 'center', gap: '0.75rem',
                         width: '100%', padding: '0.8rem 1rem',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        background: 'hsl(var(--danger) / 0.15)',
+                        border: '1px solid hsl(var(--danger) / 0.3)',
                         borderRadius: '10px',
-                        color: '#f87171',
-                        fontSize: '0.9rem', fontWeight: 600,
+                        color: 'hsl(var(--text-on-primary))',
+                        fontSize: '0.9rem', fontWeight: 700,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         letterSpacing: '0.01em',
                     }}
                     onMouseEnter={e => {
-                        e.currentTarget.style.background = 'rgba(239,68,68,0.2)';
-                        e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)';
+                        e.currentTarget.style.background = 'hsl(var(--danger) / 0.3)';
+                        e.currentTarget.style.borderColor = 'hsl(var(--danger) / 0.5)';
                     }}
                     onMouseLeave={e => {
-                        e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
-                        e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)';
+                        e.currentTarget.style.background = 'hsl(var(--danger) / 0.15)';
+                        e.currentTarget.style.borderColor = 'hsl(var(--danger) / 0.3)';
                     }}
                 >
                     <LogOut size={16} />
@@ -129,8 +125,8 @@ export default function AdminSidebar({ isOpen }) {
                 </button>
 
                 {/* Admin label */}
-                <div style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>
-                    Logged in as <strong style={{ color: 'hsl(var(--primary))' }}>Admin</strong>
+                <div style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.5)' }}>
+                    Logged in as <strong style={{ color: 'hsl(var(--text-on-primary))' }}>Admin</strong>
                 </div>
             </div>
 

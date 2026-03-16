@@ -8,29 +8,29 @@
     text-align: left;
     margin-bottom: 3rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid hsl(var(--text-main) / 0.05);
 }
 
 .sectionTitle h2 {
     font-size: 2rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     letter-spacing: -0.01em;
 }
 
 .emptyState {
     text-align: center;
     padding: 10rem 0;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
 }
 
 .emptyIcon {
     margin-bottom: 2rem;
-    color: rgba(255, 255, 255, 0.1);
+    color: hsl(var(--text-dim) / 0.2);
 }
 
 .emptyState h3 {
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 1rem;
     font-size: 1.5rem;
 }
@@ -41,12 +41,20 @@
 
 .continueBtn {
     display: inline-block;
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     text-decoration: none;
-    padding: 1rem 3rem;
+    padding: 1rem 3.5rem;
     border-radius: 50px;
     font-weight: 800;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
+}
+
+.continueBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.1);
 }
 
 .cartLayout {
@@ -62,8 +70,8 @@
     display: grid;
     grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr 34px;
     padding: 1.5rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.4);
+    border-bottom: 1px solid hsl(var(--text-main) / 0.1);
+    color: hsl(var(--text-muted));
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -75,7 +83,8 @@
     grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr 34px;
     align-items: center;
     padding: 2rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid hsl(var(--text-main) / 0.1);
+    color: hsl(var(--text-muted));
 }
 
 .productCell {
@@ -94,9 +103,9 @@
 }
 
 .removeBtn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.4);
+    background: hsl(var(--text-main) / 0.05);
+    border: 1px solid hsl(var(--text-main) / 0.08);
+    color: hsl(var(--text-dim));
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -109,12 +118,12 @@
 
 .removeBtn:hover {
     background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
+    color: hsl(var(--text-main));
 }
 
 .itemName {
     font-weight: 600;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 0.95rem;
     line-height: 1.4;
     display: flex;
@@ -123,14 +132,14 @@
 
 .variantName {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
     font-weight: 400;
 }
 
 .priceCell,
 .subtotalCell {
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 1rem;
 }
 
@@ -142,8 +151,8 @@
 .qtyControl {
     display: flex;
     align-items: center;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--text-main) / 0.05);
+    border: 1px solid hsl(var(--text-main) / 0.1);
     border-radius: 10px;
     width: fit-content;
     overflow: hidden;
@@ -152,7 +161,7 @@
 .qtyControl button {
     background: none;
     border: none;
-    color: #fff;
+    color: hsl(var(--text-main));
     padding: 0.5rem 1rem;
     cursor: pointer;
 }
@@ -170,8 +179,8 @@
 
 .updateCartBtn {
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #fff;
+    border: 1px solid hsl(var(--text-main) / 0.15);
+    color: hsl(var(--text-main));
     padding: 0.85rem 2.5rem;
     border-radius: 12px;
     font-weight: 700;
@@ -181,8 +190,8 @@
 }
 
 .updateCartBtn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: hsl(var(--text-main) / 0.05);
+    border-color: hsl(var(--text-main) / 0.3);
 }
 
 .updateCartBtn:disabled {
@@ -195,8 +204,8 @@
 }
 
 .summaryCard {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: hsl(var(--text-main) / 0.03);
+    border: 1px solid hsl(var(--text-main) / 0.05);
     border-radius: 20px;
     padding: 2rem;
     position: sticky;
@@ -212,7 +221,7 @@
     display: flex;
     justify-content: space-between;
     margin-bottom: 1.25rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
 }
 
 .summaryTotal {
@@ -220,7 +229,7 @@
     justify-content: space-between;
     font-size: 1.5rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-top: 2rem;
     margin-bottom: 2.5rem;
 }
@@ -230,19 +239,21 @@
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     text-decoration: none;
     padding: 1.25rem;
     border-radius: 15px;
     font-weight: 800;
     text-align: center;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
 }
 
 .checkoutBtn:hover {
-    background: #2db875;
     transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.1);
 }
 
 .continueShoppingBtn {
@@ -252,9 +263,9 @@
     width: 100%;
     margin-top: 1rem;
     padding: 1.1rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #fff;
+    background: hsl(var(--text-main) / 0.03);
+    border: 1px solid hsl(var(--text-main) / 0.1);
+    color: hsl(var(--text-main));
     text-decoration: none;
     font-size: 0.9rem;
     font-weight: 700;
@@ -263,13 +274,13 @@
 }
 
 .continueShoppingBtn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: hsl(var(--text-main) / 0.08);
+    border-color: hsl(var(--text-main) / 0.3);
 }
 
 .divider {
     height: 1px;
-    background: rgba(255, 255, 255, 0.05);
+    background: hsl(var(--text-main) / 0.05);
     margin: 1rem 0;
 }
 

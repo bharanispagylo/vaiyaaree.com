@@ -1,7 +1,7 @@
 .shopApp {
     min-height: 100vh;
-    background: #0a0e1a;
-    color: #f0f4ff;
+    background: hsl(var(--bg-app));
+    color: hsl(var(--text-main));
     font-family: 'Roboto', sans-serif;
     position: relative;
 }
@@ -28,13 +28,13 @@
 }
 
 .toastSuccess {
-    background: linear-gradient(135deg, #1a7a4a, #25a366);
-    color: #fff;
+    background: linear-gradient(135deg, #000000, hsl(var(--primary)));
+    color: #ffffff;
 }
 
 .toastError {
     background: linear-gradient(135deg, #8b1a1a, #c0392b);
-    color: #fff;
+    color: hsl(var(--text-on-primary));
 }
 
 @keyframes toastIn {

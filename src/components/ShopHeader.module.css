@@ -2,10 +2,11 @@
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: rgba(10, 14, 26, 0.95);
+    background: hsl(var(--bg-panel));
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding: 0 1.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .headerInner {
@@ -33,23 +34,20 @@
 
 .logoIcon {
     font-size: 2rem;
-    filter: drop-shadow(0 0 10px rgba(37, 163, 102, 0.5));
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
 }
 
 .logoName {
-    font-size: 1.15rem;
+    font-size: 1.25rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #25a366, #1a8a4e);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #ffffff;
     letter-spacing: -0.01em;
     line-height: 1;
 }
 
 .logoTagline {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
     letter-spacing: 0.05em;
     line-height: 1;
     margin-top: 2px;
@@ -68,9 +66,9 @@
 
 .navLink {
     text-decoration: none;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.7);
     font-size: 0.95rem;
-    font-weight: 500;
+    font-weight: 600;
     transition: all 0.3s ease;
     position: relative;
     padding: 5px 0;
@@ -83,7 +81,7 @@
     left: 0;
     width: 0;
     height: 2px;
-    background: #25a366;
+    background: hsl(var(--primary));
     transition: width 0.3s ease;
 }
 
@@ -97,7 +95,7 @@
 }
 
 .navLink.active {
-    color: #25a366;
+    color: hsl(var(--primary));
 }
 
 .headerActions {
@@ -126,7 +124,7 @@
     position: absolute;
     top: -8px;
     right: -8px;
-    background: #25a366;
+    background: hsl(var(--primary));
     color: #fff;
     font-size: 0.7rem;
     font-weight: 800;
@@ -136,7 +134,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #0a0e1a;
+    border: 2px solid hsl(var(--bg-panel));
 }
 
 .profileContainer {
@@ -147,7 +145,7 @@
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #25a366, #1a8a4e);
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     display: flex;
     align-items: center;
@@ -162,7 +160,7 @@
     top: 50px;
     right: 0;
     width: 200px;
-    background: #121827;
+    background: hsl(var(--bg-card));
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     border-radius: 12px;
@@ -176,7 +174,7 @@
 
 .dropdownName {
     font-weight: 700;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 0.9rem;
 }
 
@@ -203,22 +201,23 @@
 }
 
 .dropdownItem:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
+    background: hsl(var(--bg-app));
+    color: hsl(var(--primary));
 }
 
 .logout {
-    color: #ef4444;
+    color: hsl(var(--danger));
 }
 
 .loginBtn {
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     text-decoration: none;
     padding: 0.5rem 1.25rem;
     border-radius: 50px;
     font-weight: 700;
     font-size: 0.9rem;
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
 }
 
 .hamburgerBtn {
@@ -261,7 +260,7 @@
 
 .breadcrumb a {
     text-decoration: none;
-    color: #25a366;
+    color: hsl(var(--primary));
     font-weight: 600;
 }
 

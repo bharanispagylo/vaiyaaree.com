@@ -169,7 +169,7 @@ export default function MediaLibraryPage() {
                         style={{
                             padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
                             background: viewMode === 'grid' ? 'hsl(var(--primary))' : 'transparent',
-                            color: viewMode === 'grid' ? 'white' : 'hsl(var(--text-muted))'
+                            color: viewMode === 'grid' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
                         }}
                     >
                         <Grid size={18} />
@@ -179,7 +179,7 @@ export default function MediaLibraryPage() {
                         style={{
                             padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
                             background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
-                            color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))'
+                            color: viewMode === 'list' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
                         }}
                     >
                         <ListIcon size={18} />

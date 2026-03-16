@@ -3,7 +3,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0f070a;
+    background: hsl(var(--bg-app));
     position: relative;
     overflow: hidden;
     font-family: 'Roboto', sans-serif;
@@ -29,8 +29,7 @@
 .circle1 {
     width: 450px;
     height: 450px;
-    background: #db2777;
-    /* Rose 600 */
+    background: hsl(var(--primary));
     top: -120px;
     left: -120px;
 }
@@ -38,8 +37,7 @@
 .circle2 {
     width: 400px;
     height: 400px;
-    background: #9d174d;
-    /* Rose 800 */
+    background: hsl(var(--primary-dark));
     bottom: -100px;
     right: -100px;
     animation-delay: -3s;
@@ -48,8 +46,7 @@
 .circle3 {
     width: 300px;
     height: 300px;
-    background: #be185d;
-    /* Rose 700 */
+    background: hsl(var(--primary));
     top: 50%;
     left: 45%;
     animation-delay: -5s;
@@ -69,14 +66,14 @@
 
 /* Glassmorphism Card */
 .card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: hsl(var(--bg-card));
+    border: 1px solid hsl(var(--border-subtle));
     backdrop-filter: blur(30px);
     border-radius: 28px;
     padding: 40px;
     width: 90%;
     max-width: 440px;
-    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-xl);
     position: relative;
     z-index: 10;
 }
@@ -91,7 +88,7 @@
     font-size: 52px;
     margin-bottom: 12px;
     display: block;
-    filter: drop-shadow(0 0 10px rgba(219, 39, 119, 0.5));
+    filter: drop-shadow(0 0 10px hsl(var(--primary) / 0.5));
 }
 
 .brand {
@@ -100,16 +97,17 @@
     color: #fff;
     margin: 0;
     letter-spacing: -0.5px;
-    background: linear-gradient(to bottom, #fff, #fbcfe8);
+    background: linear-gradient(to bottom, #fff, #888);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
 .subtitle {
     font-size: 14px;
-    color: #f472b6;
+    color: hsl(var(--primary));
     margin: 6px 0 0 0;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0.5px;
     text-transform: uppercase;
 }
@@ -165,9 +163,9 @@
 }
 
 .input:focus {
-    border-color: #ec4899;
-    background: rgba(236, 72, 153, 0.08);
-    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15);
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.08);
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.15);
 }
 
 .desc {
@@ -201,24 +199,24 @@
 /* Buttons */
 .btn {
     padding: 16px;
-    background: linear-gradient(135deg, #db2777 0%, #be185d 100%);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dark)) 100%);
     color: #fff;
     border: none;
     border-radius: 14px;
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    box-shadow: 0 10px 20px rgba(190, 24, 93, 0.2);
+    box-shadow: 0 10px 20px hsl(var(--primary) / 0.2);
 }
 
 .btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(190, 24, 93, 0.3);
+    box-shadow: 0 12px 24px hsl(var(--primary) / 0.3);
     filter: brightness(1.1);
 }
 
@@ -251,9 +249,9 @@
 .linkButton {
     background: none;
     border: none;
-    color: #f472b6;
+    color: hsl(var(--primary));
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     text-decoration: underline;
     opacity: 0.8;

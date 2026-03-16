@@ -76,8 +76,8 @@ export default function CheckoutPage() {
                 key: rzpData.keyId,
                 amount: rzpData.amount,
                 currency: rzpData.currency,
-                name: "Cast Prince",
-                description: `Order #${orderData.orderId}`,
+                name: "Caste Print",
+                description: "Order Payment for Caste Print",
                 order_id: rzpData.razorpayOrderId,
                 handler: async function (response) {
                     // Verify payment
@@ -101,7 +101,7 @@ export default function CheckoutPage() {
                     name: checkoutForm.name,
                     contact: checkoutForm.phone
                 },
-                theme: { color: "#25a366" }
+                theme: { color: "#000000" }
             };
 
             if (!window.Razorpay) {
@@ -140,7 +140,7 @@ export default function CheckoutPage() {
             <div className={styles.successView}>
                 <div className={styles.successCard}>
                     <div className={styles.successBadge}>
-                        <CheckCircle size={48} color="#2ecc71" />
+                        <CheckCircle size={48} color="#000000" />
                     </div>
                     <h2>Thank You for Your Order!</h2>
                     <p className={styles.successSub}>We've received your order and sent a confirmation to your WhatsApp.</p>

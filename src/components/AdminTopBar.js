@@ -55,8 +55,8 @@ export default function AdminTopBar({ onMenuClick }) {
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <span className="breadcrumb-prefix" style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Admin /</span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'hsl(var(--text-main))' }}>
+                    <span className="breadcrumb-prefix" style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)' }}>Admin /</span>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff' }}>
                         {pageTitle}
                     </span>
                 </div>

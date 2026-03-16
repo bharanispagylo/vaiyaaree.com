@@ -9,7 +9,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
     background: transparent;
     border: none;
     font-size: 0.95rem;
@@ -24,7 +24,7 @@
 }
 
 .backButton:hover {
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .trackHeader {
@@ -35,13 +35,13 @@
 .trackHeader h1 {
     font-size: 2.5rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 1rem;
 }
 
 .trackHeader p {
     font-size: 1.1rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
 }
 
 .searchBar {
@@ -61,46 +61,49 @@
 .searchIcon {
     position: absolute;
     left: 1.25rem;
-    color: rgba(255, 255, 255, 0.3);
+    color: hsl(var(--text-dim) / 0.5);
 }
 
 .searchInputWrap input {
     width: 100%;
-    background: rgba(255, 255, 255, 0.03);
+    background: hsl(var(--text-main) / 0.03);
     background-color: transparent !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid hsl(var(--text-main) / 0.1);
     border-radius: 12px;
     padding: 1rem 1.25rem 1rem 3.5rem;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 1.1rem;
     outline: none;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .searchInputWrap input:focus {
-    border-color: rgba(37, 163, 102, 0.4);
-    background: rgba(255, 255, 255, 0.07);
+    border-color: hsl(var(--primary) / 0.5);
+    background: hsl(var(--bg-card));
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
 }
 
 .trackBtn {
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     border: none;
-    padding: 1rem 2rem;
+    padding: 1rem 2.5rem;
     border-radius: 12px;
     font-weight: 800;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
 }
 
 .trackBtn:hover {
-    background: #2db875;
     transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.1);
 }
 
 .trackingResult {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: hsl(var(--text-main) / 0.03);
+    border: 1px solid hsl(var(--text-main) / 0.05);
     border-radius: 24px;
     padding: 3.5rem;
     max-width: 900px;
@@ -126,20 +129,20 @@
     align-items: center;
     margin-bottom: 3.5rem;
     padding-bottom: 2rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid hsl(var(--text-main) / 0.05);
 }
 
 .idLabel {
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.15em;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
 }
 
 .idValue {
     font-size: 2rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-top: 5px;
 }
 
@@ -152,23 +155,23 @@
 }
 
 .statusPLACED {
-    background: rgba(34, 197, 94, 0.1);
-    color: #2ecc71;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
 }
 
 .statusCONFIRMED {
-    background: rgba(59, 130, 246, 0.1);
-    color: #3498db;
+    background: hsl(var(--info) / 0.1);
+    color: hsl(var(--info));
 }
 
 .statusSHIPPED {
-    background: rgba(168, 85, 247, 0.1);
-    color: #9b59b6;
+    background: hsl(var(--secondary) / 0.1);
+    color: hsl(var(--secondary));
 }
 
 .statusDELIVERED {
-    background: rgba(16, 185, 129, 0.15);
-    color: #1abc9c;
+    background: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
 }
 
 .timeline {
@@ -191,9 +194,9 @@
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.3);
+    background: hsl(var(--text-main) / 0.05);
+    border: 2px solid hsl(var(--text-main) / 0.1);
+    color: hsl(var(--text-dim));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -204,28 +207,28 @@
 .stepLabel {
     font-weight: 700;
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.3);
+    color: hsl(var(--text-dim));
     margin-bottom: 4px;
 }
 
 .stepDate {
     font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.2);
+    color: hsl(var(--text-dim) / 0.5);
 }
 
 .stepActive .stepIcon {
-    background: #25a366;
-    border-color: #2ecc71;
+    background: hsl(var(--primary));
+    border-color: hsl(var(--primary));
     color: #fff;
-    box-shadow: 0 0 20px rgba(37, 163, 102, 0.4);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
 }
 
 .stepActive .stepLabel {
-    color: #fff;
+    color: hsl(var(--text-on-primary));
 }
 
 .stepActive .stepDate {
-    color: #25a366;
+    color: hsl(var(--primary));
     font-weight: 700;
 }
 
@@ -235,19 +238,20 @@
     left: 80px;
     width: calc(100% - 160px);
     height: 2px;
-    background: rgba(255, 255, 255, 0.05);
+    background: hsl(var(--text-main) / 0.05);
     z-index: 0;
 }
 
 .lineActive {
-    background: #25a366;
+    background: hsl(var(--primary));
 }
 
 .shippingSection {
-    background: rgba(37, 163, 102, 0.05);
-    padding: 2rem;
-    border-radius: 16px;
-    margin-bottom: 2rem;
+    background: hsl(var(--primary) / 0.05);
+    padding: 2.5rem;
+    border-radius: 20px;
+    border: 1px solid hsl(var(--primary) / 0.1);
+    margin-bottom: 2.5rem;
 }
 
 .shippingSection h3 {
@@ -269,13 +273,13 @@
 
 .shipInfoItem strong {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
 }
 
 .externalTrackLink {
     display: inline-block;
     margin-top: 1.5rem;
-    color: #25a366;
+    color: hsl(var(--primary));
     text-decoration: none;
     font-weight: 700;
     font-size: 0.9rem;
@@ -292,9 +296,9 @@
     justify-content: space-between;
     padding-bottom: 0.75rem;
     margin-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid hsl(var(--text-main) / 0.05);
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
 }
 
 .totalRow {
@@ -303,13 +307,13 @@
     margin-top: 1.5rem;
     font-weight: 800;
     font-size: 1.1rem;
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .noOrderPlaceholder {
     text-align: center;
     padding: 8rem 0;
-    color: rgba(255, 255, 255, 0.3);
+    color: hsl(var(--text-dim));
     display: flex;
     flex-direction: column;
     align-items: center;

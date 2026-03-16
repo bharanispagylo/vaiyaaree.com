@@ -229,7 +229,7 @@ export default function BroadcastPage() {
         padding: '0.3rem 0.8rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 600,
         cursor: 'pointer', transition: 'all 0.2s', border: 'none',
         background: active ? 'hsl(var(--primary))' : 'hsl(var(--bg-panel))',
-        color: active ? 'white' : 'hsl(var(--text-muted))',
+        color: active ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
         outline: active ? 'none' : '1px solid hsl(var(--border-subtle))',
     });
 
@@ -445,7 +445,7 @@ export default function BroadcastPage() {
                                             background: customerTierFilter === tier
                                                 ? tier === 'VIP' ? 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))' : 'hsl(var(--primary))'
                                                 : pillStyle(false).background,
-                                            color: customerTierFilter === tier ? (tier === 'VIP' ? '#3f2203' : 'white') : 'hsl(var(--text-muted))',
+                                            color: customerTierFilter === tier ? (tier === 'VIP' ? '#3f2203' : 'hsl(var(--bg-app))') : 'hsl(var(--text-muted))',
                                         }}>
                                             {tier === 'ALL' ? 'All Customers' : tier === 'VIP' ? '💎 VIP (₹20k+)' : tier === 'Gold' ? '🥇 Gold (₹10k+)' : tier === 'Silver' ? '🥈 Silver (₹5k+)' : 'Regular'}
                                         </button>

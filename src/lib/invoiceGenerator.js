@@ -6,7 +6,7 @@ export async function generateInvoicePDF(order) {
 
     // Fetch branding from settings
     let branding = {
-        shop_name: "Cast Prince",
+        companyName: 'Caste Print',
         shop_address: "Premium Handwoven Textiles",
         shop_gstin: "",
         bill_footer: "Thank you for your business!"

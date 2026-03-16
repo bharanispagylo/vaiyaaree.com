@@ -9,7 +9,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: hsl(var(--text-muted));
     background: transparent;
     border: none;
     font-size: 0.95rem;
@@ -24,7 +24,7 @@
 }
 
 .backButton:hover {
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .sectionHeader {
@@ -33,22 +33,22 @@
     align-items: center;
     margin-bottom: 3rem;
     padding: 2.5rem 3rem;
-    background: linear-gradient(135deg, rgba(37, 163, 102, 0.08), rgba(10, 14, 26, 0.4));
+    background: var(--bg-card);
     border-radius: 24px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--border-subtle));
+    box-shadow: var(--shadow-sm);
 }
 
 .sectionTitle h2 {
     font-size: 2rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 0.5rem;
 }
 
 .sectionTitle p {
     font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
 }
 
 .searchBox {
@@ -60,15 +60,15 @@
 .searchBox svg {
     position: absolute;
     left: 1rem;
-    color: rgba(255, 255, 255, 0.35);
+    color: hsl(var(--text-dim) / 0.5);
 }
 
 .searchBox input {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-input);
+    border: 1px solid hsl(var(--border-subtle));
     border-radius: 12px;
     padding: 0.75rem 1rem 0.75rem 2.75rem;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 0.9rem;
     outline: none;
     width: 250px;
@@ -81,20 +81,21 @@
 }
 
 .orderCard {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--bg-card);
+    border: 1px solid hsl(var(--border-subtle));
     border-radius: 20px;
     padding: 2rem;
     display: flex;
     flex-direction: column;
     height: 100%;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
 }
 
 .orderCard:hover {
     transform: translateY(-8px);
-    border-color: rgba(37, 163, 102, 0.3);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-card);
+    border-color: hsl(var(--primary) / 0.3);
 }
 
 .orderHeader {
@@ -111,14 +112,14 @@
 
 .orderId {
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     font-size: 1.15rem;
     margin-bottom: 0.25rem;
 }
 
 .orderDate {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
 }
 
 .statusBadge {
@@ -131,28 +132,28 @@
 }
 
 .statusPLACED {
-    background: rgba(34, 197, 94, 0.1);
-    color: #2ecc71;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
 }
 
 .statusCONFIRMED {
-    background: rgba(59, 130, 246, 0.1);
-    color: #3498db;
+    background: hsl(var(--info) / 0.1);
+    color: hsl(var(--info));
 }
 
 .statusSHIPPED {
-    background: rgba(168, 85, 247, 0.1);
-    color: #9b59b6;
+    background: hsl(var(--secondary) / 0.1);
+    color: hsl(var(--secondary));
 }
 
 .statusDELIVERED {
-    background: rgba(16, 185, 129, 0.15);
-    color: #1abc9c;
+    background: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
 }
 
 .statusCANCELLED {
-    background: rgba(239, 68, 68, 0.1);
-    color: #e74c3c;
+    background: hsl(var(--danger) / 0.1);
+    color: hsl(var(--danger));
 }
 
 .orderContent {
@@ -175,18 +176,18 @@
 
 .itemName strong {
     font-size: 0.95rem;
-    color: #fff;
+    color: hsl(var(--text-main));
 }
 
 .variantTag {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.45);
+    color: hsl(var(--text-dim));
     font-weight: 400;
 }
 
 .itemMeta {
     font-size: 0.8rem;
-    color: rgba(37, 163, 102, 0.8);
+    color: hsl(var(--primary) / 0.8);
 }
 
 .orderDetails {
@@ -194,7 +195,7 @@
     flex-direction: column;
     gap: 1rem;
     padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: hsl(var(--text-main) / 0.02);
     border-radius: 12px;
 }
 
@@ -203,15 +204,11 @@
     align-items: center;
     gap: 10px;
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: hsl(var(--text-muted));
 }
 
 .detailItem span {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    word-break: break-word;
 }
 
 .orderActions {
@@ -220,7 +217,7 @@
     align-items: center;
     margin-top: 2rem;
     padding-top: 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid hsl(var(--text-main) / 0.05);
 }
 
 .taxList {
@@ -234,19 +231,19 @@
     display: flex;
     justify-content: space-between;
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-dim));
 }
 
 .grandTotalRow {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    color: #fff;
+    border-top: 1px solid hsl(var(--text-main) / 0.05);
+    color: hsl(var(--text-main));
     font-weight: 700;
 }
 
 .trackBtn {
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     text-decoration: none;
     padding: 0.6rem 1.25rem;
@@ -256,17 +253,19 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 12px hsl(var(--primary) / 0.2);
 }
 
 .trackBtn:hover {
-    background: #2db875;
     transform: translateX(4px);
+    box-shadow: 0 6px 15px hsl(var(--primary) / 0.3);
+    filter: brightness(1.1);
 }
 
 .supportLink {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: hsl(var(--text-dim));
     text-decoration: none;
     display: flex;
     align-items: center;
@@ -274,12 +273,12 @@
 }
 
 .supportLink:hover {
-    color: #25d366;
+    color: hsl(var(--primary));
 }
 
 .downloadBtn {
-    background: rgba(37, 163, 102, 0.1);
-    color: #25a366;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
     text-decoration: none;
     padding: 0.6rem 1.25rem;
     border-radius: 10px;
@@ -289,14 +288,14 @@
     align-items: center;
     gap: 8px;
     transition: all 0.2s;
-    border: 1px solid rgba(37, 163, 102, 0.2);
+    border: 1px solid hsl(var(--primary) / 0.2);
     cursor: pointer;
     font-family: inherit;
 }
 
 .downloadBtn:hover:not(:disabled) {
-    background: rgba(37, 163, 102, 0.2);
-    border-color: rgba(37, 163, 102, 0.4);
+    background: hsl(var(--primary) / 0.15);
+    border-color: hsl(var(--primary) / 0.3);
     transform: translateY(-2px);
 }
 
@@ -326,7 +325,7 @@
 .loadingState {
     text-align: center;
     padding: 5rem 0;
-    color: rgba(255, 255, 255, 0.5);
+    color: hsl(var(--text-muted));
 }
 
 .spin {
@@ -356,19 +355,19 @@
 .loginPrompt h3 {
     font-size: 1.75rem;
     font-weight: 800;
-    color: #fff;
+    color: hsl(var(--text-main));
     margin-bottom: 0.75rem;
 }
 
 .loginPrompt p {
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
     margin-bottom: 2.5rem;
 }
 
 .emptyOrders {
     text-align: center;
     padding: 10rem 0;
-    color: rgba(255, 255, 255, 0.4);
+    color: hsl(var(--text-muted));
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -377,16 +376,20 @@
 
 .btnPrimary {
     display: inline-block;
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     text-decoration: none;
-    padding: 1rem 3.5rem;
+    padding: 1rem 3rem;
     border-radius: 50px;
     font-weight: 800;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
+    border: none;
+    cursor: pointer;
 }
 
 .btnPrimary:hover {
-    background: #2db875;
     transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.1);
 }

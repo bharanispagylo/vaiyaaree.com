@@ -1,17 +1,18 @@
 .productCard {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
+    background: hsl(var(--bg-card));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
     cursor: pointer;
+    box-shadow: var(--shadow-sm);
 }
 
 .productCard:hover {
     transform: translateY(-8px);
-    border-color: rgba(37, 163, 102, 0.3);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: var(--shadow-card);
 }
 
 .productImageWrap {
@@ -52,7 +53,7 @@
     right: 1rem;
     background: rgba(37, 163, 102, 0.15);
     backdrop-filter: blur(8px);
-    color: #25a366;
+    color: hsl(var(--primary));
     padding: 0.4rem 0.75rem;
     border-radius: 8px;
     font-size: 0.7rem;
@@ -65,7 +66,7 @@
     bottom: -60px;
     left: 0;
     right: 0;
-    background: #25a366;
+    background: hsl(var(--primary));
     color: #fff;
     padding: 1rem;
     font-weight: 700;
@@ -76,8 +77,8 @@
     gap: 0.5rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1);
     z-index: 5;
 }
 
@@ -86,7 +87,7 @@
 }
 
 .hoverAddToCart:hover {
-    background: #2db875;
+    background: hsl(var(--primary-light));
 }
 
 .productInfo {
@@ -94,19 +95,19 @@
 }
 
 .productCategory {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 0.7rem;
+    color: hsl(var(--text-dim));
+    font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 0.25rem;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.4rem;
 }
 
 .productName {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #fff;
-    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: hsl(var(--text-main));
+    margin-bottom: 0.75rem;
     line-height: 1.4;
     height: 2.8em;
     overflow: hidden;
@@ -117,9 +118,9 @@
 }
 
 .productPrice {
-    font-size: 1.15rem;
+    font-size: 1.25rem;
     font-weight: 800;
-    color: #25a366;
+    color: hsl(var(--primary));
 }
 
 .link {
@@ -129,14 +130,16 @@
 
 /* ── LIST VIEW ────────────────────────────────────────────────────────────── */
 .productCardList {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
+    background: hsl(var(--bg-card));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: var(--radius-lg);
     display: flex;
     overflow: hidden;
-    gap: 1.5rem;
-    margin-bottom: 1rem;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
     padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
 }
 
 .productCardList .productImageWrap {
@@ -146,14 +149,14 @@
 }
 
 .productDescription {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 0.85rem;
-    margin-bottom: 1rem;
+    color: hsl(var(--text-muted));
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
     line-height: 1.6;
 }
 
 .addToCartBtn {
-    background: #25a366;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -165,12 +168,14 @@
 }
 
 .addToCartBtn:hover:not(:disabled) {
-    background: #2db875;
     transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.3);
+    filter: brightness(1.1);
 }
 
 .addToCartDisabled {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.3);
+    background: hsl(var(--bg-app));
+    color: hsl(var(--text-dim) / 0.5);
+    border: 1px solid hsl(var(--border-subtle));
     cursor: not-allowed;
 }

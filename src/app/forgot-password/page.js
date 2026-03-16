@@ -88,8 +88,8 @@ export default function ForgotPasswordPage() {
                                     required
                                 />
                             </div>
-                            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
-                                💡 Default PIN is <strong style={{ color: '#a78bfa' }}>1234</strong> — change it in .env.local after reset
+                            <p style={{ fontSize: '12px', color: 'hsl(var(--text-muted))', marginTop: '6px' }}>
+                                💡 Default PIN is <strong style={{ color: 'hsl(var(--primary))' }}>1234</strong> — change it in .env.local after reset
                             </p>
                         </div>
 
@@ -102,7 +102,7 @@ export default function ForgotPasswordPage() {
                         <button
                             type="button"
                             onClick={() => router.push('/login')}
-                            style={{ background: 'none', border: 'none', color: '#a78bfa', cursor: 'pointer', fontSize: '14px', textAlign: 'center', marginTop: '-8px' }}
+                            style={{ background: 'none', border: 'none', color: 'hsl(var(--primary))', cursor: 'pointer', fontSize: '14px', textAlign: 'center', marginTop: '-8px' }}
                         >
                             ← Back to Login
                         </button>
@@ -146,7 +146,7 @@ export default function ForgotPasswordPage() {
 
                         {error && <div className={styles.error}>⚠️ {error}</div>}
                         {success && (
-                            <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', color: '#86efac', borderRadius: '10px', padding: '10px 14px', fontSize: '13px' }}>
+                            <div style={{ background: 'hsl(var(--success) / 0.12)', border: '1px solid hsl(var(--success) / 0.3)', color: 'hsl(var(--success))', borderRadius: '10px', padding: '10px 14px', fontSize: '13px' }}>
                                 {success}
                             </div>
                         )}
@@ -157,7 +157,7 @@ export default function ForgotPasswordPage() {
                     </form>
                 )}
 
-                <p className={styles.footer}>🔐 Cast Prince — Admin Portal</p>
+                <p className={styles.footer}>🔐 Caste Print — Admin Portal</p>
             </div>
         </div>
     );

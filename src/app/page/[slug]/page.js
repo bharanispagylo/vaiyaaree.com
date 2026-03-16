@@ -31,7 +31,7 @@ export default function CMSPageView() {
                     setPage(data);
 
                     // SE Suite Header Updates
-                    document.title = `${data.seo_title || data.title} | Cast Prince`;
+                    document.title = `${data.seo_title || data.title} | Caste Print`;
 
                     // Inject Custom JS if present
                     if (data.custom_js) {
@@ -112,7 +112,7 @@ export default function CMSPageView() {
             }}>
                 <Link href="/shop" style={{ textDecoration: 'none', color: '#000', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, fontSize: '1.2rem' }}>
                     <span style={{ fontSize: '1.8rem' }}>💮</span>
-                    Cast Prince
+                    Caste Print
                 </Link>
                 <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
                     <Link href="/shop" style={{ textDecoration: 'none', color: '#111', fontSize: '0.9rem', fontWeight: 700 }}>Shop Collection</Link>
@@ -191,7 +191,7 @@ export default function CMSPageView() {
                 <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '4rem' }}>
                     <div>
                         <div style={{ fontSize: '2.5rem', marginBottom: '1.5rem' }}>💮</div>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 1rem' }}>Cast Prince</h3>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 1rem' }}>Caste Print</h3>
                         <p style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, marginBottom: '2rem' }}>Experience the heritage of Indian textiles. Curated with love, delivered with elegance.</p>
                     </div>
                     <div>
@@ -212,7 +212,7 @@ export default function CMSPageView() {
                     </div>
                 </div>
                 <div style={{ maxWidth: '1200px', margin: '5rem auto 0', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
-                    <span>© 2026 Cast Prince. Curated by Premium CMS.</span>
+                    <span>© 2026 Caste Print. Curated by Premium CMS.</span>
                     <div style={{ display: 'flex', gap: '2rem' }}>
                         <Link href="/page/privacy" style={{ color: 'inherit', textDecoration: 'none' }}>Privacy</Link>
                         <Link href="/page/terms" style={{ color: 'inherit', textDecoration: 'none' }}>Terms</Link>

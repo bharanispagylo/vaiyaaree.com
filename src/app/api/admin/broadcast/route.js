@@ -29,7 +29,7 @@ export async function POST(req) {
                     body: {
                         text: `*${product.name}*\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${message}`
                     },
-                    footer: { text: "Cast Prince • Exclusive Collection" },
+                    footer: { text: "Caste Print • Exclusive Collection" },
                     action: {
                         name: "cta_url",
                         parameters: {
@@ -72,7 +72,7 @@ export async function POST(req) {
                     body: {
                         text: `${message}\n\n🛍️ Tap below to explore our collection!`
                     },
-                    footer: { text: "Cast Prince • Premium Ethnic Wear" },
+                    footer: { text: "Caste Print • Premium Ethnic Wear" },
                     action: {
                         name: "cta_url",
                         parameters: {

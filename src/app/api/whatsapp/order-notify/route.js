@@ -78,7 +78,7 @@ export async function POST(request) {
         const paymentText = paymentMethod === 'COD' ? '💵 Cash on Delivery' : '📲 UPI / Online';
 
         const message =
-            `💮 *Cast Prince — ORDER CONFIRMED!*\n\n` +
+            `💮 *Caste Print — ORDER CONFIRMED!*\n\n` +
             `✅ Your website order has been placed successfully!\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `📋 *Order ID:* #${orderId}\n` +
@@ -92,7 +92,7 @@ export async function POST(request) {
             (paymentMethod === 'UPI'
                 ? `📲 *UPI Payment Details:*\nUPI ID: *samypranesh@okicici*\nAmount: *₹${(total || 0).toLocaleString()}*\n\nPlease complete the payment and reply *PAID ✓* to confirm.\n\n`
                 : `Our team will contact you to confirm your delivery date.\n\n`) +
-            `💗 Thank you for shopping with *Cast Prince*!\n` +
+            `💗 Thank you for shopping with *Caste Print*!\n` +
             `Tap the buttons below to manage your orders.`;
 
         await sendButtons(customerPhone, message, [
