@@ -8,7 +8,7 @@ export default async function Home() {
   if (session?.value === 'authenticated') {
     redirect('/admin');
   } else {
-    // If not an admin, show the customer shop instead of the login portal
-    redirect('/shop');
+    // If not an admin, show the customer home page
+    redirect('/page/home');
   }
 }

@@ -318,12 +318,12 @@ export default function ShippingAdminPage() {
             </div>
 
             <style jsx>{`
-                .shipping-layout { padding: 2rem; max-width: 1300px; margin: 0 auto; color: white; font-family: 'Roboto', sans-serif; }
+                .shipping-layout { padding: 2rem; max-width: 1300px; margin: 0 auto; color: hsl(var(--text-main)); font-family: 'Roboto', sans-serif; }
                 
                 .premium-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; }
                 .breadcrumb { font-size: 0.75rem; color: hsl(var(--primary)); font-weight: 800; letter-spacing: 0.1em; margin-bottom: 0.5rem; text-transform: uppercase; }
-                h1 { margin: 0; font-size: 2.5rem; font-weight: 900; background: linear-gradient(to bottom right, #fff, #999); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                .premium-header p { color: rgba(255,255,255,0.4); margin-top: 0.5rem; }
+                h1 { margin: 0; font-size: 2.5rem; font-weight: 900; color: hsl(var(--text-main)); }
+                .premium-header p { color: hsl(var(--text-muted)); margin-top: 0.5rem; }
 
                 .btn-primary-glow {
                     background: hsl(var(--primary)); color: white; border: none; padding: 0.8rem 1.75rem; border-radius: 16px; 
@@ -335,78 +335,78 @@ export default function ShippingAdminPage() {
                 .shipping-grid { display: grid; grid-template-columns: 320px 1fr; gap: 2rem; align-items: start; }
 
                 /* ZONES STACK */
-                .zones-stack { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; overflow: hidden; }
-                .stack-header { padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); }
-                .stack-header h3 { margin: 0; font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.6); }
-                .btn-icon-plus { background: white; color: black; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-                .btn-icon-plus:hover { background: hsl(var(--primary)); color: white; transform: rotate(90deg); }
+                .zones-stack { background: #ffffff; border: 1px solid hsl(var(--border-subtle)); border-radius: 24px; overflow: hidden; box-shadow: var(--shadow-sm); }
+                .stack-header { padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid hsl(var(--border-subtle)); }
+                .stack-header h3 { margin: 0; font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(var(--text-muted)); }
+                .btn-icon-plus { background: hsl(var(--primary)); color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+                .btn-icon-plus:hover { background: hsl(var(--primary-light)); transform: rotate(90deg); }
 
                 .zones-list { padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
                 .zone-card { 
                     padding: 1rem; border-radius: 16px; cursor: pointer; display: flex; align-items: center; gap: 1rem; 
-                    border: 1px solid transparent; transition: 0.2s; background: rgba(255,255,255,0.02);
+                    border: 1px solid transparent; transition: 0.2s; background: #f1f5f9;
                 }
-                .zone-card:hover { background: rgba(255,255,255,0.05); }
-                .zone-card.active { background: hsl(var(--primary) / 0.1); border-color: hsl(var(--primary) / 0.3); }
-                .zone-icon { width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); transition: 0.2s; }
-                .zone-card.active .zone-icon { background: hsl(var(--primary)); color: white; }
-                .zone-info .title { font-weight: 700; font-size: 0.95rem; }
-                .zone-info .meta { font-size: 0.75rem; color: rgba(255,255,255,0.4); margin-top: 0.2rem; }
+                .zone-card:hover { background: hsl(var(--border-subtle)); }
+                .zone-card.active { background: hsl(var(--primary) / 0.05); border-color: hsl(var(--primary) / 0.2); }
+                .zone-icon { width: 40px; height: 40px; background: #ffffff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: hsl(var(--text-dim)); transition: 0.2s; border: 1px solid hsl(var(--border-subtle)); }
+                .zone-card.active .zone-icon { background: hsl(var(--primary)); color: white; border: none; }
+                .zone-info .title { font-weight: 700; font-size: 0.95rem; color: hsl(var(--text-main)); }
+                .zone-info .meta { font-size: 0.75rem; color: hsl(var(--text-muted)); margin-top: 0.2rem; }
                 .btn-delete { margin-left: auto; opacity: 0; color: #ef4444; transition: 0.2s; font-weight: 900; }
                 .zone-card:hover .btn-delete { opacity: 0.5; }
                 .btn-delete:hover { opacity: 1 !important; transform: scale(1.2); }
 
                 /* CONFIG AREA */
-                .glass-panel { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 32px; padding: 2.5rem; }
-                .panel-header h2 { margin: 0; font-size: 1.75rem; font-weight: 900; }
-                .panel-header p { color: rgba(255,255,255,0.4); margin-top: 0.4rem; margin-bottom: 2rem; }
+                .glass-panel { background: #ffffff; border: 1px solid hsl(var(--border-subtle)); border-radius: 32px; padding: 2.5rem; box-shadow: var(--shadow-card); }
+                .panel-header h2 { margin: 0; font-size: 1.75rem; font-weight: 900; color: hsl(var(--text-main)); }
+                .panel-header p { color: hsl(var(--text-muted)); margin-top: 0.4rem; margin-bottom: 2rem; }
 
                 .settings-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-                .setting-input label { display: block; font-size: 0.75rem; font-weight: 800; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-bottom: 0.5rem; }
-                .setting-input input { width: 100%; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.02); padding: 0.8rem 1rem; border-radius: 14px; color: white; font-weight: 600; outline: none; transition: 0.2s; }
-                .setting-input input:focus { border-color: hsl(var(--primary)); background: rgba(255,255,255,0.05); }
+                .setting-input label { display: block; font-size: 0.75rem; font-weight: 800; color: hsl(var(--text-muted)); text-transform: uppercase; margin-bottom: 0.5rem; }
+                .setting-input input { width: 100%; border: 1px solid hsl(var(--border-subtle)); background: #f1f5f9; padding: 0.8rem 1rem; border-radius: 14px; color: hsl(var(--text-main)); font-weight: 600; outline: none; transition: 0.2s; }
+                .setting-input input:focus { border-color: hsl(var(--primary)); background: white; }
                 .input-prefix { position: relative; }
                 .input-prefix svg { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: hsl(var(--primary)); opacity: 0.6; }
                 .input-prefix input { padding-left: 2.5rem; }
 
-                .type-toggle { display: flex; background: rgba(255,255,255,0.03); padding: 0.4rem; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 2.5rem; }
-                .type-toggle button { flex: 1; padding: 0.75rem; border-radius: 10px; font-weight: 800; font-size: 0.85rem; color: rgba(255,255,255,0.4); transition: 0.2s; }
+                .type-toggle { display: flex; background: #f1f5f9; padding: 0.4rem; border-radius: 14px; border: 1px solid hsl(var(--border-subtle)); margin-bottom: 2.5rem; }
+                .type-toggle button { flex: 1; padding: 0.75rem; border-radius: 10px; font-weight: 800; font-size: 0.85rem; color: hsl(var(--text-muted)); transition: 0.2s; }
                 .type-toggle button.active { background: hsl(var(--primary)); color: white; box-shadow: 0 4px 15px hsl(var(--primary) / 0.3); }
 
                 /* REGION MANAGER */
-                .region-manager { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 2rem; }
-                .regions-header h3 { margin: 0; font-size: 1.1rem; }
-                .regions-header p { font-size: 0.85rem; color: rgba(255,255,255,0.4); margin-top: 0.25rem; }
+                .region-manager { border-top: 1px solid hsl(var(--border-subtle)); padding-top: 2rem; }
+                .regions-header h3 { margin: 0; font-size: 1.1rem; color: hsl(var(--text-main)); }
+                .regions-header p { font-size: 0.85rem; color: hsl(var(--text-muted)); margin-top: 0.25rem; }
 
-                .tags-container { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.5rem 0 2rem; min-height: 44px; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 16px; border: 1px dashed rgba(255,255,255,0.1); }
+                .tags-container { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.5rem 0 2rem; min-height: 44px; padding: 1rem; background: #f1f5f9; border-radius: 16px; border: 1px dashed hsl(var(--border-subtle)); }
                 .region-tag { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); border: 1px solid hsl(var(--primary) / 0.2); padding: 0.4rem 0.8rem; border-radius: 99px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; }
                 .region-tag button { display: flex; opacity: 0.6; transition: 0.2s; color: inherit; }
                 .region-tag button:hover { opacity: 1; transform: scale(1.2); }
                 .empty-regions { font-style: italic; color: rgba(255,255,255,0.3); font-size: 0.85rem; }
 
-                .state-picker { background: rgba(255,255,255,0.03); border-radius: 20px; padding: 1.5rem; }
+                .state-picker { background: #f1f5f9; border-radius: 20px; padding: 1.5rem; border: 1px solid hsl(var(--border-subtle)); }
                 .picker-search { position: relative; margin-bottom: 1.5rem; }
-                .picker-search svg { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.3); }
-                .picker-search input { width: 100%; background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 0.75rem 1rem 0.75rem 3rem; color: white; outline: none; transition: 0.2s; }
-                .picker-search input:focus { border-color: rgba(255,255,255,0.3); }
+                .picker-search svg { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: hsl(var(--text-dim)); }
+                .picker-search input { width: 100%; background: white; border: 1px solid hsl(var(--border-subtle)); border-radius: 12px; padding: 0.75rem 1rem 0.75rem 3rem; color: hsl(var(--text-main)); outline: none; transition: 0.2s; }
+                .picker-search input:focus { border-color: hsl(var(--primary)); }
                 
                 .state-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.6rem; max-height: 240px; overflow-y: auto; padding-right: 0.5rem; }
                 .state-btn { 
-                    padding: 0.6rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.03); 
-                    font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.6); text-align: left; display: flex; align-items: center; justify-content: space-between; transition: 0.2s;
+                    padding: 0.6rem; border-radius: 10px; border: 1px solid hsl(var(--border-subtle)); background: white; 
+                    font-size: 0.8rem; font-weight: 600; color: hsl(var(--text-muted)); text-align: left; display: flex; align-items: center; justify-content: space-between; transition: 0.2s;
                 }
-                .state-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: white; }
-                .state-btn.assigned { background: hsl(var(--primary) / 0.1); border-color: hsl(var(--primary) / 0.4); color: hsl(var(--primary)); }
+                .state-btn:hover { background: #f1f5f9; border-color: hsl(var(--primary) / 0.3); color: hsl(var(--text-main)); }
+                .state-btn.assigned { background: hsl(var(--primary) / 0.05); border-color: hsl(var(--primary) / 0.3); color: hsl(var(--primary)); }
                 .state-btn.other { opacity: 0.4; }
 
-                .intl-placeholder { text-align: center; padding: 4rem 2rem; color: rgba(255,255,255,0.4); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-                .intl-placeholder h3 { color: white; margin: 0; }
+                .intl-placeholder { text-align: center; padding: 4rem 2rem; color: hsl(var(--text-dim)); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+                .intl-placeholder h3 { color: hsl(var(--text-main)); margin: 0; }
 
                 .premium-toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 2rem; border-radius: 16px; display: flex; align-items: center; gap: 1rem; font-weight: 800; z-index: 1000; animation: slideIn 0.3s ease-out; }
                 .premium-toast.success { background: #22c55e; color: white; box-shadow: 0 10px 30px rgba(34,197,94,0.3); }
                 .premium-toast.error { background: #ef4444; color: white; }
 
-                .empty-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: rgba(255,255,255,0.2); gap: 1rem; border: 2px dashed rgba(255,255,255,0.05); border-radius: 32px; }
+                .empty-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: hsl(var(--text-dim)); gap: 1rem; border: 2px dashed hsl(var(--border-subtle)); border-radius: 32px; background: #f1f5f9; }
 
                 .spin { animation: rotate 1s linear infinite; }
                 @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

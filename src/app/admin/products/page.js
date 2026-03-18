@@ -476,7 +476,9 @@ export default function ProductsPage() {
             product_group: formData.get('product_group') || null,
             description: formData.get('description'),
             type: productType,
-            is_active: true
+            is_active: true,
+            is_featured: formData.get('is_featured') === 'on',
+            product_group: formData.get('is_explore') === 'on' ? 'EXPLORE' : (formData.get('product_group') || null)
         };
 
         // For simple products, we take price/stock/image from main fields
@@ -863,7 +865,7 @@ export default function ProductsPage() {
                                     <div style={{ height: '300px' }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={analyticsData.topSellers}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border-subtle))" />
                                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
                                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
                                                 <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
@@ -898,9 +900,9 @@ export default function ProductsPage() {
                                 <div style={{ height: '300px' }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <BarChart data={analyticsData.categoryValue}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border-subtle))" />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--text-muted))' }} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'hsl(var(--text-muted))' }} />
                                             <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
                                             <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} barSize={24} />
                                         </BarChart>
@@ -919,8 +921,8 @@ export default function ProductsPage() {
                                 </div>
                             ) : (
                                 <table style={{ margin: 0 }}>
-                                    <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-                                        <tr>
+                                    <thead style={{ background: '#f1f5f9' }}>
+                                        <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                             <th>#</th>
                                             <th>Product</th>
                                             <th>Category</th>
@@ -962,7 +964,12 @@ export default function ProductsPage() {
                                                             )}
                                                         </div>
                                                         <div>
-                                                            <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{product.name}</div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{product.name}</div>
+                                                                {product.is_featured && (
+                                                                    <span style={{ fontSize: '0.65rem', background: 'hsl(var(--primary))', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>FEATURED</span>
+                                                                )}
+                                                            </div>
                                                             <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                                 {product.description || '—'}
                                                             </div>
@@ -1139,7 +1146,7 @@ export default function ProductsPage() {
             {/* ─── EDIT / ADD PRODUCT PAGE ─── */}
             {isEditing && (
                 <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
-                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: 'hsl(var(--bg-panel))' }}>
+                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: '#ffffff' }}>
                         <div style={{ marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{currentProduct ? '✏️ Edit Product' : '✨ Add New Product'}</h2>
@@ -1151,7 +1158,7 @@ export default function ProductsPage() {
                             {/* Product Type Toggle */}
                             <div style={{ marginBottom: '1.75rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Saree Type</label>
-                                <div style={{ display: 'flex', gap: '0.5rem', background: 'hsl(var(--bg-app))', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                     <button type="button" onClick={() => setProductType('simple')} style={{
                                         flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
                                         background: productType === 'simple' ? 'hsl(var(--primary))' : 'transparent',
@@ -1232,7 +1239,7 @@ export default function ProductsPage() {
                                                     onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }}
                                                     style={{
                                                         flex: 1, height: '44px', borderRadius: '8px', cursor: 'pointer',
-                                                        background: 'hsl(var(--bg-app))', border: '1px dashed hsl(var(--primary) / 0.5)',
+                                                        background: '#f1f5f9', border: '1px dashed hsl(var(--primary) / 0.5)',
                                                         color: 'hsl(var(--primary))', fontSize: '0.82rem', fontWeight: 600,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                                                     }}
@@ -1244,7 +1251,7 @@ export default function ProductsPage() {
                                                 <label
                                                     style={{
                                                         flex: 1, height: '44px', borderRadius: '8px', cursor: 'pointer',
-                                                        background: 'hsl(var(--bg-app))', border: '1px dashed hsl(var(--border-subtle))',
+                                                        background: '#f1f5f9', border: '1px dashed hsl(var(--border-subtle))',
                                                         color: 'hsl(var(--text-muted))', fontSize: '0.82rem', fontWeight: 600,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                                                     }}
@@ -1290,7 +1297,7 @@ export default function ProductsPage() {
                                         <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</div>
                                         Manage Variants (Multiple Colors/Options)
                                     </h3>
-                                    <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
+                                    <div style={{ padding: '1.25rem', background: '#f1f5f9', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                             <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Create different versions of this saree:</span>
                                             <button type="button" onClick={addVariant} className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary) / 0.2)' }}>
@@ -1328,7 +1335,7 @@ export default function ProductsPage() {
                                                                 onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }}
                                                                 style={{
                                                                     flex: 1, height: '32px', borderRadius: '6px', cursor: 'pointer',
-                                                                    background: 'hsl(var(--bg-app))', border: '1px dashed hsl(var(--primary) / 0.5)',
+                                                                    background: '#f1f5f9', border: '1px dashed hsl(var(--primary) / 0.5)',
                                                                     color: 'hsl(var(--primary))', fontSize: '0.7rem', fontWeight: 600,
                                                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
                                                                 }}
@@ -1337,7 +1344,7 @@ export default function ProductsPage() {
                                                             </button>
                                                             <label style={{
                                                                 flex: 1, height: '32px', borderRadius: '6px', cursor: 'pointer',
-                                                                background: 'hsl(var(--bg-app))', border: '1px dashed hsl(var(--border-subtle))',
+                                                                background: '#f1f5f9', border: '1px dashed hsl(var(--border-subtle))',
                                                                 color: 'hsl(var(--text-muted))', fontSize: '0.7rem', fontWeight: 600,
                                                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
                                                             }}>
@@ -1395,8 +1402,19 @@ export default function ProductsPage() {
                                 <input name="product_group" defaultValue={currentProduct?.product_group || ''} placeholder="e.g. Festive2026, NewArrivals, BridalSeason" className="admin-input" />
                             </div>
 
+                            <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '12px', padding: '1rem', background: '#f1f5f9', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <input id="is_featured" name="is_featured" type="checkbox" defaultChecked={currentProduct?.is_featured} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                                    <label htmlFor="is_featured" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>✨ Feature on Home Page (Best Sellers)</label>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>
+                                    <input id="is_explore" name="is_explore" type="checkbox" defaultChecked={currentProduct?.product_group === 'EXPLORE'} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                                    <label htmlFor="is_explore" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>🚀 Explore Our Products Slider</label>
+                                </div>
+                            </div>
+
                             {/* Facebook Integration */}
-                            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                            <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f1f5f9', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
@@ -1440,8 +1458,8 @@ export default function ProductsPage() {
 
             {showHistory && selectedProductForHistory && (
                 <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
-                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: 'hsl(var(--bg-panel))' }}>
-                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
+                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', padding: 0, border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: '#ffffff' }}>
+                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff' }}>
                             <div>
                                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>📊 Stock History</h2>
                                 <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: '4px 0 0' }}>{selectedProductForHistory.name}</p>
@@ -1451,11 +1469,11 @@ export default function ProductsPage() {
 
                         <div style={{ padding: '2rem', flex: 1, overflowY: 'auto' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2.5rem' }}>
-                                <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', textAlign: 'center' }}>
+                                <div style={{ padding: '1.25rem', background: '#f1f5f9', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>{selectedProductForHistory.total_added || selectedProductForHistory.stock}</div>
                                     <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Processed</div>
                                 </div>
-                                <div style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', textAlign: 'center' }}>
+                                <div style={{ padding: '1.25rem', background: '#f1f5f9', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'hsl(var(--success))' }}>{selectedProductForHistory.total_sold || 0}</div>
                                     <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Sold</div>
                                 </div>
@@ -1466,13 +1484,13 @@ export default function ProductsPage() {
                             {historyLoading ? (
                                 <div style={{ textAlign: 'center', padding: '2rem' }}><Loader2 className="animate-spin" size={24} /></div>
                             ) : historyData.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '3rem', color: 'hsl(var(--text-muted))', background: 'hsl(var(--bg-app))', borderRadius: '12px', border: '1px dashed hsl(var(--border-subtle))' }}>
+                                <div style={{ textAlign: 'center', padding: '3rem', color: 'hsl(var(--text-muted))', background: '#f1f5f9', borderRadius: '12px', border: '1px dashed hsl(var(--border-subtle))' }}>
                                     No history records found for this product.
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     {historyData.map((h, i) => (
-                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: '14px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#f1f5f9', borderRadius: '14px', border: '1px solid hsl(var(--border-subtle))' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                                 <div style={{
                                                     width: '36px', height: '36px', borderRadius: '10px',
@@ -1503,7 +1521,7 @@ export default function ProductsPage() {
             {/* ─── IMPORT EXCEL PAGE ─── */}
             {importModal && (
                 <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
-                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '600px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--primary) / 0.3)', textAlign: 'center', borderRadius: '16px', background: 'hsl(var(--bg-panel))' }}>
+                    <div className="card shadow-premium" style={{ width: '100%', maxWidth: '600px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--border-subtle))', textAlign: 'center', borderRadius: '16px', background: 'hsl(var(--bg-card))' }}>
                         <div style={{ marginBottom: '1.5rem' }}>
                             <div style={{ width: '60px', height: '60px', borderRadius: '20px', background: 'hsl(var(--primary) / 0.1)', display: 'grid', placeItems: 'center', margin: '0 auto 1rem', color: 'hsl(var(--primary))' }}>
                                 <Upload size={30} />
@@ -1512,7 +1530,7 @@ export default function ProductsPage() {
                             <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>Upload your inventory spreadsheet to add sarees in bulk.</p>
                         </div>
 
-                        <div style={{ background: 'hsl(var(--bg-app))', borderRadius: '15px', padding: '1.25rem', marginBottom: '1.5rem', border: '1px solid hsl(var(--border-subtle))', textAlign: 'left' }}>
+                        <div style={{ background: '#f1f5f9', borderRadius: '15px', padding: '1.25rem', marginBottom: '1.5rem', border: '1px solid hsl(var(--border-subtle))', textAlign: 'left' }}>
                             <h4 style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', marginBottom: '0.75rem' }}>Optional Settings</h4>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
                                 <div>

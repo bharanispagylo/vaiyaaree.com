@@ -48,13 +48,9 @@ export default function AdminSidebar({ isOpen }) {
                     💮
                 </div>
                 <div>
-                    <h1 style={{
-                        fontSize: '1.1rem', fontWeight: 800, margin: 0,
-                        fontFamily: 'var(--font-heading)', letterSpacing: '0.02em',
-                        color: '#ffffff'
-                    }}>Caste Print</h1>
+                    <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#fff', letterSpacing: '0.05em' }}>CAST PRINT</h2>
                     <p style={{
-                        fontSize: '0.6rem', color: 'rgba(255, 255, 255, 0.6)', margin: 0,
+                        fontSize: '0.6rem', color: 'rgba(255, 255, 255, 0.8)', margin: 0,
                         textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800
                     }}>Executive Dashboard</p>
                 </div>
@@ -74,7 +70,7 @@ export default function AdminSidebar({ isOpen }) {
                 </div>
                 <div>
                     <span style={{ color: 'white', fontWeight: 700, fontSize: '0.75rem', display: 'block' }}>WhatsApp Active</span>
-                    <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem', display: 'block' }}>Bot is online</span>
+                    <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.65rem', display: 'block' }}>Bot is online</span>
                 </div>
             </div>
 

@@ -82,7 +82,7 @@ export default function BroadcastPage() {
         switch (tier) {
             case 'VIP': return { bg: 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))', color: '#3f2203', label: '💎 VIP' };
             case 'Gold': return { bg: 'hsl(48 96% 89%)', color: 'hsl(38 92% 50%)', label: '🥇 Gold' };
-            case 'Silver': return { bg: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', label: '🥈 Silver' };
+            case 'Silver': return { bg: '#f1f5f9', color: 'hsl(var(--text-muted))', label: '🥈 Silver' };
             default: return { bg: 'transparent', color: 'hsl(var(--text-muted))', label: 'Regular' };
         }
     };
@@ -221,14 +221,14 @@ export default function BroadcastPage() {
 
     const inputStyle = {
         width: '100%', padding: '0.65rem 0.9rem', borderRadius: 'var(--radius-sm)',
-        background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))',
+        background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))',
         color: 'hsl(var(--text-main))', fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
     };
 
     const pillStyle = (active) => ({
         padding: '0.3rem 0.8rem', borderRadius: '9999px', fontSize: '0.72rem', fontWeight: 600,
         cursor: 'pointer', transition: 'all 0.2s', border: 'none',
-        background: active ? 'hsl(var(--primary))' : 'hsl(var(--bg-panel))',
+        background: active ? 'hsl(var(--primary))' : '#ffffff',
         color: active ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
         outline: active ? 'none' : '1px solid hsl(var(--border-subtle))',
     });
@@ -294,7 +294,7 @@ export default function BroadcastPage() {
                             onClick={() => setProductSectionOpen(!productSectionOpen)}
                             style={{
                                 padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', background: 'hsl(var(--bg-panel))', borderBottom: productSectionOpen ? '1px solid hsl(var(--border-subtle))' : 'none'
+                                cursor: 'pointer', background: '#f1f5f9', borderBottom: productSectionOpen ? '1px solid hsl(var(--border-subtle))' : 'none'
                             }}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -397,7 +397,7 @@ export default function BroadcastPage() {
                             onClick={() => setCustomerSectionOpen(!customerSectionOpen)}
                             style={{
                                 padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', background: 'hsl(var(--bg-panel))', borderBottom: customerSectionOpen ? '1px solid hsl(var(--border-subtle))' : 'none'
+                                cursor: 'pointer', background: '#f1f5f9', borderBottom: customerSectionOpen ? '1px solid hsl(var(--border-subtle))' : 'none'
                             }}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -513,7 +513,7 @@ export default function BroadcastPage() {
                             value={message} onChange={(e) => setMessage(e.target.value)}
                             placeholder="e.g. Don't miss out on this year's most beautiful silk saree! Only a few left in stock."
                             style={{
-                                width: '100%', padding: '1rem', borderRadius: '10px', background: 'hsl(var(--bg-app))',
+                                width: '100%', padding: '1rem', borderRadius: '10px', background: '#f1f5f9',
                                 border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.9rem',
                                 minHeight: '90px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box'
                             }}
@@ -530,11 +530,11 @@ export default function BroadcastPage() {
                         <div style={{ marginBottom: '1.25rem' }}>
                             <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Products ({selectedProducts.size})</div>
                             {selectedProductsList.length === 0 ? (
-                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted) / 0.6)', padding: '0.5rem', background: 'hsl(var(--bg-app))', borderRadius: '8px', textAlign: 'center' }}>No products selected (text-only broadcast)</div>
+                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted) / 0.6)', padding: '0.5rem', background: '#f1f5f9', borderRadius: '8px', textAlign: 'center' }}>No products selected (text-only broadcast)</div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
                                     {selectedProductsList.map(p => (
-                                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem', background: 'hsl(var(--bg-app))', borderRadius: '8px', fontSize: '0.78rem' }}>
+                                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem', background: '#f1f5f9', borderRadius: '8px', fontSize: '0.78rem' }}>
                                             <img src={p.image_url} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }}
                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=50&q=60'; }} />
                                             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{p.name}</span>
@@ -549,11 +549,11 @@ export default function BroadcastPage() {
                         <div style={{ marginBottom: '1.25rem' }}>
                             <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Customers ({selectedCustomers.size})</div>
                             {selectedCustomersList.length === 0 ? (
-                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted) / 0.6)', padding: '0.5rem', background: 'hsl(var(--bg-app))', borderRadius: '8px', textAlign: 'center' }}>No customers selected</div>
+                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted) / 0.6)', padding: '0.5rem', background: '#f1f5f9', borderRadius: '8px', textAlign: 'center' }}>No customers selected</div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: '180px', overflowY: 'auto' }}>
                                     {selectedCustomersList.slice(0, 10).map(c => (
-                                        <div key={c.phone} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.5rem', background: 'hsl(var(--bg-app))', borderRadius: '8px', fontSize: '0.75rem' }}>
+                                        <div key={c.phone} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.5rem', background: '#f1f5f9', borderRadius: '8px', fontSize: '0.75rem' }}>
                                             <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.6rem', fontWeight: 700, flexShrink: 0 }}>
                                                 {c.name.charAt(0).toUpperCase()}
                                             </div>
@@ -609,7 +609,7 @@ export default function BroadcastPage() {
                                 {stats.failed > 0 && (
                                     <div style={{ color: 'hsl(var(--danger))', fontSize: '0.8rem', marginTop: '0.5rem' }}>{stats.failed} failed</div>
                                 )}
-                                <div style={{ width: '100%', height: '6px', background: 'hsl(var(--bg-app))', borderRadius: '3px', marginTop: '0.75rem', overflow: 'hidden' }}>
+                                <div style={{ width: '100%', height: '6px', background: '#ffffff', borderRadius: '3px', marginTop: '0.75rem', overflow: 'hidden' }}>
                                     <div style={{ width: `${(stats.sent / stats.total) * 100}%`, height: '100%', background: 'hsl(var(--primary))', transition: 'width 0.3s' }} />
                                 </div>
                             </div>

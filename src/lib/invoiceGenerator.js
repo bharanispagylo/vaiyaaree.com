@@ -6,7 +6,7 @@ export async function generateInvoicePDF(order) {
 
     // Fetch branding from settings
     let branding = {
-        companyName: 'Caste Print',
+        shop_name: 'Cast Print',
         shop_address: "Premium Handwoven Textiles",
         shop_gstin: "",
         bill_footer: "Thank you for your business!"
@@ -16,7 +16,10 @@ export async function generateInvoicePDF(order) {
         const { data } = await supabase.from('app_settings').select('*');
         if (data) {
             data.forEach(item => {
-                if (branding.hasOwnProperty(item.key)) {
+                // Support both shop_name and companyName keys if they exist in DB
+                if (item.key === 'shop_name' || item.key === 'companyName') {
+                    branding.shop_name = item.value;
+                } else if (branding.hasOwnProperty(item.key)) {
                     branding[item.key] = item.value;
                 }
             });
@@ -28,11 +31,11 @@ export async function generateInvoicePDF(order) {
     // Header
     doc.setFontSize(22);
     doc.setTextColor(30, 30, 30);
-    doc.text(branding.shop_name, 105, 20, { align: "center" });
+    doc.text(branding.shop_name || "Cast Print", 105, 20, { align: "center" });
 
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    const addressLinesHeader = doc.splitTextToSize(branding.shop_address, 150);
+    const addressLinesHeader = doc.splitTextToSize(branding.shop_address || "", 150);
     doc.text(addressLinesHeader, 105, 28, { align: "center" });
 
     if (branding.shop_gstin) {

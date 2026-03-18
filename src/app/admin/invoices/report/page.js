@@ -186,7 +186,7 @@ export default function InvoiceReportPage() {
                         onClick={handleDownloadAuditPDF}
                         disabled={filteredOrders.length === 0 || loading}
                         className="btn btn-secondary"
-                        style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, background: 'hsl(var(--bg-panel))', color: 'white' }}
+                        style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, background: '#f1f5f9', color: 'hsl(var(--text-main))' }}
                     >
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />} Audit PDF
                     </button>
@@ -194,7 +194,7 @@ export default function InvoiceReportPage() {
                         onClick={downloadReport}
                         disabled={filteredOrders.length === 0 || loading}
                         className="btn btn-primary"
-                        style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700 }}
+                        style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, background: 'hsl(var(--primary))', color: 'white' }}
                     >
                         <Download size={18} /> Excel Report
                     </button>
@@ -342,15 +342,15 @@ export default function InvoiceReportPage() {
 
             {/* Results Table */}
             <div className="card shadow-premium" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase' }}>
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: '#f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#475569', textTransform: 'uppercase' }}>
                         Showing {filteredOrders.length} Results
                     </div>
                     {loading && <RefreshCw size={16} className="animate-spin" style={{ color: 'hsl(var(--primary))' }} />}
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                        <thead style={{ background: 'hsl(var(--bg-app))' }}>
+                        <thead style={{ background: o.status === 'DELIVERED' || o.status === 'PAID' ? 'hsl(var(--primary))' : '#f1f5f9' }}>
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Invoice</th>
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Date</th>

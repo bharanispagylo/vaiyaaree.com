@@ -26,7 +26,7 @@
 
 .emptyIcon {
     margin-bottom: 2rem;
-    color: hsl(var(--text-dim) / 0.2);
+    color: hsl(var(--text-muted) / 0.5);
 }
 
 .emptyState h3 {
@@ -71,7 +71,7 @@
     grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr 34px;
     padding: 1.5rem 0;
     border-bottom: 1px solid hsl(var(--text-main) / 0.1);
-    color: hsl(var(--text-muted));
+    color: hsl(var(--text-main));
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -105,7 +105,7 @@
 .removeBtn {
     background: hsl(var(--text-main) / 0.05);
     border: 1px solid hsl(var(--text-main) / 0.08);
-    color: hsl(var(--text-dim));
+    color: hsl(var(--text-muted));
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -132,8 +132,8 @@
 
 .variantName {
     font-size: 0.75rem;
-    color: hsl(var(--text-muted));
-    font-weight: 400;
+    color: hsl(var(--text-main));
+    font-weight: 500;
 }
 
 .priceCell,
@@ -221,7 +221,8 @@
     display: flex;
     justify-content: space-between;
     margin-bottom: 1.25rem;
-    color: hsl(var(--text-muted));
+    color: hsl(var(--text-main));
+    font-weight: 500;
 }
 
 .summaryTotal {

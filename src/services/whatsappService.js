@@ -1,6 +1,4 @@
-// ════════════════════════════════════════════════════════════════════════════════
-//  Caste Print — WHATSAPP BUSINESS BOT (Premium Edition)
-// ════════════════════════════════════════════════════════════════════════════════
+//  Cast Print — WHATSAPP BUSINESS BOT (Premium Edition)
 
 import { createClient } from '@supabase/supabase-js';
 import { jsPDF } from "jspdf";
@@ -174,7 +172,7 @@ export async function sendButtons(to, bodyText, buttons) {
     });
 }
 
-export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Caste Print • Premium Collection") {
+export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Cast Print • Premium Collection") {
     const finalSections = Array.isArray(sections) && sections[0].rows ? sections : [{ title: "Options", rows: sections }];
     
     // Truncate sections for WhatsApp limits
@@ -318,7 +316,7 @@ async function generateAndUploadInvoice(order) {
         const doc = new jsPDF();
 
         // Header
-        doc.setFontSize(22); doc.text("Caste Print", 105, 20, { align: "center" });
+        doc.setFontSize(22);        doc.text("Cast Print", 105, 20, { align: "center" });
         doc.setFontSize(10); doc.text(`Order ID: #${order.id}`, 15, 35);
         doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 40);
 
@@ -495,7 +493,7 @@ export async function handleProductInquiry(to, catalogId) {
 
 export async function sendMainMenu(to) {
     const welcomeMsg = await getConfig('wa_welcome_message',
-        "💮 *Welcome to Aiswarya Saree!*\n\nDiscover our premium collection of silk & cotton sarees."
+        "💮 *Welcome to Cast Print!*\n\nDiscover our premium collection of silk & cotton sarees."
     );
     const welcomeImg = await getConfig('wa_welcome_image',
         "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=85"
@@ -1010,7 +1008,7 @@ export async function notifyOrderSuccess(orderId) {
             .join('\n');
 
         const message =
-            `✅ *Order Confirmed — Aiswarya Saree* 🎉\n\n` +
+            `✅ *Order Confirmed — Cast Print* 🎉\n\n` +
             `Hi ${order.customer_name || 'Customer'}! Your order has been placed successfully.\n\n` +
             `📦 *Order ID:* #${orderId}\n` +
             `💰 *Grand Total:* ₹${total}\n` +
@@ -1026,7 +1024,7 @@ export async function notifyOrderSuccess(orderId) {
             await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
         }
 
-        await sendButtons(to, "💗 Thank you for shopping with *Aiswarya Saree*!\n\nTap below to manage your orders.", [
+        await sendButtons(to, "💗 Thank you for shopping with *Cast Print*!\n\nTap below to manage your orders.", [
             { id: "menu_track", title: "Track Order" },
             { id: "menu_my_orders", title: "My Orders" }
         ]);
@@ -1092,7 +1090,7 @@ export async function handlePaymentConfirmed(to, orderId) {
         await sendText(to, `⚠️ Invoice generation failed. Please contact us with Order ID: *#${orderId}*`);
     }
 
-    await sendButtons(to, "💗 Thank you for shopping with *Aiswarya Saree*!\n\nTap below to manage your orders.", [
+    await sendButtons(to, "💗 Thank you for shopping with *Cast Print*!\n\nTap below to manage your orders.", [
         { id: "menu_track", title: "Track Order" },
         { id: "menu_my_orders", title: "My Orders" }
     ]);

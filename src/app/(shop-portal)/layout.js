@@ -1,4 +1,5 @@
 import ShopHeader from '@/components/ShopHeader';
+import ShopFooter from '@/components/ShopFooter';
 import PortalWrapper from '@/components/PortalWrapper';
 import styles from './portal.module.css';
 
@@ -17,6 +18,7 @@ export default function ShopPortalLayout({ children }) {
                     {children}
                 </main>
             </PortalWrapper>
+            <ShopFooter />
         </div>
     );
 }

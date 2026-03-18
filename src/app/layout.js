@@ -2,9 +2,11 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata = {
-  title: "Caste Print — Business Portal",
-  description: "WhatsApp Business Management Portal for Caste Print. Manage products, orders, customers, and invoices.",
+    title: "Cast Print | Premium Saree Collection",
+    description: "Discover the finest selection of premium sarees at Cast Print. Hand-block prints, traditional weaves, and modern elegance.",
 };
+
+import WhatsAppWidget from '@/components/WhatsAppWidget';
 
 export default function RootLayout({ children }) {
   return (
@@ -12,6 +14,7 @@ export default function RootLayout({ children }) {
       <body>
         <Providers>
           {children}
+          <WhatsAppWidget />
         </Providers>
       </body>
     </html>

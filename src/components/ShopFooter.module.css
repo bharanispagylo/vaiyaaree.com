@@ -1,0 +1,156 @@
+.footer {
+    background: #000000;
+    color: #ffffff;
+    padding: 80px 0 0;
+    position: relative;
+    font-family: 'Inter', sans-serif;
+}
+
+.footerInner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr;
+    gap: 4rem;
+    padding: 0 1.5rem 80px;
+}
+
+.footerColumn {
+    display: flex;
+    flex-direction: column;
+}
+
+.footerLogo {
+    background: #5d0821;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1.25rem;
+    width: fit-content;
+    margin-bottom: 2.5rem;
+}
+
+.logoImg {
+    height: 32px;
+    width: auto;
+}
+
+.logoBrandName {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.75rem;
+    font-weight: 400;
+    color: #ffffff;
+    letter-spacing: 0.1em;
+    line-height: 1;
+}
+
+.contactInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.infoItem {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.infoIcon {
+    color: #5d0821;
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+.infoItem p {
+    color: #999;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.columnHeader {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    letter-spacing: 0.05em;
+    color: #ffffff;
+}
+
+.footerNav, .socialNav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.footerNav a, .socialNav a {
+    color: #999;
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: color 0.3s ease;
+}
+
+.footerNav a:hover, .socialNav a:hover {
+    color: #5d0821;
+}
+
+.socialLink {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.copyrightBar {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 30px 1.5rem;
+    text-align: center;
+}
+
+.copyrightBar p {
+    color: #5d0821;
+    font-size: 0.85rem;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.scrollToTop {
+    position: absolute;
+    bottom: 0;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background: #1a1a1a;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chevronUp {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 8px solid #fff;
+}
+
+@media (max-width: 1024px) {
+    .footerInner {
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .footerInner {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+        padding-bottom: 40px;
+    }
+    
+    .footer {
+        padding-top: 40px;
+    }
+}

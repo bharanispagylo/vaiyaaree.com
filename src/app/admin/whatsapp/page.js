@@ -106,16 +106,16 @@ export default function WhatsAppSettingsPage() {
 
                 {settings.filter(s => s.key.startsWith('wa_')).map(setting => (
                     <div key={setting.key} className="card shadow-premium" style={{
-                        padding: '2rem', background: 'hsl(var(--bg-panel))',
-                        borderRadius: '20px', border: '1px solid hsl(var(--border-subtle))',
+                        padding: '2rem', background: '#ffffff',
+                        borderRadius: '20px', border: '1px solid #e5e7eb',
                         transition: 'all 0.3s ease'
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
                             <div>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.7rem', color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                    <ChevronRight size={14} /> {setting.key.replace('wa_', '').replace(/_/g, ' ')}
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.75rem', color: '#111', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                    <ChevronRight size={14} color="hsl(var(--primary))" /> {setting.key.replace('wa_', '').replace(/_/g, ' ')}
                                 </label>
-                                <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '0.4rem', lineHeight: 1.5 }}>
+                                <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.4rem', lineHeight: 1.5 }}>
                                     {setting.description}
                                 </p>
                             </div>
@@ -124,12 +124,12 @@ export default function WhatsAppSettingsPage() {
                         {setting.key.includes('image') ? (
                             <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
                                 {setting.value && (
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '16px', overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))', background: 'white', flexShrink: 0 }}>
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e5e7eb', background: '#f9fafb', flexShrink: 0 }}>
                                         <img src={setting.value} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     </div>
                                 )}
                                 <div style={{ flex: 1, position: 'relative' }}>
-                                    <ImageIcon size={16} style={{ position: 'absolute', right: '1rem', top: '1rem', color: 'hsl(var(--text-muted))' }} />
+                                    <ImageIcon size={16} style={{ position: 'absolute', right: '1rem', top: '1rem', color: '#9ca3af' }} />
                                     <input
                                         type="text"
                                         value={setting.value}
@@ -137,8 +137,8 @@ export default function WhatsAppSettingsPage() {
                                         placeholder="https://..."
                                         style={{
                                             width: '100%', padding: '1rem 3rem 1rem 1rem', borderRadius: '12px',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            background: 'rgba(255, 255, 255, 0.05)', color: '#ffffff', outline: 'none'
+                                            border: '1px solid #d1d5db',
+                                            background: '#ffffff', color: '#111111', outline: 'none'
                                         }}
                                     />
                                 </div>
@@ -150,11 +150,11 @@ export default function WhatsAppSettingsPage() {
                                 rows={Math.max(3, setting.value.split('\n').length)}
                                 style={{
                                     width: '100%', padding: '1.25rem', borderRadius: '16px',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    background: 'rgba(255, 255, 255, 0.05)', color: '#ffffff',
+                                    border: '1px solid #d1d5db',
+                                    background: '#ffffff', color: '#111111',
                                     fontFamily: 'inherit', fontSize: '0.95rem', lineHeight: 1.6,
                                     outline: 'none', resize: 'vertical',
-                                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
                                 }}
                             />
                         )}
@@ -164,7 +164,7 @@ export default function WhatsAppSettingsPage() {
 
             <style jsx>{`
                 @keyframes slideIn { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-                .card:hover { border-color: hsl(var(--primary) / 0.3) !important; transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.2) !important; }
+                .card:hover { border-color: hsl(var(--primary)) !important; transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.08) !important; }
             `}</style>
         </div>
     );

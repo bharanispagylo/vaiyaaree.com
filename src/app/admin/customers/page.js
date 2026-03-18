@@ -538,7 +538,7 @@ function CustomersPage() {
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>WHATSAPP PHONE</label>
                                             <div style={{ fontSize: '1rem', color: 'hsl(var(--text-muted))', padding: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 {selectedCustomer.phone}
-                                                <span style={{ fontSize: '0.65rem', background: 'hsl(var(--bg-panel))', padding: '2px 6px', borderRadius: '4px' }}>NOT EDITABLE</span>
+                                                <span style={{ fontSize: '0.65rem', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', padding: '4px 8px', borderRadius: '4px', fontWeight: 700, border: '1px solid hsl(var(--primary) / 0.2)' }}>NOT EDITABLE</span>
                                             </div>
                                         </div>
 
@@ -790,7 +790,7 @@ function CustomersPage() {
                                         <div style={{ height: '300px' }}>
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <BarChart data={analyticsData.growthData}>
-                                                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                                    <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border-subtle))" />
                                                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
                                                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
                                                     <Tooltip
@@ -870,15 +870,15 @@ function CustomersPage() {
                                         </div>
 
                                         <table style={{ margin: 0 }}>
-                                            <thead style={{ background: 'hsl(var(--bg-panel))' }}>
+                                            <thead style={{ background: 'hsl(var(--bg-panel) / 0.8)', position: 'sticky', top: 0, zIndex: 10 }}>
                                                 <tr>
-                                                    <th>Customer</th>
-                                                    <th>Phone</th>
-                                                    <th style={{ textAlign: 'center' }}>Orders</th>
-                                                    <th style={{ textAlign: 'right' }}>Total Spent</th>
-                                                    <th style={{ textAlign: 'center' }}>Tier</th>
-                                                    <th style={{ textAlign: 'left' }}>Last Order</th>
-                                                    <th style={{ textAlign: 'right' }}>Actions</th>
+                                                    <th style={{ color: 'white' }}>Customer</th>
+                                                    <th style={{ color: 'white' }}>Phone</th>
+                                                    <th style={{ textAlign: 'center', color: 'white' }}>Orders</th>
+                                                    <th style={{ textAlign: 'right', color: 'white' }}>Total Spent</th>
+                                                    <th style={{ textAlign: 'center', color: 'white' }}>Tier</th>
+                                                    <th style={{ textAlign: 'left', color: 'white' }}>Last Order</th>
+                                                    <th style={{ textAlign: 'right', color: 'white' }}>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>

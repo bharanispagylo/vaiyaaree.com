@@ -9,42 +9,29 @@ import styles from './ShopHeader.module.css';
 
 export default function ShopHeader() {
     const pathname = usePathname();
-    const { user, cartCount, handleLogout, showToast } = useShop();
+    const { user, cartCount, handleLogout } = useShop();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [showProfileMenu, setShowProfileMenu] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef(null);
 
     // Auto-close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (profileRef.current && !profileRef.current.contains(event.target)) {
-                setShowProfileMenu(false);
+                setIsProfileOpen(false);
             }
         };
 
-        if (showProfileMenu) {
+        if (isProfileOpen) {
             document.addEventListener('mousedown', handleClickOutside);
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [showProfileMenu]);
+    }, [isProfileOpen]);
 
     const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
-
-    const getPageTitle = () => {
-        if (pathname === '/shop') return 'Shop';
-        if (pathname === '/cart') return 'My Cart';
-        if (pathname === '/checkout') return 'Checkout';
-        if (pathname === '/profile') return 'My Profile';
-        if (pathname === '/my-orders') return 'My Orders';
-        if (pathname === '/track-order') return 'Track Order';
-        if (pathname.startsWith('/product/')) return 'Product Details';
-        return '';
-    };
-
-    const title = getPageTitle();
 
     return (
         <>
@@ -54,59 +41,59 @@ export default function ShopHeader() {
                         <button className={styles.hamburgerBtn} onClick={toggleMobileMenu}>
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
-                        <Link href="/" className={styles.logo}>
-                            <div className={styles.logoIcon}>💮</div>
-                            <span className={styles.logoName}>Caste Print</span>
+                        <Link href="/" className={styles.logoMaroonBox}>
+                            <span className={styles.logoBrandName}>CAST PRINT</span>
                         </Link>
                     </div>
 
-                    <div className={styles.headerRight}>
+                    <div className={styles.rightSection}>
                         <nav className={`${styles.navbar} ${isMobileMenuOpen ? styles.navbarOpen : ''}`}>
+                            <Link href="/page/home" className={`${styles.navLink} ${pathname === '/page/home' || pathname === '/' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
                             <Link href="/shop" className={`${styles.navLink} ${pathname === '/shop' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Shop</Link>
-                            <Link href="/track-order" className={`${styles.navLink} ${pathname === '/track-order' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Track Order</Link>
-                            <Link href="/my-orders" className={`${styles.navLink} ${pathname === '/my-orders' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>My Orders</Link>
-                            <Link href="/profile" className={`${styles.navLink} ${pathname === '/profile' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Account</Link>
+                            <Link href="/page/about-us" className={`${styles.navLink} ${pathname === '/page/about-us' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>About Us</Link>
+                            <Link href="/page/contact" className={`${styles.navLink} ${pathname === '/page/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact Us</Link>
                         </nav>
 
                         <div className={styles.headerActions}>
+                            <div className={styles.searchContainer}>
+                                <button className={styles.actionIconBtn}>
+                                    <Search size={22} strokeWidth={1.5} />
+                                </button>
+                            </div>
+                            
                             <Link href="/cart" className={styles.cartIconBtn}>
                                 <div className={styles.cartIconWrapper}>
-                                    <ShoppingCart size={22} />
+                                    <ShoppingCart size={22} strokeWidth={1.5} />
                                     {cartCount > 0 && <span className={styles.cartCountBadge}>{cartCount}</span>}
                                 </div>
                             </Link>
-                            {user ? (
-                                <div className={styles.profileContainer} ref={profileRef}>
-                                    <div
-                                        className={styles.profileAvatar}
-                                        onClick={() => setShowProfileMenu(!showProfileMenu)}
-                                        title={user.name}
-                                    >
-                                        {(user.name?.[0] || 'U').toUpperCase()}
-                                    </div>
-                                    {showProfileMenu && (
-                                        <div className={styles.profileDropdown}>
-                                            <div className={styles.dropdownHeader}>
-                                                <div className={styles.dropdownName}>{user.name}</div>
-                                                <div className={styles.dropdownPhone}>{user.phone}</div>
-                                            </div>
-                                            <div className={styles.divider} />
-                                            <Link href="/profile" className={styles.dropdownItem} onClick={() => setShowProfileMenu(false)}>
-                                                <User size={16} /> Edit Profile
-                                            </Link>
-                                            <Link href="/my-orders" className={styles.dropdownItem} onClick={() => setShowProfileMenu(false)}>
-                                                <Package size={16} /> My Orders
-                                            </Link>
-                                            <div className={styles.divider} />
-                                            <div className={`${styles.dropdownItem} ${styles.logout}`} onClick={() => { handleLogout(); setShowProfileMenu(false); }}>
-                                                <LogOut size={16} /> Logout
-                                            </div>
+
+                            <div className={styles.profileContainer} ref={profileRef}>
+                                {user ? (
+                                    <>
+                                        <div className={styles.profileAvatar} onClick={() => setIsProfileOpen(!isProfileOpen)}>
+                                            {user.full_name ? user.full_name.charAt(0).toUpperCase() : <User size={18} />}
                                         </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <Link href="/login" className={styles.loginBtn}>Login</Link>
-                            )}
+                                        {isProfileOpen && (
+                                            <div className={styles.profileDropdown}>
+                                                <div className={styles.dropdownHeader}>
+                                                    <p className={styles.dropdownName}>{user.full_name || 'Customer'}</p>
+                                                    <p className={styles.dropdownPhone}>{user.phone}</p>
+                                                </div>
+                                                <div className={styles.divider}></div>
+                                                <Link href="/my-orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>
+                                                <Link href="/account" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account Settings</Link>
+                                                <div className={styles.divider}></div>
+                                                <div className={`${styles.dropdownItem} ${styles.logout}`} onClick={handleLogout}>Logout</div>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <Link href="/login" className={styles.loginLink}>
+                                        <User size={22} strokeWidth={1.5} />
+                                    </Link>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

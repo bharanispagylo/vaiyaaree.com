@@ -246,8 +246,8 @@ export default function AdminDashboard() {
                     </div>
 
                     <table style={{ margin: 0 }}>
-                        <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-                            <tr>
+                        <thead style={{ background: '#f1f5f9' }}>
+                            <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 <th style={{ paddingLeft: '2rem' }}>Order</th>
                                 <th>Customer</th>
                                 <th style={{ textAlign: 'right' }}>Amount</th>
@@ -303,7 +303,7 @@ export default function AdminDashboard() {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                             <div style={{
                                                 width: '48px', height: '48px', borderRadius: 'var(--radius-sm)',
-                                                overflow: 'hidden', background: 'hsl(var(--bg-panel))',
+                                                overflow: 'hidden', background: '#f1f5f9',
                                                 border: '1px solid hsl(var(--border-subtle))'
                                             }}>
                                                 {p.image_url ?
@@ -348,7 +348,7 @@ export default function AdminDashboard() {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                             <div style={{
                                                 width: '24px', height: '24px', borderRadius: '50%',
-                                                background: i === 0 ? 'hsl(var(--primary))' : 'hsl(var(--bg-panel))',
+                                                background: i === 0 ? 'hsl(var(--primary))' : '#f1f5f9',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 fontSize: '0.75rem', fontWeight: 700,
                                                 color: i === 0 ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',

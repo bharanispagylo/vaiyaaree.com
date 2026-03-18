@@ -58,7 +58,7 @@ export default function SettingsPage() {
                                     <label className="label">Store Description (SEO)</label>
                                     <textarea className="input-field" rows={3} defaultValue="Exclusive collection of Kanjivaram, Banarasi, and Designer Sarees." />
                                 </div>
-                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '1rem', background: '#f1f5f9', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Store Status</div>
                                         <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Turn off to stop accepting new orders temporarily.</div>
@@ -169,7 +169,7 @@ export default function SettingsPage() {
                 .label { display: block; font-size: 0.85rem; font-weight: 600; color: hsl(var(--text-muted)); margin-bottom: 0.5rem; }
                 .input-field {
                     width: 100%; padding: 0.75rem; border-radius: var(--radius-sm);
-                    background: hsl(var(--bg-app)); border: 1px solid hsl(var(--border-subtle));
+                    background: '#f1f5f9'; border: 1px solid hsl(var(--border-subtle));
                     color: hsl(var(--text-main)); outline: none; transition: border 0.2s;
                     font-family: inherit; font-size: 0.95rem;
                 }
@@ -178,7 +178,7 @@ export default function SettingsPage() {
                 /* Switch Toggle */
                 .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
                 .switch input { opacity: 0; width: 0; height: 0; }
-                .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: hsl(var(--bg-card)); border: 1px solid hsl(var(--border-subtle)); transition: .4s; border-radius: 34px; }
+                .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ffffff; border: 1px solid hsl(var(--border-subtle)); transition: .4s; border-radius: 34px; }
                 .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: hsl(var(--text-muted)); transition: .4s; border-radius: 50%; }
                 input:checked + .slider { background-color: hsl(var(--primary)); border-color: hsl(var(--primary)); }
                 input:checked + .slider:before { transform: translateX(20px); background-color: white; }

@@ -77,8 +77,8 @@ export default function MediaPicker({ onSelect, onClose, currentImage }) {
             <div className="card shadow-premium" style={{
                 width: '100%', maxWidth: '900px', height: '85vh',
                 display: 'flex', flexDirection: 'column', padding: 0,
-                borderRadius: '24px', background: 'hsl(var(--bg-panel))',
-                overflow: 'hidden'
+                borderRadius: '24px', background: '#ffffff',
+                overflow: 'hidden', border: '1px solid #e5e7eb'
             }}>
                 {/* Header */}
                 <div style={{

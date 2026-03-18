@@ -125,6 +125,16 @@ export default function ProductDetailsPage() {
                         >
                             <ShoppingCart size={18} /> ADD TO CART
                         </button>
+
+                        <button
+                            className={styles.whatsAppOrderBtn}
+                            onClick={() => {
+                                const message = `Hi! I want to order the "${product.name}" ${selectedVariant ? `(${selectedVariant.name})` : ''}. \n\nPrice: ₹${displayPrice}\nQuantity: ${qty}\nLink: ${window.location.href}\n\nPlease confirm availability and payment details.`;
+                                window.open(`https://wa.me/917558189732?text=${encodeURIComponent(message)}`, '_blank');
+                            }}
+                        >
+                            <MessageCircle size={18} /> BUY ON WHATSAPP
+                        </button>
                     </div>
 
                     <div className={styles.meta}>

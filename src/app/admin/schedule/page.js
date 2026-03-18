@@ -219,14 +219,14 @@ export default function SchedulePostPage() {
 
     const inputStyle = {
         width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
-        background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))',
+        background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))',
         color: 'hsl(var(--text-main))', fontFamily: 'inherit', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box'
     };
 
     const pillStyle = (active) => ({
         padding: '0.35rem 0.9rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600,
         cursor: 'pointer', transition: 'all 0.2s', border: 'none',
-        background: active ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
+        background: active ? 'hsl(var(--primary))' : '#ffffff',
         color: active ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
         outline: active ? 'none' : '1px solid hsl(var(--border-subtle))',
     });
@@ -304,8 +304,8 @@ export default function SchedulePostPage() {
                     </div>
                 ) : (
                     <table style={{ margin: 0 }}>
-                        <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-                            <tr>
+                        <thead style={{ background: '#f1f5f9' }}>
+                            <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 <th>Product</th>
                                 <th>Scheduled For</th>
                                 <th>Platform</th>
@@ -322,7 +322,7 @@ export default function SchedulePostPage() {
                                     <tr key={post.id}>
                                         <td style={{ padding: '0.75rem 1rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                <div style={{ width: '45px', height: '45px', borderRadius: '8px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <div style={{ width: '45px', height: '45px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))' }}>
                                                     {post.product_image ? (
                                                         <img src={post.product_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     ) : (
@@ -401,7 +401,7 @@ export default function SchedulePostPage() {
                     <div onClick={e => e.stopPropagation()} className="card" style={{ width: '700px', maxHeight: '90vh', overflowY: 'auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
 
                         {/* Modal Header */}
-                        <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel))' }}>
+                        <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f1f5f9' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                 <div style={{ padding: '8px', background: '#1877F2', borderRadius: '10px', color: 'white' }}><Facebook size={18} /></div>
                                 <h2 style={{ fontSize: '1.15rem', margin: 0 }}>{editingId ? 'Edit Scheduled Post' : 'Schedule New Post'}</h2>
@@ -438,7 +438,7 @@ export default function SchedulePostPage() {
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.6rem', maxHeight: '220px', overflowY: 'auto' }}>
                                             {filteredProducts.slice(0, 20).map(p => (
                                                 <div key={p.id} onClick={() => selectProduct(p)}
-                                                    style={{ padding: '0.5rem', cursor: 'pointer', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel))', transition: 'all 0.15s' }}>
+                                                    style={{ padding: '0.5rem', cursor: 'pointer', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: '#f1f5f9', transition: 'all 0.15s' }}>
                                                     <div style={{ height: '70px', borderRadius: '7px', overflow: 'hidden', marginBottom: '0.3rem' }}>
                                                         <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                             onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=60'; }} />

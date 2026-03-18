@@ -226,7 +226,7 @@ export default function CMSPage() {
                     </div>
 
                     <div className="card shadow-premium" style={{ padding: '0', overflow: 'hidden' }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-panel)/0.4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ position: 'relative', width: '400px' }}>
                                 <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                                 <input
@@ -253,13 +253,13 @@ export default function CMSPage() {
                         ) : (
                             <div style={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', margin: 0 }}>
-                                    <thead style={{ background: 'hsl(var(--bg-panel)/0.8)' }}>
+                                    <thead style={{ background: '#f1f5f9' }}>
                                         <tr>
-                                            <th style={{ textAlign: 'left', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Structure & Title</th>
-                                            <th style={{ textAlign: 'left', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Endpoint</th>
-                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Status</th>
-                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Template</th>
-                                            <th style={{ textAlign: 'right', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Control</th>
+                                            <th style={{ textAlign: 'left', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Structure & Title</th>
+                                            <th style={{ textAlign: 'left', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Endpoint</th>
+                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Status</th>
+                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Template</th>
+                                            <th style={{ textAlign: 'right', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Control</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -352,7 +352,7 @@ export default function CMSPage() {
                         position: 'relative', overflow: 'hidden', minHeight: '85vh'
                     }}>
                         {/* Editor Header */}
-                        <div style={{ padding: '2rem 2.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-panel)/0.4)' }}>
+                        <div style={{ padding: '2rem 2.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                                 <div style={{ width: '56px', height: '56px', borderRadius: '18px', background: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                                     <ImageIcon size={28} />
@@ -381,7 +381,7 @@ export default function CMSPage() {
                         </div>
 
                         {/* Editor Navigation (Tabs) */}
-                        <div style={{ display: 'flex', background: 'hsl(var(--bg-panel)/0.2)', borderBottom: '1px solid hsl(var(--border-subtle))', padding: '0 1rem' }}>
+                        <div style={{ display: 'flex', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', padding: '0 1rem' }}>
                             {TABS.map(tab => (
                                 <button
                                     key={tab.id}
@@ -410,7 +410,7 @@ export default function CMSPage() {
                                             <input name="title" required placeholder="What is this page about?" defaultValue={currentPage?.title} onChange={(e) => { if (!currentPage) document.querySelector('input[name="slug"]').value = generateSlug(e.target.value); }} style={{ ...inputStyle, fontSize: '1.5rem', fontWeight: 700, padding: '1rem 1.25rem' }} />
 
                                             <label style={labelStyle}>Page Designer (What people see)</label>
-                                            <div style={{ background: 'hsl(var(--bg-panel)/0.6)', padding: '0.75rem', borderRadius: '12px 12px 0 0', display: 'flex', gap: '0.5rem', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none' }}>
+                                            <div style={{ background: '#f1f5f9', padding: '0.75rem', borderRadius: '12px 12px 0 0', display: 'flex', gap: '0.5rem', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none' }}>
                                                 <button type="button" onClick={() => formatText('bold')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>B</button>
                                                 <button type="button" onClick={() => formatText('italic')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontStyle: 'italic' }}>I</button>
                                                 <button type="button" onClick={() => formatText('h2')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>H2</button>
@@ -421,7 +421,7 @@ export default function CMSPage() {
                                         </div>
 
                                         <div>
-                                            <div className="card" style={{ padding: '1.5rem', background: 'hsl(var(--bg-panel)/0.4)', borderRadius: '20px' }}>
+                                            <div className="card" style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: '20px' }}>
                                                 <label style={labelStyle}>✨ Quick Add Blocks</label>
                                                 <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Click to insert pre-made sections</p>
                                                 <div style={{ display: 'grid', gap: '0.5rem' }}>
@@ -457,7 +457,7 @@ export default function CMSPage() {
                                 </div>
 
                                 <div className="animate-fade" style={{ display: activeTab === 'seo' ? 'block' : 'none' }}>
-                                    <div style={{ background: 'hsl(var(--bg-panel)/0.3)', padding: '2rem', borderRadius: '24px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                    <div style={{ background: '#f8fafc', padding: '2rem', borderRadius: '24px', border: '1px solid hsl(var(--border-subtle))' }}>
                                         <h3 style={{ marginTop: 0, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                             🔍 Appearance in Google Search
                                         </h3>
@@ -525,15 +525,15 @@ export default function CMSPage() {
 
                                 <div className="animate-fade" style={{ display: activeTab === 'advanced' ? 'block' : 'none' }}>
                                     <div style={{ display: 'grid', gap: '2rem' }}>
-                                        <div className="card" style={{ padding: '2rem', background: '#0f172a', borderRadius: '24px' }}>
-                                            <label style={{ ...labelStyle, color: '#94a3b8' }}><ImageIcon size={14} /> Global Style Override (CSS)</label>
-                                            <textarea name="custom_css" rows={8} defaultValue={currentPage?.custom_css} style={{ ...inputStyle, background: '#1e293b', border: '1px solid #334155', color: '#38bdf8', fontFamily: 'monospace' }} placeholder=".hero { background: pink; }" />
+                                        <div className="card" style={{ padding: '2.5rem', background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
+                                            <label style={{ ...labelStyle, color: '#1e293b' }}><ImageIcon size={14} /> Global Style Override (CSS)</label>
+                                            <textarea name="custom_css" rows={8} defaultValue={currentPage?.custom_css} style={{ ...inputStyle, background: '#f8fafc', border: '1px solid #cbd5e1', color: '#0f172a', fontFamily: 'monospace', fontWeight: 500 }} placeholder=".hero { background: pink; }" />
                                             <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>Inject custom CSS scoping only for this specific page.</p>
                                         </div>
 
-                                        <div className="card" style={{ padding: '2rem', background: '#0f172a', borderRadius: '24px' }}>
-                                            <label style={{ ...labelStyle, color: '#94a3b8' }}><Settings size={14} /> Logic Runtime Script (JS)</label>
-                                            <textarea name="custom_js" rows={8} defaultValue={currentPage?.custom_js} style={{ ...inputStyle, background: '#1e293b', border: '1px solid #334155', color: '#facc15', fontFamily: 'monospace' }} placeholder="console.log('Page loaded');" />
+                                        <div className="card" style={{ padding: '2.5rem', background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
+                                            <label style={{ ...labelStyle, color: '#1e293b' }}><Settings size={14} /> Logic Runtime Script (JS)</label>
+                                            <textarea name="custom_js" rows={8} defaultValue={currentPage?.custom_js} style={{ ...inputStyle, background: '#f8fafc', border: '1px solid #cbd5e1', color: '#0f172a', fontFamily: 'monospace', fontWeight: 500 }} placeholder="console.log('Page loaded');" />
                                             <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>Run custom JavaScript functionality when this page is visited.</p>
                                         </div>
                                     </div>

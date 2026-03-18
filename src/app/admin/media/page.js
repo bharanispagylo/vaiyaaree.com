@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import {
     Upload, Trash2, Search, Loader2, Image as ImageIcon,
-    X, Check, Copy, Grid, List as ListIcon, RefreshCw, Plus
+    X, Check, Copy, Grid, List as ListIcon, RefreshCw, Plus,
+    Star, Layout
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -15,6 +16,8 @@ export default function MediaLibraryPage() {
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
     const [selectedFile, setSelectedFile] = useState(null);
     const [notification, setNotification] = useState(null);
+    const [heroImages, setHeroImages] = useState([]);
+    const [galleryImages, setGalleryImages] = useState([]);
     const fileInputRef = useRef(null);
 
     const BUCKET_NAME = 'media';
@@ -35,9 +38,58 @@ export default function MediaLibraryPage() {
         }
     };
 
+    const fetchSettings = async () => {
+        try {
+            const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
+            const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
+
+            if (heroData?.value) setHeroImages(JSON.parse(heroData.value));
+            if (galleryData?.value) setGalleryImages(JSON.parse(galleryData.value));
+        } catch (err) {
+            console.error('Error fetching settings:', err);
+        }
+    };
+
     useEffect(() => {
         fetchFiles();
+        fetchSettings();
     }, []);
+
+    const updateSetting = async (key, newValue) => {
+        try {
+            const { error } = await supabase
+                .from('app_settings')
+                .upsert({ key, value: JSON.stringify(newValue), updated_at: new Date() });
+            if (error) throw error;
+        } catch (err) {
+            console.error(`Error updating ${key}:`, err);
+            setNotification({ message: `❌ Failed to update ${key}`, type: 'error' });
+        }
+    };
+
+    const toggleHero = async (url) => {
+        const newHero = heroImages.includes(url) 
+            ? heroImages.filter(u => u !== url)
+            : [...heroImages, url];
+        setHeroImages(newHero);
+        await updateSetting('hero_slider_images', newHero);
+        setNotification({ 
+            message: heroImages.includes(url) ? 'Removed from Hero Slider' : 'Added to Hero Slider', 
+            type: 'success' 
+        });
+    };
+
+    const toggleGallery = async (url) => {
+        const newGallery = galleryImages.includes(url)
+            ? galleryImages.filter(u => u !== url)
+            : [...galleryImages, url];
+        setGalleryImages(newGallery);
+        await updateSetting('gallery_images', newGallery);
+        setNotification({ 
+            message: galleryImages.includes(url) ? 'Removed from Gallery' : 'Added to Gallery', 
+            type: 'success' 
+        });
+    };
 
     const handleUpload = async (e) => {
         const file = e.target.files?.[0];
@@ -163,7 +215,7 @@ export default function MediaLibraryPage() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', background: 'hsl(var(--bg-app))', padding: '0.4rem', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '0.4rem', borderRadius: '10px' }}>
                     <button
                         onClick={() => setViewMode('grid')}
                         style={{
@@ -204,7 +256,7 @@ export default function MediaLibraryPage() {
                     <p className="text-muted">Loading your media library...</p>
                 </div>
             ) : filteredFiles.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '5rem', background: 'hsl(var(--bg-card))', borderRadius: '20px', border: '2px dashed hsl(var(--border-subtle))' }}>
+                <div style={{ textAlign: 'center', padding: '5rem', background: '#ffffff', borderRadius: '20px', border: '2px dashed hsl(var(--border-subtle))' }}>
                     <ImageIcon size={48} className="text-muted" style={{ marginBottom: '1rem' }} />
                     <h3 style={{ margin: 0 }}>No images found</h3>
                     <p className="text-muted">Upload your first image to get started</p>
@@ -245,8 +297,32 @@ export default function MediaLibraryPage() {
                             {/* Actions Overlay */}
                             <div style={{
                                 position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', gap: '0.4rem',
-                                opacity: 0.8
+                                zIndex: 10
                             }}>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }}
+                                    style={{ 
+                                        padding: '0.4rem', borderRadius: '6px', border: 'none', 
+                                        background: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'rgba(255,255,255,0.9)', 
+                                        color: heroImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))', 
+                                        cursor: 'pointer', transition: '0.2s'
+                                    }}
+                                    title={heroImages.includes(file.url) ? "Remove from Hero" : "Add to Hero"}
+                                >
+                                    <Star size={14} fill={heroImages.includes(file.url) ? "currentColor" : "none"} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }}
+                                    style={{ 
+                                        padding: '0.4rem', borderRadius: '6px', border: 'none', 
+                                        background: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)', 
+                                        color: galleryImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))', 
+                                        cursor: 'pointer', transition: '0.2s'
+                                    }}
+                                    title={galleryImages.includes(file.url) ? "Remove from Gallery" : "Add to Gallery"}
+                                >
+                                    <Layout size={14} />
+                                </button>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }}
                                     style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--primary))', cursor: 'pointer' }}
@@ -273,7 +349,7 @@ export default function MediaLibraryPage() {
                                 <th>Preview</th>
                                 <th>Name</th>
                                 <th>Size</th>
-                                <th>Created</th>
+                                <th>Usage</th>
                                 <th style={{ textAlign: 'right' }}>Actions</th>
                             </tr>
                         </thead>
@@ -287,7 +363,32 @@ export default function MediaLibraryPage() {
                                     </td>
                                     <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>{file.name}</td>
                                     <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{(file.metadata.size / 1024).toFixed(1)} KB</td>
-                                    <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{new Date(file.created_at).toLocaleDateString()}</td>
+                                    <td>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button 
+                                                onClick={() => toggleHero(file.url)}
+                                                style={{ 
+                                                    padding: '0.3rem', borderRadius: '4px', border: 'none', 
+                                                    background: heroImages.includes(file.url) ? 'hsl(var(--warning)/.2)' : 'transparent',
+                                                    color: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'hsl(var(--text-muted))',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <Star size={16} fill={heroImages.includes(file.url) ? "currentColor" : "none"} />
+                                            </button>
+                                            <button 
+                                                onClick={() => toggleGallery(file.url)}
+                                                style={{ 
+                                                    padding: '0.3rem', borderRadius: '4px', border: 'none', 
+                                                    background: galleryImages.includes(file.url) ? 'hsl(var(--primary)/.2)' : 'transparent',
+                                                    color: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <Layout size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
                                     <td style={{ textAlign: 'right' }}>
                                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                             <button onClick={() => copyToClipboard(file.url)} className="btn btn-secondary" style={{ padding: '0.4rem' }}>

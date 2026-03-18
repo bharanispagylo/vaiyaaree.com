@@ -15,7 +15,7 @@ export default function InvoicesPage() {
     const [invoicePage, setInvoicePage] = useState(1);
     const INVOICES_PER_PAGE = 20;
     const [settings, setSettings] = useState({
-        shop_name: 'Caste Print',
+        shop_name: 'Cast Print',
         shop_logo: '',
         shop_address: '',
         shop_gstin: '',
@@ -114,12 +114,12 @@ export default function InvoicesPage() {
                 }}>
                     <div>
                         <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800 }}>Invoices</h1>
-                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Manage and generate professional invoices for Caste Print orders</p>
+                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Manage and generate professional invoices for Cast Print orders</p>
                     </div>
                     <Link
                         href="/admin/invoices/settings"
                         className="btn btn-secondary"
-                        style={{ background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', padding: '0.75rem 1.75rem', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, transition: 'all 0.2s', textDecoration: 'none', color: 'white' }}
+                        style={{ background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', padding: '0.75rem 1.75rem', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, transition: 'all 0.2s', textDecoration: 'none', color: 'hsl(var(--text-main))' }}
                     >
                         <Settings size={18} /> Customize Template <ChevronRight size={14} style={{ opacity: 0.5 }} />
                     </Link>
@@ -166,8 +166,8 @@ export default function InvoicesPage() {
                     </div>
 
                     <table style={{ margin: 0 }}>
-                        <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-                            <tr>
+                        <thead style={{ background: '#f1f5f9' }}>
+                            <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 <th>Invoice #</th>
                                 <th>Customer</th>
                                 <th style={{ textAlign: 'right' }}>Amount</th>

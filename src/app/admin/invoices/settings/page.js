@@ -13,7 +13,7 @@ import MediaPicker from '@/components/MediaPicker';
 export default function InvoiceSettingsPage() {
     const router = useRouter();
     const [settings, setSettings] = useState({
-        shop_name: 'Caste Print',
+        shop_name: 'Cast Print',
         shop_logo: '',
         shop_address: '',
         shop_gstin: '',
@@ -91,8 +91,8 @@ export default function InvoiceSettingsPage() {
                         <ArrowLeft size={20} />
                     </Link>
                     <div>
-                        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Invoice Designer</h1>
-                        <p style={{ color: 'hsl(var(--text-muted))', margin: '0.25rem 0 0' }}>Branding and template customization for official bills</p>
+                            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Invoice Settings</h1>
+                            <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Customize the look and feel of your Cast Print invoices</p>
                     </div>
                 </div>
 

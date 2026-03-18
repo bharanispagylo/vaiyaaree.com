@@ -190,7 +190,7 @@ export default function AnalyticsHub() {
                     <h1 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.02em', margin: 0 }}>Analytics Hub</h1>
                     <p style={{ color: 'hsl(var(--text-muted))', marginTop: '4px' }}>Complete cross-platform business intelligence</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                <div style={{ display: 'flex', gap: '8px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                     {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
                         <button
                             key={r}
@@ -234,11 +234,11 @@ export default function AnalyticsHub() {
                                         <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border-subtle))" />
                                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
                                 <Tooltip
-                                    contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}
+                                    contentStyle={{ background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}
                                 />
                                 <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
                             </AreaChart>
@@ -254,10 +254,10 @@ export default function AnalyticsHub() {
                     <div style={{ height: '350px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart layout="vertical" data={data.topProducts}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border-subtle))" />
                                 <XAxis type="number" hide />
-                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} axisLine={false} tickLine={false} />
-                                <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fill: 'hsl(var(--text-main))' }} axisLine={false} tickLine={false} />
+                                <Tooltip contentStyle={{ background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }} />
                                 <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
                             </BarChart>
                         </ResponsiveContainer>
@@ -321,7 +321,7 @@ export default function AnalyticsHub() {
                                         <span>{loc.name}</span>
                                         <span>{loc.value} orders</span>
                                     </div>
-                                    <div style={{ width: '100%', height: '4px', background: 'hsl(var(--bg-app))', borderRadius: '2px' }}>
+                                    <div style={{ width: '100%', height: '4px', background: '#f1f5f9', borderRadius: '2px' }}>
                                         <div style={{ width: `${(loc.value / data.locationData[0].value) * 100}%`, height: '100%', background: COLORS[i], borderRadius: '2px' }} />
                                     </div>
                                 </div>

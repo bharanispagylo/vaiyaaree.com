@@ -152,7 +152,7 @@ function MetaConnectContent() {
                                             onClick={() => selectPage(page)}
                                             style={{
                                                 padding: '1rem', borderRadius: '12px', border: page.id === config.pageId ? '2px solid #1877F2' : '1px solid hsl(var(--border-subtle))',
-                                                background: page.id === config.pageId ? '#1877F20A' : 'hsl(var(--bg-app))',
+                                                background: page.id === config.pageId ? '#1877F20A' : '#f1f5f9',
                                                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                                 transition: 'all 0.2s'
                                             }}
@@ -172,7 +172,7 @@ function MetaConnectContent() {
                                 </div>
                             </div>
                         ) : (
-                            <div style={{ textAlign: 'center', padding: '2rem', background: 'hsl(var(--bg-app))', borderRadius: '12px', border: '1px dashed hsl(var(--border-subtle))' }}>
+                            <div style={{ textAlign: 'center', padding: '2rem', background: '#f1f5f9', borderRadius: '12px', border: '1px dashed hsl(var(--border-subtle))' }}>
                                 <Smartphone size={32} color="hsl(var(--text-muted))" style={{ marginBottom: '1rem', opacity: 0.5 }} />
                                 <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>Click the button above to link your Facebook pages.</p>
                             </div>
@@ -189,7 +189,7 @@ function MetaConnectContent() {
                                     type="text"
                                     value={config.pageId}
                                     readOnly
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'hsl(var(--bg-app) / 0.5)', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-muted))' }}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-muted))' }}
                                 />
                             </div>
                             <div>
@@ -198,7 +198,7 @@ function MetaConnectContent() {
                                     value={config.accessToken}
                                     readOnly
                                     rows={3}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'hsl(var(--bg-app) / 0.5)', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-muted))', resize: 'none', fontSize: '0.7rem', fontFamily: 'monospace' }}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-muted))', resize: 'none', fontSize: '0.7rem', fontFamily: 'monospace' }}
                                 />
                             </div>
                         </div>

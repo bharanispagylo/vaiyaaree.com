@@ -18,9 +18,9 @@ async function setupSettingsTable() {
     }
 
     const defaultSettings = [
-        { key: 'wa_welcome_message', value: "🌸 *Welcome to Aiswarya Sarees Premium* 🌸\n\nHow may we assist you today?", description: 'Main greeting message sent on Hi/Menu' },
+        { key: 'wa_welcome_message', value: "🌸 *Welcome to Cast Prince Premium* 🌸\n\nHow may we assist you today?", description: 'Main greeting message sent on Hi/Menu' },
         { key: 'wa_welcome_image', value: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=85', description: 'Image URL for the welcome message' },
-        { key: 'wa_contact_message', value: "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\nsupport@aiswaryatextiles.com", description: 'Contact support message' },
+        { key: 'wa_contact_message', value: "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\ncastprinceofficial@gmail.com", description: 'Contact support message' },
         { key: 'wa_catalog_header', value: 'PREMIUM COLLECTIONS', description: 'Header for the main catalog list' },
         { key: 'wa_catalog_body', value: 'Curated just for you:', description: 'Body text for the main catalog list' }
     ];

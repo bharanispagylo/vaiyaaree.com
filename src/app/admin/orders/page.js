@@ -519,8 +519,8 @@ export default function OrdersPage() {
                                                     <button key={status} onClick={() => setStatusFilter(status)} style={{
                                                         padding: '0.6rem 1.25rem', borderRadius: '9999px', fontSize: '0.85rem',
                                                         fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-                                                        background: statusFilter === status ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
-                                                        color: statusFilter === status ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                                                        background: statusFilter === status ? 'hsl(var(--primary))' : '#ffffff',
+                                                        color: statusFilter === status ? 'white' : 'hsl(var(--text-muted))',
                                                         border: statusFilter === status ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
                                                         boxShadow: statusFilter === status ? '0 4px 12px hsl(var(--primary) / 0.3)' : 'none'
                                                     }}>
@@ -537,8 +537,8 @@ export default function OrdersPage() {
                                                             padding: '0.4rem 1rem', borderRadius: '9999px', fontSize: '0.8rem',
                                                             fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
                                                             background: sourceFilter === src
-                                                                ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? 'hsl(var(--primary))' : 'hsl(var(--bg-panel))'
-                                                                : 'hsl(var(--bg-card))',
+                                                                ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? 'hsl(var(--primary))' : '#f1f5f9'
+                                                                : '#ffffff',
                                                             color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
                                                             border: '1px solid hsl(var(--border-subtle))'
                                                         }}>
@@ -551,7 +551,7 @@ export default function OrdersPage() {
                                     ) : (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                                             <span style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Analytics Range:</span>
-                                            <div style={{ display: 'flex', gap: '4px', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <div style={{ display: 'flex', gap: '4px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                                 {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
                                                     <button key={r} onClick={() => setTimeRange(r)} style={{
                                                         padding: '0.5rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, transition: 'all 0.2s',
@@ -565,7 +565,7 @@ export default function OrdersPage() {
                                 </div>
 
                                 {/* View Switcher Toggle - Now on the right of filters */}
-                                <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
+                                <div style={{ display: 'flex', gap: '0.25rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
                                     <button
                                         onClick={() => setViewMode('list')}
                                         style={{
@@ -604,10 +604,10 @@ export default function OrdersPage() {
                                                                 <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
                                                             </linearGradient>
                                                         </defs>
-                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
-                                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
-                                                        <Tooltip contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border-subtle))" />
+                                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
+                                                        <Tooltip contentStyle={{ background: '#ffffff', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
                                                         <Area type="monotone" dataKey="amount" stroke="hsl(var(--success))" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
                                                     </AreaChart>
                                                 </ResponsiveContainer>
@@ -621,8 +621,9 @@ export default function OrdersPage() {
                                             <div style={{ height: '300px' }}>
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <BarChart layout="vertical" data={analyticsData.topProducts}>
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border-subtle))" />
                                                         <XAxis type="number" hide />
-                                                        <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} axisLine={false} tickLine={false} />
+                                                        <YAxis dataKey="name" type="category" width={100} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
                                                         <Tooltip />
                                                         <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                                                     </BarChart>
@@ -717,7 +718,7 @@ export default function OrdersPage() {
 
                                                         width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem',
 
-                                                        background: 'hsl(var(--bg-app))',
+                                                        background: '#f1f5f9',
 
                                                         border: '1px solid hsl(var(--border-subtle))',
 
@@ -751,9 +752,8 @@ export default function OrdersPage() {
 
                                             <table style={{ margin: 0 }}>
 
-                                                <thead style={{ background: 'hsl(var(--bg-panel))' }}>
-
-                                                    <tr>
+                                                <thead style={{ background: '#f1f5f9' }}>
+                                                    <tr style={{ color: '#475569', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
 
                                                         <th>Order ID</th>
                                                         <th>Customer</th>
@@ -868,9 +868,9 @@ export default function OrdersPage() {
                     {selectedOrder && (
                         <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                             <div className="card shadow-premium" style={{
-                                width: '100%', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: 'hsl(var(--bg-panel))', overflow: 'hidden'
+                                width: '100%', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff', overflow: 'hidden'
                             }}>
-                                <div style={{ padding: '1.5rem 2rem', background: 'hsl(var(--bg-panel))', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ padding: '1.5rem 2rem', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.id}</h2>
                                         <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Placed on {new Date(selectedOrder.created_at).toLocaleString('en-IN')}</div>
@@ -918,8 +918,8 @@ export default function OrdersPage() {
                                         <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>🛒 Order Items</h3>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                             {orderItems.map((item, idx) => (
-                                                <div key={idx} style={{ display: 'flex', gap: '1.5rem', background: 'hsl(var(--bg-app))', padding: '1rem', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
-                                                    <div style={{ width: '100px', height: '130px', borderRadius: '8px', overflow: 'hidden', background: '#222', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <div key={idx} style={{ display: 'flex', gap: '1.5rem', background: '#ffffff', padding: '1rem', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
+                                                    <div style={{ width: '100px', height: '130px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))' }}>
                                                         <img src={item.products?.image_url || 'https://via.placeholder.com/100x130?text=Saree'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>
                                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -931,13 +931,13 @@ export default function OrdersPage() {
                                                                     <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', marginBottom: '3px' }}>Qty</div>
                                                                     <input type="number" min="1" value={item.quantity}
                                                                         onChange={e => handleUpdateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
-                                                                        style={{ width: '70px', padding: '0.4rem 0.6rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '6px', color: 'white', textAlign: 'center', fontSize: '0.9rem' }} />
+                                                                        style={{ width: '70px', padding: '0.4rem 0.6rem', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'hsl(var(--text-main))', textAlign: 'center', fontSize: '0.9rem' }} />
                                                                 </div>
                                                                 <div>
                                                                     <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', marginBottom: '3px' }}>Price (₹)</div>
                                                                     <input type="number" min="0" value={item.price_at_time}
                                                                         onChange={e => handleUpdateItem(idx, 'price_at_time', parseFloat(e.target.value) || 0)}
-                                                                        style={{ width: '110px', padding: '0.4rem 0.6rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '6px', color: 'white', textAlign: 'center', fontSize: '0.9rem' }} />
+                                                                        style={{ width: '110px', padding: '0.4rem 0.6rem', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'hsl(var(--text-main))', textAlign: 'center', fontSize: '0.9rem' }} />
                                                                 </div>
                                                                 <div style={{ marginLeft: 'auto', fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--success))' }}>₹{((item.quantity * item.price_at_time) || 0).toLocaleString()}</div>
                                                                 <button onClick={() => handleRemoveItem(idx)} style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '6px', padding: '0.4rem 0.6rem', cursor: 'pointer' }}>
@@ -981,7 +981,7 @@ export default function OrdersPage() {
 
                                     {/* Right: Summary & Customer */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                        <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
+                                        <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
                                             <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>📍 Customer Info</h4>
                                             {isEditingItems ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -989,25 +989,25 @@ export default function OrdersPage() {
                                                         placeholder="Customer Name"
                                                         value={selectedOrder.customer_name || ''}
                                                         onChange={e => setSelectedOrder({ ...selectedOrder, customer_name: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: '#f1f5f9', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                     />
                                                     <input
                                                         placeholder="Phone"
                                                         value={selectedOrder.customer_phone || ''}
                                                         onChange={e => setSelectedOrder({ ...selectedOrder, customer_phone: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: '#f1f5f9', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                     />
                                                     <textarea
                                                         rows={2}
                                                         placeholder="Delivery Address"
                                                         value={selectedOrder.delivery_address || ''}
                                                         onChange={e => setSelectedOrder({ ...selectedOrder, delivery_address: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'none' }}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: '#f1f5f9', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'none' }}
                                                     />
                                                     <select
                                                         value={selectedOrder.shipping_state || 'Tamil Nadu'}
                                                         onChange={e => setSelectedOrder({ ...selectedOrder, shipping_state: e.target.value })}
-                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: '#f1f5f9', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                     >
                                                         {['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra', 'Delhi', 'Gujarat', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
                                                     </select>
@@ -1016,46 +1016,46 @@ export default function OrdersPage() {
                                                 <>
                                                     <div style={{ fontWeight: 700 }}>{selectedOrder.customer_name}</div>
                                                     <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.customer_phone}</div>
-                                                    <div style={{ marginTop: '1rem', fontSize: '0.85rem', lineHeight: 1.5, color: '#ccc' }}>{selectedOrder.delivery_address}</div>
+                                                    <div style={{ marginTop: '1rem', fontSize: '0.85rem', lineHeight: 1.5, color: 'hsl(var(--text-main))' }}>{selectedOrder.delivery_address}</div>
                                                     <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.shipping_state}</div>
                                                 </>
                                             )}
                                         </div>
 
-                                        <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                        <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                             <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>💰 Order Summary</h4>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem', color: 'hsl(var(--text-main))' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span>Subtotal:</span>
-                                                    <span>₹{(selectedOrder.subtotal || (selectedOrder.total_amount - (selectedOrder.tax_amount || 0) - (selectedOrder.shipping_cost || 0))).toLocaleString()}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{(selectedOrder.subtotal || (selectedOrder.total_amount - (selectedOrder.tax_amount || 0) - (selectedOrder.shipping_cost || 0))).toLocaleString()}</span>
                                                 </div>
 
                                                 {selectedOrder.cgst > 0 && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
                                                         <span>CGST (2.5%):</span>
                                                         <span>₹{parseFloat(selectedOrder.cgst).toLocaleString()}</span>
                                                     </div>
                                                 )}
                                                 {selectedOrder.sgst > 0 && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
                                                         <span>SGST (2.5%):</span>
                                                         <span>₹{parseFloat(selectedOrder.sgst).toLocaleString()}</span>
                                                     </div>
                                                 )}
                                                 {selectedOrder.igst > 0 && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
                                                         <span>IGST (5%):</span>
                                                         <span>₹{parseFloat(selectedOrder.igst).toLocaleString()}</span>
                                                     </div>
                                                 )}
                                                 {(!selectedOrder.cgst && !selectedOrder.sgst && !selectedOrder.igst && selectedOrder.tax_amount > 0) && (
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
                                                         <span>Tax (Aggregate):</span>
                                                         <span>₹{parseFloat(selectedOrder.tax_amount).toLocaleString()}</span>
                                                     </div>
                                                 )}
 
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: '#94a3b8' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: 'hsl(var(--text-muted))' }}>
                                                     <span>Shipping:</span>
                                                     <span>₹{(selectedOrder.shipping_cost || 0).toLocaleString()}</span>
                                                 </div>
@@ -1067,7 +1067,7 @@ export default function OrdersPage() {
                                             </div>
                                         </div>
 
-                                        <div className="card-sub" style={{ padding: '1.25rem', background: 'hsl(var(--bg-panel))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                        <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                             <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>⚙️ Actions</h4>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
                                                 <select
@@ -1080,14 +1080,14 @@ export default function OrdersPage() {
                                                             updateOrderStatus(selectedOrder.id, newStatus);
                                                         }
                                                     }}
-                                                    style={{ padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}
+                                                    style={{ padding: '0.75rem', borderRadius: '8px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}
                                                 >
                                                     {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
 
                                                 {/* Inline Shipping Form — appears when SHIPPED is selected */}
                                                 {showShippingForm && (
-                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#f1f5f9', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                                         <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                             <Truck size={14} /> Shipping Details
                                                         </div>
@@ -1096,21 +1096,21 @@ export default function OrdersPage() {
                                                             placeholder="Courier (e.g. Delhivery)"
                                                             value={shippingForm.courier_name}
                                                             onChange={e => setShippingForm({ ...shippingForm, courier_name: e.target.value })}
-                                                            style={{ width: '100%', padding: '0.65rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'white', fontSize: '0.85rem' }}
+                                                            style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                         />
                                                         <input
                                                             type="text"
                                                             placeholder="Tracking / AWB Number"
                                                             value={shippingForm.tracking_number}
                                                             onChange={e => setShippingForm({ ...shippingForm, tracking_number: e.target.value })}
-                                                            style={{ width: '100%', padding: '0.65rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'white', fontSize: '0.85rem' }}
+                                                            style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                         />
                                                         <input
                                                             type="url"
                                                             placeholder="Tracking URL (optional)"
                                                             value={shippingForm.tracking_url}
                                                             onChange={e => setShippingForm({ ...shippingForm, tracking_url: e.target.value })}
-                                                            style={{ width: '100%', padding: '0.65rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'white', fontSize: '0.85rem' }}
+                                                            style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
                                                         />
                                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                                                             <button onClick={() => { setShowShippingForm(false); setShippingForm({ courier_name: '', tracking_number: '', tracking_url: '' }); }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
@@ -1169,9 +1169,9 @@ export default function OrdersPage() {
                     {isAddingOrder && (
                         <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                             <div className="card shadow-premium" style={{
-                                width: '100%', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--primary) / 0.3)', borderRadius: '24px', background: 'hsl(var(--bg-panel))'
+                                width: '100%', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff'
                             }}>
-                                <div style={{ padding: '1.5rem 2rem', background: 'hsl(var(--bg-panel))', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ padding: '1.5rem 2rem', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                         <Package size={24} color="hsl(var(--primary))" /> Manual Order Creation
                                     </h2>
@@ -1182,19 +1182,19 @@ export default function OrdersPage() {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Customer Name</label>
-                                            <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                            <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>WhatsApp Phone</label>
-                                            <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                            <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div style={{ gridColumn: 'span 1' }}>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Delivery Address</label>
-                                            <textarea rows={1} placeholder="Full address..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
+                                            <textarea rows={1} placeholder="Full address..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
-                                            <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                            <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
                                                 <option value="Tamil Nadu">Tamil Nadu</option>
                                                 <option value="Kerala">Kerala</option>
                                                 <option value="Karnataka">Karnataka</option>
@@ -1216,10 +1216,10 @@ export default function OrdersPage() {
                                                     placeholder="Search product..."
                                                     value={productSearch}
                                                     onChange={e => setProductSearch(e.target.value)}
-                                                    style={{ width: '100%', padding: '0.85rem 0.85rem 0.85rem 2.5rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}
+                                                    style={{ width: '100%', padding: '0.85rem 0.85rem 0.85rem 2.5rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}
                                                 />
                                                 {productSearch && (
-                                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '10px', marginTop: '5px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+                                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '10px', marginTop: '5px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
                                                         {allProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
                                                             <div key={p.id} onClick={() => {
                                                                 const exists = newOrder.items.find(i => i.product_id === p.id);
@@ -1241,13 +1241,13 @@ export default function OrdersPage() {
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                             {newOrder.items.map((item, idx) => (
-                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'hsl(var(--bg-panel))', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#ffffff', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))' }}>
                                                     <div style={{ flex: 1, fontWeight: 700 }}>{item.product_name}</div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                         <input type="number" min="1" value={item.quantity} onChange={e => {
                                                             const val = parseInt(e.target.value);
                                                             setNewOrder({ ...newOrder, items: newOrder.items.map((it, i) => i === idx ? { ...it, quantity: val } : it) });
-                                                        }} style={{ width: '60px', padding: '0.5rem', borderRadius: '5px', background: 'hsl(var(--bg-app))', border: '1px solid gray', color: 'hsl(var(--text-main))', textAlign: 'center' }} />
+                                                        }} style={{ width: '60px', padding: '0.5rem', borderRadius: '5px', background: '#f1f5f9', border: '1px solid gray', color: 'hsl(var(--text-main))', textAlign: 'center' }} />
                                                     </div>
                                                     <div style={{ width: '100px', textAlign: 'right', fontWeight: 800 }}>₹{(item.price * item.quantity).toLocaleString()}</div>
                                                     <button onClick={() => setNewOrder({ ...newOrder, items: newOrder.items.filter((_, i) => i !== idx) })} style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer' }}><Trash2 size={16} /></button>
@@ -1258,7 +1258,7 @@ export default function OrdersPage() {
                                     </div>
 
                                     {/* Summary & Save */}
-                                    <div style={{ background: 'hsl(var(--bg-panel))', padding: '1.5rem', borderRadius: '15px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                                    <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '15px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
                                         {(() => {
                                             const subtotal = newOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0);
                                             const shipping = 100;
