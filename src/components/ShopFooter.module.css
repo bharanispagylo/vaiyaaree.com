@@ -3,7 +3,7 @@
     color: #ffffff;
     padding: 80px 0 0;
     position: relative;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body);
 }
 
 .footerInner {
@@ -36,7 +36,7 @@
 }
 
 .logoBrandName {
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-heading);
     font-size: 1.75rem;
     font-weight: 400;
     color: #ffffff;

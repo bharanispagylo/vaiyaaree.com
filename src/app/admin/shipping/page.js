@@ -318,7 +318,7 @@ export default function ShippingAdminPage() {
             </div>
 
             <style jsx>{`
-                .shipping-layout { padding: 2rem; max-width: 1300px; margin: 0 auto; color: hsl(var(--text-main)); font-family: 'Roboto', sans-serif; }
+                .shipping-layout { padding: 2rem; max-width: 1300px; margin: 0 auto; color: hsl(var(--text-main)); }
                 
                 .premium-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3rem; }
                 .breadcrumb { font-size: 0.75rem; color: hsl(var(--primary)); font-weight: 800; letter-spacing: 0.1em; margin-bottom: 0.5rem; text-transform: uppercase; }

@@ -131,7 +131,7 @@ export default function CheckoutPage() {
 
     const goToWhatsApp = (orderId) => {
         const message = encodeURIComponent(`Hi! I just placed an order #${orderId} on your website. Please confirm.`);
-        const bizPhone = process.env.NEXT_PUBLIC_BUSINESS_PHONE || '917558189732';
+        const bizPhone = process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232';
         window.open(`https://wa.me/${bizPhone}?text=${message}`, '_blank');
     };
 

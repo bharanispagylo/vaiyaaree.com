@@ -21,7 +21,7 @@ export default function InvoicesPage() {
         shop_gstin: '',
         bill_terms: '',
         bill_footer: 'Thank you for shopping with us!',
-        business_phone: '917558189732'
+        business_phone: '15551678232'
     });
 
     useEffect(() => {
@@ -383,7 +383,7 @@ export default function InvoicesPage() {
                                 </div>
                                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
                                     <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#4b5563', margin: 0 }}>{settings.bill_footer}</p>
-                                    <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.5rem' }}>WhatsApp: +{settings.business_phone || '91 75581 89732'}</p>
+                                    <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.5rem' }}>WhatsApp: +{settings.business_phone || '1 555 167 8232'}</p>
                                 </div>
                             </div>
                         </div>

@@ -42,14 +42,14 @@ const ShopFooter = () => {
                 <div className={styles.footerColumn}>
                     <h4 className={styles.columnHeader}>ABOUT US</h4>
                     <nav className={styles.footerNav}>
-                        <Link href="/page/about-us">About Us</Link>
-                        <Link href="/page/contact">Contact Us</Link>
-                        <Link href="/page/privacy-policy">Privacy Policy</Link>
-                        <Link href="/page/return-policy">Return Policy</Link>
-                        <Link href="/page/shipping-policy">Shipping Policy</Link>
-                        <Link href="/page/terms-conditions">Terms and Conditions</Link>
-                        <Link href="/page/refund-cancellation">Refund Cancellation Policy</Link>
-                        <Link href="/page/disclaimer">Disclaimer</Link>
+                        <Link href="/about-us">About Us</Link>
+                        <Link href="/contact">Contact Us</Link>
+                        <Link href="/privacy-policy">Privacy Policy</Link>
+                        <Link href="/return-policy">Return Policy</Link>
+                        <Link href="/shipping-policy">Shipping Policy</Link>
+                        <Link href="/terms-and-conditions">Terms and Conditions</Link>
+                        <Link href="/refund-cancellation-policy">Refund Cancellation Policy</Link>
+                        <Link href="/disclaimer">Disclaimer</Link>
                     </nav>
                 </div>
 

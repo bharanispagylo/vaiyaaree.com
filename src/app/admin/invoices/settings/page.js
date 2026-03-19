@@ -19,7 +19,7 @@ export default function InvoiceSettingsPage() {
         shop_gstin: '',
         bill_terms: '',
         bill_footer: 'Thank you for shopping with us!',
-        business_phone: '917558189732'
+        business_phone: '15551678232'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -174,7 +174,7 @@ export default function InvoiceSettingsPage() {
                     <div style={{
                         background: 'white', width: '100%', maxWidth: '800px',
                         boxShadow: '0 30px 80px rgba(0,0,0,0.2)', padding: '3.5rem',
-                        borderRadius: '2px', fontFamily: '"Roboto", sans-serif', color: 'black'
+                        borderRadius: '2px', fontFamily: 'var(--font-body)', color: 'black'
                     }}>
                         {/* Bill Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #6366f1', paddingBottom: '2.5rem', marginBottom: '2.5rem' }}>

@@ -14,8 +14,8 @@ export default function AdminLayout({ children }) {
     useEffect(() => {
         setMounted(true);
         const isAdmin = localStorage.getItem('cast_prince_admin');
-        if (!isAdmin) {
-            router.push('/login');
+        if (!isAdmin && pathname !== '/admin/login') {
+            router.push('/admin/login');
         } else {
             setIsAuthorized(true);
         }
@@ -23,6 +23,10 @@ export default function AdminLayout({ children }) {
     }, [pathname, router]);
 
     if (!mounted || !isAuthorized) return null;
+
+    if (pathname === '/admin/login') {
+        return <>{children}</>;
+    }
 
     return (
         <div className="admin-layout">

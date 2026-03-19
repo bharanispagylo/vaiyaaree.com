@@ -208,7 +208,7 @@ export default function MyOrdersPage() {
                             </button>
 
                             <a
-                                href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '917558189732'}?text=Hi, query about Order %23${order.id}`}
+                                href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}?text=Hi, query about Order %23${order.id}`}
                                 className={styles.supportLink}
                                 target="_blank"
                             >

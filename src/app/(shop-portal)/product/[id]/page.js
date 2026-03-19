@@ -130,7 +130,7 @@ export default function ProductDetailsPage() {
                             className={styles.whatsAppOrderBtn}
                             onClick={() => {
                                 const message = `Hi! I want to order the "${product.name}" ${selectedVariant ? `(${selectedVariant.name})` : ''}. \n\nPrice: ₹${displayPrice}\nQuantity: ${qty}\nLink: ${window.location.href}\n\nPlease confirm availability and payment details.`;
-                                window.open(`https://wa.me/917558189732?text=${encodeURIComponent(message)}`, '_blank');
+                                window.open(`https://wa.me/15551678232?text=${encodeURIComponent(message)}`, '_blank');
                             }}
                         >
                             <MessageCircle size={18} /> BUY ON WHATSAPP
@@ -142,16 +142,7 @@ export default function ProductDetailsPage() {
                         {product.product_group && <div className={styles.metaItem}><strong>Brand:</strong> {product.product_group}</div>}
                     </div>
 
-                    <div className={styles.shareSection}>
-                        <span>Share:</span>
-                        <div className={styles.shareIcons}>
-                            <Facebook size={18} />
-                            <Twitter size={18} />
-                            <Linkedin size={18} />
-                            <MessageCircle size={18} />
-                            <Share2 size={18} />
-                        </div>
-                    </div>
+
                 </div>
             </div>
 

@@ -113,7 +113,7 @@ export default function ProfilePage() {
                     <div className={styles.sidebarCard}>
                         <h4>Need Help?</h4>
                         <p>If you have any issues with your account or orders, feel free to reach out.</p>
-                        <a href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '917558189732'}`} target="_blank" className={styles.supportBtn}>
+                        <a href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} target="_blank" className={styles.supportBtn}>
                             <MessageCircle size={18} /> Chat with Support
                         </a>
                     </div>

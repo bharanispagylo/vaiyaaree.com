@@ -12,6 +12,9 @@ const globalForSupabase = globalThis;
 
 export const supabase = globalForSupabase._supabase ??
     createClient(supabaseUrl || '', supabaseKey || '', {
+        global: {
+            fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' })
+        },
         auth: {
             persistSession: false, // Admin portal — no user auth needed
             autoRefreshToken: false,

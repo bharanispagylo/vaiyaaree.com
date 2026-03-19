@@ -175,10 +175,13 @@ export function ShopProvider({ children }) {
     }
 
     function addToCart(product, variant = null) {
+        // Removed guest login guard to allow guest checkout
+        /*
         if (!user) {
             showToast('Please login to add items to cart', 'error');
             return;
         }
+        */
 
         const itemStock = variant ? variant.stock : product.stock;
         if (itemStock < 1) {
@@ -286,9 +289,47 @@ export function ShopProvider({ children }) {
             const fullPhone = customerPhone.startsWith('91') ? customerPhone : `91${customerPhone}`;
             const fullAddress = `${checkoutForm.address}, ${checkoutForm.city} - ${checkoutForm.pincode} (${checkoutForm.state}, ${checkoutForm.country})`.trim();
 
+            // GUEST CHECKOUT / AUTO-ACCOUNT CREATION LOGIC
+            let customerId = user?.id;
+            let currentCustomer = user;
+
+            if (!customerId) {
+                // Check if customer exists by phone
+                const { data: existingCustomer } = await supabase
+                    .from('customers')
+                    .select('*')
+                    .eq('phone', fullPhone)
+                    .single();
+
+                if (existingCustomer) {
+                    customerId = existingCustomer.id;
+                    currentCustomer = existingCustomer;
+                } else {
+                    // Create new customer
+                    const { data: newCustomer, error: createError } = await supabase
+                        .from('customers')
+                        .insert({
+                            phone: fullPhone,
+                            name: checkoutForm.name,
+                            role: 'user',
+                            is_verified: false
+                        })
+                        .select()
+                        .single();
+
+                    if (createError) throw createError;
+                    customerId = newCustomer.id;
+                    currentCustomer = newCustomer;
+                }
+
+                // Log the guest in locally so they can see their order history immediately
+                setUser(currentCustomer);
+                localStorage.setItem('cast_prince_user', JSON.stringify(currentCustomer));
+            }
+
             const { error: orderError } = await supabase.from('orders').insert({
                 id: orderId,
-                customer_id: user?.id,
+                customer_id: customerId,
                 customer_phone: fullPhone,
                 customer_name: checkoutForm.name,
                 delivery_address: fullAddress,

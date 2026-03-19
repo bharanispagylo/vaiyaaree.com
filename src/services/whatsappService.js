@@ -273,7 +273,7 @@ async function deductStock(orderId) {
                     // Check low stock alert
                     const { data: fullVariant } = await supabase.from('product_variants').select('*, products(name, alert_threshold)').eq('id', item.variant_id).single();
                     if (fullVariant && fullVariant.stock <= (fullVariant.products?.alert_threshold || 0)) {
-                        const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '917558189732';
+                        const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '15551678232';
                         await sendText(adminPhone, `⚠️ *LOW STOCK ALERT*\n\nProduct: *${fullVariant.products.name}*\nVariant: *${fullVariant.name}*\nCurrent Stock: *${fullVariant.stock}*\nThreshold: *${fullVariant.products.alert_threshold}*`);
                     }
                 }
@@ -300,7 +300,7 @@ async function deductStock(orderId) {
 
                     // Check low stock alert
                     if (newStock <= (product.alert_threshold || 0)) {
-                        const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '917558189732';
+                        const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '15551678232';
                         await sendText(adminPhone, `⚠️ *LOW STOCK ALERT*\n\nProduct: *${product.name}*\nCurrent Stock: *${newStock}*\nThreshold: *${product.alert_threshold}*`);
                     }
                 }

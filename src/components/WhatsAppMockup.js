@@ -8,13 +8,18 @@ export default function WhatsAppMockup() {
     const [step, setStep] = useState(0);
 
     const chatScript = [
-        { sender: 'user', text: 'Hi! I want to order a Saree.', time: '10:00 AM' },
-        { sender: 'bot', text: 'Welcome to Cast Print! 🌸 We make shopping easy on WhatsApp. How can I help you today?', time: '10:01 AM' },
-        { sender: 'user', text: "I'd like to see your latest collection.", time: '10:02 AM' },
-        { sender: 'bot', text: 'Of course! Here is one of our hand-picked bestsellers.', image: '/images/hero-saree.png', time: '10:03 AM' },
-        { sender: 'bot', text: 'Would you like to order this piece?', time: '10:03 AM' },
-        { sender: 'user', text: 'Yes, please! It looks perfect.', time: '10:04 AM' },
-        { sender: 'bot', text: 'Great choice! I will help you with the checkout right away. 🙏', time: '10:05 AM' },
+        { sender: 'user', text: 'Hi', time: '10:00 AM' },
+        { 
+            sender: 'bot', 
+            text: "💮 *Welcome to Cast Print!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n🛍️ *Shop Online:*\nhttps://casteprint.vercel.app/shop", 
+            time: '10:01 AM' 
+        },
+        { 
+            sender: 'bot', 
+            text: "Explore our collection and manage:", 
+            buttons: ["📖 View Catalogue", "My Orders", "Contact Us"],
+            time: '10:01 AM' 
+        },
     ];
 
     useEffect(() => {
@@ -25,11 +30,11 @@ export default function WhatsAppMockup() {
             }, step === 0 ? 1000 : 2000);
             return () => clearTimeout(timer);
         } else {
-            // Reset after a delay
+            // Reset after a long delay
             const resetTimer = setTimeout(() => {
                 setMessages([]);
                 setStep(0);
-            }, 5000);
+            }, 8000);
             return () => clearTimeout(resetTimer);
         }
     }, [step]);
@@ -77,9 +82,7 @@ export default function WhatsAppMockup() {
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                position: 'relative',
-                backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")',
-                backgroundSize: 'contain'
+                position: 'relative'
             }}>
                 {/* WhatsApp Header */}
                 <div style={{
@@ -90,8 +93,8 @@ export default function WhatsAppMockup() {
                     alignItems: 'center',
                     gap: '10px'
                 }}>
-                    <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <img src="/images/maroon-logo.png" style={{ width: '25px' }} alt="Logo" />
+                    <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        <img src="/images/aiswarya-logo.png" style={{ width: '30px' }} alt="Logo" />
                     </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Cast Print Support</div>
@@ -111,7 +114,7 @@ export default function WhatsAppMockup() {
                     overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '8px'
+                    gap: '12px'
                 }}>
                     {messages.map((msg, i) => (
                         <div 
@@ -131,9 +134,12 @@ export default function WhatsAppMockup() {
                                 fontSize: '0.85rem'
                             }}>
                                 {msg.image && (
-                                    <img src={msg.image} style={{ width: '100%', borderRadius: '8px', marginBottom: '8px' }} alt="Product" />
+                                    <div style={{ margin: '-8px -12px 10px -12px', overflow: 'hidden', borderRadius: '10px 10px 0 0' }}>
+                                        <img src={msg.image} style={{ width: '100%', display: 'block' }} alt="Product" />
+                                    </div>
                                 )}
-                                {msg.text}
+                                <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+                                
                                 <div style={{
                                     fontSize: '0.65rem',
                                     color: '#999',
@@ -148,6 +154,27 @@ export default function WhatsAppMockup() {
                                     {msg.sender === 'user' && <CheckCheck size={12} color="#4fc3f7" />}
                                 </div>
                             </div>
+                            
+                            {/* WhatsApp Reply Buttons */}
+                            {msg.buttons && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
+                                    {msg.buttons.map((btn, idx) => (
+                                        <div key={idx} style={{ 
+                                            background: '#fff', 
+                                            padding: '8px 15px', 
+                                            borderRadius: '20px', 
+                                            fontSize: '0.8rem', 
+                                            color: '#00a5f4', 
+                                            textAlign: 'center',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                                            fontWeight: 500,
+                                            border: '1px solid #f0f0f0'
+                                        }}>
+                                            {btn}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -196,5 +223,6 @@ export default function WhatsAppMockup() {
                 }
             `}</style>
         </div>
+
     );
 }

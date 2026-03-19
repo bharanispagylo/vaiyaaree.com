@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart, User, LogOut, Menu, X, Search, Package, Settings, Truck } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import styles from './ShopHeader.module.css';
 
@@ -48,19 +48,13 @@ export default function ShopHeader() {
 
                     <div className={styles.rightSection}>
                         <nav className={`${styles.navbar} ${isMobileMenuOpen ? styles.navbarOpen : ''}`}>
-                            <Link href="/page/home" className={`${styles.navLink} ${pathname === '/page/home' || pathname === '/' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
+                            <Link href="/" className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
                             <Link href="/shop" className={`${styles.navLink} ${pathname === '/shop' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Shop</Link>
-                            <Link href="/page/about-us" className={`${styles.navLink} ${pathname === '/page/about-us' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>About Us</Link>
-                            <Link href="/page/contact" className={`${styles.navLink} ${pathname === '/page/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact Us</Link>
+                            <Link href="/about-us" className={`${styles.navLink} ${pathname === '/about-us' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>About Us</Link>
+                            <Link href="/contact" className={`${styles.navLink} ${pathname === '/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact Us</Link>
                         </nav>
 
                         <div className={styles.headerActions}>
-                            <div className={styles.searchContainer}>
-                                <button className={styles.actionIconBtn}>
-                                    <Search size={22} strokeWidth={1.5} />
-                                </button>
-                            </div>
-                            
                             <Link href="/cart" className={styles.cartIconBtn}>
                                 <div className={styles.cartIconWrapper}>
                                     <ShoppingCart size={22} strokeWidth={1.5} />
@@ -82,7 +76,7 @@ export default function ShopHeader() {
                                                 </div>
                                                 <div className={styles.divider}></div>
                                                 <Link href="/my-orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>
-                                                <Link href="/account" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account Settings</Link>
+                                                <Link href="/profile" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account Settings</Link>
                                                 <div className={styles.divider}></div>
                                                 <div className={`${styles.dropdownItem} ${styles.logout}`} onClick={handleLogout}>Logout</div>
                                             </div>
