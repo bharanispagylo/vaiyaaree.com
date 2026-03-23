@@ -15,7 +15,11 @@ export default function HomePage() {
     const [loading, setLoading] = useState(true);
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [exploreProducts, setExploreProducts] = useState([]);
-    const [heroSliderImages, setHeroSliderImages] = useState([]);
+    const [heroSliderImages, setHeroSliderImages] = useState([
+        '/images/hero-saree.png',
+        'https://images.unsplash.com/photo-1583391733958-d25974644ed1?q=80&w=2000&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1610030469983-98e550d6153c?q=80&w=2000&auto=format&fit=crop'
+    ]);
     const [galleryImages, setGalleryImages] = useState([]);
     const [sliderIndex, setSliderIndex] = useState(0);
     const [exploreSliderIndex, setExploreSliderIndex] = useState(0);
@@ -62,7 +66,9 @@ export default function HomePage() {
                     const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
                     if (heroData?.value) {
                         const parsed = JSON.parse(heroData.value);
-                        setHeroSliderImages(Array.isArray(parsed) ? parsed : []);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            setHeroSliderImages(parsed);
+                        }
                     }
 
                     const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
@@ -114,26 +120,46 @@ export default function HomePage() {
             <style dangerouslySetInnerHTML={{ __html: page.custom_css || '' }} />
             <ShopHeader />
 
-            {/* Hero Section - Restoring height but keeping it cohesive */}
+            {/* Hero Section - Sliding Carousel */}
             <div style={{
                 position: 'relative', height: '70vh', minHeight: '450px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: 'hidden'
             }}>
-                {heroSliderImages.length === 0 ? (
-                    <div style={{ position: 'absolute', inset: 0, background: `url(/images/hero-saree.png) center/cover no-repeat` }} />
-                ) : (
-                    heroSliderImages.map((url, idx) => (
-                        <div key={url} style={{
-                            position: 'absolute', inset: 0, opacity: idx === heroSliderIndex ? 1 : 0, transition: 'opacity 1.5s ease-in-out', zIndex: idx === heroSliderIndex ? 1 : 0, background: '#000'
+                <div style={{
+                    display: 'flex', width: '100%', height: '100%', position: 'absolute', inset: 0,
+                    transition: 'transform 1s cubic-bezier(0.25, 1, 0.5, 1)',
+                    transform: `translateX(-${heroSliderIndex * 100}%)`
+                }}>
+                    {heroSliderImages.map((url, idx) => (
+                        <div key={`${url}-${idx}`} style={{
+                            flex: '0 0 100%', height: '100%', position: 'relative', background: '#000'
                         }}>
                             <div style={{ position: 'absolute', inset: '-20px', background: `url(${url}) center/cover no-repeat`, filter: 'blur(40px) brightness(0.5)', transform: 'scale(1.1)' }} />
                             <div style={{ position: 'absolute', inset: 0, background: `url(${url}) center/contain no-repeat`, zIndex: 2 }} />
                         </div>
-                    ))
-                )}
+                    ))}
+                </div>
+                
+                <div style={{ position: 'absolute', inset: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 6, pointerEvents: 'none' }}>
+                    <button onClick={(e) => { e.preventDefault(); setHeroSliderIndex(prev => prev === 0 ? heroSliderImages.length - 1 : prev - 1); }} 
+                        style={{ pointerEvents: 'auto', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', padding: '1rem', cursor: 'pointer', backdropFilter: 'blur(10px)', transition: 'background 0.3s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                    >
+                        <ArrowLeft size={24} />
+                    </button>
+                    <button onClick={(e) => { e.preventDefault(); setHeroSliderIndex(prev => (prev + 1) % heroSliderImages.length); }} 
+                        style={{ pointerEvents: 'auto', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', padding: '1rem', cursor: 'pointer', backdropFilter: 'blur(10px)', transition: 'background 0.3s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                    >
+                        <ArrowRight size={24} />
+                    </button>
+                </div>
+
                 <div style={{ position: 'relative', zIndex: 5, textAlign: 'center', color: '#fff', marginTop: '10vh' }}>
                     <Link href="/shop" style={{
-                        display: 'inline-block', border: '2px solid #fff', color: '#fff', padding: '1rem 3rem', textDecoration: 'none', fontWeight: 800, letterSpacing: '0.2em', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(5px)'
-                    }}>
+                        display: 'inline-block', border: '2px solid #fff', color: '#fff', padding: '1rem 3rem', textDecoration: 'none', fontWeight: 800, letterSpacing: '0.2em', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(5px)', transition: 'background 0.3s, filter 0.3s'
+                    }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.6)'} onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.2)'}>
                         SHOP NOW
                     </Link>
                 </div>
@@ -162,8 +188,9 @@ export default function HomePage() {
                             {featuredProducts.map(product => (
                                 <Link key={product.id} href={`/product/${product.id}`} style={{ flex: '0 0 calc(25% - 1.2rem)', minWidth: '280px', textDecoration: 'none', color: 'inherit' }}>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ aspectRatio: '3/4', marginBottom: '1rem', overflow: 'hidden', borderRadius: '4px', boxShadow: '0 5px 15px rgba(0,0,0,0.05)' }}>
-                                            <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <div style={{ aspectRatio: '3/4', marginBottom: '1rem', overflow: 'hidden', borderRadius: '4px', boxShadow: '0 5px 15px rgba(0,0,0,0.05)', background: '#fff', position: 'relative' }}>
+                                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
+                                            <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                         </div>
                                         <h3 style={{ fontSize: '1rem', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{product.name}</h3>
                                         <p style={{ color: '#5d0821', fontWeight: 600 }}>₹{product.price.toLocaleString()}</p>
@@ -189,8 +216,9 @@ export default function HomePage() {
                             {exploreProducts.map(product => (
                                 <Link key={product.id} href={`/product/${product.id}`} style={{ flex: '0 0 calc(25% - 1.5rem)', minWidth: '300px', textDecoration: 'none', color: 'inherit' }}>
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ aspectRatio: '3/4', marginBottom: '1.5rem', overflow: 'hidden', borderRadius: '4px', boxShadow: '0 10px 40px rgba(0,0,0,0.08)' }}>
-                                            <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <div style={{ aspectRatio: '3/4', marginBottom: '1.5rem', overflow: 'hidden', borderRadius: '4px', boxShadow: '0 10px 40px rgba(0,0,0,0.08)', background: '#fff', position: 'relative' }}>
+                                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
+                                            <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                         </div>
                                         <span style={{ color: '#888', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.1em' }}>{product.category}</span>
                                         <h3 style={{ fontSize: '1.2rem', margin: '0.5rem 0', fontFamily: 'var(--font-body)' }}>{product.name}</h3>
@@ -275,8 +303,9 @@ export default function HomePage() {
                 </div>
                 <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                     {galleryImages.slice(0, 6).map((url, i) => (
-                        <div key={i} style={{ aspectRatio: '1/1', borderRadius: '4px', overflow: 'hidden' }}>
-                            <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Gallery" />
+                        <div key={i} style={{ aspectRatio: '1/1', borderRadius: '4px', overflow: 'hidden', position: 'relative', background: '#fff' }}>
+                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
+                            <img src={url} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} alt="Gallery" />
                         </div>
                     ))}
                 </div>

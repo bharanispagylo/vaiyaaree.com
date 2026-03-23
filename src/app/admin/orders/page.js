@@ -749,92 +749,92 @@ export default function OrdersPage() {
                                             </div>
 
                                         ) : (
+                                            <div style={{ overflowX: 'auto', width: '100%' }}>
+                                                <table style={{ margin: 0, width: '100%' }}>
 
-                                            <table style={{ margin: 0 }}>
+                                                    <thead style={{ background: '#f1f5f9' }}>
+                                                        <tr style={{ color: '#475569', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
 
-                                                <thead style={{ background: '#f1f5f9' }}>
-                                                    <tr style={{ color: '#475569', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            <th>Order ID</th>
+                                                            <th>Customer</th>
+                                                            <th style={{ textAlign: 'left' }}>Region</th>
+                                                            <th style={{ textAlign: 'center' }}>Source</th>
+                                                            <th style={{ textAlign: 'right' }}>Amount</th>
 
-                                                        <th>Order ID</th>
-                                                        <th>Customer</th>
-                                                        <th style={{ textAlign: 'left' }}>Region</th>
-                                                        <th style={{ textAlign: 'center' }}>Source</th>
-                                                        <th style={{ textAlign: 'right' }}>Amount</th>
+                                                            <th style={{ textAlign: 'center' }}>Payment</th>
 
-                                                        <th style={{ textAlign: 'center' }}>Payment</th>
+                                                            <th style={{ textAlign: 'center' }}>Status</th>
 
-                                                        <th style={{ textAlign: 'center' }}>Status</th>
+                                                            <th style={{ textAlign: 'left' }}>Date</th>
 
-                                                        <th style={{ textAlign: 'left' }}>Date</th>
+                                                            <th style={{ textAlign: 'right' }}>Actions</th>
 
-                                                        <th style={{ textAlign: 'right' }}>Actions</th>
+                                                        </tr>
 
-                                                    </tr>
+                                                    </thead>
 
-                                                </thead>
+                                                    <tbody>
 
-                                                <tbody>
+                                                        {filteredOrders.length === 0 ? (
+                                                            <tr><td colSpan={10} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
+                                                        ) : (
+                                                            paginatedOrders.map(order => {
+                                                                const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
+                                                                const isExpanded = selectedOrder?.id === order.id;
 
-                                                    {filteredOrders.length === 0 ? (
-                                                        <tr><td colSpan={10} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
-                                                    ) : (
-                                                        paginatedOrders.map(order => {
-                                                            const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
-                                                            const isExpanded = selectedOrder?.id === order.id;
+                                                                return (
+                                                                    <React.Fragment key={order.id}>
+                                                                        <tr
+                                                                            onClick={() => openOrderDetail(order)}
+                                                                            style={{
+                                                                                cursor: 'pointer',
+                                                                                background: selectedOrder?.id === order.id ? 'hsl(var(--primary) / 0.05)' : 'transparent',
+                                                                                transition: 'background 0.2s'
+                                                                            }}
+                                                                        >
+                                                                            <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
+                                                                            <td>
+                                                                                <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
+                                                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
+                                                                            </td>
+                                                                            <td style={{ textAlign: 'left' }}>
+                                                                                <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{order.shipping_state || '—'}</div>
+                                                                                <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>India</div>
+                                                                            </td>
+                                                                            <td style={{ textAlign: 'center' }}>
+                                                                                <span style={{
+                                                                                    display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                                                                                    padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                                                                                    background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : 'rgba(37,211,102,0.12)',
+                                                                                    color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : 'hsl(var(--primary))',
+                                                                                    border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
+                                                                                }}>
+                                                                                    {src === 'WEBSITE' ? '🌐' : '💬'} {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td style={{ textAlign: 'right', fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</td>
+                                                                            <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{order.payment_method || '—'}</td>
+                                                                            <td style={{ textAlign: 'center' }}>
+                                                                                <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
+                                                                            </td>
+                                                                            <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
+                                                                                {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                                                            </td>
+                                                                            <td style={{ textAlign: 'right' }}>
+                                                                                <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                                                                                    <Eye size={14} /> View
+                                                                                </button>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </React.Fragment>
+                                                                );
+                                                            })
+                                                        )}
 
-                                                            return (
-                                                                <React.Fragment key={order.id}>
-                                                                    <tr
-                                                                        onClick={() => openOrderDetail(order)}
-                                                                        style={{
-                                                                            cursor: 'pointer',
-                                                                            background: selectedOrder?.id === order.id ? 'hsl(var(--primary) / 0.05)' : 'transparent',
-                                                                            transition: 'background 0.2s'
-                                                                        }}
-                                                                    >
-                                                                        <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
-                                                                        <td>
-                                                                            <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
-                                                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
-                                                                        </td>
-                                                                        <td style={{ textAlign: 'left' }}>
-                                                                            <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{order.shipping_state || '—'}</div>
-                                                                            <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>India</div>
-                                                                        </td>
-                                                                        <td style={{ textAlign: 'center' }}>
-                                                                            <span style={{
-                                                                                display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                                                                                padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
-                                                                                background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : 'rgba(37,211,102,0.12)',
-                                                                                color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : 'hsl(var(--primary))',
-                                                                                border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
-                                                                            }}>
-                                                                                {src === 'WEBSITE' ? '🌐' : '💬'} {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</td>
-                                                                        <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{order.payment_method || '—'}</td>
-                                                                        <td style={{ textAlign: 'center' }}>
-                                                                            <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
-                                                                        </td>
-                                                                        <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-                                                                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                                                        </td>
-                                                                        <td style={{ textAlign: 'right' }}>
-                                                                            <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                                                <Eye size={14} /> View
-                                                                            </button>
-                                                                        </td>
-                                                                    </tr>
-                                                                </React.Fragment>
-                                                            );
-                                                        })
-                                                    )}
+                                                    </tbody>
 
-                                                </tbody>
-
-                                            </table>
-
+                                                </table>
+                                            </div>
                                         )}
 
                                         {/* ── Pagination ── */}

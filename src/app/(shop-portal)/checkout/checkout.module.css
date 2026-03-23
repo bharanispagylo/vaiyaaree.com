@@ -474,7 +474,7 @@
 }
 
 .navigationLinks .secondaryBtn:hover {
-    color: #fff;
+    color: hsl(var(--primary));
 }
 
 .secondaryBtn {

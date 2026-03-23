@@ -15,6 +15,9 @@ export const metadata = {
     description: "Discover the finest selection of premium sarees at Cast Print. Hand-block prints, traditional weaves, and modern elegance.",
 };
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import WhatsAppWidget from '@/components/WhatsAppWidget';
 
 export default function RootLayout({ children }) {

@@ -2,8 +2,10 @@
 
 import { MessageCircle, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function WhatsAppWidget() {
+    const pathname = usePathname();
     const [isVisible, setIsVisible] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
 
@@ -24,6 +26,10 @@ export default function WhatsAppWidget() {
             clearTimeout(tooltipTimer);
         };
     }, []);
+
+    if (pathname?.startsWith('/admin')) {
+        return null;
+    }
 
     return (
         <div style={{

@@ -41,50 +41,28 @@ export default function ContactPage() {
                     <p style={{ fontSize: '1.25rem', color: '#666', maxWidth: '800px', margin: '0 auto', lineHeight: 1.8 }}>
                         Experience the touch of luxury in person or reach out to us for any queries. Our team is here to assist you with every detail of your collection.
                     </p>
-                    {page.content && (
-                        <div 
-                            className="cms-content"
-                            dangerouslySetInnerHTML={{ __html: page.content.replace(/Aiswarya Sarees/gi, 'Cast Print') }}
-                            style={{ marginTop: '2.5rem', borderTop: '1px solid #eee', paddingTop: '2.5rem', fontSize: '1.1rem', color: '#888' }}
-                        />
-                    )}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '8rem' }}>
-                    <div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4rem' }}>
-                            <div style={{ display: 'flex', gap: '2rem' }}>
-                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#f9f9f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821' }}><MapPin size={28} /></div>
-                                <div>
-                                    <h4 style={{ margin: '0 0 0.5rem', fontWeight: 700 }}>Our Flagship Store</h4>
-                                    <p style={{ color: '#666', fontSize: '1.1rem', lineHeight: 1.6 }}>1 Dhanalakshminagar West Street, Uppilipalayam,<br />Coimbatore, Tamilnadu - 641015</p>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '2rem' }}>
-                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#f9f9f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821' }}><Phone size={28} /></div>
-                                <div>
-                                    <h4 style={{ margin: '0 0 0.5rem', fontWeight: 700 }}>Direct Line</h4>
-                                    <p style={{ color: '#666', fontSize: '1.1rem' }}>+1 (555) 167-8232</p>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '2rem' }}>
-                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#f9f9f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821' }}><Mail size={28} /></div>
-                                <div>
-                                    <h4 style={{ margin: '0 0 0.5rem', fontWeight: 700 }}>Online Support</h4>
-                                    <p style={{ color: '#666', fontSize: '1.1rem' }}>castprinceofficial@gmail.com</p>
-                                </div>
-                            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
+                    <div style={{ background: '#fbfbfb', padding: '3rem', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}><MapPin size={36} /></div>
+                        <div>
+                            <h4 style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '1.3rem' }}>Our Flagship Store</h4>
+                            <p style={{ color: '#666', fontSize: '1.1rem', lineHeight: 1.6, margin: 0 }}>1 Dhanalakshminagar West Street, Uppilipalayam,<br />Coimbatore, Tamilnadu - 641015</p>
                         </div>
                     </div>
-                    <div style={{ background: '#fbfbfb', padding: '6rem', borderRadius: '8px' }}>
-                        <form style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
-                                <input type="text" style={{ padding: '1.5rem', border: 'none', borderBottom: '1px solid #ddd', background: 'transparent', fontSize: '1.1rem' }} placeholder="Full Name" />
-                                <input type="email" style={{ padding: '1.5rem', border: 'none', borderBottom: '1px solid #ddd', background: 'transparent', fontSize: '1.1rem' }} placeholder="Email Address" />
-                            </div>
-                            <input type="text" style={{ padding: '1.5rem', border: 'none', borderBottom: '1px solid #ddd', background: 'transparent', fontSize: '1.1rem' }} placeholder="Subject" />
-                            <textarea rows={5} style={{ padding: '1.5rem', border: 'none', borderBottom: '1px solid #ddd', background: 'transparent', resize: 'none', fontSize: '1.1rem' }} placeholder="Your message here..." />
-                            <button style={{ background: '#5d0821', color: '#fff', padding: '1.5rem', fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer' }}>SEND MESSAGE</button>
-                        </form>
+                    <div style={{ background: '#fbfbfb', padding: '3rem', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}><Phone size={36} /></div>
+                        <div>
+                            <h4 style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '1.3rem' }}>Direct Line</h4>
+                            <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>+1 (555) 167-8232</p>
+                        </div>
+                    </div>
+                    <div style={{ background: '#fbfbfb', padding: '3rem', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}><Mail size={36} /></div>
+                        <div>
+                            <h4 style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '1.3rem' }}>Online Support</h4>
+                            <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>castprinceofficial@gmail.com</p>
+                        </div>
                     </div>
                 </div>
             </div>

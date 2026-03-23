@@ -13,11 +13,13 @@ export default function ProductCard({ product, gridView = true }) {
             <div className={styles.productCardList}>
                 <div className={styles.productImageWrap}>
                     <Link href={`/product/${product.id}`}>
+                        <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }} />
                         <img
                             src={product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'}
                             alt={product.name}
                             className={styles.productImage}
                             onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                            style={{ position: 'relative', zIndex: 1 }}
                         />
                     </Link>
                     {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
@@ -45,11 +47,13 @@ export default function ProductCard({ product, gridView = true }) {
         <div className={styles.productCard}>
             <div className={styles.productImageWrap}>
                 <Link href={`/product/${product.id}`}>
+                    <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }} />
                     <img
                         src={product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'}
                         alt={product.name}
                         className={styles.productImage}
                         onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                        style={{ position: 'relative', zIndex: 1 }}
                     />
                 </Link>
                 {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
