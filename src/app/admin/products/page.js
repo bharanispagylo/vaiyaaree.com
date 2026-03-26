@@ -677,7 +677,8 @@ export default function ProductsPage() {
         return (
             (p.name || '').toLowerCase().includes(term) ||
             (p.category || '').toLowerCase().includes(term) ||
-            (p.product_group || '').toLowerCase().includes(term)
+            (p.product_group || '').toLowerCase().includes(term) ||
+            (p.product_catalog_image_id || '').toLowerCase().includes(term)
         ) && (categoryFilter === 'ALL' || p.category === categoryFilter)
             && (groupFilter === 'ALL' || p.product_group === groupFilter);
     });

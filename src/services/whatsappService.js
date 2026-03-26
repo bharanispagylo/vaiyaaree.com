@@ -423,15 +423,28 @@ async function generateAndUploadInvoice(order) {
 
 // Generate lookup variants to fix common OCR misreads (e.g. 1→I, 0→O)
 function getCatalogIdVariants(catalogId) {
-    const code = catalogId.replace(/^CAT-/i, '').toUpperCase();
+    const code = catalogId.replace(/^CAT[-\s]?/i, '').toUpperCase();
     const CONFUSABLES = {
         '1': ['I', 'L'], '0': ['O'], '5': ['S'], '8': ['B'],
         'I': ['1'], 'O': ['0'], 'S': ['5'], 'B': ['8']
     };
-    const variants = new Set([`CAT-${code}`]);
+    
+    const variants = new Set();
+    // Always try with CAT-, without, and with CAT (no dash)
+    variants.add(`CAT-${code}`);
+    variants.add(`CAT${code}`);
+    variants.add(code);
+    
     for (let i = 0; i < code.length; i++) {
         const alts = CONFUSABLES[code[i]];
-        if (alts) alts.forEach(a => variants.add(`CAT-${code.slice(0, i)}${a}${code.slice(i + 1)}`));
+        if (alts) {
+            alts.forEach(a => {
+                const altCode = `${code.slice(0, i)}${a}${code.slice(i + 1)}`;
+                variants.add(`CAT-${altCode}`);
+                variants.add(`CAT${altCode}`);
+                variants.add(altCode);
+            });
+        }
     }
     return [...variants];
 }
@@ -1180,10 +1193,12 @@ async function analyzeImageForCatalogId(mediaId) {
         for (const pattern of patterns) {
             const m = detectedText.match(pattern);
             if (m) {
-                const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '');
-                if (/^[A-Z0-9]{5,8}$/i.test(code)) {
-                    catalogId = `CAT-${code.slice(-5).toUpperCase()}`;
-                    console.log('[OCR] ✅ Extracted catalog ID:', catalogId);
+                // Extract the alphanumeric part (5-8 chars)
+                const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '').toUpperCase();
+                if (code.length >= 4) {
+                    // Pass the raw extracted code to handleProductInquiry (it will use getCatalogIdVariants)
+                    catalogId = code; 
+                    console.log('[OCR] ✅ Extracted code:', catalogId);
                     break;
                 }
             }
@@ -1306,10 +1321,11 @@ export async function processIncomingMessage(body) {
             if (['catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees', 'show sarees'].includes(text)) return await sendCatalogueCategories(from);
 
             // ── CATALOG ID LOOKUP: customer reads CAT-XXXXX code from product image ──
-            // Matches patterns like: CAT-AB12X  or  cat-ab12x  or just  AB12X
-            const catalogMatch = message.text.body.trim().match(/^(CAT-)?([A-Z0-9]{5})$/i);
+            // Matches patterns like: CAT-AB12X, cat ab12x, CAT12345, or just AB12X (5-8 chars)
+            // Use a more flexible regex for direct typing
+            const catalogMatch = message.text.body.trim().match(/^(CAT[-\s]?)?([A-Z0-9]{4,12})$/i);
             if (catalogMatch) {
-                const catalogId = `CAT-${catalogMatch[2].toUpperCase()}`;
+                const catalogId = catalogMatch[2].toUpperCase();
                 return await handleProductInquiry(from, catalogId);
             }
 
