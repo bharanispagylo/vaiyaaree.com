@@ -87,7 +87,7 @@ export default function ShopSettingsPage() {
             <div className="page-header">
                 <div>
                     <h1><Store size={32} color="hsl(var(--primary))" /> Shop Settings</h1>
-                    <p>Configure your shop details for Cast Print, invoice appearance, and business legal information.</p>
+                    <p>Configure your shop details for Cast Printz, invoice appearance, and business legal information.</p>
                 </div>
                 <button
                     onClick={saveSettings}
@@ -120,7 +120,7 @@ export default function ShopSettingsPage() {
                                 type="text"
                                 value={settings.shop_name || ''}
                                 onChange={(e) => handleUpdate('shop_name', e.target.value)}
-                                placeholder="Cast Print"
+                                placeholder="Cast Printz"
                             />
                         </div>
                         <div className="field-group">

@@ -24,7 +24,7 @@ const ShopFooter = () => {
                         }}>
                             CP
                         </div>
-                        <span className={styles.logoBrandName}>CAST PRINT</span>
+                        <span className={styles.logoBrandName}>CAST PRINTZ</span>
                     </div>
                     <div className={styles.contactInfo}>
                         <div className={styles.infoItem}>
@@ -33,7 +33,7 @@ const ShopFooter = () => {
                         </div>
                         <div className={styles.infoItem}>
                             <Mail size={18} className={styles.infoIcon} />
-                            <p>castprinceofficial@gmail.com</p>
+                            <p>castprintzofficial@gmail.com</p>
                         </div>
                     </div>
                 </div>
@@ -68,7 +68,7 @@ const ShopFooter = () => {
             </div>
 
             <div className={styles.copyrightBar}>
-                <p>&copy; {currentYear} — Cast Print. All Rights Reserved.</p>
+                <p>&copy; {currentYear} — Cast Printz. All Rights Reserved.</p>
             </div>
             
             <button className={styles.scrollToTop} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>

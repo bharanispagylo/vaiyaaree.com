@@ -50,7 +50,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
     const totalAmount = order.total_amount || 0;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
     const invoiceUrl = `${appUrl}/shop/invoice?oid=${orderId}`;
-    const brand = 'Cast Print';
+    const brand = 'Cast Printz';
 
     switch (status) {
         case 'PAID':

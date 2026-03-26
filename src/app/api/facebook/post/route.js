@@ -9,7 +9,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Missing required Facebook parameters' }, { status: 400 });
         }
 
-        const message = `🌸 New Arrival: ${name}\n\nPrice: ₹${price.toLocaleString()}\n\n${description || ''}\n\nShop now: ${process.env.NEXT_PUBLIC_APP_URL || 'https://castprince.vercel.app'}`;
+        const message = `🌸 New Arrival: ${name}\n\nPrice: ₹${price.toLocaleString()}\n\n${description || ''}\n\nShop now: ${process.env.NEXT_PUBLIC_APP_URL || 'https://castprintz.vercel.app'}`;
 
         const fbUrl = `https://graph.facebook.com/v21.0/${pageId}/photos`;
 

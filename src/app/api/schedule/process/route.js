@@ -49,7 +49,7 @@ export async function GET(request) {
                 // Mark as POSTING
                 await supabase.from('scheduled_posts').update({ status: 'POSTING' }).eq('id', post.id);
 
-                const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://castprince.vercel.app';
+                const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://castprintz.vercel.app';
                 const message = post.caption || `🌸 ${post.product_name}\n\n💰 ₹${(post.product_price || 0).toLocaleString()}\n\n🛍️ Shop: ${shopUrl}`;
 
                 const fbUrl = `https://graph.facebook.com/v21.0/${fbConfig.pageId}/photos`;

@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
                             <span style={{ fontSize: '2rem' }}>💮</span>
                         </div>
                     </div>
-                    <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Cast Print</h1>
+                    <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Cast Printz</h1>
                     <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
                         Business Admin Portal
                     </p>

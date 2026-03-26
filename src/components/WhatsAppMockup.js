@@ -11,7 +11,7 @@ export default function WhatsAppMockup() {
         { sender: 'user', text: 'Hi', time: '10:00 AM' },
         { 
             sender: 'bot', 
-            text: "💮 *Welcome to Cast Print!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n🛍️ *Shop Online:*\nhttps://casteprint.vercel.app/shop", 
+            text: "💮 *Welcome to Cast Printz!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n🛍️ *Shop Online:*\nhttps://castprintz.vercel.app/shop", 
             time: '10:01 AM' 
         },
         { 
@@ -97,7 +97,7 @@ export default function WhatsAppMockup() {
                         <img src="/images/aiswarya-logo.png" style={{ width: '30px' }} alt="Logo" />
                     </div>
                     <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Cast Print Support</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Cast Printz Support</div>
                         <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>Online</div>
                     </div>
                     <div style={{ display: 'flex', gap: '15px' }}>

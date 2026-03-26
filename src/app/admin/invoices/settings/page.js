@@ -13,7 +13,7 @@ import MediaPicker from '@/components/MediaPicker';
 export default function InvoiceSettingsPage() {
     const router = useRouter();
     const [settings, setSettings] = useState({
-        shop_name: 'Cast Print',
+        shop_name: 'Cast Printz',
         shop_logo: '',
         shop_address: '',
         shop_gstin: '',
@@ -92,7 +92,7 @@ export default function InvoiceSettingsPage() {
                     </Link>
                     <div>
                             <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Invoice Settings</h1>
-                            <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Customize the look and feel of your Cast Print invoices</p>
+                            <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Customize the look and feel of your Cast Printz invoices</p>
                     </div>
                 </div>
 

@@ -63,8 +63,8 @@ export default function SchedulePostPage() {
     // Generate default caption
     const generateCaption = (product) => {
         if (!product) return '';
-        const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://castprince.vercel.app';
-        return `🌸 *${product.name}*\n\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\n🛍️ Shop now: ${shopUrl}/shop?pid=${product.id}\n\n#CastPrince #Sarees #Fashion #IndianWear`;
+        const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://castprintz.vercel.app';
+        return `🌸 *${product.name}*\n\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\n🛍️ Shop now: ${shopUrl}/shop?pid=${product.id}\n\n#CastPrintz #Sarees #Fashion #IndianWear`;
     };
 
     const selectProduct = (product) => {

@@ -42,7 +42,7 @@ export default function ShopHeader() {
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
                         <Link href="/" className={styles.logoMaroonBox}>
-                            <span className={styles.logoBrandName}>CAST PRINT</span>
+                            <span className={styles.logoBrandName}>CAST PRINTZ</span>
                         </Link>
                     </div>
 

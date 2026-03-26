@@ -1,4 +1,4 @@
-//  Cast Print — WHATSAPP BUSINESS BOT (Premium Edition)
+//  Cast Printz — WHATSAPP BUSINESS BOT (Premium Edition)
 
 import { createClient } from '@supabase/supabase-js';
 import { jsPDF } from "jspdf";
@@ -172,7 +172,7 @@ export async function sendButtons(to, bodyText, buttons) {
     });
 }
 
-export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Cast Print • Premium Collection") {
+export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Cast Printz • Premium Collection") {
     const finalSections = Array.isArray(sections) && sections[0].rows ? sections : [{ title: "Options", rows: sections }];
     
     // Truncate sections for WhatsApp limits
@@ -316,7 +316,7 @@ async function generateAndUploadInvoice(order) {
         const doc = new jsPDF();
 
         // Header
-        doc.setFontSize(22);        doc.text("Cast Print", 105, 20, { align: "center" });
+        doc.setFontSize(22);        doc.text("Cast Printz", 105, 20, { align: "center" });
         doc.setFontSize(10); doc.text(`Order ID: #${order.id}`, 15, 35);
         doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 40);
 
@@ -493,14 +493,14 @@ export async function handleProductInquiry(to, catalogId) {
 
 export async function sendMainMenu(to) {
     const welcomeMsg = await getConfig('wa_welcome_message',
-        "💮 *Welcome to Cast Print!*\n\nDiscover our premium collection of silk & cotton sarees."
+        "💮 *Welcome to Cast Printz!*\n\nDiscover our premium collection of silk & cotton sarees."
     );
     const welcomeImg = await getConfig('wa_welcome_image',
         "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=85"
     );
 
     // Build shop URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://casteprint.vercel.app');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprintz.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
     // ── SIMPLIFIED FLOW (More robust for Vercel/V21.0) ──
@@ -1008,7 +1008,7 @@ export async function notifyOrderSuccess(orderId) {
             .join('\n');
 
         const message =
-            `✅ *Order Confirmed — Cast Print* 🎉\n\n` +
+            `✅ *Order Confirmed — Cast Printz* 🎉\n\n` +
             `Hi ${order.customer_name || 'Customer'}! Your order has been placed successfully.\n\n` +
             `📦 *Order ID:* #${orderId}\n` +
             `💰 *Grand Total:* ₹${total}\n` +
@@ -1024,7 +1024,7 @@ export async function notifyOrderSuccess(orderId) {
             await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
         }
 
-        await sendButtons(to, "💗 Thank you for shopping with *Cast Print*!\n\nTap below to manage your orders.", [
+        await sendButtons(to, "💗 Thank you for shopping with *Cast Printz*!\n\nTap below to manage your orders.", [
             { id: "menu_track", title: "Track Order" },
             { id: "menu_my_orders", title: "My Orders" }
         ]);
@@ -1047,7 +1047,7 @@ export async function finalizeOrder(to, method, orderId) {
         // Build UPI deep link — opens GPay / PhonePe / any UPI app with amount pre-filled
         const rawAmount = order?.total_amount || 0;
         const upiId = 'samypranesh@okicici';
-        const payeeName = 'Caste Print+Sarees';
+        const payeeName = 'Cast Printz Sarees';
         const note = `Order+${orderId}`;
         const upiLink = `upi://pay?pa=${upiId}\u0026pn=${payeeName}\u0026am=${rawAmount}\u0026cu=INR\u0026tn=${note}`;
 
@@ -1090,7 +1090,7 @@ export async function handlePaymentConfirmed(to, orderId) {
         await sendText(to, `⚠️ Invoice generation failed. Please contact us with Order ID: *#${orderId}*`);
     }
 
-    await sendButtons(to, "💗 Thank you for shopping with *Cast Print*!\n\nTap below to manage your orders.", [
+    await sendButtons(to, "💗 Thank you for shopping with *Cast Printz*!\n\nTap below to manage your orders.", [
         { id: "menu_track", title: "Track Order" },
         { id: "menu_my_orders", title: "My Orders" }
     ]);
@@ -1106,7 +1106,7 @@ export async function handleTrackOrder(to) {
 }
 
 export async function handleContact(to) {
-    const contactMsg = await getConfig('wa_contact_message', "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\nsupport@casteprint.com");
+    const contactMsg = await getConfig('wa_contact_message', "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\ncastprintzofficial@gmail.com");
     await sendText(to, contactMsg);
 }
 
@@ -1432,7 +1432,7 @@ export async function processIncomingMessage(body) {
             if (id === 'menu_main') return await sendMainMenu(from);
             if (id === 'menu_shop_web') {
                 // Customer tapped "Shop Now" — send the shopping website URL
-                const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://casteprint.vercel.app');
+                const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprintz.vercel.app');
                 const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(from)}`;
                 return await sendText(from,
                     `🛍️ *Open our Online Store:*\n\n👆 Tap the link below to browse & order sarees:\n\n${shopUrl}\n\n✨ You can browse our full collection, add to cart and place your order directly from the website!\n\nAfter placing your order, you'll be redirected back here with your order confirmation. 💮`

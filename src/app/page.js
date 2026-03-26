@@ -45,7 +45,7 @@ export default function HomePage() {
 
                 if (data) {
                     setPage(data);
-                    document.title = `${data.seo_title || data.title} | Cast Print`;
+                    document.title = `${data.seo_title || data.title} | Cast Printz`;
 
                     const { data: prods } = await supabase
                         .from('products')
@@ -169,7 +169,7 @@ export default function HomePage() {
             <div style={{ padding: '6rem 2rem 4rem', maxWidth: '900px', margin: '0 auto' }}>
                 <div 
                     className="cms-content"
-                    dangerouslySetInnerHTML={{ __html: page.content.replace(/Aiswarya Sarees/gi, 'Cast Print') }}
+                    dangerouslySetInnerHTML={{ __html: page.content.replace(/Aiswarya Sarees/gi, 'Cast Printz') }}
                     style={{ fontSize: '1.4rem', lineHeight: 1.8, textAlign: 'center', color: '#555' }}
                 />
             </div>

@@ -19,7 +19,7 @@ export default function AboutUsPage() {
                     .single();
                 if (data) {
                     setPage(data);
-                    document.title = `${data.seo_title || data.title} | Cast Print`;
+                    document.title = `${data.seo_title || data.title} | Cast Printz`;
                 }
             } finally {
                 setLoading(false);
@@ -42,7 +42,7 @@ export default function AboutUsPage() {
                         
                         <div style={{ fontSize: '1.15rem', lineHeight: 1.8, color: 'hsl(var(--text-muted))', marginBottom: '2.5rem' }}>
                             <p style={{ marginBottom: '1.5rem' }}>
-                                Founded with a passion for preserving the rich heritage of Indian textiles, Cast Print has been a beacon of tradition and elegance for generations. What started as a modest boutique has blossomed into a curated destination for pure silk, hand-loomed cottons, and exquisite block prints.
+                                Founded with a passion for preserving the rich heritage of Indian textiles, Cast Printz has been a beacon of tradition and elegance for generations. What started as a modest boutique has blossomed into a curated destination for pure silk, hand-loomed cottons, and exquisite block prints.
                             </p>
                             <p style={{ marginBottom: '1.5rem' }}>
                                 Every saree in our collection is woven with a story of craftsmanship, dedication, and timeless beauty. We work directly with master weavers across India to bring you authentic, ethically sourced fabrics that celebrate the artistry of our culture.

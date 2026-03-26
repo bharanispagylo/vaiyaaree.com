@@ -48,7 +48,7 @@ export default function AdminSidebar({ isOpen }) {
                     💮
                 </div>
                 <div>
-                    <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#fff', letterSpacing: '0.05em' }}>CAST PRINT</h2>
+                    <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#fff', letterSpacing: '0.05em' }}>CAST PRINTZ</h2>
                     <p style={{
                         fontSize: '0.6rem', color: 'rgba(255, 255, 255, 0.8)', margin: 0,
                         textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800

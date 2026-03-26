@@ -6,7 +6,7 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
 
     // 1. Fetch Branding/Shop Info
     let branding = {
-        shop_name: "Cast Print",
+        shop_name: "Cast Printz",
         shop_address: "Premium Handwoven Textiles",
         shop_gstin: "",
         shop_pan: "", // Add if possible
@@ -29,7 +29,7 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
     // Header
     doc.setFontSize(22);
     doc.setTextColor(30, 30, 30);
-    doc.text('CAST PRINT - BUSINESS AUDIT REPORT', 105, 20, { align: 'center' });
+    doc.text('CAST PRINTZ - BUSINESS AUDIT REPORT', 105, 20, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);

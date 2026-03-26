@@ -11,8 +11,8 @@ const roboto = Roboto({
 });
 
 export const metadata = {
-    title: "Cast Print | Premium Saree Collection",
-    description: "Discover the finest selection of premium sarees at Cast Print. Hand-block prints, traditional weaves, and modern elegance.",
+    title: "Cast Printz | Premium Saree Collection",
+    description: "Discover the finest selection of premium sarees at Cast Printz. Hand-block prints, traditional weaves, and modern elegance.",
 };
 
 export const dynamic = 'force-dynamic';

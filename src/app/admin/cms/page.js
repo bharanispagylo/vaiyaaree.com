@@ -477,7 +477,7 @@ export default function CMSPage() {
                                         </div>
 
                                         <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'white', borderRadius: '14px', border: '1px solid #e2e8f0', color: '#1a202c' }}>
-                                            <div style={{ fontSize: '0.8rem', color: '#1a73e8', marginBottom: '0.25rem' }}>www.castprince.com/page/{currentPage?.slug || 'preview'}</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#1a73e8', marginBottom: '0.25rem' }}>www.castprintz.com/page/{currentPage?.slug || 'preview'}</div>
                                             <div style={{ fontSize: '1.2rem', color: '#1a0dab', fontWeight: 600, marginBottom: '0.25rem' }}>{currentPage?.seo_title || currentPage?.title || 'SEO Title Preview'}</div>
                                             <div style={{ fontSize: '0.875rem', color: '#4d5156', lineHeight: 1.4 }}>{currentPage?.meta_description || 'Page meta description will appear here in search results. Make it catchy!'}</div>
                                         </div>

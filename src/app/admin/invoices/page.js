@@ -15,7 +15,7 @@ export default function InvoicesPage() {
     const [invoicePage, setInvoicePage] = useState(1);
     const INVOICES_PER_PAGE = 20;
     const [settings, setSettings] = useState({
-        shop_name: 'Cast Print',
+        shop_name: 'Cast Printz',
         shop_logo: '',
         shop_address: '',
         shop_gstin: '',
@@ -114,7 +114,7 @@ export default function InvoicesPage() {
                 }}>
                     <div>
                         <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800 }}>Invoices</h1>
-                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Manage and generate professional invoices for Cast Print orders</p>
+                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Manage and generate professional invoices for Cast Printz orders</p>
                     </div>
                     <Link
                         href="/admin/invoices/settings"

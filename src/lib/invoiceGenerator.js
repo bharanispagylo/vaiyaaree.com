@@ -6,7 +6,7 @@ export async function generateInvoicePDF(order) {
 
     // Fetch branding from settings
     let branding = {
-        shop_name: 'Cast Print',
+        shop_name: 'Cast Printz',
         shop_address: "Premium Handwoven Textiles",
         shop_gstin: "",
         bill_footer: "Thank you for your business!"
@@ -31,7 +31,7 @@ export async function generateInvoicePDF(order) {
     // Header
     doc.setFontSize(22);
     doc.setTextColor(30, 30, 30);
-    doc.text(branding.shop_name || "Cast Print", 105, 20, { align: "center" });
+    doc.text(branding.shop_name || "Cast Printz", 105, 20, { align: "center" });
 
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);

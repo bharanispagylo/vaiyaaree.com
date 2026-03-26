@@ -20,7 +20,7 @@ export default function ContactPage() {
                     .single();
                 if (data) {
                     setPage(data);
-                    document.title = `${data.seo_title || data.title} | Cast Print`;
+                    document.title = `${data.seo_title || data.title} | Cast Printz`;
                 }
             } finally {
                 setLoading(false);
@@ -61,7 +61,7 @@ export default function ContactPage() {
                         <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}><Mail size={36} /></div>
                         <div>
                             <h4 style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '1.3rem' }}>Online Support</h4>
-                            <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>castprinceofficial@gmail.com</p>
+                            <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>castprintzofficial@gmail.com</p>
                         </div>
                     </div>
                 </div>

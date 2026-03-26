@@ -22,7 +22,7 @@ export async function GET(request) {
         console.log(`Challenge: ${challenge}`);
 
         // Verify token matches your config
-        const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'castprince_secret';
+        const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'castprintz_secret';
 
         if (mode === 'subscribe' && token === verifyToken) {
             console.log('✅ Webhook Verified Successfully!');
