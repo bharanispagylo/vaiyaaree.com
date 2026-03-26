@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Surrounding Swirls / Floral lines -->
+  <g fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M100 15c20 0 40 10 55 25s25 35 25 55-10 40-25 55-35 25-55 25-40-10-55-25-25-35-25-55 10-40 25-55 35-25 55-25z" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <path d="M100 25c-15 15-20 40-10 60s30 35 50 35 40-15 45-35-5-40-20-55-35-25-55-20z" stroke-width="1"/>
+    <path d="M100 175c15-15 20-40 10-60s-30-35-50-35-40 15-45 35 5 40 20 55 35 25 55 20z" stroke-width="1"/>
+    <path d="M175 100c-15-15-40-20-60-10s-35 30-35 50 15 40 35 45 40 5 55-20 25-35 20-55z" stroke-width="1"/>
+    <path d="M25 100c15 15 40 20 60 10s35-30 35-50-15-40-35-45-40-5-55 20-25 35-20 55z" stroke-width="1"/>
+    
+    <!-- Mini leaves/dots -->
+    <path d="M140 30c5 5 10 15 5 20s-15 0-20-5-5-15 0-20 15 0 20 5z"/>
+    <path d="M60 170c-5-5-10-15-5-20s15 0 20 5 5 15 0 20-15 0-20-5z"/>
+    <circle cx="150" cy="150" r="3" fill="#000"/>
+    <circle cx="50" cy="50" r="3" fill="#000"/>
+    <circle cx="160" cy="80" r="2" fill="#000"/>
+    <circle cx="40" cy="120" r="2" fill="#000"/>
+  </g>
+
+  <!-- Solid Black Circle -->
+  <circle cx="100" cy="100" r="50" fill="#000"/>
+
+  <!-- Bold "cp" text in white -->
+  <text x="100" y="125" font-family="'Arial Black', Impact, sans-serif" font-weight="900" font-size="75" fill="#fff" text-anchor="middle" letter-spacing="-5">cp</text>
+</svg>

@@ -132,6 +132,22 @@ export default function MediaLibraryPage() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Delete failed');
 
+            // Automatically clean up deleted images from Hero/Gallery
+            const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName);
+            const fileUrl = urlData.publicUrl;
+
+            if (heroImages.includes(fileUrl)) {
+                const newHero = heroImages.filter(u => u !== fileUrl);
+                setHeroImages(newHero);
+                await updateSetting('hero_slider_images', newHero);
+            }
+
+            if (galleryImages.includes(fileUrl)) {
+                const newGallery = galleryImages.filter(u => u !== fileUrl);
+                setGalleryImages(newGallery);
+                await updateSetting('gallery_images', newGallery);
+            }
+
             setNotification({ message: '✅ Image deleted', type: 'success' });
             if (selectedFile?.name === fileName) setSelectedFile(null);
             fetchFiles();

@@ -11,7 +11,7 @@ export default function WhatsAppMockup() {
         { sender: 'user', text: 'Hi', time: '10:00 AM' },
         { 
             sender: 'bot', 
-            text: "💮 *Welcome to Cast Printz!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n🛍️ *Shop Online:*\nhttps://castprintz.vercel.app/shop", 
+            text: "✨ *Welcome to Cast Printz!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n🛍️ *Shop Online:*\nhttps://castprintz.vercel.app/shop", 
             time: '10:01 AM' 
         },
         { 
@@ -86,7 +86,7 @@ export default function WhatsAppMockup() {
             }}>
                 {/* WhatsApp Header */}
                 <div style={{
-                    background: '#075e54',
+                    background: '#5d0821',
                     padding: '35px 15px 10px',
                     color: '#fff',
                     display: 'flex',
@@ -94,7 +94,7 @@ export default function WhatsAppMockup() {
                     gap: '10px'
                 }}>
                     <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        <img src="/images/aiswarya-logo.png" style={{ width: '30px' }} alt="Logo" />
+                        <img src="/images/cp-logo.svg" style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="Logo" />
                     </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Cast Printz Support</div>
@@ -131,7 +131,8 @@ export default function WhatsAppMockup() {
                                 borderRadius: msg.sender === 'user' ? '10px 0 10px 10px' : '0 10px 10px 10px',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                                 position: 'relative',
-                                fontSize: '0.85rem'
+                                fontSize: '0.85rem',
+                                color: '#333'
                             }}>
                                 {msg.image && (
                                     <div style={{ margin: '-8px -12px 10px -12px', overflow: 'hidden', borderRadius: '10px 10px 0 0' }}>
@@ -164,7 +165,7 @@ export default function WhatsAppMockup() {
                                             padding: '8px 15px', 
                                             borderRadius: '20px', 
                                             fontSize: '0.8rem', 
-                                            color: '#00a5f4', 
+                                            color: '#5d0821', 
                                             textAlign: 'center',
                                             boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                                             fontWeight: 500,
@@ -205,7 +206,7 @@ export default function WhatsAppMockup() {
                         width: '40px',
                         height: '40px',
                         borderRadius: '50%',
-                        background: '#075e54',
+                        background: '#5d0821',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',

@@ -21,18 +21,17 @@ export async function stampProductCode(imageUrl, code) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
 
-            // Badge — tiny & tucked into bottom-right corner
-            const padding = 5;
-            // Keep font small: max 13px regardless of image size
-            const fontSize = Math.min(13, Math.max(10, Math.round(canvas.width * 0.018)));
-            ctx.font = `bold ${fontSize}px monospace`;
+            // Badge — clearly visible in bottom-right corner
+            const padding = 12;
+            const fontSize = Math.min(36, Math.max(20, Math.round(canvas.width * 0.035)));
+            ctx.font = `bold ${fontSize}px sans-serif`;
 
             const textWidth = ctx.measureText(code).width;
             const badgeW = textWidth + padding * 2;
-            const badgeH = fontSize + padding * 2;
+            const badgeH = fontSize + padding * 1.5;
 
-            // Glue to bottom-right corner with a 6px margin
-            const margin = 6;
+            // Glue to bottom-right corner with a decent margin
+            const margin = 12;
             const x = canvas.width - badgeW - margin;
             const y = canvas.height - badgeH - margin;
 
@@ -49,8 +48,8 @@ export async function stampProductCode(imageUrl, code) {
 
             // White text
             ctx.fillStyle = '#ffffff';
-            ctx.font = `bold ${fontSize}px monospace`;
-            ctx.fillText(code, x + padding, y + fontSize + padding * 0.65);
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.fillText(code, x + padding, y + fontSize + padding * 0.25);
 
             canvas.toBlob((blob) => {
                 if (blob) resolve(blob);

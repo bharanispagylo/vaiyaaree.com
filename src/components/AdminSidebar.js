@@ -42,10 +42,10 @@ export default function AdminSidebar({ isOpen }) {
                 borderBottom: '1px solid hsl(var(--border-subtle))'
             }}>
                 <div style={{
-                    fontSize: '2rem',
+                    width: '40px', height: '40px',
                     filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.2))'
                 }}>
-                    💮
+                    <img src="/images/cp-logo.svg" style={{ width: '100%', height: '100%', borderRadius: '50%' }} alt="CP Logo" />
                 </div>
                 <div>
                     <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#fff', letterSpacing: '0.05em' }}>CAST PRINTZ</h2>

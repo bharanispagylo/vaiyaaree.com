@@ -13,27 +13,16 @@ const ShopFooter = () => {
                 {/* Column 1: Logo & Info */}
                 <div className={styles.footerColumn}>
                     <div className={styles.footerLogo}>
-                        <div style={{ 
-                            background: '#5d0821', 
-                            color: '#fff', 
-                            padding: '8px 15px', 
-                            fontWeight: 900, 
-                            letterSpacing: '0.1em',
-                            display: 'inline-block',
-                            marginBottom: '10px'
-                        }}>
-                            CP
-                        </div>
                         <span className={styles.logoBrandName}>CAST PRINTZ</span>
                     </div>
                     <div className={styles.contactInfo}>
                         <div className={styles.infoItem}>
                             <MapPin size={18} className={styles.infoIcon} />
-                            <p>1 Dhanalakshminagar West Street, 1 Masakalipalayam Road, Uppilipalayam P.O, Coimbatore, Tamilnadu.</p>
+                            <p>16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.</p>
                         </div>
                         <div className={styles.infoItem}>
                             <Mail size={18} className={styles.infoIcon} />
-                            <p>castprintzofficial@gmail.com</p>
+                            <p>castprintzcbe@gmail.com</p>
                         </div>
                     </div>
                 </div>

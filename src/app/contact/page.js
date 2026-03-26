@@ -47,7 +47,7 @@ export default function ContactPage() {
                         <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}><MapPin size={36} /></div>
                         <div>
                             <h4 style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '1.3rem' }}>Our Flagship Store</h4>
-                            <p style={{ color: '#666', fontSize: '1.1rem', lineHeight: 1.6, margin: 0 }}>1 Dhanalakshminagar West Street, Uppilipalayam,<br />Coimbatore, Tamilnadu - 641015</p>
+                            <p style={{ color: '#666', fontSize: '1.1rem', lineHeight: 1.6, margin: 0 }}>16, Dhanalakshmi Nagar Extension, Masakalipalayam Road,<br />Uppili Palayam, Coimbatore, Tamil Nadu - 641015</p>
                         </div>
                     </div>
                     <div style={{ background: '#fbfbfb', padding: '3rem', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
@@ -61,7 +61,7 @@ export default function ContactPage() {
                         <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}><Mail size={36} /></div>
                         <div>
                             <h4 style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '1.3rem' }}>Online Support</h4>
-                            <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>castprintzofficial@gmail.com</p>
+                            <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>castprintzcbe@gmail.com</p>
                         </div>
                     </div>
                 </div>

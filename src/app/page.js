@@ -8,6 +8,13 @@ import Link from 'next/link';
 import ShopHeader from '@/components/ShopHeader';
 import ShopFooter from '@/components/ShopFooter';
 import WhatsAppMockup from '@/components/WhatsAppMockup';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Autoplay, Pagination, Navigation } from 'swiper/modules';
+
+// Import Swiper styles
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/navigation';
 
 export default function HomePage() {
     const router = useRouter();
@@ -20,7 +27,14 @@ export default function HomePage() {
         'https://images.unsplash.com/photo-1583391733958-d25974644ed1?q=80&w=2000&auto=format&fit=crop',
         'https://images.unsplash.com/photo-1610030469983-98e550d6153c?q=80&w=2000&auto=format&fit=crop'
     ]);
-    const [galleryImages, setGalleryImages] = useState([]);
+    const [galleryImages, setGalleryImages] = useState([
+        'https://images.unsplash.com/photo-1583391733958-d25974644ed1?w=800&q=80',
+        'https://images.unsplash.com/photo-1610030469983-98e550d6153c?w=800&q=80',
+        'https://images.unsplash.com/photo-1621644820935-46b7a0808e04?w=800&q=80',
+        'https://images.unsplash.com/photo-1628169222442-83b6f272c72b?w=800&q=80',
+        'https://images.unsplash.com/photo-1596472481622-c4349f7b1129?w=800&q=80'
+    ]);
+    const [selectedGalleryImage, setSelectedGalleryImage] = useState(null);
     const [sliderIndex, setSliderIndex] = useState(0);
     const [exploreSliderIndex, setExploreSliderIndex] = useState(0);
     const [heroSliderIndex, setHeroSliderIndex] = useState(0);
@@ -65,16 +79,22 @@ export default function HomePage() {
 
                     const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
                     if (heroData?.value) {
-                        const parsed = JSON.parse(heroData.value);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            setHeroSliderImages(parsed);
-                        }
+                        try {
+                            const parsed = JSON.parse(heroData.value);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                setHeroSliderImages(parsed);
+                            }
+                        } catch(e){}
                     }
 
                     const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
                     if (galleryData?.value) {
-                        const parsed = JSON.parse(galleryData.value);
-                        setGalleryImages(Array.isArray(parsed) ? parsed : []);
+                        try {
+                            const parsed = JSON.parse(galleryData.value);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                setGalleryImages(parsed);
+                            }
+                        } catch(e){}
                     }
                 }
             } catch (err) {
@@ -247,20 +267,20 @@ export default function HomePage() {
                 <div style={{ background: 'url(/images/block-print-saree.png) center/cover no-repeat' }}></div>
             </div>
 
-            {/* WhatsApp Section - Centered QR and Button */}
-            <div style={{ padding: '3rem 2rem', background: '#fdfbfb', borderTop: '1px solid #f0f0f0' }}>
+            {/* WhatsApp Section - Highlighted with Cast Printz Color */}
+            <div style={{ padding: '6rem 2rem', background: '#5d0821', color: '#fff' }}>
                 <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1fr', gap: '3rem', alignItems: 'center' }}>
                     <div>
-                        <span style={{ letterSpacing: '0.2rem', color: '#5d0821', fontWeight: 700, marginBottom: '1rem', fontSize: '0.75rem', display: 'block' }}>PERSONALIZED SHOPPING</span>
-                        <h2 style={{ fontSize: '3.5rem', fontWeight: 400, fontFamily: 'var(--font-body)', lineHeight: 1.1, paddingBottom: '15px', position: 'relative' }}>
+                        <span style={{ letterSpacing: '0.2rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, marginBottom: '1rem', fontSize: '0.75rem', display: 'block' }}>PERSONALIZED SHOPPING</span>
+                        <h2 style={{ fontSize: '3.5rem', fontWeight: 400, fontFamily: 'var(--font-body)', lineHeight: 1.1, paddingBottom: '15px', position: 'relative', color: '#fff' }}>
                             Shop on WhatsApp
-                            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '60px', height: '1px', background: '#5d0821' }}></div>
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '60px', height: '1px', background: '#fff' }}></div>
                         </h2>
-                        <p style={{ color: '#666', marginBottom: '2rem', fontSize: '1.1rem', lineHeight: 1.6 }}>Connect directly with experts, view fabric details, and checkout via chat.</p>
+                        <p style={{ color: 'rgba(255,255,255,0.9)', marginBottom: '2rem', fontSize: '1.1rem', lineHeight: 1.6 }}>Connect directly with experts, view fabric details, and checkout via chat.</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             {[{ icon: MessageSquare, t: 'Expert Guidance' }, { icon: Check, t: 'Easy Checkout' }].map((item, i) => (
                                 <div key={i} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fdf2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                                         <item.icon size={20} />
                                     </div>
                                     <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{item.t}</span>
@@ -270,7 +290,7 @@ export default function HomePage() {
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
-                        <div style={{ background: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', textAlign: 'center', width: '100%', maxWidth: '280px' }}>
+                        <div style={{ background: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: 'none', textAlign: 'center', width: '100%', maxWidth: '280px' }}>
                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://wa.me/15551678232" style={{ width: '140px', marginBottom: '1rem' }} alt="QR" />
                            <div style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.2rem' }}>+1 (555) 167-8232</div>
                         </div>
@@ -279,39 +299,133 @@ export default function HomePage() {
                             href="https://wa.me/15551678232" 
                             target="_blank"
                             style={{ 
-                                display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 2rem', background: '#5d0821', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', width: '100%', maxWidth: '280px', justifyContent: 'center', boxShadow: '0 4px 12px rgba(93, 8, 33, 0.2)'
+                                display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 2rem', background: '#fff', color: '#5d0821', borderRadius: '4px', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', width: '100%', maxWidth: '280px', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', transition: 'transform 0.3s'
                             }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
                             <MessageSquare size={18} />
                             START CHATTING NOW
                         </Link>
                     </div>
 
-                    <div style={{ transform: 'scale(0.85)', transformOrigin: 'right center' }}>
+                    <div style={{ transform: 'scale(0.85)', transformOrigin: 'right center', color: '#000' }}>
                         <WhatsAppMockup />
                     </div>
                 </div>
             </div>
 
-            {/* Gallery - Original Styles */}
-            <div style={{ padding: '4rem 2rem', background: '#fff', borderTop: '1px solid #f0f0f0' }}>
-                <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            {/* Gallery - Swiper Slider */}
+            <div style={{ padding: '6rem 2rem', background: '#fff', borderTop: '1px solid #f0f0f0' }}>
+                <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
                     <h2 style={{ fontSize: '3rem', fontFamily: 'var(--font-body)', position: 'relative', width: 'fit-content', margin: '0 auto', paddingBottom: '15px' }}>
                         Our Gallery
                         <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '60px', height: '1px', background: '#5d0821' }}></div>
                     </h2>
                 </div>
-                <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                    {galleryImages.slice(0, 6).map((url, i) => (
-                        <div key={i} style={{ aspectRatio: '1/1', borderRadius: '4px', overflow: 'hidden', position: 'relative', background: '#fff' }}>
-                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
-                            <img src={url} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} alt="Gallery" />
-                        </div>
-                    ))}
+                
+                <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="gallery-swiper-container">
+                    <Swiper
+                        modules={[Autoplay, Pagination, Navigation]}
+                        spaceBetween={20}
+                        slidesPerView={1}
+                        loop={true}
+                        autoplay={{
+                            delay: 3000,
+                            disableOnInteraction: false,
+                        }}
+                        pagination={{ clickable: true }}
+                        navigation={true}
+                        breakpoints={{
+                            640: { slidesPerView: 2 },
+                            1024: { slidesPerView: 3 },
+                            1280: { slidesPerView: 4 }
+                        }}
+                        className="mySwiper"
+                        style={{ padding: '0 0 50px 0' }}
+                    >
+                        {galleryImages.map((url, i) => (
+                            <SwiperSlide key={i}>
+                                <div 
+                                    onClick={() => setSelectedGalleryImage(url)}
+                                    style={{ 
+                                        aspectRatio: '1/1', 
+                                        borderRadius: '8px', 
+                                        overflow: 'hidden', 
+                                        position: 'relative', 
+                                        background: '#f8f8f8',
+                                        boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+                                        transition: 'transform 0.4s ease',
+                                        cursor: 'zoom-in'
+                                    }}
+                                    className="gallery-item-hover"
+                                >
+                                    <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.3, zIndex: 0 }}></div>
+                                    <img src={url} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} alt={`Gallery ${i + 1}`} />
+                                </div>
+                            </SwiperSlide>
+                        ))}
+                    </Swiper>
                 </div>
+
+                <style>{`
+                    .gallery-swiper-container .swiper-button-next,
+                    .gallery-swiper-container .swiper-button-prev {
+                        color: #5d0821;
+                        background: rgba(255, 255, 255, 0.9);
+                        width: 50px;
+                        height: 50px;
+                        border-radius: 50%;
+                        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+                    }
+                    .gallery-swiper-container .swiper-button-next:after,
+                    .gallery-swiper-container .swiper-button-prev:after {
+                        font-size: 1.2rem;
+                        font-weight: 900;
+                    }
+                    .gallery-swiper-container .swiper-pagination-bullet-active {
+                        background: #5d0821 !important;
+                    }
+                    .gallery-item-hover:hover {
+                        transform: scale(1.02);
+                    }
+                `}</style>
             </div>
 
             <ShopFooter />
+
+            {/* Modal for Zoomed Image */}
+            {selectedGalleryImage && (
+                <div 
+                    style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out',
+                        animation: 'fadeIn 0.3s cubic-bezier(0.165, 0.84, 0.44, 1)'
+                    }}
+                    onClick={() => setSelectedGalleryImage(null)}
+                >
+                    <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
+                        <button 
+                            style={{ 
+                                position: 'absolute', top: '-40px', right: '-40px', background: 'none', border: 'none', 
+                                color: '#fff', fontSize: '3rem', cursor: 'pointer', fontWeight: 200, padding: '10px' 
+                            }}
+                            onClick={(e) => { e.stopPropagation(); setSelectedGalleryImage(null); }}
+                        >
+                            &times;
+                        </button>
+                        <img 
+                            src={selectedGalleryImage} 
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '4px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} 
+                            alt="Zoomed"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                    <style>{`
+                        @keyframes fadeIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
+                    `}</style>
+                </div>
+            )}
         </div>
     );
 }

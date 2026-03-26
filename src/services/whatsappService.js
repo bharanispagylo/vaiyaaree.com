@@ -464,7 +464,7 @@ export async function handleProductInquiry(to, catalogId) {
 
         if (!product) {
             return sendText(to,
-                `❌ Product code *${catalogId.toUpperCase()}* not found.\n\nSend *Hi* to browse our full collection! 💮`
+                `❌ Product code *${catalogId.toUpperCase()}* not found.\n\nSend *Hi* to browse our full collection! ✨`
             );
         }
 
@@ -506,7 +506,7 @@ export async function handleProductInquiry(to, catalogId) {
 
 export async function sendMainMenu(to) {
     const welcomeMsg = await getConfig('wa_welcome_message',
-        "💮 *Welcome to Cast Printz!*\n\nDiscover our premium collection of silk & cotton sarees."
+        "✨ *Welcome to Cast Printz!*\n\nDiscover our premium collection of silk & cotton sarees."
     );
     const welcomeImg = await getConfig('wa_welcome_image',
         "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=85"
