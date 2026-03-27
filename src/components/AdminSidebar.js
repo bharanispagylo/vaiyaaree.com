@@ -83,6 +83,11 @@ export default function AdminSidebar({ isOpen }) {
                             key={item.href}
                             href={item.href}
                             className={isActive ? 'active' : ''}
+                            onClick={() => {
+                                if (isActive) {
+                                    window.dispatchEvent(new Event('resetAdminView'));
+                                }
+                            }}
                         >
                             <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} />
                             <span>{item.name}</span>

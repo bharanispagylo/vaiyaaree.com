@@ -63,6 +63,13 @@ export default function CMSPage() {
 
     useEffect(() => {
         fetchPages();
+
+        const handleReset = () => {
+            setIsEditing(false);
+            setCurrentPage(null);
+        };
+        window.addEventListener('resetAdminView', handleReset);
+        return () => window.removeEventListener('resetAdminView', handleReset);
     }, []);
 
     const showNotification = (message, type = 'success') => {

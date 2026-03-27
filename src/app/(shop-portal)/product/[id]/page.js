@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ShoppingCart, Heart, Share2, Facebook, Twitter, Linkedin, MessageCircle, ChevronLeft, CheckCircle, X, ZoomIn } from 'lucide-react';
+import { ShoppingCart, Heart, Share2, Facebook, Twitter, Linkedin, MessageCircle, ChevronLeft, ChevronRight, CheckCircle, X, ZoomIn } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
 import styles from './product.module.css';
@@ -18,6 +18,7 @@ export default function ProductDetailsPage() {
     const [loading, setLoading] = useState(true);
     const [qty, setQty] = useState(1);
     const [isZoomed, setIsZoomed] = useState(false);
+    const [currentImageIdx, setCurrentImageIdx] = useState(0);
 
     useEffect(() => {
         if (!productsLoading && products.length > 0) {
@@ -62,8 +63,10 @@ export default function ProductDetailsPage() {
     if (!product) return <div className={styles.notFound}>Product not found. <button onClick={() => router.push('/shop')}>Back to Shop</button></div>;
 
     const displayPrice = selectedVariant ? selectedVariant.price : product.price;
-    const displayImage = selectedVariant?.image_url || product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
     const currentStock = selectedVariant ? selectedVariant.stock : product.stock;
+
+    const galleryImages = (selectedVariant?.image_url || product.image_url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80').split(',').filter(Boolean);
+    const activeImageUrl = galleryImages[currentImageIdx] || galleryImages[0];
 
     return (
         <div className={styles.productContainer}>
@@ -71,15 +74,16 @@ export default function ProductDetailsPage() {
                 <ChevronLeft size={20} /> Back
             </button>
             <div className={styles.mainSection}>
-                {/* Left: Product Image */}
+                {/* Left: Product Image — Amazon style */}
                 <div className={styles.imageGallery}>
-                    <div 
-                        className={styles.imageWrapper} 
+                    {/* Main large image on top */}
+                    <div
+                        className={styles.imageWrapper}
                         onClick={() => setIsZoomed(true)}
                         title="Click to zoom"
                     >
                         <img
-                            src={displayImage}
+                            src={activeImageUrl}
                             alt={product.name}
                             className={styles.mainImage}
                             onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80'; }}
@@ -88,6 +92,25 @@ export default function ProductDetailsPage() {
                             <ZoomIn size={24} />
                         </div>
                     </div>
+                    {/* Horizontal thumbnail strip below */}
+                    {galleryImages.length > 1 && (
+                        <div className={styles.thumbStrip}>
+                            {galleryImages.map((img, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`${styles.thumbItem} ${currentImageIdx === idx ? styles.thumbActive : ''}`}
+                                    onMouseEnter={() => setCurrentImageIdx(idx)}
+                                    onClick={() => setCurrentImageIdx(idx)}
+                                >
+                                    <img
+                                        src={img}
+                                        alt={`View ${idx + 1}`}
+                                        onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Right: Product Details */}
@@ -175,7 +198,7 @@ export default function ProductDetailsPage() {
                         <X size={32} />
                     </button>
                     <img
-                        src={displayImage}
+                        src={activeImageUrl}
                         alt={product.name}
                         className={styles.zoomedImage}
                         onClick={(e) => e.stopPropagation()}

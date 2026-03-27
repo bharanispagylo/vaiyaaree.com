@@ -46,7 +46,7 @@ export default function CartPage() {
                         {cart.map((item, idx) => (
                             <div key={idx} className={styles.cartItem}>
                                 <div className={styles.productCell}>
-                                    <img src={item.image_url} className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder} alt={item.name} />
+                                    <img src={item.image_url?.split(',')[0]} className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder} alt={item.name} />
                                     <div className={styles.itemName}>
                                         {item.name}
                                         {item.variantName && <span className={styles.variantName}>({item.variantName})</span>}

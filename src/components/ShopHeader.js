@@ -41,7 +41,8 @@ export default function ShopHeader() {
                         <button className={styles.hamburgerBtn} onClick={toggleMobileMenu}>
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
-                        <Link href="/" className={styles.logoMaroonBox}>
+                        <Link href="/" className={styles.logoLink}>
+                            <img src="/images/cp-logo.png" alt="Cast Printz" className={styles.logoImg} />
                             <span className={styles.logoBrandName}>CAST PRINTZ</span>
                         </Link>
                     </div>

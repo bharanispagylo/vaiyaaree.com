@@ -226,8 +226,19 @@ export default function OrdersPage() {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
             .subscribe();
 
-        return () => supabase.removeChannel(channel);
+        const handleReset = () => {
+            setSelectedOrder(null);
+            setIsAddingOrder(false);
+            setShowShippingModal(false);
+            setShowShippingForm(false);
+            setIsEditingItems(false);
+        };
+        window.addEventListener('resetAdminView', handleReset);
 
+        return () => {
+            supabase.removeChannel(channel);
+            window.removeEventListener('resetAdminView', handleReset);
+        };
     }, []);
 
     // Reset to page 1 when filters change

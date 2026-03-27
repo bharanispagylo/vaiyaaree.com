@@ -178,6 +178,15 @@ function CustomersPage() {
 
         fetchCustomers();
 
+        const handleReset = () => {
+            setSelectedCustomer(null);
+            setIsEditingCustomer(false);
+            setEditingOrderId(null);
+        };
+        window.addEventListener('resetAdminView', handleReset);
+
+        return () => window.removeEventListener('resetAdminView', handleReset);
+
     }, [timeRange]); // Re-fetch on time range change
 
 

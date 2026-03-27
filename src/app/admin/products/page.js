@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingCart,
-    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, EyeOff
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
@@ -190,6 +190,17 @@ export default function ProductsPage() {
         setHasMounted(true);
         fetchProducts();
         fetchFbConfig();
+
+        const handleReset = () => {
+            setIsEditing(false);
+            setCurrentProduct(null);
+            setShowHistory(false);
+            setImportModal(false);
+            setProductImageUrl('');
+            setVariants([]);
+        };
+        window.addEventListener('resetAdminView', handleReset);
+        return () => window.removeEventListener('resetAdminView', handleReset);
     }, [timeRange]); // Refresh when time range changes
 
     // Reset to page 1 when search/filter changes
@@ -941,11 +952,11 @@ export default function ProductsPage() {
                                             <tr key={product.id}>
                                                 <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{idx + 1}</td>
                                                 <td style={{ padding: '0.75rem 1.5rem' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', cursor: 'pointer' }} onClick={() => window.open('/product/' + product.id, '_blank')}>
                                                         <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))', position: 'relative' }}>
                                                             {product.image_url ? (
                                                                 <>
-                                                                    <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                    <img src={product.image_url?.split(',')[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                                         onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
                                                                     {product.product_catalog_image_id && (
                                                                         <div style={{
@@ -1027,6 +1038,7 @@ export default function ProductsPage() {
                                                 <button onClick={() => copyLink(product)} title="Copy Link" className="btn btn-secondary" style={{ padding: '0.4rem', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
                                                     {copiedId === product.id ? <Check size={15} /> : <LinkIcon size={15} />}
                                                 </button> */}
+
                                                         <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
                                                             <Share2 size={15} />
                                                         </button>
@@ -1070,10 +1082,10 @@ export default function ProductsPage() {
                                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(0,0,0,0.3)'; }}
                                             onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}>
                                             {/* Product Image */}
-                                            <div style={{ height: '190px', background: 'hsl(var(--bg-app))', overflow: 'hidden', position: 'relative' }}>
+                                            <div style={{ height: '190px', background: 'hsl(var(--bg-app))', overflow: 'hidden', position: 'relative', cursor: 'pointer' }} onClick={() => window.open('/product/' + product.id, '_blank')}>
                                                 {product.image_url ? (
                                                     <>
-                                                        <img src={product.image_url} alt={product.name}
+                                                        <img src={product.image_url?.split(',')[0]} alt={product.name}
                                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                             onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
                                                         {/* Catalog ID Badge */}
@@ -1109,6 +1121,7 @@ export default function ProductsPage() {
                                                 <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
                                                 {/* Actions */}
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
+
                                                     <button onClick={() => openEditModal(product)}
                                                         className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                                                         <Edit size={13} /> Edit
@@ -1226,9 +1239,17 @@ export default function ProductsPage() {
 
                                             {/* Image preview */}
                                             {productImageUrl && (
-                                                <div style={{ marginBottom: '8px', position: 'relative', width: '80px', height: '100px' }}>
-                                                    <img src={productImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
-                                                    <button type="button" onClick={() => setProductImageUrl('')} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>✕</button>
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                                                    {productImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
+                                                        <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
+                                                            <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                            <button type="button" onClick={() => {
+                                                                const urls = productImageUrl.split(',').filter(Boolean);
+                                                                urls.splice(idx, 1);
+                                                                setProductImageUrl(urls.join(','));
+                                                            }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>✕</button>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             )}
 
@@ -1257,30 +1278,32 @@ export default function ProductsPage() {
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                                                     }}
                                                 >
-                                                    <Upload size={15} /> Upload File
+                                                    <Upload size={15} /> Upload Files
                                                     <input
                                                         type="file"
                                                         accept="image/*"
+                                                        multiple
                                                         style={{ display: 'none' }}
                                                         onChange={async (e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (!file) return;
+                                                            const files = Array.from(e.target.files || []);
+                                                            if (!files.length) return;
                                                             try {
-                                                                // 1. Create a local blob URL to stamp
-                                                                const localUrl = URL.createObjectURL(file);
-                                                                // 2. Generate CAT code
-                                                                const catalogId = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                                                                // 3. Stamp CAT code onto image
-                                                                const watermarkedBlob = await stampProductCode(localUrl, catalogId);
-                                                                URL.revokeObjectURL(localUrl);
-                                                                // 4. Upload watermarked image via server API
-                                                                const finalUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
-                                                                setProductImageUrl(finalUrl);
-                                                                // Store catalogId temporarily in state for handleSave to pick up
+                                                                const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                                                                const uploadedUrls = await Promise.all(files.map(async (file) => {
+                                                                    const localUrl = URL.createObjectURL(file);
+                                                                    const watermarkedBlob = await stampProductCode(localUrl, catalogId);
+                                                                    URL.revokeObjectURL(localUrl);
+                                                                    return await uploadWatermarkedImage(watermarkedBlob, catalogId);
+                                                                }));
                                                                 setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catalogId }));
+                                                                setProductImageUrl(prev => {
+                                                                    const existing = prev ? prev.split(',').filter(Boolean) : [];
+                                                                    return [...existing, ...uploadedUrls].join(',');
+                                                                });
                                                             } catch (err) {
                                                                 alert('Upload failed: ' + (err.message || 'Unknown error'));
                                                             }
+                                                            e.target.value = '';
                                                         }}
                                                     />
                                                 </label>
@@ -1589,10 +1612,10 @@ export default function ProductsPage() {
             {
                 showMediaPicker && (
                     <MediaPicker
-                        currentImage={activeImageField?.type === 'product' ? productImageUrl : variants[activeImageField?.index]?.image_url}
+                        currentImage={activeImageField?.type === 'product' ? (productImageUrl ? productImageUrl.split(',')[0] : '') : variants[activeImageField?.index]?.image_url}
                         onSelect={(url) => {
                             if (activeImageField.type === 'product') {
-                                setProductImageUrl(url);
+                                setProductImageUrl(prev => prev ? `${prev},${url}` : url);
                             } else if (activeImageField.type === 'variant') {
                                 updateVariant(activeImageField.index, 'image_url', url);
                             }

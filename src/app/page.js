@@ -209,8 +209,8 @@ export default function HomePage() {
                                 <Link key={product.id} href={`/product/${product.id}`} style={{ flex: '0 0 calc(25% - 1.2rem)', minWidth: '280px', textDecoration: 'none', color: 'inherit' }}>
                                     <div style={{ textAlign: 'center' }}>
                                         <div style={{ aspectRatio: '3/4', marginBottom: '1rem', overflow: 'hidden', borderRadius: '4px', boxShadow: '0 5px 15px rgba(0,0,0,0.05)', background: '#fff', position: 'relative' }}>
-                                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
-                                            <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
+                                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url?.split(',')[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
+                                            <img src={product.image_url?.split(',')[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                         </div>
                                         <h3 style={{ fontSize: '1rem', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{product.name}</h3>
                                         <p style={{ color: '#5d0821', fontWeight: 600 }}>₹{product.price.toLocaleString()}</p>
@@ -237,8 +237,8 @@ export default function HomePage() {
                                 <Link key={product.id} href={`/product/${product.id}`} style={{ flex: '0 0 calc(25% - 1.5rem)', minWidth: '300px', textDecoration: 'none', color: 'inherit' }}>
                                     <div style={{ textAlign: 'center' }}>
                                         <div style={{ aspectRatio: '3/4', marginBottom: '1.5rem', overflow: 'hidden', borderRadius: '4px', boxShadow: '0 10px 40px rgba(0,0,0,0.08)', background: '#fff', position: 'relative' }}>
-                                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
-                                            <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
+                                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url?.split(',')[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
+                                            <img src={product.image_url?.split(',')[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                         </div>
                                         <span style={{ color: '#888', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.1em' }}>{product.category}</span>
                                         <h3 style={{ fontSize: '1.2rem', margin: '0.5rem 0', fontFamily: 'var(--font-body)' }}>{product.name}</h3>
