@@ -116,30 +116,30 @@ export async function sendRawMessage(to, payload) {
         debugLog(`Sending ${payload.type} to ${to}`);
         const response = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/messages`, {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 
-                'Content-Type': 'application/json' 
+            headers: {
+                'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(payload)
         });
-        
+
         const data = await response.json();
-        
+
         if (!response.ok) {
             const errorMsg = data.error?.message || 'Unknown Meta API Error';
             const errorCode = data.error?.code || 'No Code';
             console.error(`❌ [WA-ERROR][${response.status}] ${errorMsg} (Code: ${errorCode})`);
-            
+
             if (errorCode === 131030) {
                 console.error('💡 TIP: This usually means the 24-hour window is closed. The customer must message the bot first.');
             }
-            
+
             return { error: errorMsg, code: errorCode, full: data.error };
         }
-        
+
         debugLog(`Message sent successfully to ${to}`, { message_id: data.messages?.[0]?.id });
         return data;
-    } catch (error) { 
+    } catch (error) {
         console.error('❌ [WA-NETWORK-ERROR]:', error);
         return { error: 'Network failure' };
     }
@@ -174,7 +174,7 @@ export async function sendButtons(to, bodyText, buttons) {
 
 export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Cast Printz • Premium Collection") {
     const finalSections = Array.isArray(sections) && sections[0].rows ? sections : [{ title: "Options", rows: sections }];
-    
+
     // Truncate sections for WhatsApp limits
     const sanitizedSections = finalSections.slice(0, 10).map(sec => ({
         title: truncate(sec.title || "Options", 24),
@@ -188,9 +188,9 @@ export async function sendList(to, headerText, bodyText, buttonLabel, sections, 
     return sendRawMessage(to, {
         messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive",
         interactive: {
-            type: "list", 
+            type: "list",
             header: headerText ? { type: "text", text: truncate(headerText, 60) } : undefined,
-            body: { text: truncate(bodyText, 1024) }, 
+            body: { text: truncate(bodyText, 1024) },
             footer: footerText ? { text: truncate(footerText, 60) } : undefined,
             action: { button: truncate(buttonLabel, 20), sections: sanitizedSections }
         }
@@ -316,7 +316,7 @@ async function generateAndUploadInvoice(order) {
         const doc = new jsPDF();
 
         // Header
-        doc.setFontSize(22);        doc.text("Cast Printz", 105, 20, { align: "center" });
+        doc.setFontSize(22); doc.text("Cast Printz", 105, 20, { align: "center" });
         doc.setFontSize(10); doc.text(`Order ID: #${order.id}`, 15, 35);
         doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 40);
 
@@ -428,13 +428,13 @@ function getCatalogIdVariants(catalogId) {
         '1': ['I', 'L'], '0': ['O'], '5': ['S'], '8': ['B'],
         'I': ['1'], 'O': ['0'], 'S': ['5'], 'B': ['8']
     };
-    
+
     const variants = new Set();
     // Always try with CAT-, without, and with CAT (no dash)
     variants.add(`CAT-${code}`);
     variants.add(`CAT${code}`);
     variants.add(code);
-    
+
     for (let i = 0; i < code.length; i++) {
         const alts = CONFUSABLES[code[i]];
         if (alts) {
@@ -1197,7 +1197,7 @@ async function analyzeImageForCatalogId(mediaId) {
                 const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '').toUpperCase();
                 if (code.length >= 4) {
                     // Pass the raw extracted code to handleProductInquiry (it will use getCatalogIdVariants)
-                    catalogId = code; 
+                    catalogId = code;
                     console.log('[OCR] ✅ Extracted code:', catalogId);
                     break;
                 }
@@ -1258,12 +1258,12 @@ export async function processIncomingMessage(body) {
         try {
             const { data, error } = await supabase.from('customers').select('*').eq('phone', from).single();
             if (!data) {
-                const { data: newCust, error: insertErr } = await supabase.from('customers').insert({ 
-                    phone: from, 
-                    name: profileName, 
-                    role: 'user' 
+                const { data: newCust, error: insertErr } = await supabase.from('customers').insert({
+                    phone: from,
+                    name: profileName,
+                    role: 'user'
                 }).select().single();
-                
+
                 if (insertErr) {
                     debugLog(`Customer creation failed for ${from}:`, insertErr);
                 } else {
@@ -1291,7 +1291,7 @@ export async function processIncomingMessage(body) {
         // Use Google Cloud Vision OCR to read the catalog ID stamped on the image
         if (msgType === 'image') {
             const mediaId = message.image?.id;
-            await sendText(from, '🔍 Analysing your image... Please wait a moment!');
+            await sendText(from, '🔍 Searching in our catalogue... Please wait a moment!');
             const ocrResult = await analyzeImageForCatalogId(mediaId);
             if (ocrResult?.catalogId) {
                 console.log(`[WA] OCR found catalog ID: ${ocrResult.catalogId} from ${from}`);

@@ -22,9 +22,9 @@ export async function stampProductCode(imageUrl, code) {
             ctx.drawImage(img, 0, 0);
 
             // Badge — clearly visible in bottom-right corner
-            const padding = 12;
-            const fontSize = Math.min(36, Math.max(20, Math.round(canvas.width * 0.035)));
-            ctx.font = `bold ${fontSize}px sans-serif`;
+            const padding = 14;
+            const fontSize = Math.min(64, Math.max(24, Math.round(canvas.width * 0.045)));
+            ctx.font = `bold ${fontSize}px 'Outfit', 'Inter', 'Segoe UI', system-ui, sans-serif`;
 
             const textWidth = ctx.measureText(code).width;
             const badgeW = textWidth + padding * 2;
@@ -48,7 +48,7 @@ export async function stampProductCode(imageUrl, code) {
 
             // White text
             ctx.fillStyle = '#ffffff';
-            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.font = `bold ${fontSize}px 'Outfit', 'Inter', 'Segoe UI', system-ui, sans-serif`;
             ctx.fillText(code, x + padding, y + fontSize + padding * 0.25);
 
             canvas.toBlob((blob) => {
