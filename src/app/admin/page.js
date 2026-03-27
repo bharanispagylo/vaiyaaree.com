@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
-import { DollarSign, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck } from 'lucide-react';
+import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck } from 'lucide-react';
 
 // Simple in-memory cache for dashboard data (30s TTL)
 let _dashCache = null;
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
                     {
                         title: 'Total Revenue',
                         value: `₹${stats.revenue.toLocaleString()}`,
-                        icon: DollarSign,
+                        icon: IndianRupee,
                         gradient: 'linear-gradient(135deg, hsl(var(--success)), hsl(152 76% 25%))',
                         color: 'hsl(152 76% 95%)',
                         glow: 'hsl(var(--success) / 0.3)'

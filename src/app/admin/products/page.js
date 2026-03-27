@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingCart,
-    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
@@ -952,7 +952,7 @@ export default function ProductsPage() {
                                             <tr key={product.id}>
                                                 <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{idx + 1}</td>
                                                 <td style={{ padding: '0.75rem 1.5rem' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', cursor: 'pointer' }} onClick={() => window.open('/product/' + product.id, '_blank')}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', cursor: 'pointer' }} onClick={() => openEditModal(product)} title="Click to edit product">
                                                         <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))', position: 'relative' }}>
                                                             {product.image_url ? (
                                                                 <>
@@ -1029,16 +1029,9 @@ export default function ProductsPage() {
                                                 </td>
                                                 <td style={{ textAlign: 'right' }}>
                                                     <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                                                        {/* <button onClick={async () => {
-                                                    await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id);
-                                                    fetchProducts();
-                                                }} title={product.is_active ? "Hide from Shop" : "Show on Shop"} className="btn btn-secondary" style={{ padding: '0.4rem', color: product.is_active ? 'inherit' : 'hsl(var(--danger))' }}>
-                                                    {product.is_active ? <Eye size={15} /> : <EyeOff size={15} />}
-                                                </button>
-                                                <button onClick={() => copyLink(product)} title="Copy Link" className="btn btn-secondary" style={{ padding: '0.4rem', color: copiedId === product.id ? 'hsl(var(--success))' : 'inherit' }}>
-                                                    {copiedId === product.id ? <Check size={15} /> : <LinkIcon size={15} />}
-                                                </button> */}
-
+                                                        <button onClick={() => window.open('/product/' + product.id, '_blank')} title="View Product Page" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
+                                                            <Eye size={15} />
+                                                        </button>
                                                         <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
                                                             <Share2 size={15} />
                                                         </button>
@@ -1082,7 +1075,7 @@ export default function ProductsPage() {
                                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 12px 30px rgba(0,0,0,0.3)'; }}
                                             onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}>
                                             {/* Product Image */}
-                                            <div style={{ height: '190px', background: 'hsl(var(--bg-app))', overflow: 'hidden', position: 'relative', cursor: 'pointer' }} onClick={() => window.open('/product/' + product.id, '_blank')}>
+                                            <div style={{ height: '190px', background: 'hsl(var(--bg-app))', overflow: 'hidden', position: 'relative', cursor: 'pointer' }} onClick={() => openEditModal(product)} title="Click to edit product">
                                                 {product.image_url ? (
                                                     <>
                                                         <img src={product.image_url?.split(',')[0]} alt={product.name}
@@ -1121,7 +1114,10 @@ export default function ProductsPage() {
                                                 <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
                                                 {/* Actions */}
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-
+                                                    <button onClick={() => window.open('/product/' + product.id, '_blank')}
+                                                        className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--primary))' }} title="View Product Page">
+                                                        <Eye size={13} />
+                                                    </button>
                                                     <button onClick={() => openEditModal(product)}
                                                         className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
                                                         <Edit size={13} /> Edit
