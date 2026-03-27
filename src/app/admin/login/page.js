@@ -52,11 +52,11 @@ export default function AdminLoginPage() {
                 <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
                         <div style={{
-                            width: '80px', height: '80px', background: '#000', borderRadius: '50%',
+                            width: '80px', height: '80px', background: 'transparent', borderRadius: '50%',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             boxShadow: '0 10px 20px hsl(var(--primary) / 0.2)', overflow: 'hidden'
                         }}>
-                            <img src="/images/cp-logo.svg" alt="CP Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src="/images/cp-logo.png" alt="CP Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         </div>
                     </div>
                     <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Cast Printz</h1>

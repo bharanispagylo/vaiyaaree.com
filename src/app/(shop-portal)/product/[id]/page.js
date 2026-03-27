@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ShoppingCart, Heart, Share2, Facebook, Twitter, Linkedin, MessageCircle, ChevronLeft, CheckCircle } from 'lucide-react';
+import { ShoppingCart, Heart, Share2, Facebook, Twitter, Linkedin, MessageCircle, ChevronLeft, CheckCircle, X, ZoomIn } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
 import styles from './product.module.css';
@@ -17,6 +17,7 @@ export default function ProductDetailsPage() {
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [loading, setLoading] = useState(true);
     const [qty, setQty] = useState(1);
+    const [isZoomed, setIsZoomed] = useState(false);
 
     useEffect(() => {
         if (!productsLoading && products.length > 0) {
@@ -72,12 +73,21 @@ export default function ProductDetailsPage() {
             <div className={styles.mainSection}>
                 {/* Left: Product Image */}
                 <div className={styles.imageGallery}>
-                    <img
-                        src={displayImage}
-                        alt={product.name}
-                        className={styles.mainImage}
-                        onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80'; }}
-                    />
+                    <div 
+                        className={styles.imageWrapper} 
+                        onClick={() => setIsZoomed(true)}
+                        title="Click to zoom"
+                    >
+                        <img
+                            src={displayImage}
+                            alt={product.name}
+                            className={styles.mainImage}
+                            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80'; }}
+                        />
+                        <div className={styles.zoomIconWrapper}>
+                            <ZoomIn size={24} />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Right: Product Details */}
@@ -156,6 +166,21 @@ export default function ProductDetailsPage() {
                         ))}
                     </div>
                 </section>
+            )}
+
+            {/* Zoom Modal */}
+            {isZoomed && (
+                <div className={styles.zoomModal} onClick={() => setIsZoomed(false)}>
+                    <button className={styles.closeZoomBtn} onClick={(e) => { e.stopPropagation(); setIsZoomed(false); }}>
+                        <X size={32} />
+                    </button>
+                    <img
+                        src={displayImage}
+                        alt={product.name}
+                        className={styles.zoomedImage}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
             )}
         </div>
     );
