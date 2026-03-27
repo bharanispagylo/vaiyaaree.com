@@ -30,6 +30,7 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
     const [mediaFiles, setMediaFiles] = useState([]);
     const [loadingMedia, setLoadingMedia] = useState(true);
     const [activePickerIndex, setActivePickerIndex] = useState(null); // which row is open in picker
+    const [ocrLoading, setOcrLoading] = useState(false);
     const fileRefs = useRef([]);
 
     // Load existing media library
@@ -63,18 +64,18 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
             // 5. Update product with the watermarked image URL and catalog ID
             console.log('Updating product:', item.id, 'with URL:', finalUrl, 'catalog ID:', catalogId);
             const { data: updateData, error: updateError } = await supabase.from('products')
-                .update({ 
-                    image_url: finalUrl, 
-                    product_catalog_image_id: catalogId 
+                .update({
+                    image_url: finalUrl,
+                    product_catalog_image_id: catalogId
                 })
                 .eq('id', item.id)
                 .select();
-            
+
             if (updateError) {
                 console.error('Update error:', updateError);
                 throw new Error('Failed to update product: ' + updateError.message);
             }
-            
+
             console.log('Update successful:', updateData);
 
             setItems(prev => prev.map((it, i) =>
@@ -93,8 +94,39 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
     const handleFileChange = async (e, index) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const objectUrl = URL.createObjectURL(file);
-        await assignImage(index, objectUrl);
+
+        try {
+            setOcrLoading(true);
+            // 1. OCR Check for existing watermark
+            const reader = new FileReader();
+            const base64Promise = new Promise((resolve) => {
+                reader.onload = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+            });
+            const base64Image = await base64Promise;
+
+            const ocrRes = await fetch('/api/admin/ocr', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base64Image })
+            });
+            const ocrData = await ocrRes.json();
+
+            if (ocrData.hasWatermark) {
+                alert("The image has already WaterMark");
+                e.target.value = '';
+                return;
+            }
+
+            // 2. Proceed with assigning and stamping
+            const objectUrl = URL.createObjectURL(file);
+            await assignImage(index, objectUrl);
+        } catch (err) {
+            console.error('OCR check error:', err);
+            alert('Upload failed: ' + err.message);
+        } finally {
+            setOcrLoading(false);
+        }
     };
 
     const allDone = items.every(it => it.status === 'done');
@@ -318,8 +350,38 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                                     {mediaFiles.map(file => (
                                         <div
                                             key={file.id}
-                                            onClick={() => {
-                                                assignImage(activePickerIndex, file.url);
+                                            onClick={async () => {
+                                                const url = file.url;
+                                                try {
+                                                    setOcrLoading(true);
+                                                    // 1. OCR Check for existing watermark
+                                                    const res = await fetch(url);
+                                                    const blob = await res.blob();
+                                                    const reader = new FileReader();
+                                                    const base64Promise = new Promise((resolve) => {
+                                                        reader.onload = () => resolve(reader.result);
+                                                        reader.readAsDataURL(blob);
+                                                    });
+                                                    const base64Image = await base64Promise;
+
+                                                    const ocrRes = await fetch('/api/admin/ocr', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ base64Image })
+                                                    });
+                                                    const ocrData = await ocrRes.json();
+
+                                                    if (ocrData.hasWatermark) {
+                                                        alert("The image has already WaterMark");
+                                                        return; // Stop selection
+                                                    }
+                                                } catch (err) {
+                                                    console.error('Library OCR check error:', err);
+                                                } finally {
+                                                    setOcrLoading(false);
+                                                }
+
+                                                assignImage(activePickerIndex, url);
                                                 setActivePickerIndex(null);
                                             }}
                                             style={{
@@ -336,6 +398,19 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                                 </div>
                             )}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* OCR Loading Overlay */}
+            {ocrLoading && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                    zIndex: 5000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem'
+                }}>
+                    <Loader2 size={42} style={{ color: 'white', animation: 'spin 1s linear infinite' }} />
+                    <div style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '0.05em', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 1.5rem', borderRadius: '12px' }}>
+                        Searching for WaterMark...
                     </div>
                 </div>
             )}

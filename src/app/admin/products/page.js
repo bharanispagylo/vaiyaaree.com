@@ -60,6 +60,7 @@ export default function ProductsPage() {
     const [showMediaPicker, setShowMediaPicker] = useState(false);
     const [activeImageField, setActiveImageField] = useState(null); // { type: 'product' } or { type: 'variant', index: number }
     const [productImageUrl, setProductImageUrl] = useState('');
+    const [ocrLoading, setOcrLoading] = useState(false);
 
     // Post-Import Image Assigner State
     const [importedProductsForImage, setImportedProductsForImage] = useState(null);
@@ -975,7 +976,17 @@ export default function ProductsPage() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div>
+                                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                            {product.product_catalog_image_id && (
+                                                                <div style={{
+                                                                    fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace',
+                                                                    background: 'hsl(var(--accent) / 0.1)', color: 'hsl(var(--accent))',
+                                                                    padding: '1px 5px', borderRadius: '3px', display: 'inline-block', marginBottom: '2px',
+                                                                    width: 'fit-content'
+                                                                }}>
+                                                                    {product.product_catalog_image_id}
+                                                                </div>
+                                                            )}
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                 <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{product.name}</div>
                                                                 {product.is_featured && (
@@ -985,15 +996,6 @@ export default function ProductsPage() {
                                                             <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                                 {product.description || '—'}
                                                             </div>
-                                                            {product.product_catalog_image_id && (
-                                                                <div style={{
-                                                                    fontSize: '0.7rem', fontWeight: 700, fontFamily: 'monospace',
-                                                                    background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))',
-                                                                    padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px'
-                                                                }}>
-                                                                    {product.product_catalog_image_id}
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>
@@ -1113,6 +1115,15 @@ export default function ProductsPage() {
                                             </div>
                                             {/* Info */}
                                             <div style={{ padding: '1rem' }}>
+                                                {product.product_catalog_image_id && (
+                                                    <div style={{
+                                                        fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace',
+                                                        background: 'hsl(var(--accent) / 0.1)', color: 'hsl(var(--accent))',
+                                                        padding: '1px 5px', borderRadius: '3px', display: 'inline-block', marginBottom: '6px'
+                                                    }}>
+                                                        {product.product_catalog_image_id}
+                                                    </div>
+                                                )}
                                                 <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     {product.category}
                                                 </div>
@@ -1287,21 +1298,52 @@ export default function ProductsPage() {
                                                         onChange={async (e) => {
                                                             const files = Array.from(e.target.files || []);
                                                             if (!files.length) return;
+
                                                             try {
+                                                                setOcrLoading(true);
                                                                 const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                                                                const uploadedUrls = await Promise.all(files.map(async (file) => {
+                                                                
+                                                                const uploadedUrls = [];
+                                                                for (const file of files) {
+                                                                    // 1. OCR Check for existing watermark
+                                                                    const reader = new FileReader();
+                                                                    const base64Promise = new Promise((resolve) => {
+                                                                        reader.onload = () => resolve(reader.result);
+                                                                        reader.readAsDataURL(file);
+                                                                    });
+                                                                    const base64Image = await base64Promise;
+
+                                                                    const ocrRes = await fetch('/api/admin/ocr', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ base64Image })
+                                                                    });
+                                                                    const ocrData = await ocrRes.json();
+
+                                                                    if (ocrData.hasWatermark) {
+                                                                        alert("The image has already WaterMark");
+                                                                        continue;
+                                                                    }
+
+                                                                    // 2. Proceed with stamping and upload
                                                                     const localUrl = URL.createObjectURL(file);
                                                                     const watermarkedBlob = await stampProductCode(localUrl, catalogId);
                                                                     URL.revokeObjectURL(localUrl);
-                                                                    return await uploadWatermarkedImage(watermarkedBlob, catalogId);
-                                                                }));
-                                                                setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catalogId }));
-                                                                setProductImageUrl(prev => {
-                                                                    const existing = prev ? prev.split(',').filter(Boolean) : [];
-                                                                    return [...existing, ...uploadedUrls].join(',');
-                                                                });
+                                                                    const uploadedUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
+                                                                    uploadedUrls.push(uploadedUrl);
+                                                                }
+
+                                                                if (uploadedUrls.length > 0) {
+                                                                    setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catalogId }));
+                                                                    setProductImageUrl(prev => {
+                                                                        const existing = prev ? prev.split(',').filter(Boolean) : [];
+                                                                        return [...existing, ...uploadedUrls].join(',');
+                                                                    });
+                                                                }
                                                             } catch (err) {
                                                                 alert('Upload failed: ' + (err.message || 'Unknown error'));
+                                                            } finally {
+                                                                setOcrLoading(false);
                                                             }
                                                             e.target.value = '';
                                                         }}
@@ -1613,7 +1655,36 @@ export default function ProductsPage() {
                 showMediaPicker && (
                     <MediaPicker
                         currentImage={activeImageField?.type === 'product' ? (productImageUrl ? productImageUrl.split(',')[0] : '') : variants[activeImageField?.index]?.image_url}
-                        onSelect={(url) => {
+                        onSelect={async (url) => {
+                            try {
+                                setOcrLoading(true);
+                                // 1. OCR Check for existing watermark in library image
+                                const res = await fetch(url);
+                                const blob = await res.blob();
+                                const reader = new FileReader();
+                                const base64Promise = new Promise((resolve) => {
+                                    reader.onload = () => resolve(reader.result);
+                                    reader.readAsDataURL(blob);
+                                });
+                                const base64Image = await base64Promise;
+
+                                const ocrRes = await fetch('/api/admin/ocr', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ base64Image })
+                                });
+                                const ocrData = await ocrRes.json();
+
+                                if (ocrData.hasWatermark) {
+                                    alert("The image has already WaterMark");
+                                    return; // Stop selection
+                                }
+                            } catch (err) {
+                                console.error('Gallery OCR check error:', err);
+                            } finally {
+                                setOcrLoading(false);
+                            }
+
                             if (activeImageField.type === 'product') {
                                 setProductImageUrl(prev => prev ? `${prev},${url}` : url);
                             } else if (activeImageField.type === 'variant') {
@@ -1625,6 +1696,19 @@ export default function ProductsPage() {
                     />
                 )
             }
+
+            {/* OCR Loading Overlay */}
+            {ocrLoading && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                    zIndex: 5000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem'
+                }}>
+                    <Loader2 size={42} style={{ color: 'white', animation: 'spin 1s linear infinite' }} />
+                    <div style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '0.05em', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 1.5rem', borderRadius: '12px' }}>
+                        Searching for WaterMark...
+                    </div>
+                </div>
+            )}
 
             {/* PRODUCT IMAGE ASSIGNER (Post-Excel Import) */}
             {
