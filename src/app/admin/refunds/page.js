@@ -24,9 +24,24 @@ export default function RefundsPage() {
     const [processNote, setProcessNote] = useState('');
     const [notification, setNotification] = useState(null);
 
-    // Fetch refunds
+    // Fetch refunds and setup real-time subscription
     useEffect(() => {
         fetchRefunds();
+        
+        const channel = supabase
+            .channel('refunds_realtime')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'refunds' 
+            }, () => {
+                fetchRefunds();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const fetchRefunds = async () => {
@@ -216,7 +231,12 @@ export default function RefundsPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <div>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <RefreshCcw size={32} color="hsl(var(--warning))" />
+                        <RefreshCcw 
+                            size={32} 
+                            color="hsl(var(--warning))" 
+                            style={{ cursor: 'pointer', animation: loading ? 'spin 1s linear infinite' : 'none' }} 
+                            onClick={fetchRefunds}
+                        />
                         Refund Management
                     </h1>
                     <p style={{ color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>

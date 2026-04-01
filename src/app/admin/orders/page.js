@@ -469,7 +469,21 @@ export default function OrdersPage() {
                 created_at: new Date().toISOString()
             });
 
-            setNotification({ message: '✅ Order cancelled successfully', type: 'success' });
+            // Always create a refund entry for cancellations so admin can review
+            const { error: refundError } = await supabase.from('refunds').insert({
+                order_id: selectedOrder.id,
+                amount: selectedOrder.total_amount || 0,
+                reason: `Order Cancelled: ${cancelReason}`,
+                status: 'REQUESTED'
+            });
+
+            if (refundError) {
+                console.error('Refund tracking error:', refundError);
+                setNotification({ message: `⚠️ Order cancelled, but refund track failed: ${refundError.message}`, type: 'warning' });
+            } else {
+                setNotification({ message: '✅ Order cancelled and successfully sent to Refunds', type: 'success' });
+            }
+
             setShowCancelModal(false);
             setCancelReason('');
             fetchOrders();
@@ -569,7 +583,21 @@ export default function OrdersPage() {
                 created_at: new Date().toISOString()
             });
 
-            setNotification({ message: '✅ Refund request processed', type: 'success' });
+            // Create entry in refunds table for the Refunds page
+            const { error: refundError } = await supabase.from('refunds').insert({
+                order_id: selectedOrder.id,
+                amount: amount,
+                reason: refundReason,
+                status: 'REQUESTED'
+            });
+
+            if (refundError) {
+                console.error('Manual refund insert error:', refundError);
+                setNotification({ message: `⚠️ Refund requested, but tracking failed: ${refundError.message}`, type: 'warning' });
+            } else {
+                setNotification({ message: '✅ Refund request successfully sent to Refunds list', type: 'success' });
+            }
+
             setShowRefundModal(false);
             setRefundAmount('');
             setRefundReason('');
