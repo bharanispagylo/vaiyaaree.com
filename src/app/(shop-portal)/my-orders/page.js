@@ -16,6 +16,9 @@ export default function MyOrdersPage() {
     const [cancellingId, setCancellingId] = useState(null);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [otpSent, setOtpSent] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [generatedOtp, setGeneratedOtp] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
@@ -84,10 +87,50 @@ export default function MyOrdersPage() {
         }
         setSelectedOrder(order);
         setShowCancelModal(true);
+        setOtpSent(false);
+        setOtp('');
+        setGeneratedOtp(null);
+    }
+
+    async function sendOtp() {
+        if (!selectedOrder || !user?.phone) return;
+        
+        // Generate 6-digit OTP
+        const otpValue = Math.floor(100000 + Math.random() * 900000).toString();
+        setGeneratedOtp(otpValue);
+        setOtpSent(true);
+        
+        try {
+            // Send OTP via WhatsApp
+            const response = await fetch('/api/whatsapp/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: user.phone,
+                    otp: otpValue,
+                    orderId: selectedOrder.id
+                })
+            });
+            
+            if (!response.ok) {
+                console.error('Failed to send OTP');
+                alert('Failed to send OTP. Please try again.');
+            }
+        } catch (err) {
+            console.error('Error sending OTP:', err);
+            // Fallback: just show OTP in console for development
+            console.log(`OTP for ${selectedOrder.id}: ${otpValue}`);
+        }
     }
 
     async function confirmCancel() {
         if (!selectedOrder) return;
+        
+        // Verify OTP
+        if (!otpSent || otp !== generatedOtp) {
+            alert('Invalid OTP. Please enter the correct OTP sent to your WhatsApp.');
+            return;
+        }
         
         setCancellingId(selectedOrder.id);
         setShowCancelModal(false);
@@ -246,12 +289,71 @@ export default function MyOrdersPage() {
                             <p className={styles.modalWarning}>
                                 This action cannot be undone. Stock will be restored and if you have paid, refund will be processed within 5-7 business days.
                             </p>
+                            
+                            {!otpSent ? (
+                                <div style={{ marginTop: '1.5rem' }}>
+                                    <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+                                        For security, please verify your identity with an OTP sent to your WhatsApp.
+                                    </p>
+                                    <button onClick={sendOtp} className={styles.btnPrimary} style={{ width: '100%' }}>
+                                        Send OTP
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ marginTop: '1.5rem' }}>
+                                    <p style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                        Enter the 6-digit OTP sent to your WhatsApp:
+                                    </p>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter 6-digit OTP"
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                        style={{
+                                            width: '100%',
+                                            padding: '1rem',
+                                            border: '2px solid #e5e7eb',
+                                            borderRadius: '12px',
+                                            fontSize: '1.25rem',
+                                            textAlign: 'center',
+                                            letterSpacing: '0.3em',
+                                            marginBottom: '1rem',
+                                            fontWeight: '600',
+                                            color: '#1f2937',
+                                            background: '#f9fafb',
+                                            transition: 'all 0.2s',
+                                            outline: 'none'
+                                        }}
+                                        maxLength={6}
+                                        onFocus={(e) => {
+                                            e.target.style.borderColor = '#3b82f6';
+                                            e.target.style.background = 'white';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.target.style.borderColor = '#e5e7eb';
+                                            e.target.style.background = '#f9fafb';
+                                        }}
+                                    />
+                                    <button onClick={sendOtp} className={styles.btnSecondary} style={{ fontSize: '0.85rem' }}>
+                                        Resend OTP
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <div className={styles.modalActions}>
-                            <button onClick={() => setShowCancelModal(false)} className={styles.btnSecondary}>
+                            <button onClick={() => {
+                                setShowCancelModal(false);
+                                setOtpSent(false);
+                                setOtp('');
+                                setGeneratedOtp(null);
+                            }} className={styles.btnSecondary}>
                                 No, Keep Order
                             </button>
-                            <button onClick={confirmCancel} className={styles.btnDanger}>
+                            <button 
+                                onClick={confirmCancel} 
+                                className={styles.btnDanger}
+                                disabled={!otpSent || otp.length !== 6}
+                            >
                                 Yes, Cancel Order
                             </button>
                         </div>

@@ -87,11 +87,13 @@ export default function OrdersPage() {
 
     const [newOrder, setNewOrder] = useState({
         customer_name: '',
+        customer_email: '',
         customer_phone: '',
         shipping_address: '',
         billing_address: '',
         shipping_state: 'Tamil Nadu',
         payment_method: 'UPI',
+        send_notifications: 'both',
         items: [] // {product_id, product_name, quantity, price}
     });
     const [allProducts, setAllProducts] = useState([]);
@@ -454,7 +456,6 @@ export default function OrdersPage() {
                 .from('orders')
                 .update({
                     status: 'CANCELLED',
-                    cancel_reason: cancelReason,
                     admin_notes: `Order cancelled by admin on ${new Date().toLocaleString()}. Reason: ${cancelReason}`
                 })
                 .eq('id', selectedOrder.id);
@@ -1614,11 +1615,11 @@ export default function OrdersPage() {
                                             </div>
                                         )}
 
-                                        {/* Cancel Reason Display */}
-                                        {selectedOrder.cancel_reason && (
+                                        {/* Admin Notes Display */}
+                                        {selectedOrder.admin_notes && (
                                             <div className="card-sub" style={{ padding: '1.25rem', background: '#fef2f2', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ef4444', marginBottom: '0.5rem' }}>❌ Cancellation Reason</h4>
-                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.cancel_reason}</p>
+                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ef4444', marginBottom: '0.5rem' }}>👨‍💻 Admin Notes</h4>
+                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.admin_notes}</p>
                                             </div>
                                         )}
 
@@ -1658,8 +1659,21 @@ export default function OrdersPage() {
                                             <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Email Address</label>
+                                            <input type="email" placeholder="customer@email.com" value={newOrder.customer_email || ''} onChange={e => setNewOrder({ ...newOrder, customer_email: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                        </div>
+                                        <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>WhatsApp Phone</label>
                                             <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Send Notifications</label>
+                                            <select value={newOrder.send_notifications || 'both'} onChange={e => setNewOrder({ ...newOrder, send_notifications: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                                <option value="both">WhatsApp & Email</option>
+                                                <option value="whatsapp">Only WhatsApp</option>
+                                                <option value="email">Only Email</option>
+                                                <option value="none">No Notifications</option>
+                                            </select>
                                         </div>
                                         <div style={{ gridColumn: 'span 2' }}>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Address</label>
@@ -1797,6 +1811,7 @@ export default function OrdersPage() {
                                                                 const { error: ordErr } = await supabase.from('orders').insert({
                                                                     id: orderId,
                                                                     customer_name: newOrder.customer_name,
+                                                                    customer_email: newOrder.customer_email || null,
                                                                     customer_phone: normalizedPhone, // Ensures sync with Customers page aggregation
                                                                     delivery_address: newOrder.shipping_address,
                                                                     billing_address: newOrder.billing_address || newOrder.shipping_address,
@@ -1848,9 +1863,33 @@ export default function OrdersPage() {
                                                                     }
                                                                 }
 
+                                                                // ────── SEND NOTIFICATIONS ──────
+                                                                if (newOrder.send_notifications !== 'none') {
+                                                                    try {
+                                                                        const response = await fetch('/api/admin/send-order-notification', {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({
+                                                                                orderId: orderId,
+                                                                                sendWhatsApp: newOrder.send_notifications === 'both' || newOrder.send_notifications === 'whatsapp',
+                                                                                sendEmail: newOrder.send_notifications === 'both' || newOrder.send_notifications === 'email'
+                                                                            })
+                                                                        });
+                                                                        
+                                                                        if (response.ok) {
+                                                                            const result = await response.json();
+                                                                            console.log(result.message);
+                                                                        } else {
+                                                                            console.error('Failed to send notifications');
+                                                                        }
+                                                                    } catch (notifErr) {
+                                                                        console.error('Error sending notifications:', notifErr);
+                                                                    }
+                                                                }
+
                                                                 setNotification({ message: '✅ Manual Order Created Successfully! Stock updated.', type: 'success' });
                                                                 setIsAddingOrder(false);
-                                                                setNewOrder({ customer_name: '', customer_phone: '', delivery_address: '', shipping_state: 'Tamil Nadu', payment_method: 'UPI', items: [] });
+                                                                setNewOrder({ customer_name: '', customer_email: '', customer_phone: '', delivery_address: '', shipping_state: 'Tamil Nadu', payment_method: 'UPI', send_notifications: 'both', items: [] });
                                                                 fetchOrders();
                                                             } catch (err) {
                                                                 console.error('Manual Order Error:', err);

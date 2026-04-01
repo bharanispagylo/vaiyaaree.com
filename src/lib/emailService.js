@@ -25,12 +25,12 @@ export async function sendOrderConfirmationEmail(order) {
         `<tr>
             <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.product_name || 'Product'}</td>
             <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${item.price?.toLocaleString()}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${(item.price * item.quantity)?.toLocaleString()}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${(item.price_at_time || item.price || 0).toLocaleString()}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₹${((item.price_at_time || item.price || 0) * item.quantity).toLocaleString()}</td>
         </tr>`
     ).join('') || '';
 
-    const invoiceUrl = order.invoice_url || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`;
+    const invoiceUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`;
     const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order-confirmation?orderId=${order.id}`;
 
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();

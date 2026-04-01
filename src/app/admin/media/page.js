@@ -423,6 +423,10 @@ export default function MediaLibraryPage() {
         return true; // 'all' group
     });
 
+    // Calculate actual counts based on files that exist
+    const actualWatermarkCount = files.filter(f => watermarkImages.includes(f.url)).length;
+    const actualNoWatermarkCount = files.filter(f => noWatermarkImages.includes(f.url)).length;
+
     useEffect(() => {
         if (notification) {
             const timer = setTimeout(() => setNotification(null), 3000);
@@ -549,7 +553,7 @@ export default function MediaLibraryPage() {
                             display: 'flex', alignItems: 'center', gap: '0.4rem'
                         }}
                     >
-                        <Droplets size={14} /> With Watermark ({watermarkImages.length})
+                        <Droplets size={14} /> With Watermark ({actualWatermarkCount})
                     </button>
                     <button
                         onClick={() => setActiveGroup('no-watermark')}
@@ -561,7 +565,7 @@ export default function MediaLibraryPage() {
                             transition: 'all 0.2s'
                         }}
                     >
-                        Without Watermark ({noWatermarkImages.length})
+                        Without Watermark ({actualNoWatermarkCount})
                     </button>
                     {analyzing && (
                         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--text-muted))' }}>
@@ -622,7 +626,7 @@ export default function MediaLibraryPage() {
                                 </div>
                             </div>
                             <div style={{ fontSize: '0.75rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {file.name}
+                                {file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}
                             </div>
                             <div style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>
                                 {(file.metadata.size / 1024).toFixed(1)} KB • {new Date(file.created_at).toLocaleDateString()}
@@ -702,7 +706,7 @@ export default function MediaLibraryPage() {
                                             <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         </div>
                                     </td>
-                                    <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>{file.name}</td>
+                                    <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>{file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</td>
                                     <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{(file.metadata.size / 1024).toFixed(1)} KB</td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -758,7 +762,7 @@ export default function MediaLibraryPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <img src={selectedFile.url} style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
                         <div>
-                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedFile.name}</div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</div>
                             <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{selectedFile.url}</div>
                         </div>
                     </div>

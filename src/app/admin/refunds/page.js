@@ -52,7 +52,7 @@ export default function RefundsPage() {
                 .select(`
                     *,
                     orders:order_id (
-                        id, customer_name, customer_phone, total_amount, status, created_at
+                        id, customer_name, customer_phone, customer_email, total_amount, status, created_at
                     )
                 `)
                 .order('created_at', { ascending: false });

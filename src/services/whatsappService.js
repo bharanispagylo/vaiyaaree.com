@@ -1,7 +1,6 @@
 //  Cast Printz — WHATSAPP BUSINESS BOT (Premium Edition)
 
 import { createClient } from '@supabase/supabase-js';
-import { jsPDF } from "jspdf";
 
 // ─── 1. CONFIGURATION & CLIENTS ───────────────────────────────────────────────
 
@@ -367,337 +366,8 @@ async function deductStock(orderId) {
 
 // ─── 4. PDF INVOICE ───────────────────────────────────────────────────────────
 
-// Helper to fetch logo and convert to base64 with retry logic
-async function fetchLogoAsBase64(logoUrl, retries = 3) {
-    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-    
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            console.log(`[INVOICE] Fetching logo from: ${logoUrl} (attempt ${attempt}/${retries})`);
-            
-            // Use AbortController for timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-            
-            const response = await fetch(logoUrl, {
-                headers: { 
-                    'Accept': 'image/*',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                },
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                console.error(`[INVOICE] Failed to fetch logo: ${response.status} ${response.statusText}`);
-                if (attempt < retries) {
-                    console.log(`[INVOICE] Retrying in ${attempt * 1000}ms...`);
-                    await delay(attempt * 1000);
-                    continue;
-                }
-                return null;
-            }
-            
-            const arrayBuffer = await response.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            
-            // Detect image type from URL
-            let mimeType = 'image/png';
-            const lowerUrl = logoUrl.toLowerCase();
-            if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg')) {
-                mimeType = 'image/jpeg';
-            } else if (lowerUrl.endsWith('.webp')) {
-                mimeType = 'image/webp';
-            } else if (lowerUrl.endsWith('.gif')) {
-                mimeType = 'image/gif';
-            }
-            
-            const base64 = buffer.toString('base64');
-            console.log(`[INVOICE] Logo fetched successfully, size: ${base64.length} bytes`);
-            return `data:${mimeType};base64,${base64}`;
-        } catch (error) {
-            console.error(`[INVOICE] Error fetching logo (attempt ${attempt}/${retries}):`, error.message);
-            if (attempt < retries) {
-                console.log(`[INVOICE] Retrying in ${attempt * 1000}ms...`);
-                await delay(attempt * 1000);
-            }
-        }
-    }
-    return null;
-}
-
-// Helper to read local logo file as base64
-async function getLocalLogoAsBase64() {
-    try {
-        const fs = await import('fs');
-        const path = await import('path');
-        
-        // Try multiple possible logo paths
-        const possiblePaths = [
-            path.join(process.cwd(), 'public', 'logo.png'),
-            path.join(process.cwd(), 'public', 'logo1.jpg'),
-            path.join(process.cwd(), 'public', 'logo.jpg'),
-            path.join(process.cwd(), 'public', 'logo.jpeg'),
-            path.join(process.cwd(), 'public', 'images', 'logo.png'),
-            path.join(process.cwd(), 'public', 'images', 'logo1.jpg'),
-            path.join(process.cwd(), 'public', 'images', 'logo.jpg'),
-        ];
-        
-        for (const logoPath of possiblePaths) {
-            if (fs.existsSync(logoPath)) {
-                console.log(`[INVOICE] Found local logo at: ${logoPath}`);
-                const buffer = fs.readFileSync(logoPath);
-                const ext = path.extname(logoPath).toLowerCase();
-                let mimeType = 'image/png';
-                if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-                if (ext === '.webp') mimeType = 'image/webp';
-                
-                const base64 = buffer.toString('base64');
-                console.log(`[INVOICE] Local logo loaded, size: ${base64.length} bytes`);
-                return `data:${mimeType};base64,${base64}`;
-            }
-        }
-        
-        console.log('[INVOICE] No local logo file found');
-        return null;
-    } catch (error) {
-        console.error('[INVOICE] Error reading local logo:', error.message);
-        return null;
-    }
-}
-
-async function generateAndUploadInvoice(order) {
-    try {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const centerX = pageWidth / 2;
-        const margin = 15;
-        const rightColX = 140;
-
-        // Fetch branding from settings
-        let settings = {
-            shop_name: 'Cast Printz',
-            shop_logo: '',
-            shop_address: 'Premium Textiles',
-            shop_gstin: '',
-            bill_footer: 'Thank you for shopping with us!'
-        };
-
-        try {
-            const { data } = await supabase.from('app_settings').select('*');
-            if (data) {
-                data.forEach(item => {
-                    if (item.key === 'shop_name' || item.key === 'companyName') settings.shop_name = item.value;
-                    else if (item.key === 'shop_logo') settings.shop_logo = item.value;
-                    else if (item.key === 'shop_address') settings.shop_address = item.value;
-                    else if (item.key === 'shop_gstin') settings.shop_gstin = item.value;
-                    else if (item.key === 'bill_footer') settings.bill_footer = item.value;
-                });
-            }
-        } catch (e) { console.error("PDF Branding Error:", e); }
-
-        // --- 1. HEADER ---
-        // Logo & Shop Name (Left)
-        let logoBase64 = await getLocalLogoAsBase64() || (settings.shop_logo.startsWith('http') ? await fetchLogoAsBase64(settings.shop_logo) : null);
-        if (logoBase64) {
-            doc.addImage(logoBase64, 'PNG', margin, 10, 20, 20);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(18);
-            doc.text(settings.shop_name, margin + 25, 23);
-        } else {
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(22);
-            doc.text(settings.shop_name, margin, 25);
-        }
-        
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(100, 100, 100);
-        doc.text(settings.shop_address, margin + (logoBase64 ? 25 : 0), 28);
-        if (settings.shop_gstin) doc.text(`GSTIN: ${settings.shop_gstin}`, margin + (logoBase64 ? 25 : 0), 32);
-
-        // Header Title (Right)
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(24);
-        doc.setFont("helvetica", "bold");
-        doc.text("INVOICE", 195, 25, { align: "right" });
-        
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text(`#${order.id}`, 195, 31, { align: "right" });
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 100, 100);
-        doc.text(`${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, 195, 36, { align: "right" });
-
-        doc.setDrawColor(200, 200, 200);
-        doc.line(margin, 45, 195, 45);
-
-        // --- 2. BILL TO & PAYMENT INFO ---
-        let y = 55;
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(150, 150, 150);
-        doc.text("BILL TO", margin, y);
-        doc.text("PAYMENT INFO", rightColX, y);
-        
-        y += 6;
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(order.customer_name || 'Customer', margin, y);
-        doc.setFontSize(10);
-        doc.text(`Method: ${order.payment_method || 'COD'}`, rightColX, y);
-        
-        y += 5;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80, 80, 80);
-        doc.text(`${order.customer_phone || ''}`, margin, y);
-        doc.text(`Status: ${order.status}`, rightColX, y);
-
-        // Delivery Address
-        y += 8;
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(150, 150, 150);
-        doc.text("BILLING ADDRESS", margin, y);
-        doc.text("SHIPPING ADDRESS", margin + 70, y);
-
-        y += 5;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(60, 60, 60);
-        
-        const addrNormalizer = (addr) => {
-            if (!addr) return "Same as billing";
-            if (typeof addr === 'string') {
-                try {
-                    const p = JSON.parse(addr);
-                    return `${p.address || ''}, ${p.city || ''}, ${p.state || ''} ${p.pincode || ''}`;
-                } catch { return addr; }
-            }
-            return `${addr.address || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.pincode || ''}`;
-        };
-
-        const billingAddr = addrNormalizer(order.billing_address || order.delivery_address);
-        const shippingAddr = addrNormalizer(order.shipping_address || order.delivery_address);
-
-        const billLines = doc.splitTextToSize(billingAddr, 60);
-        const shipLines = doc.splitTextToSize(shippingAddr, 60);
-        doc.text(billLines, margin, y);
-        doc.text(shipLines, margin + 70, y);
-        
-        y += Math.max(billLines.length, shipLines.length) * 5 + 10;
-
-        // --- 3. ITEMS TABLE ---
-        doc.setFillColor(245, 246, 247);
-        doc.rect(margin, y, 180, 10, 'F');
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(100, 100, 100);
-        doc.text("#", margin + 3, y + 6.5);
-        doc.text("ITEM", margin + 15, y + 6.5);
-        doc.text("QTY", 140, y + 6.5, { align: "center" });
-        doc.text("PRICE", 165, y + 6.5, { align: "right" });
-        doc.text("TOTAL", 195, y + 6.5, { align: "right" });
-
-        y += 15;
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
-
-        if (order.order_items) {
-            order.order_items.forEach((item, i) => {
-                const total = item.price_at_time * item.quantity;
-                doc.setTextColor(150, 150, 150);
-                doc.text(String(i + 1), margin + 3, y);
-                
-                doc.setTextColor(0, 0, 0);
-                doc.setFont("helvetica", "bold");
-                const itemName = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
-                doc.text(itemName.substring(0, 45), margin + 15, y);
-                
-                doc.setFont("helvetica", "normal");
-                doc.text(String(item.quantity), 140, y, { align: "center" });
-                doc.text((item.price_at_time || 0).toLocaleString(), 165, y, { align: "right" });
-                doc.setFont("helvetica", "bold");
-                doc.text(total.toLocaleString(), 195, y, { align: "right" });
-                
-                y += 5;
-                doc.setDrawColor(245, 246, 247);
-                doc.line(margin, y, 195, y);
-                y += 7;
-            });
-        }
-
-        // --- 4. SUMMARY ---
-        y += 5;
-        const summaryWidth = 70;
-        const summaryX = 195 - summaryWidth;
-        
-        doc.setFillColor(249, 250, 251);
-        doc.rect(summaryX, y, summaryWidth, 40, 'F');
-        
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(100, 100, 100);
-        
-        let sumY = y + 7;
-        const subtotal = order.subtotal || (order.total_amount - (order.shipping_cost || 0) - (order.tax_amount || 0));
-        doc.text("Subtotal:", summaryX + 5, sumY);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Rs. ${subtotal.toLocaleString()}`, 195 - 5, sumY, { align: "right" });
-        
-        sumY += 6;
-        doc.setTextColor(100, 100, 100);
-        doc.text("Shipping:", summaryX + 5, sumY);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Rs. ${(order.shipping_cost || 0).toLocaleString()}`, 195 - 5, sumY, { align: "right" });
-        
-        if (order.tax_amount > 0) {
-            sumY += 6;
-            doc.setTextColor(100, 100, 100);
-            doc.text("Tax:", summaryX + 5, sumY);
-            doc.setTextColor(0, 0, 0);
-            doc.text(`Rs. ${parseFloat(order.tax_amount).toLocaleString()}`, 195 - 5, sumY, { align: "right" });
-        }
-        
-        sumY += 10;
-        doc.setDrawColor(230, 230, 230);
-        doc.line(summaryX + 5, sumY - 4, 195 - 5, sumY - 4);
-        
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text("Grand Total:", summaryX + 5, sumY);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Rs. ${(order.total_amount || 0).toLocaleString()}`, 195 - 5, sumY, { align: "right" });
-
-        // --- 5. FOOTER ---
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(100, 100, 100);
-        doc.text(settings.bill_footer, margin, 270);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.text(`Generated on ${new Date().toLocaleString()} | Visit castprintz.vercel.app`, margin, 275);
-
-        // Upload
-        const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-        const fileName = `invoice_${order.id}.pdf`;
-        const { error: uploadError } = await supabase.storage.from('invoices').upload(fileName, pdfBuffer, { contentType: 'application/pdf', upsert: true });
-
-        if (uploadError) {
-            console.error("PDF Upload Error:", uploadError);
-            return null;
-        }
-        
-        const { data: urlData } = supabase.storage.from('invoices').getPublicUrl(fileName);
-        const invoiceUrl = urlData.publicUrl;
-
-        await supabase.from('orders').update({ invoice_url: invoiceUrl }).eq('id', order.id);
-        return invoiceUrl;
-    } catch (e) { console.error("PDF Generator Error:", e); return null; }
-}
+// Invoice generation is now handled by API route
+// This avoids fs import on client side
 
 // ─── 5. FLOW FUNCTIONS ───────────────────────────────────────────────────────
 
@@ -1203,8 +873,8 @@ export async function startCheckout(to) {
         await sendText(to,
             `📝 *Checkout - Billing Address*\n\n` +
             `Please reply with your *billing details* in this format:\n\n` +
-            `*Name, Mobile Number, Full Address*\n\n` +
-            `Example:\n_Lakshmi, 9876543210, 12 Main St, Bangalore, 560001_`
+            `*Name, Mobile Number, Email, Full Address*\n\n` +
+            `Example:\n_Lakshmi, 9876543210, lakshmi@email.com, 12 Main St, Bangalore, 560001_`
         );
     }
 }
@@ -1212,7 +882,7 @@ export async function startCheckout(to) {
 // Handle saved billing address reuse
 export async function handleSavedBilling(to, orderId) {
     const { data: lastOrders } = await supabase.from('orders')
-        .select('customer_name, billing_address')
+        .select('customer_name, billing_address, customer_email')
         .eq('customer_phone', to)
         .not('billing_address', 'is', null)
         .neq('status', 'DRAFT')
@@ -1223,8 +893,20 @@ export async function handleSavedBilling(to, orderId) {
     if (lastOrder && lastOrder.billing_address) {
         await supabase.from('orders').update({
             customer_name: lastOrder.billing_address.name || lastOrder.customer_name,
+            customer_email: lastOrder.customer_email,
             billing_address: lastOrder.billing_address
         }).eq('id', orderId);
+        
+        // If no email exists, ask for it
+        if (!lastOrder.customer_email) {
+            await sendText(to,
+                `📧 *Email Address Required*\n\n` +
+                `We need your email address to send order confirmation and updates.\n\n` +
+                `Please reply with your email address:\n\n` +
+                `Example: lakshmi@email.com`
+            );
+            return; // Wait for email response
+        }
     }
     
     // Ask if shipping same as billing
@@ -1263,31 +945,55 @@ export async function handleShippingSame(to, orderId) {
 export async function handleNewBillingAddress(to, orderId, text) {
     let name = 'Valued Customer';
     let mobile = to;
+    let email = '';
     let address = text.trim();
 
     const rawBody = text.trim();
 
     if (rawBody.includes(',')) {
         const parts = rawBody.split(',').map(p => p.trim());
-        if (parts.length >= 3) {
+        if (parts.length >= 4) {
             name = parts[0];
             mobile = parts[1];
-            address = parts.slice(2).join(', ');
+            email = parts[2];
+            address = parts.slice(3).join(', ');
+        } else if (parts.length === 3) {
+            name = parts[0];
+            mobile = parts[1];
+            address = parts[2];
         } else if (parts.length === 2) {
             name = parts[0];
             address = parts[1];
         }
     } else if (rawBody.includes('\n')) {
         const parts = rawBody.split('\n').map(p => p.trim()).filter(Boolean);
-        if (parts.length >= 3) {
+        if (parts.length >= 4) {
             name = parts[0];
             mobile = parts[1];
-            address = parts.slice(2).join(', ');
+            email = parts[2];
+            address = parts.slice(3).join(', ');
+        } else if (parts.length === 3) {
+            name = parts[0];
+            mobile = parts[1];
+            address = parts[2];
         } else if (parts.length === 2) {
             name = parts[0];
             address = parts[1];
         }
     }
+
+    // Validate email if provided
+    if (email && !email.includes('@')) {
+        await sendText(to, "⚠️ Invalid email format. Please try again with correct format:\n\nName, Mobile, Email, Address");
+        return;
+    }
+
+    const billingData = {
+        name,
+        mobile,
+        email,
+        address
+    };
 
     const billingAddress = {
         name: name,
@@ -1298,6 +1004,7 @@ export async function handleNewBillingAddress(to, orderId, text) {
     await supabase.from('orders').update({
         customer_name: name,
         customer_phone: mobile,
+        customer_email: email,
         billing_address: billingAddress
     }).eq('id', orderId);
 
@@ -1438,7 +1145,16 @@ export async function notifyOrderSuccess(orderId) {
         await sendText(to, message);
 
         // Send Invoice
-        const invoiceUrl = await generateAndUploadInvoice(order);
+        // Generate invoice via API
+        let invoiceUrl = null;
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`);
+            if (response.ok) {
+                invoiceUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`;
+            }
+        } catch (err) {
+            console.error('Failed to get invoice:', err);
+        }
         if (invoiceUrl) {
             await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
         }
@@ -1472,6 +1188,17 @@ export async function finalizeOrder(to, method, orderId) {
 
     const { data: order } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
     const total = order?.total_amount?.toLocaleString() || '0';
+
+    // Send email notification if email is available
+    if (order.customer_email) {
+        try {
+            const { sendOrderConfirmationEmail } = await import('@/lib/emailService.js');
+            await sendOrderConfirmationEmail(order);
+            console.log(`[EMAIL] Order confirmation sent to ${order.customer_email} for order ${orderId}`);
+        } catch (emailError) {
+            console.error(`[EMAIL] Failed to send order confirmation email:`, emailError);
+        }
+    }
 
     if (method === 'UPI') {
         // Build UPI deep link — opens GPay / PhonePe / any UPI app with amount pre-filled
@@ -1522,7 +1249,16 @@ export async function handlePaymentConfirmed(to, orderId) {
     const { data: order } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
 
     await sendText(to, `✅ *Payment Confirmed! Thank you!*\n\nGenerating your invoice now...`);
-    const invoiceUrl = await generateAndUploadInvoice(order);
+    // Generate invoice via API
+        let invoiceUrl = null;
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`);
+            if (response.ok) {
+                invoiceUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`;
+            }
+        } catch (err) {
+            console.error('Failed to get invoice:', err);
+        }
     if (invoiceUrl) {
         await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
     } else {
@@ -2159,7 +1895,16 @@ export async function processIncomingMessage(body) {
                         } else if (order.payment_method === 'COD') {
                             await sendText(from, "📄 Generating your invoice...");
                             const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
-                            const invoiceUrl = await generateAndUploadInvoice(fullOrder);
+                            // Generate invoice via API
+                            let invoiceUrl = null;
+                            try {
+                                const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${orderId}`);
+                                if (response.ok) {
+                                    invoiceUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${orderId}`;
+                                }
+                            } catch (err) {
+                                console.error('Failed to get invoice:', err);
+                            }
                             if (invoiceUrl) {
                                 await sendDocument(from, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
                             }
@@ -2192,6 +1937,27 @@ export async function processIncomingMessage(body) {
                 if (!draft.billing_address) {
                     console.log(`[WA] Saving billing address for draft ${draft.id}`);
                     return await handleNewBillingAddress(from, draft.id, message.text.body);
+                }
+                
+                // Check if we need email (after billing address is set but email is missing)
+                if (draft.billing_address && !draft.customer_email) {
+                    console.log(`[WA] Saving email for draft ${draft.id}`);
+                    const email = message.text.body.trim();
+                    // Simple email validation
+                    if (email.includes('@') && email.includes('.')) {
+                        await supabase.from('orders').update({
+                            customer_email: email
+                        }).eq('id', draft.id);
+                        
+                        // Continue to shipping address question
+                        return await askShippingSameAsBilling(from, draft.id);
+                    } else {
+                        await sendText(from, 
+                            "⚠️ Invalid email format. Please enter a valid email address:\n\n" +
+                            "Example: lakshmi@email.com"
+                        );
+                        return;
+                    }
                 }
                 
                 // Check if we need shipping address
