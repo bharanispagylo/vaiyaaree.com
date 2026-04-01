@@ -1,5 +1,7 @@
 // API Route: Update Order Status + Send WhatsApp Notification
 import { supabase } from '@/lib/supabaseClient';
+import { sendOrderStatusEmail } from '@/lib/emailService';
+
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
@@ -56,88 +58,88 @@ async function getStatusMessage(orderId, status, order, items = []) {
         case 'PAID':
             const itemList = items.map(i => `• ${i.product_name} (x${i.quantity}) - ₹${(i.price_at_time * i.quantity).toLocaleString()}`).join('\n');
             return [
-                `🧾 *INVOICE: ${orderId}*`,
+                `INVOICE: ${orderId}`,
                 `--------------------------`,
-                `✅ *Payment Received!*`,
+                `Payment Received!`,
                 ``,
-                `*Items:*`,
+                `Items:`,
                 itemList,
                 `--------------------------`,
-                `*Total Paid:* ₹${totalAmount.toLocaleString()}`,
-                `*Method:* ${order.payment_method || 'UPI/Online'}`,
+                `Total Paid: ₹${totalAmount.toLocaleString()}`,
+                `Method: ${order.payment_method || 'UPI/Online'}`,
                 ``,
-                `🔗 *View Full Bill:* ${invoiceUrl}`,
+                `View Full Bill: ${invoiceUrl}`,
                 ``,
-                `Your order is being processed. Thank you! 💮`,
+                `Your order is being processed. Thank you!`,
                 `— ${brand}`
             ].join('\n');
 
         case 'CANCELLED':
             return [
-                `❌ *ORDER CANCELLED*`,
+                `ORDER CANCELLED`,
                 ``,
                 `Order #${orderId} has been cancelled.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `If you did not request this cancellation, please contact us!`,
                 ``,
-                `— ${brand} 💮`
+                `— ${brand}`
             ].join('\n');
 
         case 'PACKING':
             return [
-                `📦 *ORDER PACKING*`,
+                `ORDER PACKING`,
                 ``,
                 `Hi! We are currently packing your order #${orderId}.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `It will be shipped shortly. Thank you! 💮`,
+                `It will be shipped shortly. Thank you!`,
                 `— ${brand}`
             ].join('\n');
 
         case 'SHIPPED':
             return [
-                `🚚 *ORDER SHIPPED!*`,
+                `ORDER SHIPPED!`,
                 ``,
                 `Order #${orderId} is on its way!`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `*Shipping Details:*`,
+                `Shipping Details:`,
                 `Carrier: ${order.courier_name || 'N/A'}`,
                 `Tracking: ${order.tracking_number || 'N/A'}`,
                 ``,
-                order.tracking_url ? `🔗 *Track Here:* ${order.tracking_url}` : `🔗 *View Details:* ${invoiceUrl}`,
+                order.tracking_url ? `Track Here: ${order.tracking_url}` : `View Details: ${invoiceUrl}`,
                 ``,
-                `Thank you for shopping with us! 💮`,
+                `Thank you for shopping with us!`,
                 `— ${brand}`
             ].join('\n');
 
         case 'DELIVERED':
             return [
-                `✅ *ORDER DELIVERED!*`,
+                `ORDER DELIVERED!`,
                 ``,
                 `Order #${orderId} has been delivered successfully!`,
                 `Total: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `Hope you love your new saree! 💕`,
-                `Type *Hi* to shop again anytime.`,
+                `Hope you love your new saree!`,
+                `Type Hi to shop again anytime.`,
                 ``,
-                `— ${brand} 💮`
+                `— ${brand}`
             ].join('\n');
 
         case 'PLACED':
             return [
-                `📦 *ORDER CONFIRMED*`,
+                `ORDER CONFIRMED`,
                 ``,
                 `Your order #${orderId} has been confirmed!`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `We are preparing your saree for shipping.`,
-                `— ${brand} 💮`
+                `— ${brand}`
             ].join('\n');
 
         default:
-            return `📋 Order #${orderId} status updated to: ${status}\n— ${brand}`;
+            return `Order #${orderId} status updated to: ${status}\n— ${brand}`;
     }
 }
 
@@ -203,9 +205,10 @@ export async function POST(request) {
         // Refetch order to get updated shipping info for the message
         const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', orderId).single();
 
-        // 4. Send WhatsApp notification to customer
+        // 4. Send notifications to customer
         const message = await getStatusMessage(orderId, status, updatedOrder || order, items);
         await sendWhatsAppText(order.customer_phone, message);
+        await sendOrderStatusEmail(updatedOrder || order, status);
 
         console.log(`✅ Order ${orderId} → ${status} | WhatsApp notification sent to ${order.customer_phone}`);
 

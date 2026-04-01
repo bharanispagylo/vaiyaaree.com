@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import {
     Upload, Trash2, Search, Loader2, Image as ImageIcon,
     X, Check, Copy, Grid, List as ListIcon, RefreshCw, Plus,
-    Star, Layout
+    Star, Layout, Droplets, Sparkles, ZoomIn
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { stampProductCode, uploadWatermarkedImage } from '@/lib/imageStamp';
 
 export default function MediaLibraryPage() {
     const [files, setFiles] = useState([]);
@@ -18,6 +19,12 @@ export default function MediaLibraryPage() {
     const [notification, setNotification] = useState(null);
     const [heroImages, setHeroImages] = useState([]);
     const [galleryImages, setGalleryImages] = useState([]);
+    const [watermarkImages, setWatermarkImages] = useState([]);
+    const [noWatermarkImages, setNoWatermarkImages] = useState([]);
+    const [activeGroup, setActiveGroup] = useState('all'); // 'all' | 'watermark' | 'no-watermark'
+    const [analyzing, setAnalyzing] = useState(false);
+    const [zoomedImage, setZoomedImage] = useState(null);
+    const [confirmAction, setConfirmAction] = useState(null); // { type, payload, title, message, onConfirm }
     const fileInputRef = useRef(null);
 
     const BUCKET_NAME = 'media';
@@ -42,9 +49,13 @@ export default function MediaLibraryPage() {
         try {
             const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
             const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
+            const { data: wmData } = await supabase.from('app_settings').select('value').eq('key', 'watermark_images').single();
+            const { data: noWmData } = await supabase.from('app_settings').select('value').eq('key', 'no_watermark_images').single();
 
             if (heroData?.value) setHeroImages(JSON.parse(heroData.value));
             if (galleryData?.value) setGalleryImages(JSON.parse(galleryData.value));
+            if (wmData?.value) setWatermarkImages(JSON.parse(wmData.value));
+            if (noWmData?.value) setNoWatermarkImages(JSON.parse(noWmData.value));
         } catch (err) {
             console.error('Error fetching settings:', err);
         }
@@ -68,14 +79,14 @@ export default function MediaLibraryPage() {
     };
 
     const toggleHero = async (url) => {
-        const newHero = heroImages.includes(url) 
+        const newHero = heroImages.includes(url)
             ? heroImages.filter(u => u !== url)
             : [...heroImages, url];
         setHeroImages(newHero);
         await updateSetting('hero_slider_images', newHero);
-        setNotification({ 
-            message: heroImages.includes(url) ? 'Removed from Hero Slider' : 'Added to Hero Slider', 
-            type: 'success' 
+        setNotification({
+            message: heroImages.includes(url) ? 'Removed from Hero Slider' : 'Added to Hero Slider',
+            type: 'success'
         });
     };
 
@@ -85,9 +96,199 @@ export default function MediaLibraryPage() {
             : [...galleryImages, url];
         setGalleryImages(newGallery);
         await updateSetting('gallery_images', newGallery);
-        setNotification({ 
-            message: galleryImages.includes(url) ? 'Removed from Gallery' : 'Added to Gallery', 
-            type: 'success' 
+        setNotification({
+            message: galleryImages.includes(url) ? 'Removed from Gallery' : 'Added to Gallery',
+            type: 'success'
+        });
+    };
+
+    const toggleWatermark = async (url) => {
+        const newWatermark = watermarkImages.includes(url)
+            ? watermarkImages.filter(u => u !== url)
+            : [...watermarkImages, url];
+        setWatermarkImages(newWatermark);
+        await updateSetting('watermark_images', newWatermark);
+        setNotification({
+            message: watermarkImages.includes(url) ? 'Removed from Watermark' : 'Added to Watermark',
+            type: 'success'
+        });
+    };
+
+    const toggleNoWatermark = async (url) => {
+        const newNoWatermark = noWatermarkImages.includes(url)
+            ? noWatermarkImages.filter(u => u !== url)
+            : [...noWatermarkImages, url];
+        setNoWatermarkImages(newNoWatermark);
+        await updateSetting('no_watermark_images', newNoWatermark);
+        setNotification({
+            message: noWatermarkImages.includes(url) ? 'Removed from No Watermark' : 'Added to No Watermark',
+            type: 'success'
+        });
+    };
+
+    const reanalyzeAllImages = async () => {
+        setConfirmAction({
+            type: 'reanalyze',
+            title: 'Re-analyze Library?',
+            message: 'Re-analyze all images for watermarks? This will re-categorize all images.',
+            onConfirm: async () => {
+                setConfirmAction(null);
+                setAnalyzing(true);
+                setNotification({ message: '🔍 Analyzing all images for watermarks...', type: 'success' });
+
+        const newWatermarkList = [];
+        const newNoWatermarkList = [];
+        let analyzed = 0;
+
+        for (const file of files) {
+            try {
+                const res = await fetch('/api/admin/watermark-detect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageUrl: file.url })
+                });
+
+                const data = await res.json();
+
+                if (data.hasWatermark) {
+                    newWatermarkList.push(file.url);
+                } else {
+                    newNoWatermarkList.push(file.url);
+                }
+
+                analyzed++;
+            } catch (err) {
+                console.error('Failed to analyze:', file.name, err);
+                newNoWatermarkList.push(file.url);
+            }
+        }
+
+        setWatermarkImages(newWatermarkList);
+        setNoWatermarkImages(newNoWatermarkList);
+
+        await updateSetting('watermark_images', newWatermarkList);
+        await updateSetting('no_watermark_images', newNoWatermarkList);
+
+        setAnalyzing(false);
+                setNotification({
+                    message: `✅ Re-analyzed ${analyzed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
+                    type: 'success'
+                });
+            }
+        });
+    };
+
+    const categorizeAllImages = async () => {
+        setConfirmAction({
+            type: 'categorize',
+            title: 'Analyze Watermarks?',
+            message: `Categorize all ${files.length} images for watermarks?`,
+            onConfirm: async () => {
+                setConfirmAction(null);
+                setAnalyzing(true);
+                setNotification({ message: `🔍 Analyzing ${files.length} images...`, type: 'success' });
+
+        const newWatermarkList = [];
+        const newNoWatermarkList = [];
+        let processed = 0;
+
+        for (const file of files) {
+            try {
+                const res = await fetch('/api/admin/watermark-detect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageUrl: file.url })
+                });
+
+                const data = await res.json();
+
+                if (data.hasWatermark) {
+                    newWatermarkList.push(file.url);
+                } else {
+                    newNoWatermarkList.push(file.url);
+                }
+
+                processed++;
+            } catch (err) {
+                console.error('Failed to analyze:', file.name, err);
+                newNoWatermarkList.push(file.url);
+            }
+        }
+
+        // Update state
+        setWatermarkImages(newWatermarkList);
+        setNoWatermarkImages(newNoWatermarkList);
+
+        // Save to database
+        await updateSetting('watermark_images', newWatermarkList);
+        await updateSetting('no_watermark_images', newNoWatermarkList);
+
+        setAnalyzing(false);
+                setNotification({
+                    message: `✅ Categorized ${processed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
+                    type: 'success'
+                });
+            }
+        });
+    };
+
+    // Auto-categorize all images on page load (run once when files loaded)
+    // Auto-categorize is now only performed on upload to improve performance.
+    /*
+    const hasCategorizedRef = useRef(false);
+    useEffect(() => {
+        if (files.length > 0 && !hasCategorizedRef.current && !loading) {
+            hasCategorizedRef.current = true;
+            autoCategorizeImages();
+        }
+    }, [files, loading]);
+    */
+
+    const autoCategorizeImages = async () => {
+        if (files.length === 0) return;
+
+        setAnalyzing(true);
+        setNotification({ message: `🔍 Auto-categorizing ${files.length} images...`, type: 'success' });
+
+        const newWatermarkList = [];
+        const newNoWatermarkList = [];
+        let processed = 0;
+
+        for (const file of files) {
+            try {
+                const res = await fetch('/api/admin/watermark-detect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageUrl: file.url })
+                });
+
+                const data = await res.json();
+
+                if (data.hasWatermark) {
+                    newWatermarkList.push(file.url);
+                } else {
+                    newNoWatermarkList.push(file.url);
+                }
+
+                processed++;
+            } catch (err) {
+                console.error('Failed to analyze:', file.name, err);
+                newNoWatermarkList.push(file.url);
+            }
+        }
+
+        // Update state
+        setWatermarkImages(newWatermarkList);
+        setNoWatermarkImages(newNoWatermarkList);
+
+        // Save to database
+        await updateSetting('watermark_images', newWatermarkList);
+        await updateSetting('no_watermark_images', newNoWatermarkList);
+
+        setAnalyzing(false);
+        setNotification({
+            message: `✅ Auto-categorized: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
+            type: 'success'
         });
     };
 
@@ -108,10 +309,43 @@ export default function MediaLibraryPage() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Upload failed');
 
-            setNotification({ message: '✅ Image uploaded successfully', type: 'success' });
+            // 🔍 Automatic Detection & Dual Storage Logic
+            setAnalyzing(true);
+            try {
+                // 1. OCR Analysis (Primary for CAT Code Watermark)
+                const ocrRes = await fetch('/api/admin/ocr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ base64Image: data.url })
+                });
+                const ocrData = await ocrRes.json();
+
+                const hasCatCode = !!ocrData.catalogId;
+
+                if (!hasCatCode) {
+                    // It's a CLEAN image — Store strictly in 'Without Watermark'
+                    const newNoWatermark = [...noWatermarkImages, data.url];
+                    setNoWatermarkImages(newNoWatermark);
+                    await updateSetting('no_watermark_images', newNoWatermark);
+                    setNotification({ message: '✅ Clean image stored (Without Watermark)', type: 'success' });
+                } else {
+                    // It's already WATERMARKED (has CAT code) — Store in 'With Watermark'
+                    const newWatermark = [...watermarkImages, data.url];
+                    setWatermarkImages(newWatermark);
+                    await updateSetting('watermark_images', newWatermark);
+                    setNotification({ message: `✅ Catalog Code detected (${ocrData.catalogId}): Stored in 'With Watermark'`, type: 'success' });
+                }
+
+            } catch (analyzeErr) {
+                console.error('Detection suite failed:', analyzeErr);
+                setNotification({ message: '✅ Upload complete (analysis skipped)', type: 'success' });
+            } finally {
+                setAnalyzing(false);
+            }
+
             fetchFiles();
         } catch (err) {
-            console.error('Upload error:', err);
+            console.error('Upload process error:', err);
             setNotification({ message: `❌ Upload failed: ${err.message}`, type: 'error' });
         } finally {
             setUploading(false);
@@ -120,51 +354,74 @@ export default function MediaLibraryPage() {
     };
 
     const handleDelete = async (fileName) => {
-        if (!confirm('Are you sure you want to delete this image?')) return;
+        setConfirmAction({
+            type: 'delete',
+            title: 'Delete Image?',
+            message: 'Are you sure you want to permanently delete this image from the library?',
+            onConfirm: async () => {
+                setConfirmAction(null);
+                try {
+                    const res = await fetch('/api/admin/upload', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileName }),
+                    });
 
-        try {
-            const res = await fetch('/api/admin/upload', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName }),
-            });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Delete failed');
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Delete failed');
+                    const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName);
+                    const fileUrl = urlData.publicUrl;
 
-            // Automatically clean up deleted images from Hero/Gallery
-            const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName);
-            const fileUrl = urlData.publicUrl;
+                    if (heroImages.includes(fileUrl)) {
+                        const newHero = heroImages.filter(u => u !== fileUrl);
+                        setHeroImages(newHero);
+                        await updateSetting('hero_slider_images', newHero);
+                    }
+                    if (galleryImages.includes(fileUrl)) {
+                        const newGallery = galleryImages.filter(u => u !== fileUrl);
+                        setGalleryImages(newGallery);
+                        await updateSetting('gallery_images', newGallery);
+                    }
+                    if (watermarkImages.includes(fileUrl)) {
+                        const newWm = watermarkImages.filter(u => u !== fileUrl);
+                        setWatermarkImages(newWm);
+                        await updateSetting('watermark_images', newWm);
+                    }
+                    if (noWatermarkImages.includes(fileUrl)) {
+                        const newNoWm = noWatermarkImages.filter(u => u !== fileUrl);
+                        setNoWatermarkImages(newNoWm);
+                        await updateSetting('no_watermark_images', newNoWm);
+                    }
 
-            if (heroImages.includes(fileUrl)) {
-                const newHero = heroImages.filter(u => u !== fileUrl);
-                setHeroImages(newHero);
-                await updateSetting('hero_slider_images', newHero);
+                    setNotification({ message: '✅ Image deleted', type: 'success' });
+                    if (selectedFile?.name === fileName) setSelectedFile(null);
+                    fetchFiles();
+                } catch (err) {
+                    console.error('Delete error:', err);
+                    setNotification({ message: '❌ Delete failed: ' + err.message, type: 'error' });
+                }
             }
-
-            if (galleryImages.includes(fileUrl)) {
-                const newGallery = galleryImages.filter(u => u !== fileUrl);
-                setGalleryImages(newGallery);
-                await updateSetting('gallery_images', newGallery);
-            }
-
-            setNotification({ message: '✅ Image deleted', type: 'success' });
-            if (selectedFile?.name === fileName) setSelectedFile(null);
-            fetchFiles();
-        } catch (err) {
-            console.error('Delete error:', err);
-            setNotification({ message: '❌ Delete failed: ' + err.message, type: 'error' });
-        }
+        });
     };
+
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
         setNotification({ message: '📋 Link copied to clipboard', type: 'success' });
     };
 
-    const filteredFiles = files.filter(f =>
-        f.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredFiles = files.filter(f => {
+        const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
+        if (!matchesSearch) return false;
+
+        if (activeGroup === 'watermark') {
+            return watermarkImages.includes(f.url);
+        } else if (activeGroup === 'no-watermark') {
+            return noWatermarkImages.includes(f.url);
+        }
+        return true; // 'all' group
+    });
 
     useEffect(() => {
         if (notification) {
@@ -174,7 +431,8 @@ export default function MediaLibraryPage() {
     }, [notification]);
 
     return (
-        <div className="animate-enter" style={{ padding: '0.5rem' }}>
+        <>
+            <div className="animate-enter" style={{ padding: '0.5rem' }}>
             {/* Header */}
             <div className="admin-header-row" style={{ marginBottom: '2rem' }}>
                 <div>
@@ -218,50 +476,98 @@ export default function MediaLibraryPage() {
                 </div>
             )}
 
-            {/* Toolbar */}
-            <div className="card" style={{ padding: '1rem', marginBottom: '2rem', display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                    <input
-                        type="text"
-                        placeholder="Search images by name..."
-                        className="admin-input"
-                        style={{ paddingLeft: '3rem' }}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            {/* Toolbar with Group Tabs */}
+            <div className="card" style={{ padding: '1rem', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                    <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                        <input
+                            type="text"
+                            placeholder="Search images by name..."
+                            className="admin-input"
+                            style={{ paddingLeft: '3rem' }}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '0.4rem', borderRadius: '10px' }}>
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            style={{
+                                padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: viewMode === 'grid' ? 'hsl(var(--primary))' : 'transparent',
+                                color: viewMode === 'grid' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
+                            }}
+                        >
+                            <Grid size={18} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            style={{
+                                padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
+                                color: viewMode === 'list' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
+                            }}
+                        >
+                            <ListIcon size={18} />
+                        </button>
+                        <button
+                            onClick={fetchFiles}
+                            style={{
+                                padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: 'transparent', color: 'hsl(var(--text-muted))'
+                            }}
+                            title="Refresh"
+                        >
+                            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '0.4rem', borderRadius: '10px' }}>
+
+                {/* Group Filter Tabs */}
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
-                        onClick={() => setViewMode('grid')}
+                        onClick={() => setActiveGroup('all')}
                         style={{
-                            padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                            background: viewMode === 'grid' ? 'hsl(var(--primary))' : 'transparent',
-                            color: viewMode === 'grid' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
+                            padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                            background: activeGroup === 'all' ? 'hsl(var(--primary))' : 'transparent',
+                            color: activeGroup === 'all' ? 'white' : 'hsl(var(--text-muted))',
+                            fontWeight: activeGroup === 'all' ? 600 : 400,
+                            transition: 'all 0.2s'
                         }}
                     >
-                        <Grid size={18} />
+                        All Images ({files.length})
                     </button>
                     <button
-                        onClick={() => setViewMode('list')}
+                        onClick={() => setActiveGroup('watermark')}
                         style={{
-                            padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                            background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
-                            color: viewMode === 'list' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
+                            padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                            background: activeGroup === 'watermark' ? 'hsl(var(--info))' : 'transparent',
+                            color: activeGroup === 'watermark' ? 'white' : 'hsl(var(--text-muted))',
+                            fontWeight: activeGroup === 'watermark' ? 600 : 400,
+                            transition: 'all 0.2s',
+                            display: 'flex', alignItems: 'center', gap: '0.4rem'
                         }}
                     >
-                        <ListIcon size={18} />
+                        <Droplets size={14} /> With Watermark ({watermarkImages.length})
                     </button>
                     <button
-                        onClick={fetchFiles}
+                        onClick={() => setActiveGroup('no-watermark')}
                         style={{
-                            padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                            background: 'transparent', color: 'hsl(var(--text-muted))'
+                            padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                            background: activeGroup === 'no-watermark' ? 'hsl(var(--success))' : 'transparent',
+                            color: activeGroup === 'no-watermark' ? 'white' : 'hsl(var(--text-muted))',
+                            fontWeight: activeGroup === 'no-watermark' ? 600 : 400,
+                            transition: 'all 0.2s'
                         }}
-                        title="Refresh"
                     >
-                        <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                        Without Watermark ({noWatermarkImages.length})
                     </button>
+                    {analyzing && (
+                        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--text-muted))' }}>
+                            <Loader2 size={14} className="animate-spin" /> Analyzing...
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -293,15 +599,27 @@ export default function MediaLibraryPage() {
                             }}
                             onClick={() => setSelectedFile(file)}
                         >
-                            <div style={{
-                                aspectRatio: '1/1', background: '#f5f5f5', borderRadius: '12px', overflow: 'hidden',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem'
-                            }}>
+                            <div
+                                onClick={(e) => { e.stopPropagation(); setZoomedImage(file); }}
+                                style={{
+                                    aspectRatio: '1/1', background: '#f5f5f5', borderRadius: '12px', overflow: 'hidden',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem',
+                                    cursor: 'zoom-in', position: 'relative'
+                                }}
+                                title="Click to zoom"
+                            >
                                 <img
                                     src={file.url}
                                     alt={file.name}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
+                                <div style={{
+                                    position: 'absolute', bottom: '0.5rem', right: '0.5rem',
+                                    background: 'rgba(255,255,255,0.8)', borderRadius: '50%',
+                                    padding: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    <ZoomIn size={16} color="#333" />
+                                </div>
                             </div>
                             <div style={{ fontSize: '0.75rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {file.name}
@@ -317,10 +635,10 @@ export default function MediaLibraryPage() {
                             }}>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }}
-                                    style={{ 
-                                        padding: '0.4rem', borderRadius: '6px', border: 'none', 
-                                        background: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'rgba(255,255,255,0.9)', 
-                                        color: heroImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))', 
+                                    style={{
+                                        padding: '0.4rem', borderRadius: '6px', border: 'none',
+                                        background: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'rgba(255,255,255,0.9)',
+                                        color: heroImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))',
                                         cursor: 'pointer', transition: '0.2s'
                                     }}
                                     title={heroImages.includes(file.url) ? "Remove from Hero" : "Add to Hero"}
@@ -329,10 +647,10 @@ export default function MediaLibraryPage() {
                                 </button>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }}
-                                    style={{ 
-                                        padding: '0.4rem', borderRadius: '6px', border: 'none', 
-                                        background: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)', 
-                                        color: galleryImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))', 
+                                    style={{
+                                        padding: '0.4rem', borderRadius: '6px', border: 'none',
+                                        background: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)',
+                                        color: galleryImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))',
                                         cursor: 'pointer', transition: '0.2s'
                                     }}
                                     title={galleryImages.includes(file.url) ? "Remove from Gallery" : "Add to Gallery"}
@@ -347,7 +665,10 @@ export default function MediaLibraryPage() {
                                     <Copy size={14} />
                                 </button>
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); handleDelete(file.name); }}
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        handleDelete(file.name); 
+                                    }}
                                     style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--danger))', cursor: 'pointer' }}
                                     title="Delete"
                                 >
@@ -373,7 +694,11 @@ export default function MediaLibraryPage() {
                             {filteredFiles.map((file) => (
                                 <tr key={file.id}>
                                     <td>
-                                        <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden' }}>
+                                        <div
+                                            onClick={() => setZoomedImage(file)}
+                                            style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in' }}
+                                            title="Click to zoom"
+                                        >
                                             <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         </div>
                                     </td>
@@ -381,10 +706,10 @@ export default function MediaLibraryPage() {
                                     <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{(file.metadata.size / 1024).toFixed(1)} KB</td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button 
+                                            <button
                                                 onClick={() => toggleHero(file.url)}
-                                                style={{ 
-                                                    padding: '0.3rem', borderRadius: '4px', border: 'none', 
+                                                style={{
+                                                    padding: '0.3rem', borderRadius: '4px', border: 'none',
                                                     background: heroImages.includes(file.url) ? 'hsl(var(--warning)/.2)' : 'transparent',
                                                     color: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'hsl(var(--text-muted))',
                                                     cursor: 'pointer'
@@ -392,10 +717,10 @@ export default function MediaLibraryPage() {
                                             >
                                                 <Star size={16} fill={heroImages.includes(file.url) ? "currentColor" : "none"} />
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => toggleGallery(file.url)}
-                                                style={{ 
-                                                    padding: '0.3rem', borderRadius: '4px', border: 'none', 
+                                                style={{
+                                                    padding: '0.3rem', borderRadius: '4px', border: 'none',
                                                     background: galleryImages.includes(file.url) ? 'hsl(var(--primary)/.2)' : 'transparent',
                                                     color: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))',
                                                     cursor: 'pointer'
@@ -444,12 +769,96 @@ export default function MediaLibraryPage() {
                 </div>
             )}
 
+            </div>
+
+            {/* Confirm Action Modal */}
+            {confirmAction && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                    zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
+                }} onClick={() => setConfirmAction(null)}>
+                    <div className="card shadow-premium animate-enter" style={{
+                        width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center',
+                        borderRadius: '24px', background: 'hsl(var(--bg-card))',
+                        border: `1px solid ${confirmAction.type === 'delete' ? 'hsl(var(--danger) / 0.3)' : 'hsl(var(--primary) / 0.3)'}`
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{
+                            width: '80px', height: '80px', borderRadius: '50%',
+                            background: confirmAction.type === 'delete' ? 'hsl(var(--danger) / 0.1)' : 'hsl(var(--primary) / 0.1)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem',
+                            color: confirmAction.type === 'delete' ? 'hsl(var(--danger))' : 'hsl(var(--primary))'
+                        }}>
+                            {confirmAction.type === 'delete' ? <Trash2 size={40} /> : <Droplets size={40} />}
+                        </div>
+                        <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900 }}>{confirmAction.title}</h3>
+                        <p style={{ margin: '0 0 2rem', color: 'hsl(var(--text-muted))', lineHeight: 1.6 }}>{confirmAction.message}</p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={() => setConfirmAction(null)} className="btn btn-secondary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 700 }}>Cancel</button>
+                            <button
+                                onClick={confirmAction.onConfirm}
+                                className="btn btn-primary"
+                                style={{
+                                    flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 800,
+                                    background: confirmAction.type === 'delete' ? 'hsl(var(--danger))' : 'hsl(var(--primary))',
+                                    border: 'none', color: 'white'
+                                }}
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Premium Image Zoom Modal */}
+            {zoomedImage && (
+                <div
+                    onClick={() => setZoomedImage(null)}
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)',
+                        zIndex: 9999, display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', padding: '2rem',
+                        cursor: 'zoom-out'
+                    }}
+                >
+                    <img
+                        src={zoomedImage.url}
+                        alt={zoomedImage.name}
+                        onClick={(e) => e.stopPropagation()}
+                        className="animate-enter"
+                        style={{
+                            maxWidth: '90vw', maxHeight: '80vh', objectFit: 'contain',
+                            borderRadius: '16px', boxShadow: '0 30px 60px rgba(0,0,0,0.6)',
+                            border: '1px solid rgba(255,255,255,0.1)'
+                        }}
+                    />
+                    <div className="animate-enter" style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', zIndex: 10000 }}>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); copyToClipboard(zoomedImage.url); }}
+                            className="btn btn-secondary"
+                            style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)' }}
+                        >
+                            <Copy size={16} /> Copy URL
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setZoomedImage(null); }}
+                            className="btn btn-primary"
+                            style={{ padding: '0.6rem 1.5rem', borderRadius: '12px', background: 'white', color: 'black', border: 'none' }}
+                        >
+                            <X size={16} /> Close
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <style jsx>{`
                 @keyframes slideInRight {
                     from { transform: translateX(100%); opacity: 0; }
                     to { transform: translateX(0); opacity: 1; }
                 }
             `}</style>
-        </div>
+        </>
     );
 }
+

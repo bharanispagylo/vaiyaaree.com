@@ -94,7 +94,7 @@ export default function WhatsAppMockup() {
                     gap: '10px'
                 }}>
                     <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        <img src="/images/cp-logo.svg" style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="Logo" />
+                        <img src="/images/cp-logo.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="Logo" />
                     </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Cast Printz Support</div>

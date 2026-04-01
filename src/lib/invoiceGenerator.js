@@ -16,9 +16,10 @@ export async function generateInvoicePDF(order) {
         const { data } = await supabase.from('app_settings').select('*');
         if (data) {
             data.forEach(item => {
-                // Support both shop_name and companyName keys if they exist in DB
                 if (item.key === 'shop_name' || item.key === 'companyName') {
                     branding.shop_name = item.value;
+                } else if (item.key === 'shop_logo') {
+                    branding.shop_logo = item.value;
                 } else if (branding.hasOwnProperty(item.key)) {
                     branding[item.key] = item.value;
                 }
@@ -28,18 +29,31 @@ export async function generateInvoicePDF(order) {
         console.error("PDF Branding Error:", e);
     }
 
+    // Logo
+    if (branding.shop_logo) {
+        try {
+            // Attempt to add logo - needs to be base64 or reachable URL
+            // For simple implementation we try to add it from URL (jsPDF handles some URLs if CORS allows)
+            doc.addImage(branding.shop_logo, 'PNG', 10, 10, 30, 30);
+        } catch (err) {
+            console.error("Logo add failed:", err);
+        }
+    }
+
     // Header
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
     doc.setTextColor(30, 30, 30);
-    doc.text(branding.shop_name || "Cast Printz", 105, 20, { align: "center" });
+    doc.text(branding.shop_name || "Cast Printz", 50, 20);
 
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    const addressLinesHeader = doc.splitTextToSize(branding.shop_address || "", 150);
-    doc.text(addressLinesHeader, 105, 28, { align: "center" });
+    const addressLinesHeader = doc.splitTextToSize(branding.shop_address || "", 120);
+    doc.text(addressLinesHeader, 50, 28);
 
     if (branding.shop_gstin) {
-        doc.text(`GSTIN: ${branding.shop_gstin}`, 105, 36, { align: "center" });
+        doc.text(`GSTIN: ${branding.shop_gstin}`, 50, 36);
     }
 
     doc.setDrawColor(200);
@@ -54,13 +68,13 @@ export async function generateInvoicePDF(order) {
     doc.text(`Date: ${new Date(order.created_at || Date.now()).toLocaleDateString()}`, 150, 62);
     doc.text(`Payment: ${order.payment_method || 'N/A'}`, 150, 68);
 
-    doc.text("Bill To:", 10, 50);
+    doc.text("Bill To:", 10, 55);
     doc.setFont("helvetica", "bold");
-    doc.text(order.customer_name || "Valued Customer", 10, 56);
+    doc.text(order.customer_name || "Valued Customer", 10, 61);
     doc.setFont("helvetica", "normal");
-    doc.text(`Phone: ${order.customer_phone}`, 10, 62);
-    const addressLines = doc.splitTextToSize(order.delivery_address || "Address not provided", 80);
-    doc.text(addressLines, 10, 68);
+    doc.text(`Phone: ${order.customer_phone}`, 10, 67);
+    const addressLines = doc.splitTextToSize(order.delivery_address || order.shipping_address || "Address not provided", 80);
+    doc.text(addressLines, 10, 73);
 
     // Table Header
     let y = 95;
@@ -109,17 +123,17 @@ export async function generateInvoicePDF(order) {
 
     // GST Breakdown
     if (order.cgst > 0) {
-        doc.text("CGST (9%):", 160, y, { align: "right" });
+        doc.text("CGST (2.5%):", 160, y, { align: "right" });
         doc.text(`Rs. ${parseFloat(order.cgst).toFixed(2)}`, 190, y, { align: "right" });
         y += 8;
     }
     if (order.sgst > 0) {
-        doc.text("SGST (9%):", 160, y, { align: "right" });
+        doc.text("SGST (2.5%):", 160, y, { align: "right" });
         doc.text(`Rs. ${parseFloat(order.sgst).toFixed(2)}`, 190, y, { align: "right" });
         y += 8;
     }
     if (order.igst > 0) {
-        doc.text("IGST (18%):", 160, y, { align: "right" });
+        doc.text("IGST (5%):", 160, y, { align: "right" });
         doc.text(`Rs. ${parseFloat(order.igst).toFixed(2)}`, 190, y, { align: "right" });
         y += 8;
     }

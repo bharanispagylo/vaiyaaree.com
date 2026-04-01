@@ -144,7 +144,7 @@ export default function ShopSettingsPage() {
                                 </div>
                                 {settings.shop_logo && (
                                     <div className="logo-preview">
-                                        <img src={settings.shop_logo} alt="Preview" />
+                                        <img src={settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`} alt="Preview" />
                                     </div>
                                 )}
                             </div>
@@ -268,25 +268,23 @@ export default function ShopSettingsPage() {
                 input, textarea {
                     width: 100%; padding: 0.85rem 1rem; background: #ffffff; 
                     border: 1px solid #d1d5db; border-radius: 12px; 
-                    color: #111111; font-size: 0.95rem; outline: none; transition: 0.2s;
                 }
-                input:focus, textarea:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1); }
-                textarea { resize: none; }
-
-                .input-with-preview { display: flex; gap: 1rem; align-items: flex-start; }
-                .logo-preview { 
-                    width: 80px; height: 80px; background: #f9fafb; border-radius: 12px; 
-                    overflow: hidden; border: 1px solid #e5e7eb;
-                    display: flex; align-items: center; justify-content: center;
-                }
-                .logo-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
                 .toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 2rem; border-radius: 12px; display: flex; align-items: center; gap: 0.75rem; font-weight: 700; z-index: 1000; animation: slideUp 0.3s ease-out; }
                 .toast-success { background: #10b981; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
                 .toast-error { background: #ef4444; color: white; }
-                
-                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             `}</style>
+            
+            {showMediaPicker && (
+                <MediaPicker
+                    currentImage={settings.shop_logo}
+                    onSelect={(url) => {
+                        handleUpdate('shop_logo', url);
+                        setShowMediaPicker(false);
+                    }}
+                    onClose={() => setShowMediaPicker(false)}
+                />
+            )}
         </div>
     );
 }

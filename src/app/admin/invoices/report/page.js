@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react';
+import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, DollarSign, ShoppingCart, Eye, X } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
@@ -19,6 +19,8 @@ export default function InvoiceReportPage() {
     const [selectedLocation, setSelectedLocation] = useState('ALL');
     const [selectedCategory, setSelectedCategory] = useState('ALL');
     const [searchTerm, setSearchTerm] = useState('');
+    const [viewInvoice, setViewInvoice] = useState(null);
+    const [notification, setNotification] = useState(null); // { message, type }
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -153,7 +155,8 @@ export default function InvoiceReportPage() {
             link.remove();
         } catch (error) {
             console.error('Audit PDF Error:', error);
-            alert('Failed to generate Audit PDF. See console for details.');
+            setNotification({ message: 'Failed to generate Audit PDF. See console.', type: 'error' });
+            setTimeout(() => setNotification(null), 3500);
         } finally {
             setLoading(false);
         }
@@ -357,7 +360,8 @@ export default function InvoiceReportPage() {
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Customer</th>
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Location</th>
                                 <th style={{ textAlign: 'right', padding: '1rem 1.5rem' }}>Total</th>
-                                <th style={{ textAlign: 'center', padding: '1rem 1.5rem' }}>Status</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Status</th>
+                                <th style={{ textAlign: 'center', padding: '1rem 1.5rem' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -393,6 +397,15 @@ export default function InvoiceReportPage() {
                                                 border: `1px solid ${o.status === 'DELIVERED' || o.status === 'PAID' ? 'transparent' : 'hsl(var(--border-subtle))'}`
                                             }}>{o.status}</span>
                                         </td>
+                                        <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
+                                            <button
+                                                onClick={() => setViewInvoice(o)}
+                                                className="btn btn-secondary"
+                                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                            >
+                                                <Eye size={14} /> View
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -405,6 +418,21 @@ export default function InvoiceReportPage() {
                 .shadow-premium {
                     box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
                 }
+            `}</style>
+            {notification && (
+                <div style={{
+                    position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 11000,
+                    padding: '1.25rem 2.25rem', borderRadius: '18px',
+                    background: notification.type === 'error' ? 'hsl(var(--danger))' : 'hsl(var(--success))',
+                    color: 'white', fontWeight: 800, boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    {notification.type === 'error' ? '✕' : '✓'} {notification.message}
+                </div>
+            )}
+            <style jsx>{`
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             `}</style>
         </div>
     );

@@ -27,6 +27,8 @@ export default function SchedulePostPage() {
 
     // Filter
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [notification, setNotification] = useState(null);
+    const [confirmAction, setConfirmAction] = useState(null); // { type: 'delete'|'postnow', payload }
 
     useEffect(() => {
         setHasMounted(true);
@@ -64,7 +66,7 @@ export default function SchedulePostPage() {
     const generateCaption = (product) => {
         if (!product) return '';
         const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://castprintz.vercel.app';
-        return `🌸 *${product.name}*\n\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\n🛍️ Shop now: ${shopUrl}/shop?pid=${product.id}\n\n#CastPrintz #Sarees #Fashion #IndianWear`;
+        return `${product.name}\n\nPrice: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\nShop now: ${shopUrl}/shop?pid=${product.id}\n\n#CastPrintz #Sarees #Fashion #IndianWear`;
     };
 
     const selectProduct = (product) => {
@@ -88,15 +90,15 @@ export default function SchedulePostPage() {
 
     // Save scheduled post
     const handleSave = async () => {
-        if (!selectedProduct) return alert('Please select a product.');
-        if (!caption.trim()) return alert('Please enter a caption.');
-        if (!scheduleDate || !scheduleTime) return alert('Please select date and time.');
+        if (!selectedProduct) { setNotification({ message: 'Please select a product.', type: 'error' }); setTimeout(() => setNotification(null), 3000); return; }
+        if (!caption.trim()) { setNotification({ message: 'Please enter a caption.', type: 'error' }); setTimeout(() => setNotification(null), 3000); return; }
+        if (!scheduleDate || !scheduleTime) { setNotification({ message: 'Please select a date and time.', type: 'error' }); setTimeout(() => setNotification(null), 3000); return; }
 
         const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}:00`);
-        if (scheduledAt <= new Date()) return alert('Scheduled time must be in the future.');
+        if (scheduledAt <= new Date()) { setNotification({ message: 'Scheduled time must be in the future.', type: 'error' }); setTimeout(() => setNotification(null), 3000); return; }
 
         if (!fbConfig.pageId || !fbConfig.accessToken) {
-            return alert('Facebook is not connected. Go to Meta Connect to link your account first.');
+            setNotification({ message: 'Facebook is not connected. Go to Meta Connect to link your account first.', type: 'error' }); setTimeout(() => setNotification(null), 4000); return;
         }
 
         setSaving(true);
@@ -128,7 +130,7 @@ export default function SchedulePostPage() {
             await fetchAll();
         } catch (err) {
             console.error('Save error:', err);
-            alert('Failed to save scheduled post.');
+            setNotification({ message: 'Failed to save scheduled post.', type: 'error' }); setTimeout(() => setNotification(null), 3000);
         } finally {
             setSaving(false);
         }
@@ -148,9 +150,14 @@ export default function SchedulePostPage() {
 
     // Delete scheduled post
     const handleDelete = async (id) => {
-        if (!confirm('Delete this scheduled post?')) return;
+        setConfirmAction({ type: 'delete', payload: id });
+    };
+
+    const handleDeleteConfirmed = async (id) => {
+        setConfirmAction(null);
         await supabase.from('scheduled_posts').delete().eq('id', id);
         await fetchAll();
+        setNotification({ message: 'Post deleted.', type: 'success' }); setTimeout(() => setNotification(null), 2500);
     };
 
     // Cancel scheduled post
@@ -161,8 +168,11 @@ export default function SchedulePostPage() {
 
     // Post now (immediate)
     const handlePostNow = async (post) => {
-        if (!confirm('Post this to Facebook now?')) return;
+        setConfirmAction({ type: 'postnow', payload: post });
+    };
 
+    const handlePostNowConfirmed = async (post) => {
+        setConfirmAction(null);
         try {
             await supabase.from('scheduled_posts').update({ status: 'POSTING' }).eq('id', post.id);
             await fetchAll();
@@ -238,12 +248,12 @@ export default function SchedulePostPage() {
                     <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 1rem', display: 'block' }} />
                     <p>Loading schedule...</p>
                 </div>
-                <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
             </div>
         );
     }
 
     return (
+        <>
         <div className="animate-enter">
             {/* Header */}
             <div className="admin-header-row">
@@ -326,7 +336,7 @@ export default function SchedulePostPage() {
                                                     {post.product_image ? (
                                                         <img src={post.product_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     ) : (
-                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>💮</div>
+                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}></div>
                                                     )}
                                                 </div>
                                                 <div>
@@ -342,7 +352,7 @@ export default function SchedulePostPage() {
                                             <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
                                                 {scheduledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                                                 {isPast && post.status === 'PENDING' && (
-                                                    <span style={{ color: 'hsl(var(--warning))', marginLeft: '6px', fontWeight: 700 }}>⚠️ Overdue</span>
+                                                    <span style={{ color: 'hsl(var(--warning))', marginLeft: '6px', fontWeight: 700 }}>Overdue</span>
                                                 )}
                                             </div>
                                         </td>
@@ -482,7 +492,7 @@ export default function SchedulePostPage() {
                                 </div>
                                 {scheduleDate && scheduleTime && (
                                     <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: 'hsl(var(--primary))', fontWeight: 600 }}>
-                                        📅 Will post on {new Date(`${scheduleDate}T${scheduleTime}`).toLocaleString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                                        Will post on {new Date(`${scheduleDate}T${scheduleTime}`).toLocaleString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
                                     </div>
                                 )}
                             </div>
@@ -507,8 +517,54 @@ export default function SchedulePostPage() {
                     </div>
                 </div>
             )}
-
-            <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </div>
+        <style jsx>{`
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            `}</style>
+            
+            {/* Notification Toast */}
+            {notification && (
+                <div style={{
+                    position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 5000,
+                    padding: '1rem 1.5rem', borderRadius: '14px',
+                    background: notification.type === 'success' ? 'hsl(142 70% 40%)' : 'hsl(var(--danger))',
+                    color: 'white', fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    animation: 'slideUp 0.3s ease'
+                }}>
+                    {notification.message}
+                </div>
+            )}
+
+            {/* Confirm Action Modal */}
+            {confirmAction && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={() => setConfirmAction(null)}>
+                    <div className="card shadow-premium animate-enter" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center', borderRadius: '24px', background: 'hsl(var(--bg-card))', border: `1px solid ${confirmAction.type === 'delete' ? 'hsl(var(--danger) / 0.3)' : 'hsl(var(--primary) / 0.3)'}` }} onClick={e => e.stopPropagation()}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: confirmAction.type === 'delete' ? 'hsl(var(--danger) / 0.1)' : 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: confirmAction.type === 'delete' ? 'hsl(var(--danger))' : 'hsl(var(--primary))' }}>
+                            {confirmAction.type === 'delete' ? <Trash2 size={40} /> : <Send size={40} />}
+                        </div>
+                        <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900 }}>
+                            {confirmAction.type === 'delete' ? 'Delete Post?' : 'Post to Facebook Now?'}
+                        </h3>
+                        <p style={{ margin: '0 0 2rem', color: 'hsl(var(--text-muted))', lineHeight: 1.6 }}>
+                            {confirmAction.type === 'delete'
+                                ? 'This will permanently remove the scheduled post.'
+                                : 'This will immediately post the product to your Facebook page. This cannot be undone.'}
+                        </p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={() => setConfirmAction(null)} className="btn btn-secondary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 700 }}>Cancel</button>
+                            <button
+                                onClick={() => confirmAction.type === 'delete' ? handleDeleteConfirmed(confirmAction.payload) : handlePostNowConfirmed(confirmAction.payload)}
+                                className="btn btn-primary"
+                                style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 800, background: confirmAction.type === 'delete' ? 'hsl(var(--danger))' : '#1877F2', border: 'none' }}
+                            >
+                                {confirmAction.type === 'delete' ? 'Delete' : 'Post Now'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

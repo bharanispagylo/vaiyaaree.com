@@ -8,7 +8,7 @@ export async function POST(request) {
         }
 
         const ocrApiKey = process.env.OCR_SPACE_API_KEY || 'K85953559988957';
-        
+
         // Step 1: Call OCR.space API
         const callOcr = async (engine) => {
             const params = new URLSearchParams({
@@ -31,11 +31,12 @@ export async function POST(request) {
             detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
         }
 
-        // Pattern matching for Catalog IDs (matches pattern like CAT-XXXXX or XXXXX)
+        // Pattern matching for Catalog IDs (matches pattern like CAT-XXXXX or ASR-XXXXX)
         const patterns = [
-            /CAT[-\s]?([A-Z0-9]{5})/i,
-            /([A-Z]{2,3})[-\s]([A-Z0-9]{3,5})/i,
-            /([A-Z0-9]{5})/i,
+            /CAT[-\s]?([A-Z0-9]{3,8})/i,
+            /ASR[-\s]?([A-Z0-9]{3,8})/i,
+            /CP[-\s]?([A-Z0-9]{3,8})/i,
+            /([A-Z]{2,3})[-\s]([A-Z0-9]{3,8})/i,
         ];
 
         let catalogId = null;
@@ -50,9 +51,10 @@ export async function POST(request) {
             }
         }
 
-        return NextResponse.json({ 
-            hasWatermark: !!catalogId, 
-            catalogId: catalogId 
+        return NextResponse.json({
+            hasWatermark: !!catalogId,
+            catalogId: catalogId,
+            detectedText: detectedText
         });
 
     } catch (err) {

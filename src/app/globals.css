@@ -39,7 +39,7 @@
   --radius-sm: 0.5rem;
   --radius: 0.75rem;
   --radius-lg: 1.25rem;
-  --sidebar-width: 17.5rem;
+  --sidebar-width: 15rem;
 
   /* Premium Effects */
   --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.05);
@@ -387,6 +387,7 @@ tr:hover td {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .badge-new {

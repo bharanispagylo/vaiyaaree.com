@@ -2,23 +2,26 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { useState, useEffect } from 'react';
+
 
 const menuItems = [
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
+    { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
     { name: 'Products', href: '/admin/products', icon: ShoppingCart },
     { name: 'Orders', href: '/admin/orders', icon: Package },
-    { name: 'Payment Gateway', href: '/admin/payments', icon: CreditCard },
+    { name: 'Invoices', href: '/admin/invoices', icon: FileText },
     { name: 'Customers', href: '/admin/customers', icon: Users },
+    { name: 'Refunds', href: '/admin/refunds', icon: RefreshCcw },
+    { name: 'Payment Gateway', href: '/admin/payments', icon: CreditCard },
+    { name: 'Shipping', href: '/admin/shipping', icon: Truck },
     { name: 'Analytics', href: '/admin/analytics', icon: Trophy },
     { name: 'Broadcast', href: '/admin/broadcast', icon: Megaphone },
     { name: 'WhatsApp Funnel', href: '/admin/whatsapp', icon: MessageSquare },
-    { name: 'Invoices', href: '/admin/invoices', icon: FileText },
-    { name: 'Invoice Report', href: '/admin/invoices/report', icon: FileText },
     { name: 'Meta Connect', href: '/admin/facebook', icon: Facebook },
     { name: 'Schedule Post', href: '/admin/schedule', icon: Clock },
-    { name: 'Shipping', href: '/admin/shipping', icon: Truck },
-    { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
     { name: 'CMS', href: '/admin/cms', icon: Layout },
     { name: 'Shop Settings', href: '/admin/shop-settings', icon: Settings },
 ];
@@ -26,6 +29,25 @@ const menuItems = [
 export default function AdminSidebar({ isOpen }) {
     const pathname = usePathname();
     const router = useRouter();
+    const [logo, setLogo] = useState('/images/cp-logo.png');
+    const getLogoUrl = (url) => {
+        if (!url) return '/images/cp-logo.png';
+        if (url.startsWith('http') || url.startsWith('/')) return url;
+        return `/images/${url}`;
+    };
+
+    useEffect(() => {
+        async function fetchLogo() {
+            try {
+                const { data } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
+                if (data?.value) setLogo(getLogoUrl(data.value));
+            } catch (err) {
+                console.error('Fetch Logo Error:', err);
+                setLogo('/images/cp-logo.png');
+            }
+        }
+        fetchLogo();
+    }, []);
 
     async function handleLogout() {
         await fetch('/api/auth/logout', { method: 'POST' });
@@ -45,7 +67,7 @@ export default function AdminSidebar({ isOpen }) {
                     width: '40px', height: '40px',
                     filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.2))'
                 }}>
-                    <img src="/images/cp-logo.svg" style={{ width: '100%', height: '100%', borderRadius: '50%' }} alt="CP Logo" />
+                    <img src={logo} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} alt="Logo" />
                 </div>
                 <div>
                     <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#fff', letterSpacing: '0.05em' }}>CAST PRINTZ</h2>

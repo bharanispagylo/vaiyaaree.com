@@ -117,7 +117,7 @@ export default function AdminLoginPage() {
                         </div>
                     </div>
 
-                    {error && <div style={{ color: '#ff4d4d', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
+                    {error && <div style={{ color: '#ff4d4d', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>{error}</div>}
 
                     <button type="submit" disabled={loading} style={{
                         width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: '#fff',

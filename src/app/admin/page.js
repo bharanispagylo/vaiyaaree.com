@@ -179,7 +179,7 @@ export default function AdminDashboard() {
                     },
                 ].map((stat, i) => (
                     <div key={i} className="card" style={{
-                        position: 'relative', overflow: 'hidden',
+                        position: 'relative',
                         padding: '1.5rem',
                         transition: 'transform 0.3s ease'
                     }}>
@@ -190,18 +190,20 @@ export default function AdminDashboard() {
                             background: stat.gradient, opacity: 0.12, filter: 'blur(50px)'
                         }} />
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
-                            <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1, gap: '1rem' }}>
+                            <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
                                 <div style={{
                                     fontSize: '0.7rem', color: 'hsl(var(--text-muted))',
-                                    fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em'
+                                    fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                                 }}>
                                     {stat.title}
                                 </div>
                                 <div style={{
-                                    fontSize: '2.25rem', fontWeight: 700, marginTop: '0.5rem',
+                                    fontSize: '1.75rem', fontWeight: 800, marginTop: '0.5rem',
                                     letterSpacing: '-0.02em', color: 'hsl(var(--text-main))',
-                                    fontFamily: 'var(--font-heading)'
+                                    fontFamily: 'var(--font-heading)',
+                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                                 }}>
                                     {stat.value}
                                 </div>
@@ -217,13 +219,17 @@ export default function AdminDashboard() {
                                 )}
                             </div>
                             <div style={{
-                                width: '52px', height: '52px', borderRadius: '14px',
+                                width: '48px', height: '48px', borderRadius: '12px',
                                 background: 'hsl(var(--primary))', display: 'flex',
                                 alignItems: 'center', justifyContent: 'center',
-                                boxShadow: `0 8px 16px rgba(0,0,0,0.15)`,
-                                color: '#ffffff'
+                                boxShadow: `0 4px 10px rgba(0,0,0,0.1)`,
+                                color: '#ffffff',
+                                flexShrink: 0,
+                                fontSize: '1.25rem',
+                                fontWeight: 700,
+                                position: 'relative'
                             }}>
-                                <stat.icon size={26} strokeWidth={2.5} />
+                                {i === 0 ? <span style={{ display: 'inline-block' }}>₹</span> : <stat.icon size={22} strokeWidth={2.2} />}
                             </div>
                         </div>
                     </div>

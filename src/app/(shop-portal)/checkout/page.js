@@ -33,10 +33,40 @@ export default function CheckoutPage() {
         return () => clearInterval(interval);
     }, [orderData?.orderId, invoiceUrl, supabase]);
 
+    // Sync shipping with billing when sameAsBilling is checked
+    useEffect(() => {
+        if (checkoutForm.sameAsBilling) {
+            setCheckoutForm(p => ({
+                ...p,
+                shippingName: p.billingName,
+                shippingPhone: p.billingPhone,
+                shippingAddress: p.billingAddress,
+                shippingCity: p.billingCity,
+                shippingState: p.billingState,
+                shippingPincode: p.billingPincode,
+                shippingCountry: 'India'
+            }));
+        }
+    }, [
+        checkoutForm.sameAsBilling,
+        checkoutForm.billingName,
+        checkoutForm.billingPhone,
+        checkoutForm.billingAddress,
+        checkoutForm.billingCity,
+        checkoutForm.billingState,
+        checkoutForm.billingPincode
+    ]);
+
     const states = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"];
 
     const handlePlaceOrder = async () => {
-        if (!checkoutForm.name || !checkoutForm.phone || !checkoutForm.address) {
+        if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingAddress) {
+            showToast('Please fill all required billing details', 'error');
+            return;
+        }
+
+        // Validate shipping if different from billing
+        if (!checkoutForm.sameAsBilling && (!checkoutForm.shippingName || !checkoutForm.shippingPhone || !checkoutForm.shippingAddress)) {
             showToast('Please fill all required shipping details', 'error');
             return;
         }
@@ -98,8 +128,8 @@ export default function CheckoutPage() {
                     }
                 },
                 prefill: {
-                    name: checkoutForm.name,
-                    contact: checkoutForm.phone
+                    name: checkoutForm.billingName,
+                    contact: checkoutForm.billingPhone
                 },
                 theme: { color: "#000000" }
             };
@@ -156,8 +186,8 @@ export default function CheckoutPage() {
                         <div className={styles.detailCard}>
                             <Clock size={20} />
                             <div>
-                                <label>Member Name</label>
-                                <strong>{orderData.customerName}</strong>
+                                <label>Customer Name</label>
+                                <strong>{orderData.billingName || orderData.customerName}</strong>
                             </div>
                         </div>
                         <div className={styles.detailCard}>
@@ -238,32 +268,66 @@ export default function CheckoutPage() {
     return (
         <div className={styles.checkoutLayout}>
             <div className={styles.checkoutLeft}>
+                {/* BILLING ADDRESS SECTION */}
                 <section className={styles.checkoutCard}>
-                    <h3 className={styles.cardTitle}>Shipping Details</h3>
+                    <h3 className={styles.cardTitle}>Billing Details</h3>
                     <div className={styles.formGrid}>
                         <div className={styles.formGroup}>
                             <label>FULL NAME</label>
-                            <input type="text" value={checkoutForm.name} onChange={e => setCheckoutForm(p => ({ ...p, name: e.target.value }))} placeholder="Enter your full name" />
+                            <input 
+                                type="text" 
+                                value={checkoutForm.billingName || ''} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingName: e.target.value }))} 
+                                placeholder="Enter your full name" 
+                            />
                         </div>
                         <div className={styles.formGroup}>
-                            <label>WHATSAPP NUMBER</label>
-                            <input type="tel" value={checkoutForm.phone} onChange={e => setCheckoutForm(p => ({ ...p, phone: e.target.value }))} placeholder="10-digit phone number" />
+                            <label>PHONE NUMBER</label>
+                            <input 
+                                type="tel" 
+                                value={checkoutForm.billingPhone || ''} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingPhone: e.target.value }))} 
+                                placeholder="10-digit phone number" 
+                            />
                         </div>
                     </div>
 
                     <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
-                        <label>SHIPPING ADDRESS</label>
-                        <textarea value={checkoutForm.address} onChange={e => setCheckoutForm(p => ({ ...p, address: e.target.value }))} placeholder="House No, Building, Street, Area..." rows={2} />
+                        <label>WHATSAPP NUMBER (Optional)</label>
+                        <input 
+                            type="tel" 
+                            value={checkoutForm.billingWhatsApp || ''} 
+                            onChange={e => setCheckoutForm(p => ({ ...p, billingWhatsApp: e.target.value }))} 
+                            placeholder="WhatsApp number for order updates" 
+                        />
+                    </div>
+
+                    <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
+                        <label>BILLING ADDRESS</label>
+                        <textarea 
+                            value={checkoutForm.billingAddress || ''} 
+                            onChange={e => setCheckoutForm(p => ({ ...p, billingAddress: e.target.value }))} 
+                            placeholder="House No, Building, Street, Area..." 
+                            rows={2} 
+                        />
                     </div>
 
                     <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                         <div className={styles.formGroup}>
                             <label>CITY / TOWN</label>
-                            <input type="text" value={checkoutForm.city} onChange={e => setCheckoutForm(p => ({ ...p, city: e.target.value }))} placeholder="City name" />
+                            <input 
+                                type="text" 
+                                value={checkoutForm.billingCity || ''} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingCity: e.target.value }))} 
+                                placeholder="City name" 
+                            />
                         </div>
                         <div className={styles.formGroup}>
                             <label>STATE</label>
-                            <select value={checkoutForm.state} onChange={e => setCheckoutForm(p => ({ ...p, state: e.target.value }))}>
+                            <select 
+                                value={checkoutForm.billingState || 'Tamil Nadu'} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
+                            >
                                 {states.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
@@ -272,11 +336,158 @@ export default function CheckoutPage() {
                     <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                         <div className={styles.formGroup}>
                             <label>PINCODE</label>
-                            <input type="text" value={checkoutForm.pincode} onChange={e => setCheckoutForm(p => ({ ...p, pincode: e.target.value }))} placeholder="6-digit pincode" />
+                            <input 
+                                type="text" 
+                                value={checkoutForm.billingPincode || ''} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingPincode: e.target.value }))} 
+                                placeholder="6-digit pincode" 
+                            />
                         </div>
                         <div className={styles.formGroup}>
-                            <label>COUNTRY</label>
-                            <select disabled><option>India</option></select>
+                            <label>EMAIL (Optional)</label>
+                            <input 
+                                type="email" 
+                                value={checkoutForm.billingEmail || ''} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingEmail: e.target.value }))} 
+                                placeholder="your@email.com" 
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                {/* SHIPPING ADDRESS SECTION */}
+                <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
+                    <h3 className={styles.cardTitle}>Shipping Details</h3>
+                    
+                    {/* Same as Billing Checkbox */}
+                    <label className={styles.sameAsBillingCheckbox}>
+                        <input 
+                            type="checkbox" 
+                            checked={checkoutForm.sameAsBilling || false}
+                            onChange={e => {
+                                const isChecked = e.target.checked;
+                                setCheckoutForm(p => ({ 
+                                    ...p, 
+                                    sameAsBilling: isChecked,
+                                    // If checked, copy billing to shipping
+                                    ...(isChecked ? {
+                                        shippingName: p.billingName,
+                                        shippingPhone: p.billingPhone,
+                                        shippingAddress: p.billingAddress,
+                                        shippingCity: p.billingCity,
+                                        shippingState: p.billingState,
+                                        shippingPincode: p.billingPincode
+                                    } : {})
+                                }));
+                            }}
+                        />
+                        <span className={styles.checkmark}></span>
+                        <span className={styles.checkboxLabel}>Same as billing address</span>
+                    </label>
+
+                    {/* Shipping fields - always visible, auto-filled when sameAsBilling is checked */}
+                    <div className={styles.shippingFields} style={{ marginTop: '1.5rem' }}>
+                        <div className={styles.formGrid}>
+                            <div className={styles.formGroup}>
+                                <label>SHIPPING FULL NAME</label>
+                                <input 
+                                    type="text" 
+                                    value={checkoutForm.shippingName || ''} 
+                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingName: e.target.value }))} 
+                                    placeholder="Enter recipient name"
+                                    disabled={checkoutForm.sameAsBilling}
+                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                />
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>SHIPPING PHONE NUMBER</label>
+                                <input 
+                                    type="tel" 
+                                    value={checkoutForm.shippingPhone || ''} 
+                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingPhone: e.target.value }))} 
+                                    placeholder="10-digit phone number"
+                                    disabled={checkoutForm.sameAsBilling}
+                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                />
+                            </div>
+                        </div>
+
+                        <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
+                            <label>SHIPPING ADDRESS</label>
+                            <textarea 
+                                value={checkoutForm.shippingAddress || ''} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, shippingAddress: e.target.value }))} 
+                                placeholder="House No, Building, Street, Area..." 
+                                rows={2}
+                                disabled={checkoutForm.sameAsBilling}
+                                className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                            />
+                        </div>
+
+                        <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                            <div className={styles.formGroup}>
+                                <label>CITY / TOWN</label>
+                                <input 
+                                    type="text" 
+                                    value={checkoutForm.shippingCity || ''} 
+                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingCity: e.target.value }))} 
+                                    placeholder="City name"
+                                    disabled={checkoutForm.sameAsBilling}
+                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                />
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>STATE</label>
+                                <select 
+                                    value={checkoutForm.shippingState || 'Tamil Nadu'} 
+                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingState: e.target.value }))}
+                                    disabled={checkoutForm.sameAsBilling}
+                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                >
+                                    {states.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                            <div className={styles.formGroup}>
+                                <label>PINCODE</label>
+                                <input 
+                                    type="text" 
+                                    value={checkoutForm.shippingPincode || ''} 
+                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingPincode: e.target.value }))} 
+                                    placeholder="6-digit pincode"
+                                    disabled={checkoutForm.sameAsBilling}
+                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                />
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>COUNTRY</label>
+                                <select 
+                                    value={checkoutForm.shippingCountry || 'India'}
+                                    onChange={e => {
+                                        const newCountry = e.target.value;
+                                        setCheckoutForm(p => ({ 
+                                            ...p, 
+                                            shippingCountry: newCountry,
+                                            // Auto-switch to ONLINE if COD was selected and country is not India
+                                            ...(p.paymentMethod === 'COD' && newCountry !== 'India' ? { paymentMethod: 'ONLINE' } : {})
+                                        }));
+                                    }}
+                                    disabled={checkoutForm.sameAsBilling}
+                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                >
+                                    <option value="India">India</option>
+                                    <option value="USA">USA</option>
+                                    <option value="UK">UK</option>
+                                    <option value="UAE">UAE</option>
+                                    <option value="Singapore">Singapore</option>
+                                    <option value="Malaysia">Malaysia</option>
+                                    <option value="Australia">Australia</option>
+                                    <option value="Canada">Canada</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -301,16 +512,33 @@ export default function CheckoutPage() {
                             </div>
                         )}
 
-                        <label className={`${styles.paymentRadio} ${checkoutForm.paymentMethod === 'COD' ? styles.activeRadio : ''}`} style={{ marginTop: '1rem' }}>
-                            <input type="radio" value="COD" checked={checkoutForm.paymentMethod === 'COD'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))} />
-                            <div className={styles.radioInfo}>
-                                <Truck size={20} />
-                                <div>
-                                    <div className={styles.radioTitle}>Cash on Delivery</div>
-                                    <div className={styles.radioDesc}>Pay when you receive the product</div>
+                        {/* COD only available for India */}
+                        {(checkoutForm.shippingCountry === 'India' || (!checkoutForm.shippingCountry && checkoutForm.sameAsBilling)) && (
+                            <label className={`${styles.paymentRadio} ${checkoutForm.paymentMethod === 'COD' ? styles.activeRadio : ''}`} style={{ marginTop: '1rem' }}>
+                                <input type="radio" value="COD" checked={checkoutForm.paymentMethod === 'COD'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))} />
+                                <div className={styles.radioInfo}>
+                                    <Truck size={20} />
+                                    <div>
+                                        <div className={styles.radioTitle}>Cash on Delivery</div>
+                                        <div className={styles.radioDesc}>Pay when you receive the product</div>
+                                    </div>
                                 </div>
+                            </label>
+                        )}
+
+                        {/* Show message for international orders */}
+                        {checkoutForm.shippingCountry && checkoutForm.shippingCountry !== 'India' && !checkoutForm.sameAsBilling && (
+                            <div style={{ 
+                                marginTop: '1rem', 
+                                padding: '0.75rem 1rem', 
+                                background: '#fef3c7', 
+                                borderRadius: '8px', 
+                                fontSize: '0.85rem', 
+                                color: '#92400e' 
+                            }}>
+                                💳 COD is only available for orders within India. Please pay online for international shipping.
                             </div>
-                        </label>
+                        )}
                     </div>
                 </section>
 

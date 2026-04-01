@@ -17,7 +17,7 @@ export default function BroadcastPage() {
     // Selection state
     const [selectedProducts, setSelectedProducts] = useState(new Set());
     const [selectedCustomers, setSelectedCustomers] = useState(new Set());
-    const [message, setMessage] = useState('Check out our newest collection! ✨');
+    const [message, setMessage] = useState('Check out our newest collection!');
 
     // Filters
     const [productGroupFilter, setProductGroupFilter] = useState('ALL');
@@ -33,6 +33,8 @@ export default function BroadcastPage() {
     const [sending, setSending] = useState(false);
     const [stats, setStats] = useState({ sent: 0, total: 0, failed: 0 });
     const [completed, setCompleted] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null); // { title, message, onConfirm }
+    const [notification, setNotification] = useState(null);
 
     useEffect(() => {
         setHasMounted(true);
@@ -80,9 +82,9 @@ export default function BroadcastPage() {
 
     const getTierStyle = (tier) => {
         switch (tier) {
-            case 'VIP': return { bg: 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))', color: '#3f2203', label: '💎 VIP' };
-            case 'Gold': return { bg: 'hsl(48 96% 89%)', color: 'hsl(38 92% 50%)', label: '🥇 Gold' };
-            case 'Silver': return { bg: '#f1f5f9', color: 'hsl(var(--text-muted))', label: '🥈 Silver' };
+            case 'VIP': return { bg: 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))', color: '#3f2203', label: 'VIP' };
+            case 'Gold': return { bg: 'hsl(48 96% 89%)', color: 'hsl(38 92% 50%)', label: 'Gold' };
+            case 'Silver': return { bg: '#f1f5f9', color: 'hsl(var(--text-muted))', label: 'Silver' };
             default: return { bg: 'transparent', color: 'hsl(var(--text-muted))', label: 'Regular' };
         }
     };
@@ -153,67 +155,74 @@ export default function BroadcastPage() {
         const targetCustomers = customers.filter(c => selectedCustomers.has(c.phone));
         const targetProducts = products.filter(p => selectedProducts.has(p.id));
 
-        if (targetCustomers.length === 0) return alert('Please select at least one customer.');
-        if (!message.trim()) return alert('Please enter a broadcast message.');
+        if (targetCustomers.length === 0) return setNotification({ message: '⚠️ Please select at least one customer.', type: 'error' });
+        if (!message.trim()) return setNotification({ message: '⚠️ Please enter a broadcast message.', type: 'error' });
 
         const confirmMsg = targetProducts.length > 0
             ? `Send broadcast with ${targetProducts.length} product(s) to ${targetCustomers.length} customer(s)?`
             : `Send broadcast message to ${targetCustomers.length} customer(s)?`;
 
-        if (!confirm(confirmMsg)) return;
+        setConfirmAction({
+            title: 'Start Broadcast?',
+            message: confirmMsg,
+            onConfirm: async () => {
+                setConfirmAction(null);
+                setSending(true);
+                setCompleted(false);
+                setStats({ sent: 0, total: targetCustomers.length, failed: 0 });
 
-        setSending(true);
-        setCompleted(false);
-        setStats({ sent: 0, total: targetCustomers.length, failed: 0 });
+                for (let i = 0; i < targetCustomers.length; i++) {
+                    const customer = targetCustomers[i];
+                    try {
+                        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+                        const customerPhone = customer.phone;
+                        const shopUrl = `${baseUrl}/shop?phone=${encodeURIComponent(customerPhone)}`;
 
-        for (let i = 0; i < targetCustomers.length; i++) {
-            const customer = targetCustomers[i];
-            try {
-                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-                const customerPhone = customer.phone;
-                const shopUrl = `${baseUrl}/shop?phone=${encodeURIComponent(customerPhone)}`;
+                        if (targetProducts.length > 0) {
+                            for (const product of targetProducts) {
+                                let mergedMsg = message.replace('{{name}}', customer.name);
+                                mergedMsg += `\n\n*${product.name}*`;
+                                mergedMsg += `\n💰 ₹${product.price}`;
+                                if (product.variants && product.variants.length > 0) mergedMsg += `\n📦 Variants: ${product.variants.join(', ')}`;
 
-                // If products are selected, send each product as a separate message
-                if (targetProducts.length > 0) {
-                    for (const product of targetProducts) {
-                        const addToCartUrl = `${baseUrl}/shop?pid=${product.id}&action=addtocart&phone=${encodeURIComponent(customerPhone)}`;
-                        await fetch('/api/admin/broadcast', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                to: customerPhone,
-                                product: product,
-                                message: message,
-                                shopUrl: shopUrl,
-                                addToCartUrl: addToCartUrl
-                            })
-                        });
+                                const pUrl = `${shopUrl}&view=${product.id}`;
+                                mergedMsg += `\n\n*View & Buy Here:* ${pUrl}`;
+
+                                const mediaUrl = product.images?.[0] || null;
+
+                                const res = await fetch('/api/admin/whatsapp/chat', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ phone: customerPhone, message: mergedMsg, mediaUrl })
+                                });
+                                if (!res.ok) throw new Error('Send failed');
+                                await new Promise(r => setTimeout(r, 800)); // Delay between products
+                            }
+                        } else {
+                            let mergedMsg = message.replace('{{name}}', customer.name);
+                            mergedMsg += `\n\n*Visit our shop:* ${shopUrl}`;
+
+                            const res = await fetch('/api/admin/whatsapp/chat', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ phone: customerPhone, message: mergedMsg })
+                            });
+                            if (!res.ok) throw new Error('Send failed');
+                        }
+
+                        setStats(prev => ({ ...prev, sent: prev.sent + 1 }));
+                    } catch (err) {
+                        setStats(prev => ({ ...prev, failed: prev.failed + 1 }));
                     }
-                } else {
-                    // No product selected — send text-only broadcast
-                    await fetch('/api/admin/broadcast', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            to: customerPhone,
-                            product: null,
-                            message: message,
-                            shopUrl: shopUrl,
-                            addToCartUrl: shopUrl
-                        })
-                    });
+                    await new Promise(r => setTimeout(r, 1000)); // Delay between customers
                 }
 
-                setStats(prev => ({ ...prev, sent: i + 1 }));
-            } catch (err) {
-                console.error('Failed to send to', customer.phone, err);
-                setStats(prev => ({ ...prev, failed: prev.failed + 1, sent: i + 1 }));
+                setSending(false);
+                setCompleted(true);
             }
-        }
-
-        setSending(false);
-        setCompleted(true);
+        });
     };
+
 
     // ─── COMPUTED VALUES ────────────────────────────────────────────
     const selectedProductsList = products.filter(p => selectedProducts.has(p.id));
@@ -255,14 +264,13 @@ export default function BroadcastPage() {
     }
 
     return (
-        <div className="animate-enter">
+        <>
+            <div className="animate-enter">
             {/* Header */}
-            <div className="admin-header-row">
                 <div>
-                    <h1>Broadcast Center 📢</h1>
+                    <h1>Broadcast Center</h1>
                     <p>Group products & customers, then broadcast targeted messages via WhatsApp</p>
                 </div>
-            </div>
 
             {/* Quick Stats */}
             <div className="admin-grid-3" style={{ marginBottom: '1.5rem' }}>
@@ -341,7 +349,7 @@ export default function BroadcastPage() {
                                         <button key={`g_${g}`} onClick={() => setProductGroupFilter(g)} style={{
                                             ...pillStyle(productGroupFilter === g),
                                             background: productGroupFilter === g ? 'hsl(var(--accent))' : pillStyle(false).background,
-                                        }}>🏷️ {g}</button>
+                                        }}>{g}</button>
                                     ))}
                                     {productCategories.map(c => (
                                         <button key={`c_${c}`} onClick={() => setProductGroupFilter(c)} style={pillStyle(productGroupFilter === c)}>{c}</button>
@@ -447,7 +455,7 @@ export default function BroadcastPage() {
                                                 : pillStyle(false).background,
                                             color: customerTierFilter === tier ? (tier === 'VIP' ? '#3f2203' : 'hsl(var(--bg-app))') : 'hsl(var(--text-muted))',
                                         }}>
-                                            {tier === 'ALL' ? 'All Customers' : tier === 'VIP' ? '💎 VIP (₹20k+)' : tier === 'Gold' ? '🥇 Gold (₹10k+)' : tier === 'Silver' ? '🥈 Silver (₹5k+)' : 'Regular'}
+                                            {tier === 'ALL' ? 'All Customers' : tier === 'VIP' ? 'VIP (₹20k+)' : tier === 'Gold' ? 'Gold (₹10k+)' : tier === 'Silver' ? 'Silver (₹5k+)' : 'Regular'}
                                         </button>
                                     ))}
                                 </div>
@@ -524,7 +532,7 @@ export default function BroadcastPage() {
                 {/* RIGHT COLUMN: Summary & Send */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                     <div className="card" style={{ padding: '1.5rem', position: 'sticky', top: '1.5rem' }}>
-                        <h3 style={{ marginBottom: '1.25rem', fontSize: '1rem' }}>📋 Campaign Summary</h3>
+                        <h3 style={{ marginBottom: '1.25rem', fontSize: '1rem' }}>Campaign Summary</h3>
 
                         {/* Selected Products Summary */}
                         <div style={{ marginBottom: '1.25rem' }}>
@@ -640,8 +648,11 @@ export default function BroadcastPage() {
                     </div>
                 </div>
             </div>
-
-            <style jsx>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-        </div>
+            </div>
+            <style jsx>{`
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            `}</style>
+        </>
     );
 }

@@ -449,11 +449,11 @@ function CustomersPage() {
 
     const getTierBadge = (spent) => {
 
-        if (spent >= 20000) return { label: '💎 VIP', className: 'badge badge-confirmed', style: { background: 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))', color: '#3f2203', border: 'none' } };
+        if (spent >= 20000) return { label: 'VIP', className: 'badge badge-confirmed', style: { background: 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))', color: '#3f2203', border: 'none' } };
 
-        if (spent >= 10000) return { label: '🥇 Gold', className: 'badge', style: { background: 'hsl(48 96% 89%)', color: 'hsl(38 92% 50%)', borderColor: 'hsl(48 96% 70%)' } };
+        if (spent >= 10000) return { label: 'Gold', className: 'badge', style: { background: 'hsl(48 96% 89%)', color: 'hsl(38 92% 50%)', borderColor: 'hsl(48 96% 70%)' } };
 
-        if (spent >= 5000) return { label: '🥈 Silver', className: 'badge', style: { background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', borderColor: 'hsl(var(--border-subtle))' } };
+        if (spent >= 5000) return { label: 'Silver', className: 'badge', style: { background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', borderColor: 'hsl(var(--border-subtle))' } };
 
         return { label: 'Regular', className: 'badge', style: { background: 'transparent', color: 'hsl(var(--text-muted))', border: '1px solid hsl(var(--border-subtle))' } };
 
@@ -645,8 +645,8 @@ function CustomersPage() {
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <div>
                                                                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'hsl(var(--text-main))', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                    #{order.id}
-                                                                    <button onClick={() => startEditingOrder(order)} style={{ background: 'transparent', border: 'none', color: 'hsl(var(--primary))', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }} title="Edit Order">
+                                                                    <a href={`/admin/orders?orderId=${order.id}`} style={{ color: 'hsl(var(--primary))', textDecoration: 'none', fontWeight: 700 }}>#{order.id}</a>
+                                                                    <button onClick={(e) => { e.stopPropagation(); startEditingOrder(order); }} style={{ background: 'transparent', border: 'none', color: 'hsl(var(--primary))', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }} title="Edit Order">
                                                                         <Edit2 size={12} />
                                                                     </button>
                                                                 </div>
@@ -686,11 +686,11 @@ function CustomersPage() {
                                 <div>
                                     <h1 style={{ marginBottom: '0.5rem' }}>Customers</h1>
                                     <p>All registered customers from Website & WhatsApp • {customers.length} total</p>
-                                    
+
                                     <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
                                         {['ALL', 'ORDERED', 'UNORDERED'].map(m => (
-                                            <button 
-                                                key={m} 
+                                            <button
+                                                key={m}
                                                 onClick={() => setFilterMode(m)}
                                                 style={{
                                                     padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700,

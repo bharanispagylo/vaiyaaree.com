@@ -8,7 +8,8 @@ import { supabase } from '@/lib/supabaseClient';
 
 import {
     Search, Eye, ChevronDown,
-    Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package
+    Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package,
+    Mail, XCircle, AlertCircle
 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import {
@@ -18,7 +19,7 @@ import {
 import { Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
-const STATUS_OPTIONS = ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+const STATUS_OPTIONS = ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
 const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP'];
 
 
@@ -66,6 +67,8 @@ export default function OrdersPage() {
     const [orderItems, setOrderItems] = useState([]);
     const [isEditingItems, setIsEditingItems] = useState(false);
     const [notification, setNotification] = useState(null);
+    const [confirmDelete, setConfirmDelete] = useState(null); // { orderId }
+    const [orderActivityLogs, setOrderActivityLogs] = useState([]);
     const [hasMounted, setHasMounted] = useState(false);
     const [showShippingModal, setShowShippingModal] = useState(false);
     const [selectedOrderForTracking, setSelectedOrderForTracking] = useState(null);
@@ -76,10 +79,19 @@ export default function OrdersPage() {
     });
     const [isAddingOrder, setIsAddingOrder] = useState(false);
     const [showShippingForm, setShowShippingForm] = useState(false);
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [showResendEmailModal, setShowResendEmailModal] = useState(false);
+    const [showResendWhatsAppModal, setShowResendWhatsAppModal] = useState(false);
+    const [statusConfirmModal, setStatusConfirmModal] = useState(null);
+    const [showRefundModal, setShowRefundModal] = useState(false);
+    const [refundAmount, setRefundAmount] = useState('');
+    const [refundReason, setRefundReason] = useState('');
     const [newOrder, setNewOrder] = useState({
         customer_name: '',
         customer_phone: '',
-        delivery_address: '',
+        shipping_address: '',
+        billing_address: '',
         shipping_state: 'Tamil Nadu',
         payment_method: 'UPI',
         items: [] // {product_id, product_name, quantity, price}
@@ -259,11 +271,12 @@ export default function OrdersPage() {
         setLoading(true);
         setSelectedOrder(order);
         try {
-            const { data } = await supabase
-                .from('order_items')
-                .select('*, products(image_url)')
-                .eq('order_id', order.id);
-            setOrderItems(data || []);
+            const [{ data: items }, { data: logs }] = await Promise.all([
+                supabase.from('order_items').select('*, products(image_url)').eq('order_id', order.id),
+                supabase.from('order_status_logs').select('*').eq('order_id', order.id).order('created_at', { ascending: true })
+            ]);
+            setOrderItems(items || []);
+            setOrderActivityLogs(logs || []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -310,14 +323,30 @@ export default function OrdersPage() {
                     ...mappedShipping
                 } : null);
 
+                // Add to activity log in database
+                const logEntry = {
+                    order_id: orderId,
+                    status: newStatus,
+                    notes: shippingData.courierName ? `Shipped via ${shippingData.courierName}` : `Status updated to ${newStatus}`,
+                    created_at: new Date().toISOString()
+                };
+
+                // Insert to database
+                await supabase.from('order_status_logs').insert(logEntry);
+
+                // Update local state
+                const newLog = {
+                    id: `log-${Date.now()}`,
+                    ...logEntry
+                };
+                setOrderActivityLogs(prev => [...prev, newLog]);
+
                 fetchOrders();
                 setNotification({
                     message: `✅ Order updated to ${newStatus}`,
                     type: 'success'
                 });
 
-                // NO MANUAL WHATSAPP TRIGGER — The backend API /api/orders/update-status 
-                // already sends the official notification via the WhatsApp Business API.
             } else {
                 setNotification({ message: `❌ Failed: ${data.error}`, type: 'error' });
             }
@@ -340,7 +369,11 @@ export default function OrdersPage() {
 
 
     const handleDeleteOrder = async (orderId) => {
-        if (!window.confirm('Are you sure you want to PERMANENTLY delete this order? This cannot be undone.')) return;
+        setConfirmDelete({ orderId });
+    };
+
+    const handleDeleteOrderConfirmed = async (orderId) => {
+        setConfirmDelete(null);
 
         setLoading(true);
         try {
@@ -372,6 +405,183 @@ export default function OrdersPage() {
                 message: '❌ Failed to delete order',
                 type: 'error'
             });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancelOrder = async () => {
+        if (!selectedOrder || !cancelReason.trim()) return;
+
+        setLoading(true);
+        try {
+            // Restore stock
+            const { data: items } = await supabase
+                .from('order_items')
+                .select('*')
+                .eq('order_id', selectedOrder.id);
+
+            if (items) {
+                for (const item of items) {
+                    if (item.variant_id) {
+                        const { data: variant } = await supabase
+                            .from('product_variants')
+                            .select('stock')
+                            .eq('id', item.variant_id)
+                            .single();
+                        if (variant) {
+                            await supabase
+                                .from('product_variants')
+                                .update({ stock: variant.stock + item.quantity })
+                                .eq('id', item.variant_id);
+                        }
+                    } else {
+                        const { data: product } = await supabase
+                            .from('products')
+                            .select('stock')
+                            .eq('id', item.product_id)
+                            .single();
+                        if (product) {
+                            await supabase
+                                .from('products')
+                                .update({ stock: product.stock + item.quantity })
+                                .eq('id', item.product_id);
+                        }
+                    }
+                }
+            }
+
+            // Update order status with cancel reason
+            await supabase
+                .from('orders')
+                .update({
+                    status: 'CANCELLED',
+                    cancel_reason: cancelReason,
+                    admin_notes: `Order cancelled by admin on ${new Date().toLocaleString()}. Reason: ${cancelReason}`
+                })
+                .eq('id', selectedOrder.id);
+
+            // Add to activity log
+            await supabase.from('order_status_logs').insert({
+                order_id: selectedOrder.id,
+                status: 'CANCELLED',
+                notes: `Order cancelled. Reason: ${cancelReason}`,
+                created_at: new Date().toISOString()
+            });
+
+            setNotification({ message: '✅ Order cancelled successfully', type: 'success' });
+            setShowCancelModal(false);
+            setCancelReason('');
+            fetchOrders();
+
+            // Refresh selected order
+            const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', selectedOrder.id).single();
+            setSelectedOrder(updatedOrder);
+
+        } catch (err) {
+            console.error('Cancel Error:', err);
+            setNotification({ message: '❌ Failed to cancel order', type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResendEmail = async () => {
+        if (!selectedOrder) return;
+
+        setLoading(true);
+        try {
+            // Call API to resend order confirmation
+            const res = await fetch('/api/orders/resend-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: selectedOrder.id })
+            });
+
+            if (res.ok) {
+                setNotification({ message: '✅ Order confirmation email resent', type: 'success' });
+                setShowResendEmailModal(false);
+            } else {
+                const data = await res.json();
+                setNotification({ message: `❌ Failed: ${data.error}`, type: 'error' });
+            }
+        } catch (err) {
+            console.error('Resend Email Error:', err);
+            setNotification({ message: '❌ Failed to resend email', type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResendWhatsApp = async () => {
+        if (!selectedOrder) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch('/api/orders/resend-whatsapp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: selectedOrder.id })
+            });
+
+            if (res.ok) {
+                setNotification({ message: '✅ Order confirmation WhatsApp resent', type: 'success' });
+                setShowResendWhatsAppModal(false);
+            } else {
+                const data = await res.json();
+                setNotification({ message: `❌ Failed: ${data.error}`, type: 'error' });
+            }
+        } catch (err) {
+            console.error('Resend WhatsApp Error:', err);
+            setNotification({ message: '❌ Failed to resend WhatsApp', type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRefund = async () => {
+        if (!selectedOrder || !refundAmount || !refundReason.trim()) return;
+
+        const amount = parseFloat(refundAmount);
+        if (isNaN(amount) || amount <= 0 || amount > selectedOrder.total_amount) {
+            setNotification({ message: '❌ Invalid refund amount', type: 'error' });
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Update order with refund info
+            await supabase
+                .from('orders')
+                .update({
+                    refund_amount: amount,
+                    refund_status: 'PENDING',
+                    refund_reason: refundReason,
+                    admin_notes: `Refund of ₹${amount} requested. Reason: ${refundReason}`
+                })
+                .eq('id', selectedOrder.id);
+
+            // Add to activity log
+            await supabase.from('order_status_logs').insert({
+                order_id: selectedOrder.id,
+                status: 'REFUND_REQUESTED',
+                notes: `Refund of ₹${amount} requested. Reason: ${refundReason}`,
+                created_at: new Date().toISOString()
+            });
+
+            setNotification({ message: '✅ Refund request processed', type: 'success' });
+            setShowRefundModal(false);
+            setRefundAmount('');
+            setRefundReason('');
+            fetchOrders();
+
+            // Refresh selected order
+            const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', selectedOrder.id).single();
+            setSelectedOrder(updatedOrder);
+
+        } catch (err) {
+            console.error('Refund Error:', err);
+            setNotification({ message: '❌ Failed to process refund', type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -484,7 +694,7 @@ export default function OrdersPage() {
 
 
     return (
-
+        <>
         <div className="animate-enter">
 
             {loading ? (
@@ -988,6 +1198,77 @@ export default function OrdersPage() {
                                                 )}
                                             </div>
                                         )}
+
+                                        {/* Order Activity Log - Moved to Left Side */}
+                                        <div className="card-sub" style={{ marginTop: '2.5rem', padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>📋 Order Activity Log</h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                {orderActivityLogs.length === 0 ? (
+                                                    <div style={{ textAlign: 'center', padding: '1rem', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>
+                                                        No activity recorded yet
+                                                    </div>
+                                                ) : (
+                                                    orderActivityLogs.map((log, idx) => (
+                                                        <div key={idx} style={{
+                                                            display: 'flex',
+                                                            alignItems: 'flex-start',
+                                                            gap: '0.75rem',
+                                                            padding: '0.75rem',
+                                                            background: '#f8fafc',
+                                                            borderRadius: '8px',
+                                                            borderLeft: `3px solid ${log.status === 'PLACED' ? '#6366f1' :
+                                                                    log.status === 'PAID' ? '#10b981' :
+                                                                        log.status === 'PACKING' ? '#f59e0b' :
+                                                                            log.status === 'SHIPPED' ? '#3b82f6' :
+                                                                                log.status === 'DELIVERED' ? '#22c55e' :
+                                                                                    log.status === 'CANCELLED' ? '#ef4444' : '#6b7280'
+                                                                }`
+                                                        }}>
+                                                            <div style={{
+                                                                width: '28px',
+                                                                height: '28px',
+                                                                borderRadius: '50%',
+                                                                background:
+                                                                    log.status === 'PLACED' ? '#6366f1' :
+                                                                        log.status === 'PAID' ? '#10b981' :
+                                                                            log.status === 'PACKING' ? '#f59e0b' :
+                                                                                log.status === 'SHIPPED' ? '#3b82f6' :
+                                                                                    log.status === 'DELIVERED' ? '#22c55e' :
+                                                                                        log.status === 'CANCELLED' ? '#ef4444' : '#6b7280',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '0.7rem',
+                                                                color: 'white',
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {idx + 1}
+                                                            </div>
+                                                            <div style={{ flex: 1 }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                                                                    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'hsl(var(--text-main))' }}>
+                                                                        {log.status}
+                                                                    </span>
+                                                                    <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
+                                                                        {new Date(log.created_at).toLocaleString('en-IN', {
+                                                                            day: '2-digit',
+                                                                            month: 'short',
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit'
+                                                                        })}
+                                                                    </span>
+                                                                </div>
+                                                                {log.notes && (
+                                                                    <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', lineHeight: 1.4 }}>
+                                                                        {log.notes}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Right: Summary & Customer */}
@@ -1010,9 +1291,20 @@ export default function OrdersPage() {
                                                     />
                                                     <textarea
                                                         rows={2}
-                                                        placeholder="Delivery Address"
-                                                        value={selectedOrder.delivery_address || ''}
-                                                        onChange={e => setSelectedOrder({ ...selectedOrder, delivery_address: e.target.value })}
+                                                        placeholder="Billing Address"
+                                                        value={typeof selectedOrder.billing_address === 'object' ?
+                                                            `${selectedOrder.billing_address?.name || ''}, ${selectedOrder.billing_address?.address || ''}` :
+                                                            (selectedOrder.billing_address || selectedOrder.delivery_address || '')}
+                                                        onChange={e => setSelectedOrder({ ...selectedOrder, billing_address: e.target.value })}
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', background: '#f1f5f9', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'none' }}
+                                                    />
+                                                    <textarea
+                                                        rows={2}
+                                                        placeholder="Shipping Address"
+                                                        value={typeof selectedOrder.shipping_address === 'object' ?
+                                                            `${selectedOrder.shipping_address?.name || ''}, ${selectedOrder.shipping_address?.address || ''}` :
+                                                            (selectedOrder.shipping_address || selectedOrder.delivery_address || '')}
+                                                        onChange={e => setSelectedOrder({ ...selectedOrder, shipping_address: e.target.value })}
                                                         style={{ width: '100%', padding: '0.55rem 0.75rem', background: '#f1f5f9', border: '1px solid hsl(var(--primary) / 0.5)', borderRadius: '7px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'none' }}
                                                     />
                                                     <select
@@ -1027,11 +1319,98 @@ export default function OrdersPage() {
                                                 <>
                                                     <div style={{ fontWeight: 700 }}>{selectedOrder.customer_name}</div>
                                                     <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.customer_phone}</div>
-                                                    <div style={{ marginTop: '1rem', fontSize: '0.85rem', lineHeight: 1.5, color: 'hsl(var(--text-main))' }}>{selectedOrder.delivery_address}</div>
-                                                    <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.shipping_state}</div>
+
+                                                    <div style={{ marginTop: '1rem' }}>
+                                                        <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Billing Address</div>
+                                                        <div style={{ fontSize: '0.85rem', lineHeight: 1.5, color: 'hsl(var(--text-main))' }}>
+                                                            {(() => {
+                                                                const addr = selectedOrder.billing_address;
+                                                                if (!addr) return selectedOrder.delivery_address || 'N/A';
+                                                                // If it's a string that looks like JSON, try to parse it
+                                                                if (typeof addr === 'string') {
+                                                                    if (addr.startsWith('{') && addr.endsWith('}')) {
+                                                                        try {
+                                                                            const parsed = JSON.parse(addr);
+                                                                            const parts = [];
+                                                                            if (parsed.name) parts.push(parsed.name);
+                                                                            if (parsed.address) parts.push(parsed.address);
+                                                                            if (parsed.city) parts.push(parsed.city);
+                                                                            if (parsed.state) parts.push(parsed.state);
+                                                                            if (parsed.pincode) parts.push(parsed.pincode);
+                                                                            if (parsed.phone) parts.push(`Phone: ${parsed.phone}`);
+                                                                            if (parsed.email) parts.push(`Email: ${parsed.email}`);
+                                                                            return parts.join(', ');
+                                                                        } catch (e) {
+                                                                            return addr;
+                                                                        }
+                                                                    }
+                                                                    return addr;
+                                                                }
+                                                                // If it's already an object
+                                                                if (typeof addr === 'object') {
+                                                                    const parts = [];
+                                                                    if (addr.name) parts.push(addr.name);
+                                                                    if (addr.address) parts.push(addr.address);
+                                                                    if (addr.city) parts.push(addr.city);
+                                                                    if (addr.state) parts.push(addr.state);
+                                                                    if (addr.pincode) parts.push(addr.pincode);
+                                                                    if (addr.phone) parts.push(`Phone: ${addr.phone}`);
+                                                                    if (addr.email) parts.push(`Email: ${addr.email}`);
+                                                                    return parts.join(', ');
+                                                                }
+                                                                return String(addr);
+                                                            })()}
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ marginTop: '0.75rem' }}>
+                                                        <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Shipping Address</div>
+                                                        <div style={{ fontSize: '0.85rem', lineHeight: 1.5, color: 'hsl(var(--text-main))' }}>
+                                                            {(() => {
+                                                                const addr = selectedOrder.shipping_address;
+                                                                if (!addr) return selectedOrder.delivery_address || 'Same as billing';
+                                                                // If it's a string that looks like JSON, try to parse it
+                                                                if (typeof addr === 'string') {
+                                                                    if (addr.startsWith('{') && addr.endsWith('}')) {
+                                                                        try {
+                                                                            const parsed = JSON.parse(addr);
+                                                                            const parts = [];
+                                                                            if (parsed.name) parts.push(parsed.name);
+                                                                            if (parsed.address) parts.push(parsed.address);
+                                                                            if (parsed.city) parts.push(parsed.city);
+                                                                            if (parsed.state) parts.push(parsed.state);
+                                                                            if (parsed.pincode) parts.push(parsed.pincode);
+                                                                            if (parsed.phone) parts.push(`Phone: ${parsed.phone}`);
+                                                                            return parts.join(', ');
+                                                                        } catch (e) {
+                                                                            return addr;
+                                                                        }
+                                                                    }
+                                                                    return addr;
+                                                                }
+                                                                // If it's already an object
+                                                                if (typeof addr === 'object') {
+                                                                    const parts = [];
+                                                                    if (addr.name) parts.push(addr.name);
+                                                                    if (addr.address) parts.push(addr.address);
+                                                                    if (addr.city) parts.push(addr.city);
+                                                                    if (addr.state) parts.push(addr.state);
+                                                                    if (addr.pincode) parts.push(addr.pincode);
+                                                                    if (addr.phone) parts.push(`Phone: ${addr.phone}`);
+                                                                    return parts.join(', ');
+                                                                }
+                                                                return String(addr);
+                                                            })()}
+                                                        </div>
+                                                        {selectedOrder.shipping_state && (
+                                                            <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.shipping_state}</div>
+                                                        )}
+                                                    </div>
                                                 </>
                                             )}
                                         </div>
+
+                                        {/* Order Activity Log - REMOVED from right side, now on left */}
 
                                         <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                             <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>💰 Order Summary</h4>
@@ -1087,6 +1466,10 @@ export default function OrdersPage() {
                                                         const newStatus = e.target.value;
                                                         if (newStatus === 'SHIPPED') {
                                                             setShowShippingForm(true);
+                                                        } else if (newStatus === 'CANCELLED') {
+                                                            setShowCancelModal(true);
+                                                        } else if (['PAID', 'PACKING', 'DELIVERED'].includes(newStatus)) {
+                                                            setStatusConfirmModal({ status: newStatus, title: `Confirm ${newStatus}`, message: `Change order status to ${newStatus}? This will send notifications to the customer.` });
                                                         } else {
                                                             updateOrderStatus(selectedOrder.id, newStatus);
                                                         }
@@ -1096,7 +1479,28 @@ export default function OrdersPage() {
                                                     {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
 
-                                                {/* Inline Shipping Form — appears when SHIPPED is selected */}
+                                                {/* Status Confirmation Modal */}
+                                                {statusConfirmModal && (
+                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <AlertCircle size={14} /> {statusConfirmModal.title}
+                                                        </div>
+                                                        <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
+                                                            {statusConfirmModal.message}
+                                                        </p>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                            <button onClick={() => setStatusConfirmModal(null)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    updateOrderStatus(selectedOrder.id, statusConfirmModal.status);
+                                                                    setStatusConfirmModal(null);
+                                                                }}
+                                                                className="btn btn-primary"
+                                                                style={{ fontSize: '0.8rem' }}
+                                                            >Confirm</button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {showShippingForm && (
                                                     <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#f1f5f9', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                                         <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1142,11 +1546,110 @@ export default function OrdersPage() {
                                                         </div>
                                                     </div>
                                                 )}
+
+                                                {/* Cancel Order Modal */}
+                                                {showCancelModal && (
+                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#fef2f2', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <XCircle size={14} /> Cancel Order
+                                                        </div>
+                                                        <textarea
+                                                            placeholder="Enter cancellation reason..."
+                                                            value={cancelReason}
+                                                            onChange={e => setCancelReason(e.target.value)}
+                                                            style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', minHeight: '80px' }}
+                                                        />
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                            <button onClick={() => { setShowCancelModal(false); setCancelReason(''); }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
+                                                            <button
+                                                                onClick={handleCancelOrder}
+                                                                disabled={!cancelReason.trim()}
+                                                                className="btn btn-primary"
+                                                                style={{ fontSize: '0.8rem', background: '#ef4444' }}
+                                                            >Confirm Cancel</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {selectedOrder.status === 'PLACED' && (
                                                     <button onClick={() => setShowShippingForm(true)} className="btn btn-primary" style={{ width: '100%' }}>
                                                         <Truck size={16} /> Update Tracking Info
                                                     </button>
                                                 )}
+
+                                                {/* Resend Email Button */}
+                                                <button
+                                                    onClick={() => setShowResendEmailModal(true)}
+                                                    className="btn btn-secondary"
+                                                    style={{ width: '100%' }}
+                                                >
+                                                    <Mail size={16} /> Resend Email
+                                                </button>
+
+                                                {/* Resend Email Modal */}
+                                                {showResendEmailModal && (
+                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <Mail size={14} /> Resend Email
+                                                        </div>
+                                                        <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
+                                                            Resend order confirmation email to customer?
+                                                        </p>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                            <button onClick={() => setShowResendEmailModal(false)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
+                                                            <button
+                                                                onClick={handleResendEmail}
+                                                                className="btn btn-primary"
+                                                                style={{ fontSize: '0.8rem' }}
+                                                            >Send Email</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+
+                                                {/* Refund Button */}
+                                                <button
+                                                    onClick={() => setShowRefundModal(true)}
+                                                    className="btn btn-secondary"
+                                                    style={{ width: '100%' }}
+                                                >
+                                                    <IndianRupee size={16} /> Process Refund
+                                                </button>
+
+                                                {/* Refund Modal */}
+                                                {showRefundModal && (
+                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#fef3c7', borderRadius: '10px', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <IndianRupee size={14} /> Process Refund
+                                                        </div>
+                                                        <input
+                                                            type="number"
+                                                            placeholder="Refund Amount (₹)"
+                                                            value={refundAmount}
+                                                            onChange={e => setRefundAmount(e.target.value)}
+                                                            style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
+                                                        />
+                                                        <textarea
+                                                            placeholder="Enter refund reason..."
+                                                            value={refundReason}
+                                                            onChange={e => setRefundReason(e.target.value)}
+                                                            style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', minHeight: '60px' }}
+                                                        />
+                                                        <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>
+                                                            Max refund: ₹{selectedOrder?.total_amount?.toLocaleString()}
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                            <button onClick={() => { setShowRefundModal(false); setRefundAmount(''); setRefundReason(''); }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
+                                                            <button
+                                                                onClick={handleRefund}
+                                                                disabled={!refundAmount || !refundReason.trim()}
+                                                                className="btn btn-primary"
+                                                                style={{ fontSize: '0.8rem', background: '#f59e0b' }}
+                                                            >Process Refund</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 <a href={`https://wa.me/${selectedOrder.customer_phone}`} className="btn btn-secondary" style={{ width: '100%', textAlign: 'center', justifyContent: 'center' }}>
                                                     <MessageCircle size={14} /> Contact via WhatsApp
                                                 </a>
@@ -1170,6 +1673,74 @@ export default function OrdersPage() {
                                                 </button>
                                             </div>
                                         </div>
+
+                                        {/* Transaction ID & Payment Info */}
+                                        {(selectedOrder.transaction_id || selectedOrder.payment_gateway) && (
+                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>💳 Payment Info</h4>
+                                                {selectedOrder.transaction_id && (
+                                                    <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Transaction ID:</span>
+                                                        <span style={{ fontFamily: 'monospace', marginLeft: '0.5rem' }}>{selectedOrder.transaction_id}</span>
+                                                    </div>
+                                                )}
+                                                {selectedOrder.payment_gateway && (
+                                                    <div style={{ fontSize: '0.85rem' }}>
+                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Gateway:</span>
+                                                        <span style={{ marginLeft: '0.5rem', textTransform: 'uppercase' }}>{selectedOrder.payment_gateway}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Cancel Reason Display */}
+                                        {selectedOrder.cancel_reason && (
+                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#fef2f2', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ef4444', marginBottom: '0.5rem' }}>❌ Cancellation Reason</h4>
+                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.cancel_reason}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Customer Notes */}
+                                        {selectedOrder.customer_notes && (
+                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#f0f9ff', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--primary))', marginBottom: '0.5rem' }}>📝 Customer Notes</h4>
+                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.customer_notes}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Refund Info Display */}
+                                        {(selectedOrder.refund_amount || selectedOrder.refund_status) && (
+                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#fef3c7', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#f59e0b', marginBottom: '0.5rem' }}>💰 Refund Info</h4>
+                                                {selectedOrder.refund_amount > 0 && (
+                                                    <div style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Refund Amount:</span>
+                                                        <span style={{ marginLeft: '0.5rem', fontWeight: 600 }}>₹{selectedOrder.refund_amount.toLocaleString()}</span>
+                                                    </div>
+                                                )}
+                                                {selectedOrder.refund_status && (
+                                                    <div style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Refund Status:</span>
+                                                        <span style={{ marginLeft: '0.5rem', textTransform: 'uppercase', fontWeight: 600 }}>{selectedOrder.refund_status}</span>
+                                                    </div>
+                                                )}
+                                                {selectedOrder.refund_reason && (
+                                                    <div style={{ fontSize: '0.85rem' }}>
+                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Reason:</span>
+                                                        <span style={{ marginLeft: '0.5rem' }}>{selectedOrder.refund_reason}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Admin Notes */}
+                                        {selectedOrder.admin_notes && (
+                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.5rem' }}>🔒 Admin Notes (Private)</h4>
+                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.admin_notes}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1199,9 +1770,13 @@ export default function OrdersPage() {
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>WhatsApp Phone</label>
                                             <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
-                                        <div style={{ gridColumn: 'span 1' }}>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Delivery Address</label>
-                                            <textarea rows={1} placeholder="Full address..." value={newOrder.delivery_address} onChange={e => setNewOrder({ ...newOrder, delivery_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
+                                        <div style={{ gridColumn: 'span 2' }}>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Address</label>
+                                            <textarea rows={1} placeholder="Full shipping address..." value={newOrder.shipping_address} onChange={e => setNewOrder({ ...newOrder, shipping_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
+                                        </div>
+                                        <div style={{ gridColumn: 'span 2' }}>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Address</label>
+                                            <textarea rows={1} placeholder="Full billing address (if same as shipping, leave empty)..." value={newOrder.billing_address} onChange={e => setNewOrder({ ...newOrder, billing_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
@@ -1298,7 +1873,7 @@ export default function OrdersPage() {
                                                     <button
                                                         onClick={async () => {
                                                             if (!newOrder.customer_name || !newOrder.customer_phone || newOrder.items.length === 0) {
-                                                                alert('Please fill all details and add items.'); return;
+                                                                setNotification({ message: '⚠️ Please fill all customer details and add at least one item.', type: 'error' }); return;
                                                             }
                                                             setLoading(true);
                                                             try {
@@ -1332,7 +1907,8 @@ export default function OrdersPage() {
                                                                     id: orderId,
                                                                     customer_name: newOrder.customer_name,
                                                                     customer_phone: normalizedPhone, // Ensures sync with Customers page aggregation
-                                                                    delivery_address: newOrder.delivery_address,
+                                                                    delivery_address: newOrder.shipping_address,
+                                                                    billing_address: newOrder.billing_address || newOrder.shipping_address,
                                                                     shipping_state: newOrder.shipping_state,
                                                                     total_amount: total,
                                                                     tax_amount: tax,
@@ -1353,6 +1929,14 @@ export default function OrdersPage() {
                                                                     price_at_time: it.price
                                                                 })));
                                                                 if (itemErr) throw itemErr;
+
+                                                                // Add initial PLACED log entry
+                                                                await supabase.from('order_status_logs').insert({
+                                                                    order_id: orderId,
+                                                                    status: 'PLACED',
+                                                                    notes: 'Order placed',
+                                                                    created_at: new Date().toISOString()
+                                                                });
 
                                                                 // ────── DEDUCT STOCK & LOG HISTORY ──────
                                                                 for (const item of newOrder.items) {
@@ -1401,28 +1985,39 @@ export default function OrdersPage() {
 
 
 
+                </>
+            )}
+        </div>
+
                     {/* Notification */}
 
                     {notification && (
-
                         <div style={{
-
                             position: 'fixed', top: '2rem', right: '2rem', zIndex: 3000,
-
                             padding: '1rem 1.5rem', borderRadius: 'var(--radius)',
-
                             background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))',
-
                             color: 'white', fontWeight: 600, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-
                             animation: 'slideDown 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
-
                         }}>
-
                             {notification.message}
-
                         </div>
+                    )}
 
+                    {/* Confirm Delete Modal */}
+                    {confirmDelete && (
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={() => setConfirmDelete(null)}>
+                            <div className="card shadow-premium animate-enter" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center', borderRadius: '24px', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--danger) / 0.3)' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: 'hsl(var(--danger))' }}>
+                                    <Trash2 size={40} />
+                                </div>
+                                <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900 }}>Delete Order?</h3>
+                                <p style={{ margin: '0 0 2rem', color: 'hsl(var(--text-muted))', lineHeight: 1.6 }}>This will <strong>permanently</strong> delete the order and all its items. This action cannot be undone.</p>
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <button onClick={() => setConfirmDelete(null)} className="btn btn-secondary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 700 }}>Cancel</button>
+                                    <button onClick={() => handleDeleteOrderConfirmed(confirmDelete.orderId)} className="btn btn-primary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 800, background: 'hsl(var(--danger))', border: 'none' }}>Delete</button>
+                                </div>
+                            </div>
+                        </div>
                     )}
 
 
@@ -1456,9 +2051,7 @@ export default function OrdersPage() {
                     table { min-width: 800px; }
                 }
             `}</style>
-                </>
-            )}
-        </div>
+        </>
     );
 }
 

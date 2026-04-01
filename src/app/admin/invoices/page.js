@@ -252,9 +252,9 @@ export default function InvoicesPage() {
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                                         {settings.shop_logo ? (
-                                            <img src={settings.shop_logo} alt="Logo" style={{ height: '40px', objectFit: 'contain' }} />
+                                            <img src={settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`} alt="Logo" style={{ height: '40px', objectFit: 'contain' }} />
                                         ) : (
-                                            <span style={{ fontSize: '1.75rem' }}>💮</span>
+                                            <img src="/images/cp-logo.png" alt="Logo" style={{ height: '40px', objectFit: 'contain' }} />
                                         )}
                                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', margin: 0, color: '#111827' }}>{settings.shop_name}</h1>
                                     </div>
@@ -375,10 +375,9 @@ export default function InvoicesPage() {
                             <div style={{ padding: '0 3rem 4rem 3rem', display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
                                 <div>
                                     {settings.bill_terms && (
-                                        <>
-                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Terms & Conditions</div>
-                                            <div style={{ fontSize: '0.8rem', color: '#6b7280', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{settings.bill_terms}</div>
-                                        </>
+                                        <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f9fafb', borderRadius: '6px', fontSize: '0.8rem', color: '#6b7280' }}>
+                                            <strong>Terms:</strong> {settings.bill_terms}
+                                        </div>
                                     )}
                                 </div>
                                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>

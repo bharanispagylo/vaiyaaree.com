@@ -36,6 +36,7 @@ export default function CMSPage() {
     const [activeTab, setActiveTab] = useState('content');
     const [saving, setSaving] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null); // { title, message, onConfirm }
 
     // Media Picker States
     const [showMediaPicker, setShowMediaPicker] = useState(false);
@@ -126,16 +127,22 @@ export default function CMSPage() {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('🚨 Are you sure you want to delete this page? This will permanentely remove all its content and SEO data.')) return;
-        try {
-            const { error } = await supabase.from('cms_pages').delete().eq('id', id);
-            if (error) throw error;
-            showNotification('Page archived successfully');
-            fetchPages();
-        } catch (error) {
-            console.error('Delete Error:', error);
-            showNotification('Archiving failed', 'error');
-        }
+        setConfirmAction({
+            title: 'Delete Page?',
+            message: '🚨 Are you sure you want to delete this page? This will permanently remove all its content and SEO data.',
+            onConfirm: async () => {
+                setConfirmAction(null);
+                try {
+                    const { error } = await supabase.from('cms_pages').delete().eq('id', id);
+                    if (error) throw error;
+                    showNotification('Page removed successfully');
+                    fetchPages();
+                } catch (error) {
+                    console.error('Delete Error:', error);
+                    showNotification('Deletion failed', 'error');
+                }
+            }
+        });
     };
 
     const generateSlug = (title) => {
@@ -196,7 +203,8 @@ export default function CMSPage() {
     };
 
     return (
-        <div className="animate-enter" style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <>
+            <div className="animate-enter" style={{ padding: '1rem', maxWidth: '1400px', margin: '0 auto' }}>
             {/* Action Notification */}
             {notification && (
                 <div style={{
@@ -259,14 +267,14 @@ export default function CMSPage() {
                             </div>
                         ) : (
                             <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', margin: 0 }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', margin: 0, tableLayout: 'fixed' }}>
                                     <thead style={{ background: '#f1f5f9' }}>
                                         <tr>
-                                            <th style={{ textAlign: 'left', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Structure & Title</th>
-                                            <th style={{ textAlign: 'left', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Endpoint</th>
-                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Status</th>
-                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Template</th>
-                                            <th style={{ textAlign: 'right', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>Control</th>
+                                            <th style={{ textAlign: 'left', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '35%' }}>Structure & Title</th>
+                                            <th style={{ textAlign: 'left', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '25%' }}>Endpoint</th>
+                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '12%' }}>Status</th>
+                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '12%' }}>Template</th>
+                                            <th style={{ textAlign: 'right', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '16%' }}>Control</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -289,7 +297,7 @@ export default function CMSPage() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '1.5rem' }}>
+                                                <td style={{ padding: '1.5rem', maxWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     <code style={{ background: 'hsl(var(--bg-app))', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}>/page/{page.slug}</code>
                                                 </td>
                                                 <td style={{ padding: '1.5rem', textAlign: 'center' }}>
@@ -429,7 +437,7 @@ export default function CMSPage() {
 
                                         <div>
                                             <div className="card" style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: '20px' }}>
-                                                <label style={labelStyle}>✨ Quick Add Blocks</label>
+                                                <label style={labelStyle}>Quick Add Blocks</label>
                                                 <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Click to insert pre-made sections</p>
                                                 <div style={{ display: 'grid', gap: '0.5rem' }}>
                                                     {CONTENT_BLOCKS.map(block => (
@@ -453,9 +461,9 @@ export default function CMSPage() {
 
                                                     <label style={labelStyle}><Lock size={14} /> Visibility Control</label>
                                                     <select name="status" defaultValue={currentPage?.status || 'draft'} style={inputStyle}>
-                                                        <option value="draft">📁 Saved Draft (Hidden)</option>
-                                                        <option value="published">🚀 Live on Website</option>
-                                                        <option value="scheduled">⏰ Schedule for Later</option>
+                                                        <option value="draft">Saved Draft (Hidden)</option>
+                                                        <option value="published">Live on Website</option>
+                                                        <option value="scheduled">Schedule for Later</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -466,7 +474,7 @@ export default function CMSPage() {
                                 <div className="animate-fade" style={{ display: activeTab === 'seo' ? 'block' : 'none' }}>
                                     <div style={{ background: '#f8fafc', padding: '2rem', borderRadius: '24px', border: '1px solid hsl(var(--border-subtle))' }}>
                                         <h3 style={{ marginTop: 0, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            🔍 Appearance in Google Search
+                                            Appearance in Google Search
                                         </h3>
 
                                         <label style={labelStyle}>Search Title (Keep it short)</label>
@@ -556,7 +564,7 @@ export default function CMSPage() {
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
                     <div style={{ background: 'white', width: '100%', maxWidth: '1000px', height: '80vh', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ padding: '1rem 2rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ fontWeight: 800, color: '#1e293b' }}>🖥️ Desktop Preview</div>
+                            <div style={{ fontWeight: 800, color: '#1e293b' }}>Desktop Preview</div>
                             <button onClick={() => setShowPreview(false)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Close Preview</button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '3rem', color: '#334155', fontFamily: 'Inter, sans-serif' }}>
@@ -578,8 +586,8 @@ export default function CMSPage() {
                     onClose={() => setShowMediaPicker(false)}
                 />
             )}
-
-            <style jsx>{`
+        </div>
+        <style jsx>{`
                 @keyframes slideIn { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -592,19 +600,61 @@ export default function CMSPage() {
                 }
                 
                 .btn-icon {
-                    width: 42px; height: 42px; border-radius: 12px; border: 1px solid hsl(var(--border-subtle));
-                    background: transparent; cursor: pointer; display: flex; alignItems: center; justifyContent: center;
+                    width: 42px; height: 42px; border-radius: 12px; border: none;
+                    background: hsl(var(--bg-app)); cursor: pointer; display: flex; align-items: center; justify-content: center;
                     transition: all 0.2s; color: hsl(var(--text-muted));
                 }
-                .btn-icon:hover { background: hsl(var(--bg-panel)); color: hsl(var(--text-main)); border-color: hsl(var(--primary)/0.5); }
-                .btn-icon.danger:hover { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
-                .btn-icon.primary:hover { background: hsl(var(--primary)/0.1); color: hsl(var(--primary)); border-color: hsl(var(--primary)/0.4); }
+                .btn-icon svg { display: block; color: inherit; }
+                .btn-icon:hover { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); }
+                .btn-icon.danger { background: #fee2e2; color: #ef4444; }
+                .btn-icon.danger:hover { background: #fecaca; color: #dc2626; }
+                .btn-icon.primary { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); }
+                .btn-icon.primary:hover { background: hsl(var(--primary) / 0.2); color: hsl(var(--primary)); }
                 
+                @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
                 input:focus, textarea:focus, select:focus {
                     border-color: hsl(var(--primary)) !important;
                     box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
                 }
             `}</style>
-        </div >
+
+            {/* Confirm Modal */}
+            {confirmAction && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                    zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
+                }} onClick={() => setConfirmAction(null)}>
+                    <div className="card shadow-premium animate-enter" style={{
+                        width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center',
+                        borderRadius: '24px', background: 'white',
+                        border: '1px solid hsl(var(--danger) / 0.3)'
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{
+                            width: '80px', height: '80px', borderRadius: '50%',
+                            background: 'hsl(var(--danger) / 0.1)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem',
+                            color: 'hsl(var(--danger))'
+                        }}>
+                            <Trash2 size={40} />
+                        </div>
+                        <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900 }}>{confirmAction.title}</h3>
+                        <p style={{ margin: '0 0 2rem', color: '#64748b', lineHeight: 1.6 }}>{confirmAction.message}</p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={() => setConfirmAction(null)} className="btn btn-secondary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 700 }}>Cancel</button>
+                            <button
+                                onClick={confirmAction.onConfirm}
+                                className="btn btn-primary"
+                                style={{
+                                    flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 800,
+                                    background: '#ef4444', border: 'none', color: 'white'
+                                }}
+                            >
+                                Delete Page
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

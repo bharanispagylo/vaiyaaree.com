@@ -17,6 +17,26 @@ const WHATSAPP_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
 // --- UTILS ---
 const truncate = (str, limit) => (str && str.length > limit) ? str.substring(0, limit - 3) + "..." : str;
 
+// Normalize phone number to E.164 format (with country code)
+function normalizePhoneNumber(phone) {
+    if (!phone) return phone;
+    
+    // Remove any non-digit characters
+    let digits = phone.replace(/\D/g, '');
+    
+    // If it starts with 0, remove the leading 0 and add India country code (91)
+    if (digits.startsWith('0')) {
+        digits = '91' + digits.substring(1);
+    }
+    
+    // If it doesn't have a country code (less than 12 digits for India), add 91
+    if (digits.length === 10) {
+        digits = '91' + digits;
+    }
+    
+    return digits;
+}
+
 // --- DEBUG LOGGER ---
 const debugLog = (msg, obj = null) => {
     const timestamp = new Date().toISOString();
@@ -112,15 +132,21 @@ export async function sendRawMessage(to, payload) {
         return { error: 'Missing credentials' };
     }
 
+    // Normalize phone number to E.164 format
+    const normalizedTo = normalizePhoneNumber(to);
+    if (normalizedTo !== to) {
+        console.log(`[WA] Normalized phone: ${to} → ${normalizedTo}`);
+    }
+
     try {
-        debugLog(`Sending ${payload.type} to ${to}`);
+        debugLog(`Sending ${payload.type} to ${normalizedTo}`);
         const response = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/messages`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ ...payload, to: normalizedTo })
         });
 
         const data = await response.json();
@@ -137,7 +163,7 @@ export async function sendRawMessage(to, payload) {
             return { error: errorMsg, code: errorCode, full: data.error };
         }
 
-        debugLog(`Message sent successfully to ${to}`, { message_id: data.messages?.[0]?.id });
+        debugLog(`Message sent successfully to ${normalizedTo}`, { message_id: data.messages?.[0]?.id });
         return data;
     } catch (error) {
         console.error('❌ [WA-NETWORK-ERROR]:', error);
@@ -311,27 +337,220 @@ async function deductStock(orderId) {
 
 // ─── 4. PDF INVOICE ───────────────────────────────────────────────────────────
 
+// Helper to fetch logo and convert to base64 with retry logic
+async function fetchLogoAsBase64(logoUrl, retries = 3) {
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            console.log(`[INVOICE] Fetching logo from: ${logoUrl} (attempt ${attempt}/${retries})`);
+            
+            // Use AbortController for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            const response = await fetch(logoUrl, {
+                headers: { 
+                    'Accept': 'image/*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                console.error(`[INVOICE] Failed to fetch logo: ${response.status} ${response.statusText}`);
+                if (attempt < retries) {
+                    console.log(`[INVOICE] Retrying in ${attempt * 1000}ms...`);
+                    await delay(attempt * 1000);
+                    continue;
+                }
+                return null;
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            
+            // Detect image type from URL
+            let mimeType = 'image/png';
+            const lowerUrl = logoUrl.toLowerCase();
+            if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg')) {
+                mimeType = 'image/jpeg';
+            } else if (lowerUrl.endsWith('.webp')) {
+                mimeType = 'image/webp';
+            } else if (lowerUrl.endsWith('.gif')) {
+                mimeType = 'image/gif';
+            }
+            
+            const base64 = buffer.toString('base64');
+            console.log(`[INVOICE] Logo fetched successfully, size: ${base64.length} bytes`);
+            return `data:${mimeType};base64,${base64}`;
+        } catch (error) {
+            console.error(`[INVOICE] Error fetching logo (attempt ${attempt}/${retries}):`, error.message);
+            if (attempt < retries) {
+                console.log(`[INVOICE] Retrying in ${attempt * 1000}ms...`);
+                await delay(attempt * 1000);
+            }
+        }
+    }
+    return null;
+}
+
+// Helper to read local logo file as base64
+async function getLocalLogoAsBase64() {
+    try {
+        const fs = await import('fs');
+        const path = await import('path');
+        
+        // Try multiple possible logo paths
+        const possiblePaths = [
+            path.join(process.cwd(), 'public', 'logo.png'),
+            path.join(process.cwd(), 'public', 'logo1.jpg'),
+            path.join(process.cwd(), 'public', 'logo.jpg'),
+            path.join(process.cwd(), 'public', 'logo.jpeg'),
+            path.join(process.cwd(), 'public', 'images', 'logo.png'),
+            path.join(process.cwd(), 'public', 'images', 'logo1.jpg'),
+            path.join(process.cwd(), 'public', 'images', 'logo.jpg'),
+        ];
+        
+        for (const logoPath of possiblePaths) {
+            if (fs.existsSync(logoPath)) {
+                console.log(`[INVOICE] Found local logo at: ${logoPath}`);
+                const buffer = fs.readFileSync(logoPath);
+                const ext = path.extname(logoPath).toLowerCase();
+                let mimeType = 'image/png';
+                if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+                if (ext === '.webp') mimeType = 'image/webp';
+                
+                const base64 = buffer.toString('base64');
+                console.log(`[INVOICE] Local logo loaded, size: ${base64.length} bytes`);
+                return `data:${mimeType};base64,${base64}`;
+            }
+        }
+        
+        console.log('[INVOICE] No local logo file found');
+        return null;
+    } catch (error) {
+        console.error('[INVOICE] Error reading local logo:', error.message);
+        return null;
+    }
+}
+
 async function generateAndUploadInvoice(order) {
     try {
         const doc = new jsPDF();
 
-        // Header
-        doc.setFontSize(22); doc.text("Cast Printz", 105, 20, { align: "center" });
-        doc.setFontSize(10); doc.text(`Order ID: #${order.id}`, 15, 35);
+        // Fetch branding from settings
+        let branding = {
+            shop_name: 'Cast Printz',
+            shop_logo: ''
+        };
+
+        try {
+            const { data } = await supabase.from('app_settings').select('*');
+            if (data) {
+                data.forEach(item => {
+                    if (item.key === 'shop_name' || item.key === 'companyName') {
+                        branding.shop_name = item.value;
+                    } else if (item.key === 'shop_logo') {
+                        branding.shop_logo = item.value;
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("PDF Branding Error:", e);
+        }
+
+        // Header with logo if available
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const centerX = pageWidth / 2;
+
+        if (branding.shop_logo) {
+            try {
+                let logoBase64 = null;
+                
+                // First, try to use local logo file
+                logoBase64 = await getLocalLogoAsBase64();
+                
+                // If no local logo, try fetching from URL
+                if (!logoBase64 && branding.shop_logo.startsWith('http')) {
+                    logoBase64 = await fetchLogoAsBase64(branding.shop_logo);
+                }
+                
+                // If we have a logo (local or fetched), add it to PDF
+                if (logoBase64) {
+                    // Add logo image to PDF
+                    doc.addImage(logoBase64, 'PNG', centerX - 15, 10, 30, 30);
+                    doc.setFontSize(18);
+                    doc.text(branding.shop_name || "Cast Printz", centerX, 50, { align: "center" });
+                } else {
+                    throw new Error('No logo available');
+                }
+            } catch (imgError) {
+                console.error('[INVOICE] Logo processing error:', imgError);
+                // Fallback to text if image fails
+                doc.setFontSize(22);
+                doc.text(branding.shop_name || "Cast Printz", centerX, 20, { align: "center" });
+            }
+        } else {
+            doc.setFontSize(22);
+            doc.text(branding.shop_name || "Cast Printz", centerX, 20, { align: "center" });
+        }
+        
+        doc.setFontSize(10);
+        doc.text(`Order ID: #${order.id}`, 15, 35);
         doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 40);
 
-        // Customer Info
+        // Customer Info - Show billing and shipping
+        let y = 55;
+        
+        // Billing Address
         doc.setFont("helvetica", "bold");
-        doc.text("Bill To:", 15, 50);
+        doc.text("Bill To:", 15, y);
         doc.setFont("helvetica", "normal");
-        const name = order.customer_name || 'Valued Customer';
-        const address = order.delivery_address || 'Address provided';
-        doc.text(name, 15, 55);
-
-        const splitAddress = doc.splitTextToSize(address, 80);
-        doc.text(splitAddress, 15, 60);
-
-        let y = 85;
+        y += 6;
+        
+        const billing = order.billing_address || {};
+        const billingName = billing.name || order.customer_name || 'Valued Customer';
+        const billingAddr = billing.address || order.delivery_address || 'Address provided';
+        const billingMobile = billing.mobile || order.customer_phone || '';
+        
+        doc.text(billingName, 15, y);
+        y += 6;
+        if (billingMobile) {
+            doc.text(`📱 ${billingMobile}`, 15, y);
+            y += 6;
+        }
+        const splitBilling = doc.splitTextToSize(billingAddr, 80);
+        doc.text(splitBilling, 15, y);
+        y += splitBilling.length * 6 + 4;
+        
+        // Shipping Address (if different from billing)
+        const shipping = order.shipping_address || {};
+        const shippingAddr = shipping.address || billingAddr;
+        
+        if (shippingAddr !== billingAddr || shipping.name !== billingName) {
+            doc.setFont("helvetica", "bold");
+            doc.text("Ship To:", 15, y);
+            doc.setFont("helvetica", "normal");
+            y += 6;
+            
+            const shipName = shipping.name || billingName;
+            const shipMobile = shipping.mobile || billingMobile;
+            
+            doc.text(shipName, 15, y);
+            y += 6;
+            if (shipMobile) {
+                doc.text(`📱 ${shipMobile}`, 15, y);
+                y += 6;
+            }
+            const splitShipping = doc.splitTextToSize(shippingAddr, 80);
+            doc.text(splitShipping, 15, y);
+            y += splitShipping.length * 6 + 10;
+        } else {
+            y += 10;
+        }
 
         // Items
         doc.setFillColor(240, 240, 240);
@@ -471,10 +690,10 @@ export async function handleProductInquiry(to, catalogId) {
         const stock = product.stock || 0;
         const alertThreshold = product.alert_threshold || 5;
         const stockStatus = stock <= 0
-            ? '❌ Out of Stock'
+            ? 'Out of Stock'
             : stock <= alertThreshold
-                ? `⚠️ Only ${stock} left — Order soon!`
-                : `✅ In Stock`;
+                ? `Only ${stock} left — Order soon!`
+                : `In Stock`;
 
         const desc = product.description
             ? `\n📝 ${product.description.substring(0, 120)}${product.description.length > 120 ? '...' : ''}`
@@ -505,33 +724,16 @@ export async function handleProductInquiry(to, catalogId) {
 }
 
 export async function sendMainMenu(to) {
-    const welcomeMsg = await getConfig('wa_welcome_message',
-        "✨ *Welcome to Cast Printz!*\n\nDiscover our premium collection of silk & cotton sarees."
-    );
-    const welcomeImg = await getConfig('wa_welcome_image',
-        "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=85"
-    );
-
     // Build shop URL
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprintz.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
-    // ── SIMPLIFIED FLOW (More robust for Vercel/V21.0) ──
-    // 1. Send Image with caption
-    await sendRawMessage(to, {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "image",
-        image: {
-            link: welcomeImg,
-            caption: welcomeMsg + "\n\n🛍️ *Shop Online:*\n" + shopUrl
-        }
-    });
+    // Fetch dynamic welcome message from settings, fallback to standard text
+    const welcomeMsg = await getConfig('wa_welcome_message', 'Explore our premium collection and manage your orders:');
 
-    // 2. Send Action Buttons
-    await sendButtons(to, "Explore our collection and manage:", [
-        { id: "menu_catalogue", title: "📖 View Catalogue" },
+    // Directly Send Action Buttons - Main Menu
+    await sendButtons(to, `${welcomeMsg}\n\nShop Online: ${shopUrl}`, [
+        { id: "menu_catalogue", title: "View Catalogue" },
         { id: "menu_track", title: "My Orders" },
         { id: "menu_contact", title: "Contact Us" }
     ]);
@@ -545,27 +747,18 @@ export async function sendCatalog(to) {
     const body = await getConfig('wa_catalog_body', "Curated just for you:");
 
     await sendList(to, header, body, "View Collections", [
-        { id: "menu_catalogue", title: "📂 Browse Categories", description: "By Saree Type" },
-        { id: "ctlg_all", title: "🌟 New Arrivals", description: "Latest Collections" },
-        { id: "ctlg_all_full", title: "📖 Full Catalogue", description: "Browse Inventory" }
+        { id: "menu_catalogue", title: "Browse Categories", description: "By Saree Type" },
+        { id: "ctlg_all", title: "New Arrivals", description: "Latest Collections" },
+        { id: "ctlg_all_full", title: "Full Catalogue", description: "Browse Inventory" }
     ]);
 }
 
 // ─── CATALOGUE FLOW (Dynamic categories from DB) ────────────────────────────
 
-const CATEGORY_EMOJIS = {
-    'silk saree': '✨', 'cotton saree': '🌿', 'designer': '💎',
-    'georgette': '🌸', 'banarasi': '🏛️', 'chiffon': '🦋',
-    'linen': '🌾', 'pattu': '🪔', 'kanjivaram': '👑',
-    'organza': '💫', 'tussar': '🍂', 'crepe': '🌙'
-};
+const CATEGORY_EMOJIS = {};
 
 function getCategoryEmoji(category) {
-    const lower = (category || '').toLowerCase();
-    for (const [key, emoji] of Object.entries(CATEGORY_EMOJIS)) {
-        if (lower.includes(key)) return emoji;
-    }
-    return '🧵';
+    return '';
 }
 
 export async function sendCatalogueCategories(to) {
@@ -594,8 +787,8 @@ export async function sendCatalogueCategories(to) {
 
     // 1. Always add New Arrivals first
     rows.push({
-        id: 'ctlg_all_new', // This will show all, starting with newest (due to sorting in sendCatalogueByType)
-        title: '🆕 New Arrivals',
+        id: 'ctlg_all_new',
+        title: 'New Arrivals',
         description: 'Latest premium sarees added'
     });
 
@@ -611,7 +804,7 @@ export async function sendCatalogueCategories(to) {
     // 3. View All at the end
     rows.push({
         id: 'ctlg_all_full',
-        title: '🌟 View Full Collection',
+        title: 'View Full Collection',
         description: `Browse all ${allProducts.length} items`
     });
 
@@ -893,7 +1086,7 @@ export async function startCheckout(to) {
         customer_phone: to,
         status: "DRAFT",
         subtotal: subtotal,
-        total_amount: subtotal, // Placeholder
+        total_amount: subtotal,
         created_at: new Date()
     });
 
@@ -909,38 +1102,178 @@ export async function startCheckout(to) {
     }));
     await supabase.from('order_items').insert(orderItems);
 
-    // Check Previous COMPLETED Orders for Address Reuse
-    // Look for any past order from this WhatsApp number that has an address
+    // Check Previous Orders for Billing Address Reuse
     const { data: lastOrders } = await supabase.from('orders')
-        .select('customer_name, delivery_address, customer_phone')
+        .select('customer_name, billing_address, customer_phone')
         .eq('customer_phone', to)
-        .not('delivery_address', 'is', null)
+        .not('billing_address', 'is', null)
         .neq('status', 'DRAFT')
         .order('created_at', { ascending: false })
         .limit(1);
 
     const lastOrder = lastOrders?.[0];
-    console.log(`[WA] Checkout for ${to} — last order found:`, lastOrder ? 'YES' : 'NO');
-
-    if (lastOrder && lastOrder.delivery_address) {
+    
+    if (lastOrder && lastOrder.billing_address) {
+        const billing = lastOrder.billing_address;
         await sendButtons(to,
-            `📝 *Checkout*\n\nWe found your saved address:\n\n` +
-            `👤 ${lastOrder.customer_name || 'Customer'}\n` +
-            `📍 ${lastOrder.delivery_address}\n\n` +
-            `Use this address?`,
+            `📝 *Checkout - Billing Address*\n\nWe found your saved billing address:\n\n` +
+            `👤 ${billing.name || lastOrder.customer_name || 'Customer'}\n` +
+            `� ${billing.mobile || to}\n` +
+            `📍 ${billing.address}\n\n` +
+            `Use this as your billing address?`,
             [
-                { id: `use_saved_${orderId}`, title: "✅ Yes, Use This" },
-                { id: `new_addr_${orderId}`, title: "✏️ Enter New Address" }
+                { id: `use_saved_billing_${orderId}`, title: "✅ Yes, Use This" },
+                { id: `new_billing_${orderId}`, title: "✏️ Enter New Address" }
             ]
         );
     } else {
         await sendText(to,
-            `📝 *Checkout - Delivery Details*\n\n` +
-            `Please reply with your details in this format:\n\n` +
+            `📝 *Checkout - Billing Address*\n\n` +
+            `Please reply with your *billing details* in this format:\n\n` +
             `*Name, Mobile Number, Full Address*\n\n` +
-            `Example:\n_Lakshmi, 9876543210, 12 Main St, Bangalore_`
+            `Example:\n_Lakshmi, 9876543210, 12 Main St, Bangalore, 560001_`
         );
     }
+}
+
+// Handle saved billing address reuse
+export async function handleSavedBilling(to, orderId) {
+    const { data: lastOrders } = await supabase.from('orders')
+        .select('customer_name, billing_address')
+        .eq('customer_phone', to)
+        .not('billing_address', 'is', null)
+        .neq('status', 'DRAFT')
+        .order('created_at', { ascending: false })
+        .limit(1);
+    
+    const lastOrder = lastOrders?.[0];
+    if (lastOrder && lastOrder.billing_address) {
+        await supabase.from('orders').update({
+            customer_name: lastOrder.billing_address.name || lastOrder.customer_name,
+            billing_address: lastOrder.billing_address
+        }).eq('id', orderId);
+    }
+    
+    // Ask if shipping same as billing
+    return await askShippingSameAsBilling(to, orderId);
+}
+
+// Ask if shipping address is same as billing
+export async function askShippingSameAsBilling(to, orderId) {
+    await sendButtons(to,
+        `🚚 *Shipping Address*\n\nIs your shipping address the *same* as your billing address?`,
+        [
+            { id: `shipping_same_${orderId}`, title: "✅ Yes, Same Address" },
+            { id: `shipping_diff_${orderId}`, title: "✏️ Different Address" }
+        ]
+    );
+}
+
+// Handle shipping same as billing - copy billing to shipping
+export async function handleShippingSame(to, orderId) {
+    const { data: order } = await supabase.from('orders')
+        .select('billing_address, customer_name, customer_phone')
+        .eq('id', orderId)
+        .single();
+    
+    if (order && order.billing_address) {
+        await supabase.from('orders').update({
+            shipping_address: order.billing_address
+        }).eq('id', orderId);
+    }
+    
+    // Continue to state selection
+    return await askState(to, orderId);
+}
+
+// Handle new billing address input
+export async function handleNewBillingAddress(to, orderId, text) {
+    let name = 'Valued Customer';
+    let mobile = to;
+    let address = text.trim();
+
+    const rawBody = text.trim();
+
+    if (rawBody.includes(',')) {
+        const parts = rawBody.split(',').map(p => p.trim());
+        if (parts.length >= 3) {
+            name = parts[0];
+            mobile = parts[1];
+            address = parts.slice(2).join(', ');
+        } else if (parts.length === 2) {
+            name = parts[0];
+            address = parts[1];
+        }
+    } else if (rawBody.includes('\n')) {
+        const parts = rawBody.split('\n').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 3) {
+            name = parts[0];
+            mobile = parts[1];
+            address = parts.slice(2).join(', ');
+        } else if (parts.length === 2) {
+            name = parts[0];
+            address = parts[1];
+        }
+    }
+
+    const billingAddress = {
+        name: name,
+        mobile: mobile,
+        address: address
+    };
+
+    await supabase.from('orders').update({
+        customer_name: name,
+        customer_phone: mobile,
+        billing_address: billingAddress
+    }).eq('id', orderId);
+
+    // Ask if shipping same as billing
+    return await askShippingSameAsBilling(to, orderId);
+}
+
+// Handle new shipping address input
+export async function handleNewShippingAddress(to, orderId, text) {
+    let name = 'Valued Customer';
+    let mobile = to;
+    let address = text.trim();
+
+    const rawBody = text.trim();
+
+    if (rawBody.includes(',')) {
+        const parts = rawBody.split(',').map(p => p.trim());
+        if (parts.length >= 3) {
+            name = parts[0];
+            mobile = parts[1];
+            address = parts.slice(2).join(', ');
+        } else if (parts.length === 2) {
+            name = parts[0];
+            address = parts[1];
+        }
+    } else if (rawBody.includes('\n')) {
+        const parts = rawBody.split('\n').map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 3) {
+            name = parts[0];
+            mobile = parts[1];
+            address = parts.slice(2).join(', ');
+        } else if (parts.length === 2) {
+            name = parts[0];
+            address = parts[1];
+        }
+    }
+
+    const shippingAddress = {
+        name: name,
+        mobile: mobile,
+        address: address
+    };
+
+    await supabase.from('orders').update({
+        shipping_address: shippingAddress
+    }).eq('id', orderId);
+
+    // Continue to state selection
+    return await askState(to, orderId);
 }
 
 export async function askState(to, orderId) {
@@ -1037,9 +1370,10 @@ export async function notifyOrderSuccess(orderId) {
             await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
         }
 
-        await sendButtons(to, "💗 Thank you for shopping with *Cast Printz*!\n\nTap below to manage your orders.", [
+        await sendButtons(to, "Thank you for shopping with *Cast Printz*!\n\nTap below to manage your order:", [
             { id: "menu_track", title: "Track Order" },
-            { id: "menu_my_orders", title: "My Orders" }
+            { id: "menu_my_orders", title: "My Orders" },
+            { id: `menu_cancel_order`, title: "Cancel Order" }
         ]);
 
         console.log(`[NOTIFY] Notification sent successfully for #${orderId}`);
@@ -1052,6 +1386,16 @@ export async function notifyOrderSuccess(orderId) {
 export async function finalizeOrder(to, method, orderId) {
     const status = method === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT';
     await supabase.from('orders').update({ status, payment_method: method }).eq('id', orderId);
+
+    // Add initial PLACED log entry for COD orders
+    if (method === 'COD') {
+        await supabase.from('order_status_logs').insert({
+            order_id: orderId,
+            status: 'PLACED',
+            notes: 'Order placed via WhatsApp (COD)',
+            created_at: new Date().toISOString()
+        });
+    }
 
     const { data: order } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
     const total = order?.total_amount?.toLocaleString() || '0';
@@ -1090,6 +1434,15 @@ export async function finalizeOrder(to, method, orderId) {
 export async function handlePaymentConfirmed(to, orderId) {
     // Mark order as PAID
     await supabase.from('orders').update({ status: 'PAID' }).eq('id', orderId);
+    
+    // Add PAID log entry
+    await supabase.from('order_status_logs').insert({
+        order_id: orderId,
+        status: 'PAID',
+        notes: 'Payment confirmed via WhatsApp (UPI)',
+        created_at: new Date().toISOString()
+    });
+    
     await clearCart(to);
     await deductStock(orderId);
 
@@ -1103,19 +1456,293 @@ export async function handlePaymentConfirmed(to, orderId) {
         await sendText(to, `⚠️ Invoice generation failed. Please contact us with Order ID: *#${orderId}*`);
     }
 
-    await sendButtons(to, "💗 Thank you for shopping with *Cast Printz*!\n\nTap below to manage your orders.", [
-        { id: "menu_track", title: "Track Order" },
-        { id: "menu_my_orders", title: "My Orders" }
+    await sendButtons(to, "Thank you for shopping with *Cast Printz*!\n\nTap below to manage your order:", [
+        { id: "menu_track", title: "📦 Track Order" },
+        { id: "menu_my_orders", title: "🛍️ My Orders" },
+        { id: "menu_cancel_order", title: "❌ Cancel Order" }
     ]);
 }
+export async function handleCancelOrder(to) {
+    // Normalize phone number to handle both formats (with/without country code)
+    const normalizedPhone = normalizePhoneNumber(to);
+    const phoneVariations = [normalizedPhone];
+    
+    // Also try without country code if it has one
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2)); // Without 91
+    }
+    // Also try with country code if it doesn't have one
+    if (to.length === 10) {
+        phoneVariations.push('91' + to);
+    }
+    
+    // Query with OR condition for all phone variations
+    let orders = [];
+    for (const phone of phoneVariations) {
+        const { data } = await supabase
+            .from('orders')
+            .select('id, status, total_amount, created_at')
+            .eq('customer_phone', phone)
+            .in('status', ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'])
+            .order('created_at', { ascending: false })
+            .limit(5);
+        if (data && data.length > 0) {
+            orders = data;
+            break;
+        }
+    }
+    
+    if (!orders?.length) {
+        return sendButtons(to, 
+            "❌ You don't have any active orders that can be cancelled.\n\nOrders that are already shipped or delivered cannot be cancelled.", 
+            [{ id: "menu_main", title: "🏠 Main Menu" }]
+        );
+    }
+    
+    let msg = "❌ *Cancel Order*\n\nYour recent orders:\n";
+    orders.forEach((o, i) => {
+        msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()} (${o.status})\n`;
+    });
+    msg += "\n📋 *Please reply with the Order ID you want to cancel*\n\n_Example: ORD-123456_";
+    
+    return sendText(to, msg);
+}
+
+export async function processCancelOrder(to, orderId) {
+    const upperOrderId = orderId.toUpperCase();
+    
+    // Normalize phone number variations
+    const normalizedPhone = normalizePhoneNumber(to);
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2));
+    }
+    if (to.length === 10) {
+        phoneVariations.push('91' + to);
+    }
+    
+    // Check if order exists and belongs to user (try all phone variations)
+    let order = null;
+    for (const phone of phoneVariations) {
+        const { data } = await supabase.from('orders')
+            .select('*')
+            .eq('id', upperOrderId)
+            .eq('customer_phone', phone)
+            .single();
+        if (data) {
+            order = data;
+            break;
+        }
+    }
+    
+    if (!order) {
+        return sendButtons(to, 
+            `❌ Order *${orderId}* not found or doesn't belong to you.\n\nPlease check the Order ID and try again.`, 
+            [{ id: "menu_cancel_order", title: "Try Again" }, { id: "menu_main", title: "🏠 Main Menu" }]
+        );
+    }
+    
+    // Check if order is already cancelled
+    if (order.status === 'CANCELLED') {
+        return sendButtons(to, 
+            `❌ Order *${orderId}* has already been cancelled.\n\nNo further action needed.`, 
+            [{ id: "menu_main", title: "🏠 Main Menu" }]
+        );
+    }
+    
+    // Check if order can be cancelled
+    const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
+    if (!cancellableStatuses.includes(order.status)) {
+        return sendButtons(to, 
+            `❌ Order *${orderId}* cannot be cancelled.\n\nStatus: ${order.status}\nOrders that are already shipped or delivered cannot be cancelled.`, 
+            [{ id: "menu_main", title: "🏠 Main Menu" }]
+        );
+    }
+    
+    // Ask for confirmation
+    return sendButtons(to, 
+        `⚠️ *Confirm Cancellation*\n\nOrder: *${orderId}*\nAmount: ₹${order.total_amount?.toLocaleString()}\nStatus: ${order.status}\n\nAre you sure you want to cancel this order?`, 
+        [
+            { id: `confirm_cancel_${orderId}`, title: "✅ Yes, Cancel" },
+            { id: "menu_main", title: "❌ No, Go Back" }
+        ]
+    );
+}
+
+export async function confirmCancelOrder(to, orderId) {
+    const upperOrderId = orderId.toUpperCase();
+    
+    // First check if order is already cancelled
+    const { data: existingOrder } = await supabase.from('orders')
+        .select('status')
+        .eq('id', upperOrderId)
+        .single();
+    
+    if (existingOrder?.status === 'CANCELLED') {
+        return sendButtons(to, 
+            `❌ Order *${upperOrderId}* has already been cancelled.\n\nNo further action needed.`, 
+            [{ id: "menu_main", title: "🏠 Main Menu" }]
+        );
+    }
+    
+    // Get order items to restore stock
+    const { data: items } = await supabase.from('order_items')
+        .select('*')
+        .eq('order_id', upperOrderId);
+    
+    // Restore stock for each item
+    if (items) {
+        for (const item of items) {
+            if (item.variant_id) {
+                // Get current variant stock
+                const { data: variant } = await supabase.from('product_variants')
+                    .select('stock')
+                    .eq('id', item.variant_id)
+                    .single();
+                if (variant) {
+                    const newStock = variant.stock + item.quantity;
+                    await supabase.from('product_variants')
+                        .update({ stock: newStock })
+                        .eq('id', item.variant_id);
+                }
+            } else {
+                // Get current product stock
+                const { data: product } = await supabase.from('products')
+                    .select('stock')
+                    .eq('id', item.product_id)
+                    .single();
+                if (product) {
+                    const newStock = product.stock + item.quantity;
+                    await supabase.from('products')
+                        .update({ stock: newStock })
+                        .eq('id', item.product_id);
+                }
+            }
+        }
+    }
+    
+    // Update order status to CANCELLED
+    await supabase.from('orders')
+        .update({ 
+            status: 'CANCELLED',
+            admin_notes: `Order cancelled by customer via WhatsApp on ${new Date().toLocaleString()}`
+        })
+        .eq('id', upperOrderId);
+    
+    // Add to status history (both tables for compatibility)
+    await supabase.from('order_status_history').insert({
+        order_id: upperOrderId,
+        status_from: null,
+        status_to: 'CANCELLED',
+        changed_by: 'customer',
+        notes: 'Order cancelled by customer via WhatsApp'
+    });
+    
+    // Also add to order_status_logs which is what the admin panel reads
+    await supabase.from('order_status_logs').insert({
+        order_id: upperOrderId,
+        status: 'CANCELLED',
+        notes: 'Order cancelled by customer via WhatsApp',
+        created_at: new Date().toISOString()
+    });
+    
+    return sendButtons(to, 
+        `Order Cancelled Successfully\n\nOrder: *${upperOrderId}*\n\nYour order has been cancelled and stock has been restored.\n\nIf you have already paid, a refund will be processed within 5-7 business days.`, 
+        [
+            { id: "menu_catalogue", title: "Browse Products" },
+            { id: "menu_main", title: "Main Menu" }
+        ]
+    );
+}
+
+export async function handleRefundOrder(to) {
+    const normalizedPhone = normalizePhoneNumber(to);
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91')) phoneVariations.push(normalizedPhone.substring(2));
+    if (to.length === 10) phoneVariations.push('91' + to);
+    
+    let orders = [];
+    for (const phone of phoneVariations) {
+        const { data } = await supabase.from('orders').select('id, status, total_amount, created_at').eq('customer_phone', phone).eq('status', 'DELIVERED').order('created_at', { ascending: false }).limit(5);
+        if (data?.length) { orders = data; break; }
+    }
+    
+    if (!orders?.length) {
+        return sendButtons(to, "You don't have any delivered orders available for refund. Only delivered orders can be refunded.", [{ id: "menu_main", title: "Main Menu" }]);
+    }
+    
+    let msg = "Refund Request\n\nYour delivered orders:\n";
+    orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
+    msg += "\nPlease reply with the Order ID you want to refund\n\n_Example: ORD-123456_";
+    return sendText(to, msg);
+}
+
+export async function processRefundOrder(to, orderId) {
+    const upperOrderId = orderId.toUpperCase();
+    const normalizedPhone = normalizePhoneNumber(to);
+    const { data: order } = await supabase.from('orders').select('*').eq('id', upperOrderId).eq('customer_phone', normalizedPhone).single();
+    
+    if (!order || order.status !== 'DELIVERED') {
+        return sendButtons(to, `Order *${orderId}* not found or is not in a refundable status (must be DELIVERED).`, [{ id: "menu_main", title: "Main Menu" }]);
+    }
+    
+    // Store that this user is now in "Waiting for Refund Reason" state for this order
+    await supabase.from('customers').update({ admin_notes: `WAITING_REFUND_REASON:${upperOrderId}` }).eq('phone', to);
+    
+    return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.`);
+}
+
+export async function confirmRefundOrder(to, orderId, reason) {
+    await supabase.from('orders').update({ status: 'REFUND_REQUESTED', refund_reason: reason, refund_status: 'PENDING' }).eq('id', orderId);
+    await supabase.from('customers').update({ admin_notes: null }).eq('phone', to);
+    
+    return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.`, [{ id: "menu_main", title: "Main Menu" }]);
+}
+
 export async function handleTrackOrder(to) {
-    const { data: orders } = await supabase.from('orders').select('*').eq('customer_phone', to).neq('status', 'DRAFT').order('created_at', { ascending: false }).limit(1);
+    // Normalize phone number to handle both formats (with/without country code)
+    const normalizedPhone = normalizePhoneNumber(to);
+    const phoneVariations = [normalizedPhone];
+    
+    // Also try without country code if it has one
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2)); // Without 91
+    }
+    // Also try with country code if it doesn't have one
+    if (to.length === 10) {
+        phoneVariations.push('91' + to);
+    }
+    
+    // Query with OR condition for all phone variations
+    let orders = [];
+    for (const phone of phoneVariations) {
+        const { data } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('customer_phone', phone)
+            .neq('status', 'DRAFT')
+            .order('created_at', { ascending: false })
+            .limit(1);
+        if (data && data.length > 0) {
+            orders = data;
+            break;
+        }
+    }
+    
     if (!orders?.length) return sendButtons(to, "No previous orders found.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
 
     const o = orders[0];
-    await sendButtons(to, `📦 *Last Order Details*\n\nID: #${o.id}\nStatus: ${o.status}\nAmount: ₹${o.total_amount}\nDate: ${new Date(o.created_at).toLocaleDateString()}`, [
+    const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
+    
+    const buttons = [
         { id: "menu_main", title: "🏠 Main Menu" }
-    ]);
+    ];
+    
+    if (canCancel) {
+        buttons.unshift({ id: "menu_cancel_order", title: "Cancel Order" });
+    }
+    
+    await sendButtons(to, `Last Order Details\n\nID: #${o.id}\nStatus: ${o.status}\nAmount: ₹${o.total_amount}\nDate: ${new Date(o.created_at).toLocaleDateString()}`, buttons);
 }
 
 export async function handleContact(to) {
@@ -1332,6 +1959,35 @@ export async function processIncomingMessage(body) {
             if (text === 'contact') return await handleContact(from);
             if (['stop', 'cancel'].includes(text)) return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
 
+            // Text commands for menu items (typed by user)
+            if (['track order', 'my orders', 'my order', 'orders', 'order status'].includes(text)) return await handleTrackOrder(from);
+            if (['cancel order', 'cancel my order'].includes(text)) return await handleCancelOrder(from);
+            if (['refund', 'return', 'refund order', 'return order'].includes(text)) return await handleRefundOrder(from);
+            if (['view catalogue', 'view catalog', 'browse catalogue', 'browse catalog', 'show catalogue', 'show products'].includes(text)) return await sendCatalogueCategories(from);
+            if (['view cart', 'my cart', 'show cart', 'cart'].includes(text)) return await handleViewCart(from);
+
+            // Check if customer is waiting to provide a refund reason
+            if (customer?.admin_notes?.startsWith('WAITING_REFUND_REASON:')) {
+                const orderId = customer.admin_notes.split(':')[1];
+                return await confirmRefundOrder(from, orderId, message.text.body);
+            }
+
+            // Handle Order ID pattern for cancellation or refund
+            const orderIdPattern = /^(ORD|WEB)-[A-Z0-9]+$/i;
+            if (orderIdPattern.test(message.text.body.trim())) {
+                const oId = message.text.body.trim().toUpperCase();
+                const { data: o } = await supabase.from('orders').select('status').eq('id', oId).single();
+                if (o?.status === 'DELIVERED') return await processRefundOrder(from, oId);
+                return await processCancelOrder(from, oId);
+            }
+
+            // Handle YES confirmation for cancellation
+            if (text === 'yes' || text === 'yes cancel' || text === 'cancel yes') {
+                // Check if we have a pending cancel order in memory for this user
+                // For now, we'll handle via the button flow above
+                return await sendText(from, "📋 Please tap the button above or reply with your Order ID to cancel.\n\nExample: ORD-123456");
+            }
+
             // Handle Website Checkout Redirection
             if (text.includes('i just placed an order #') || text.startsWith('finish order #') || text.includes('please confirm is this your order in the website')) {
                 const match = text.match(/order #([a-z0-9-]+)/i);
@@ -1354,7 +2010,7 @@ export async function processIncomingMessage(body) {
                         }
 
                         // Order placed completely on website
-                        await sendText(from, `✅ *Order Confirmed! (#${orderId})*\n\nThank you, ${order.customer_name || 'Customer'}!\n\n📍 *Delivery Address:*\n${order.delivery_address}\n\n🛒 *Total Billing:* ₹${order.total_amount.toLocaleString()}`);
+                        await sendText(from, `Order Confirmed! (#${orderId})\n\nThank you, ${order.customer_name || 'Customer'}!\n\nDelivery Address:\n${order.delivery_address}\n\nTotal Billing: ₹${order.total_amount.toLocaleString()}`);
 
                         if (order.payment_method === 'UPI' && order.status === 'AWAITING_PAYMENT') {
                             const rawAmount = order.total_amount || 0;
@@ -1387,17 +2043,43 @@ export async function processIncomingMessage(body) {
             }
 
             // ─── STEP 2: Draft check — only reached for non-keyword messages ───
-            // This captures name/mobile/address when user is in checkout flow
+            // Check for DRAFT orders that need billing or shipping address
             const { data: draft } = await supabase
                 .from('orders')
-                .select('id, delivery_address')
+                .select('id, billing_address, shipping_address')
                 .eq('customer_phone', from)
                 .eq('status', 'DRAFT')
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
 
-            if (draft && !draft.delivery_address) {
+            if (draft) {
+                // Check if we need billing address
+                if (!draft.billing_address) {
+                    console.log(`[WA] Saving billing address for draft ${draft.id}`);
+                    return await handleNewBillingAddress(from, draft.id, message.text.body);
+                }
+                
+                // Check if we need shipping address
+                if (!draft.shipping_address) {
+                    console.log(`[WA] Saving shipping address for draft ${draft.id}`);
+                    return await handleNewShippingAddress(from, draft.id, message.text.body);
+                }
+            }
+
+            // Legacy: Check for old draft with delivery_address field only
+            const { data: legacyDraft } = await supabase
+                .from('orders')
+                .select('id, delivery_address')
+                .eq('customer_phone', from)
+                .eq('status', 'DRAFT')
+                .not('delivery_address', 'is', null)
+                .is('billing_address', null)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (legacyDraft && !legacyDraft.delivery_address) {
                 // User is replying with their delivery details
                 let name = 'Valued Customer';
                 let mobile = from; // default to WhatsApp number
@@ -1446,12 +2128,15 @@ export async function processIncomingMessage(body) {
             const id = reply.list_reply?.id || reply.button_reply?.id;
 
             if (id === 'menu_main') return await sendMainMenu(from);
+            if (id === 'menu_cancel_order') return await handleCancelOrder(from);
+            if (id.startsWith('confirm_cancel_')) {
+                const orderId = id.replace('confirm_cancel_', '');
+                return await confirmCancelOrder(from, orderId);
+            }
             if (id === 'menu_shop_web') {
                 // Customer tapped "Shop Now" — send the shopping website URL
-                const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprintz.vercel.app');
-                const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(from)}`;
                 return await sendText(from,
-                    `🛍️ *Open our Online Store:*\n\n👆 Tap the link below to browse & order sarees:\n\n${shopUrl}\n\n✨ You can browse our full collection, add to cart and place your order directly from the website!\n\nAfter placing your order, you'll be redirected back here with your order confirmation. 💮`
+                    `Open our Online Store:\n\nTap the link below to browse & order sarees:\n\n${shopUrl}\n\nYou can browse our full collection, add to cart and place your order directly from the website!\n\nAfter placing your order, you'll be redirected back here with your order confirmation.`
                 );
             }
             if (id === 'menu_browse') return await sendCatalog(from);
@@ -1495,6 +2180,53 @@ export async function processIncomingMessage(body) {
 
             if (id === 'start_checkout') return await startCheckout(from);
 
+            // New Billing/Shipping Address Flow Handlers
+            if (id.startsWith('use_saved_billing_')) {
+                const orderId = id.replace('use_saved_billing_', '');
+                return await handleSavedBilling(from, orderId);
+            }
+
+            if (id.startsWith('new_billing_')) {
+                const orderId = id.replace('new_billing_', '');
+                await supabase.from('orders').update({ billing_address: null }).eq('id', orderId);
+                return await sendText(from,
+                    `📝 *Enter New Billing Address*
+
+` +
+                    `Reply with your *billing details* in this format:
+
+` +
+                    `*Name, Mobile Number, Full Address*
+
+` +
+                    `Example:
+_Lakshmi, 9876543210, 12 Main St, Bangalore, 560001_`
+                );
+            }
+
+            if (id.startsWith('shipping_same_')) {
+                const orderId = id.replace('shipping_same_', '');
+                return await handleShippingSame(from, orderId);
+            }
+
+            if (id.startsWith('shipping_diff_')) {
+                const orderId = id.replace('shipping_diff_', '');
+                return await sendText(from,
+                    `📝 *Enter Shipping Address*
+
+` +
+                    `Reply with your *shipping details* in this format:
+
+` +
+                    `*Name, Mobile Number, Full Address*
+
+` +
+                    `Example:
+_Lakshmi, 9876543210, 12 Main St, Bangalore, 560001_`
+                );
+            }
+
+            // Legacy handlers (for backward compatibility)
             if (id.startsWith('use_saved_')) {
                 const orderId = id.replace('use_saved_', '');
                 // Copy the saved address into the current draft order

@@ -79,7 +79,7 @@ export default function CustomerLoginPage() {
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             boxShadow: '0 10px 20px hsl(var(--primary) / 0.2)', overflow: 'hidden'
                         }}>
-                            <img src="/images/cp-logo.svg" alt="CP Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src="/images/cp-logo.png" alt="CP Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         </div>
                     </div>
                     <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Cast Printz</h1>
@@ -114,25 +114,17 @@ export default function CustomerLoginPage() {
                                 </div>
                             </div>
 
-                            {error && <div style={{ color: 'hsl(var(--danger))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
+                            {error && <div style={{ color: 'hsl(var(--danger))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>{error}</div>}
 
 
                             <button type="submit" disabled={loading} style={{
                                 width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: '#fff',
                                 border: 'none', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                                cursor: 'pointer', marginBottom: '1.5rem', fontFamily: 'var(--font-body)'
+                                cursor: 'pointer', fontFamily: 'var(--font-body)'
                             }}>
-
-                                {loading ? <Loader2 className="animate-spin" size={20} /> : <>Login with Phone <ArrowRight size={18} /></>}
-
+                                {loading ? <Loader2 className="animate-spin" size={20} /> : <>Login <ArrowRight size={18} /></>}
                             </button>
-
-                            <div style={{ textAlign: 'center', padding: '0 1rem' }}>
-                                <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', lineHeight: 1.5 }}>
-                                    New customer? Send any message to our WhatsApp and your account will be created automatically! 🌸
-                                </p>
-                            </div>
                         </form>
                     ) : (
                         <form onSubmit={handleVerifyOTP}>
@@ -162,7 +154,7 @@ export default function CustomerLoginPage() {
                                 />
                             </div>
 
-                            {error && <div style={{ color: 'hsl(var(--danger))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>⚠️ {error}</div>}
+                            {error && <div style={{ color: 'hsl(var(--danger))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>{error}</div>}
 
                             <button type="submit" disabled={loading} style={{
                                 width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: 'white',

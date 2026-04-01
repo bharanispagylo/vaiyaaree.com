@@ -23,13 +23,23 @@ export function ShopProvider({ children }) {
     const [isCartLoaded, setIsCartLoaded] = useState(false); // Guard for DB sync
 
     const [checkoutForm, setCheckoutForm] = useState({
-        name: '',
-        phone: '',
-        address: '',
-        city: '',
-        state: 'Tamil Nadu',
-        country: 'India',
-        pincode: '',
+        // Billing fields
+        billingName: '',
+        billingPhone: '',
+        billingAddress: '',
+        billingCity: '',
+        billingState: 'Tamil Nadu',
+        billingPincode: '',
+        billingEmail: '',
+        // Shipping fields
+        shippingName: '',
+        shippingPhone: '',
+        shippingAddress: '',
+        shippingCity: '',
+        shippingState: 'Tamil Nadu',
+        shippingPincode: '',
+        sameAsBilling: true,
+        // Payment
         paymentMethod: 'COD'
     });
 
@@ -115,8 +125,10 @@ export function ShopProvider({ children }) {
                 }
                 setCheckoutForm(prev => ({
                     ...prev,
-                    name: activeUser.name || '',
-                    phone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : ''
+                    billingName: activeUser.name || '',
+                    billingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : '',
+                    shippingName: activeUser.name || '',
+                    shippingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : ''
                 }));
             } catch (e) {
                 console.error('Failed to parse user session');
@@ -131,7 +143,9 @@ export function ShopProvider({ children }) {
         setCart([]);
         setIsCartLoaded(true);
         setCheckoutForm({
-            name: '', phone: '', address: '', city: '', state: 'Tamil Nadu', country: 'India', pincode: '', paymentMethod: 'COD'
+            billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '',
+            shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '',
+            sameAsBilling: true, paymentMethod: 'COD'
         });
         showToast('Logged out successfully');
     }
@@ -238,31 +252,40 @@ export function ShopProvider({ children }) {
     const taxDetails = useMemo(() => {
         const subtotal = cartTotal;
         let cgst = 0, sgst = 0, igst = 0;
-        let isInternational = checkoutForm.country.toLowerCase() !== 'india';
-
-        if (!isInternational) {
-            const normalizedFormState = (checkoutForm.state || '').trim().toLowerCase();
-            const normalizedBizState = (businessState || 'Tamil Nadu').trim().toLowerCase();
-            if (normalizedFormState === normalizedBizState) {
-                cgst = Math.round(subtotal * 0.025);
-                sgst = Math.round(subtotal * 0.025);
-            } else {
-                igst = Math.round(subtotal * 0.05);
-            }
+        
+        // Determine shipping state and city
+        const shippingState = checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState;
+        const shippingCity = checkoutForm.sameAsBilling ? checkoutForm.billingCity : checkoutForm.shippingCity;
+        
+        // Calculate tax based on shipping state
+        const normalizedFormState = (shippingState || '').trim().toLowerCase();
+        const normalizedBizState = (businessState || 'Tamil Nadu').trim().toLowerCase();
+        
+        if (normalizedFormState === normalizedBizState) {
+            cgst = Math.round(subtotal * 0.025);
+            sgst = Math.round(subtotal * 0.025);
+        } else {
+            igst = Math.round(subtotal * 0.05);
         }
 
         let shipping = 0;
         let activeZone = null;
-        if (!isInternational) {
-            const districtMapping = zoneMappings.find(m => m.state_name === checkoutForm.state && m.district_name?.toLowerCase() === checkoutForm.city.trim().toLowerCase());
-            if (districtMapping) activeZone = shippingZones.find(z => z.id === districtMapping.zone_id);
-            else {
-                const stateMapping = zoneMappings.find(m => m.state_name === checkoutForm.state && !m.district_name);
-                if (stateMapping) activeZone = shippingZones.find(z => z.id === stateMapping.zone_id);
-                else activeZone = shippingZones.find(z => !z.is_international);
-            }
+        
+        // Find shipping zone
+        const districtMapping = zoneMappings.find(m => 
+            m.state_name === shippingState && 
+            m.district_name?.toLowerCase() === (shippingCity || '').trim().toLowerCase()
+        );
+        
+        if (districtMapping) {
+            activeZone = shippingZones.find(z => z.id === districtMapping.zone_id);
         } else {
-            activeZone = shippingZones.find(z => z.is_international);
+            const stateMapping = zoneMappings.find(m => m.state_name === shippingState && !m.district_name);
+            if (stateMapping) {
+                activeZone = shippingZones.find(z => z.id === stateMapping.zone_id);
+            } else {
+                activeZone = shippingZones.find(z => !z.is_international);
+            }
         }
 
         if (activeZone) {
@@ -270,24 +293,61 @@ export function ShopProvider({ children }) {
             const threshold = parseFloat(activeZone.free_threshold || 0);
             if (threshold > 0 && subtotal >= threshold) shipping = 0;
         } else {
-            shipping = isInternational ? 2500 : 100;
+            shipping = 100; // Default shipping
         }
 
         const totalOrder = subtotal + cgst + sgst + igst + shipping;
-        return { cgst, sgst, igst, shipping, totalOrder, activeZone, isInternational };
-    }, [cartTotal, checkoutForm.state, checkoutForm.city, checkoutForm.country, businessState, shippingZones, zoneMappings]);
+        return { cgst, sgst, igst, shipping, totalOrder, activeZone };
+    }, [cartTotal, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
 
     async function placeOrder() {
-        if (!checkoutForm.name || !checkoutForm.phone || !checkoutForm.address) {
-            showToast('Please fill all required fields', 'error');
+        const shippingState = checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState;
+        const shippingCity = checkoutForm.sameAsBilling ? checkoutForm.billingCity : checkoutForm.shippingCity;
+        const shippingAddress = checkoutForm.sameAsBilling ? checkoutForm.billingAddress : checkoutForm.shippingAddress;
+        const shippingPincode = checkoutForm.sameAsBilling ? checkoutForm.billingPincode : checkoutForm.shippingPincode;
+        const shippingName = checkoutForm.sameAsBilling ? checkoutForm.billingName : checkoutForm.shippingName;
+        const shippingPhone = checkoutForm.sameAsBilling ? checkoutForm.billingPhone : checkoutForm.shippingPhone;
+
+        if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingAddress) {
+            showToast('Please fill all required billing fields', 'error');
+            return;
+        }
+
+        if (!checkoutForm.sameAsBilling && (!shippingName || !shippingPhone || !shippingAddress)) {
+            showToast('Please fill all required shipping fields', 'error');
             return;
         }
 
         try {
             const orderId = `WEB-${Date.now().toString().slice(-6)}`;
-            const customerPhone = checkoutForm.phone.replace(/\D/g, '');
+            const customerPhone = checkoutForm.billingPhone.replace(/\D/g, '');
             const fullPhone = customerPhone.startsWith('91') ? customerPhone : `91${customerPhone}`;
-            const fullAddress = `${checkoutForm.address}, ${checkoutForm.city} - ${checkoutForm.pincode} (${checkoutForm.state}, ${checkoutForm.country})`.trim();
+            
+            // Build full addresses
+            const fullBillingAddress = `${checkoutForm.billingAddress}, ${checkoutForm.billingCity} - ${checkoutForm.billingPincode} (${checkoutForm.billingState}, India)`.trim();
+            const fullShippingAddress = `${shippingAddress}, ${shippingCity} - ${shippingPincode} (${shippingState}, India)`.trim();
+
+            // Create billing/shipping JSON objects
+            const billingAddressObj = {
+                name: checkoutForm.billingName,
+                phone: checkoutForm.billingPhone,
+                email: checkoutForm.billingEmail || null,
+                address: checkoutForm.billingAddress,
+                city: checkoutForm.billingCity,
+                state: checkoutForm.billingState,
+                pincode: checkoutForm.billingPincode,
+                country: 'India'
+            };
+            
+            const shippingAddressObj = {
+                name: shippingName,
+                phone: shippingPhone,
+                address: shippingAddress,
+                city: shippingCity,
+                state: shippingState,
+                pincode: shippingPincode,
+                country: 'India'
+            };
 
             // GUEST CHECKOUT / AUTO-ACCOUNT CREATION LOGIC
             let customerId = user?.id;
@@ -310,7 +370,11 @@ export function ShopProvider({ children }) {
                         .from('customers')
                         .insert({
                             phone: fullPhone,
-                            name: checkoutForm.name,
+                            name: checkoutForm.billingName,
+                            email: checkoutForm.billingEmail || null,
+                            address: fullBillingAddress,
+                            city: checkoutForm.billingCity,
+                            state: checkoutForm.billingState,
                             role: 'user',
                             is_verified: false
                         })
@@ -331,9 +395,12 @@ export function ShopProvider({ children }) {
                 id: orderId,
                 customer_id: customerId,
                 customer_phone: fullPhone,
-                customer_name: checkoutForm.name,
-                delivery_address: fullAddress,
-                shipping_state: checkoutForm.state,
+                customer_name: checkoutForm.billingName,
+                customer_email: checkoutForm.billingEmail || null,
+                delivery_address: fullShippingAddress,
+                billing_address: billingAddressObj,
+                shipping_address: shippingAddressObj,
+                shipping_state: shippingState,
                 shipping_cost: taxDetails.shipping,
                 shipping_zone_id: taxDetails.activeZone?.id,
                 status: checkoutForm.paymentMethod === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT',
@@ -359,6 +426,14 @@ export function ShopProvider({ children }) {
                 variant_name: item.variantName || null
             }));
             await supabase.from('order_items').insert(items);
+
+            // Add initial PLACED log entry
+            await supabase.from('order_status_logs').insert({
+                order_id: orderId,
+                status: 'PLACED',
+                notes: 'Order placed from website',
+                created_at: new Date().toISOString()
+            });
 
             // Deduct stock
             for (const item of cart) {
@@ -390,7 +465,8 @@ export function ShopProvider({ children }) {
 
             const finalOrderData = {
                 orderId,
-                customerName: checkoutForm.name,
+                billingName: checkoutForm.billingName,
+                customerName: checkoutForm.billingName,
                 total: taxDetails.totalOrder,
                 subtotal: taxDetails.subtotal || (taxDetails.totalOrder - taxDetails.shipping - ((taxDetails.cgst || 0) + (taxDetails.sgst || 0) + (taxDetails.igst || 0))),
                 cgst: taxDetails.cgst,
@@ -402,17 +478,29 @@ export function ShopProvider({ children }) {
             setCart([]);
             showToast('Order Placed Successfully!', 'success');
 
-            // Trigger WhatsApp Notification automatically for COD
-            if (checkoutForm.paymentMethod === 'COD') {
-                try {
-                    fetch('/api/orders/notify', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ orderId })
-                    });
-                } catch (notifyErr) {
-                    console.error('Failed to trigger background notification:', notifyErr);
-                }
+            // Trigger Email Notification automatically
+            try {
+                fetch('/api/orders/resend-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId })
+                });
+            } catch (emailErr) {
+                console.error('Failed to trigger order confirmation email:', emailErr);
+            }
+
+            // Trigger WhatsApp Notification automatically for ALL orders
+            try {
+                fetch('/api/orders/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        orderId,
+                        phone: checkoutForm.billingWhatsApp || checkoutForm.billingPhone
+                    })
+                });
+            } catch (notifyErr) {
+                console.error('Failed to trigger WhatsApp notification:', notifyErr);
             }
 
             return finalOrderData;
@@ -441,7 +529,11 @@ export const useShop = () => {
         return {
             products: [], cart: [], loading: false, user: null, setUser: () => { },
             shippingZones: [], zoneMappings: [], businessState: 'Tamil Nadu',
-            checkoutForm: { name: '', phone: '', address: '', city: '', state: 'Tamil Nadu', country: 'India', pincode: '', paymentMethod: 'COD' },
+            checkoutForm: { 
+                billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
+                shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '',
+                sameAsBilling: true, paymentMethod: 'COD' 
+            },
             setCheckoutForm: () => { }, addToCart: () => { }, removeFromCart: () => { }, updateQty: () => { },
             handleLogout: () => { }, showToast: () => { }, toast: { show: false, message: '', type: 'success' },
             cartTotal: 0, cartCount: 0, taxDetails: { cgst: 0, sgst: 0, igst: 0, shipping: 0, totalOrder: 0 },

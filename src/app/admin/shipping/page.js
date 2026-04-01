@@ -19,6 +19,7 @@ export default function ShippingAdminPage() {
     const [selectedZone, setSelectedZone] = useState(null);
     const [hasMounted, setHasMounted] = useState(false);
     const [stateSearch, setStateSearch] = useState('');
+    const [confirmAction, setConfirmAction] = useState(null); // { title, message, onConfirm }
 
     const [mappings, setMappings] = useState([]); // Array of {zone_id, state_name, district_name}
 
@@ -97,7 +98,7 @@ export default function ShippingAdminPage() {
                 }
             }
 
-            setSuccess('✨ Shipping ecosystem synchronized!');
+            setSuccess('Shipping ecosystem synchronized!');
             setTimeout(() => setSuccess(null), 3000);
         } catch (err) {
             console.error('Save error:', err);
@@ -128,20 +129,26 @@ export default function ShippingAdminPage() {
     };
 
     const deleteZone = async (id) => {
-        if (!confirm('Permanently delete this zone?')) return;
-        setSaving(true);
-        try {
-            await supabase.from('shipping_zones').delete().eq('id', id);
-            const remaining = zones.filter(z => z.id !== id);
-            setZones(remaining);
-            setMappings(mappings.filter(m => m.zone_id !== id));
-            if (selectedZone?.id === id) setSelectedZone(remaining[0] || null);
-            setSuccess('Zone removed.');
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setSaving(false);
-        }
+        setConfirmAction({
+            title: 'Delete Price Group?',
+            message: 'Permanently delete this zone? This will also remove all regional mappings associated with it.',
+            onConfirm: async () => {
+                setConfirmAction(null);
+                setSaving(true);
+                try {
+                    await supabase.from('shipping_zones').delete().eq('id', id);
+                    const remaining = zones.filter(z => z.id !== id);
+                    setZones(remaining);
+                    setMappings(mappings.filter(m => m.zone_id !== id));
+                    if (selectedZone?.id === id) setSelectedZone(remaining[0] || null);
+                    setSuccess('Zone removed.');
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setSaving(false);
+                }
+            }
+        });
     };
 
     const addLocation = (state) => {
@@ -175,7 +182,7 @@ export default function ShippingAdminPage() {
                 </button>
             </header>
 
-            {error && <div className="premium-toast error"><AlertCircle /> {error}</div>}
+            {error && <div style={{ color: '#ff4d4d', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>{error}</div>}
             {success && <div className="premium-toast success"><CheckCircle2 /> {success}</div>}
 
             <div className="shipping-grid">
@@ -218,12 +225,14 @@ export default function ShippingAdminPage() {
                             <div className="settings-row">
                                 <div className="setting-input">
                                     <label>Price Group Title</label>
-                                    <input
-                                        type="text"
-                                        value={selectedZone.name}
-                                        onChange={e => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
-                                        placeholder="e.g. South India Express"
-                                    />
+                                    <div className="input-prefix no-icon">
+                                        <input
+                                            type="text"
+                                            value={selectedZone.name}
+                                            onChange={e => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
+                                            placeholder="e.g. South India Express"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="setting-input">
                                     <label>Shipping Rate</label>
@@ -301,10 +310,40 @@ export default function ShippingAdminPage() {
                             )}
 
                             {selectedZone.is_international && (
-                                <div className="intl-placeholder">
-                                    <Globe size={48} />
-                                    <h3>Global Coverage Active</h3>
-                                    <p>This group will apply to all orders placed outside of India.</p>
+                                <div className="intl-settings">
+                                    <div className="settings-row two-col">
+                                        <div className="setting-input">
+                                            <label>International Shipping Rate</label>
+                                            <div className="input-prefix">
+                                                <IndianRupee size={14} />
+                                                <input
+                                                    type="number"
+                                                    value={selectedZone.rate}
+                                                    onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
+                                                    placeholder="e.g. 1500"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="setting-input">
+                                            <label>Free Shipping Threshold</label>
+                                            <div className="input-prefix">
+                                                <IndianRupee size={14} />
+                                                <input
+                                                    type="number"
+                                                    value={selectedZone.free_threshold}
+                                                    onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
+                                                    placeholder="e.g. 10000"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="intl-info">
+                                        <Globe size={24} />
+                                        <div>
+                                            <h4>Global Coverage</h4>
+                                            <p>This rate applies to all orders placed outside of India. No country selection needed.</p>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -365,9 +404,10 @@ export default function ShippingAdminPage() {
                 .setting-input label { display: block; font-size: 0.75rem; font-weight: 800; color: hsl(var(--text-muted)); text-transform: uppercase; margin-bottom: 0.5rem; }
                 .setting-input input { width: 100%; border: 1px solid hsl(var(--border-subtle)); background: #f1f5f9; padding: 0.8rem 1rem; border-radius: 14px; color: hsl(var(--text-main)); font-weight: 600; outline: none; transition: 0.2s; }
                 .setting-input input:focus { border-color: hsl(var(--primary)); background: white; }
-                .input-prefix { position: relative; }
-                .input-prefix svg { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: hsl(var(--primary)); opacity: 0.6; }
-                .input-prefix input { padding-left: 2.5rem; }
+                .input-prefix { position: relative; display: flex; align-items: center; }
+                .input-prefix.no-icon input { padding-left: 1rem; }
+                .input-prefix svg { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: hsl(var(--primary)); opacity: 0.6; pointer-events: none; z-index: 1; }
+                .input-prefix input { padding-left: 2.5rem; width: 100%; }
 
                 .type-toggle { display: flex; background: #f1f5f9; padding: 0.4rem; border-radius: 14px; border: 1px solid hsl(var(--border-subtle)); margin-bottom: 2.5rem; }
                 .type-toggle button { flex: 1; padding: 0.75rem; border-radius: 10px; font-weight: 800; font-size: 0.85rem; color: hsl(var(--text-muted)); transition: 0.2s; }
@@ -382,7 +422,7 @@ export default function ShippingAdminPage() {
                 .region-tag { background: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); border: 1px solid hsl(var(--primary) / 0.2); padding: 0.4rem 0.8rem; border-radius: 99px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; }
                 .region-tag button { display: flex; opacity: 0.6; transition: 0.2s; color: inherit; }
                 .region-tag button:hover { opacity: 1; transform: scale(1.2); }
-                .empty-regions { font-style: italic; color: rgba(255,255,255,0.3); font-size: 0.85rem; }
+                .empty-regions { font-style: italic; color: hsl(var(--text-muted)); font-size: 0.85rem; }
 
                 .state-picker { background: #f1f5f9; border-radius: 20px; padding: 1.5rem; border: 1px solid hsl(var(--border-subtle)); }
                 .picker-search { position: relative; margin-bottom: 1.5rem; }
@@ -399,8 +439,12 @@ export default function ShippingAdminPage() {
                 .state-btn.assigned { background: hsl(var(--primary) / 0.05); border-color: hsl(var(--primary) / 0.3); color: hsl(var(--primary)); }
                 .state-btn.other { opacity: 0.4; }
 
-                .intl-placeholder { text-align: center; padding: 4rem 2rem; color: hsl(var(--text-dim)); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-                .intl-placeholder h3 { color: hsl(var(--text-main)); margin: 0; }
+                .intl-settings { border-top: 1px solid hsl(var(--border-subtle)); padding-top: 2rem; }
+                .intl-settings .settings-row.two-col { grid-template-columns: 1fr 1fr; max-width: 600px; }
+                .intl-info { display: flex; align-items: center; gap: 1rem; padding: 1.5rem; background: hsl(var(--primary) / 0.05); border: 1px solid hsl(var(--primary) / 0.2); border-radius: 16px; margin-top: 1.5rem; }
+                .intl-info svg { color: hsl(var(--primary)); flex-shrink: 0; }
+                .intl-info h4 { margin: 0; font-size: 1rem; color: hsl(var(--text-main)); }
+                .intl-info p { margin: 0.25rem 0 0; font-size: 0.85rem; color: hsl(var(--text-muted)); }
 
                 .premium-toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 2rem; border-radius: 16px; display: flex; align-items: center; gap: 1rem; font-weight: 800; z-index: 1000; animation: slideIn 0.3s ease-out; }
                 .premium-toast.success { background: #22c55e; color: white; box-shadow: 0 10px 30px rgba(34,197,94,0.3); }
@@ -416,6 +460,48 @@ export default function ShippingAdminPage() {
                     .shipping-grid { grid-template-columns: 1fr; }
                     .settings-row { grid-template-columns: 1fr; gap: 1rem; }
                 }
+            `}</style>
+            {/* Confirm Modal */}
+            {confirmAction && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                    zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
+                }} onClick={() => setConfirmAction(null)}>
+                    <div className="card shadow-premium animate-enter" style={{
+                        width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center',
+                        borderRadius: '24px', background: 'white',
+                        border: '1px solid hsl(var(--danger) / 0.3)'
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{
+                            width: '80px', height: '80px', borderRadius: '50%',
+                            background: 'hsl(var(--danger) / 0.1)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem',
+                            color: 'hsl(var(--danger))'
+                        }}>
+                            <Trash2 size={40} />
+                        </div>
+                        <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900 }}>{confirmAction.title}</h3>
+                        <p style={{ margin: '0 0 2rem', color: '#64748b', lineHeight: 1.6 }}>{confirmAction.message}</p>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={() => setConfirmAction(null)} className="btn btn-secondary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 700 }}>Cancel</button>
+                            <button
+                                onClick={confirmAction.onConfirm}
+                                className="btn btn-primary"
+                                style={{
+                                    flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 800,
+                                    background: '#ef4444', border: 'none', color: 'white'
+                                }}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style jsx>{`
+                .animate-enter { animation: fade 0.4s ease-out; }
+                @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             `}</style>
         </div>
     );

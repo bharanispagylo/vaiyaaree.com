@@ -504,3 +504,124 @@
     background: hsl(var(--primary));
     transform: translateY(-2px);
 }
+
+/* Same as Billing Checkbox Styles */
+.sameAsBillingCheckbox {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    padding: 0.5rem 0;
+    user-select: none;
+}
+
+.sameAsBillingCheckbox input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 2px solid hsl(var(--text-main) / 0.3);
+    border-radius: 4px;
+    background: hsl(var(--text-main) / 0.04);
+    transition: all 0.2s;
+}
+
+.sameAsBillingCheckbox:hover .checkmark {
+    border-color: hsl(var(--primary) / 0.5);
+}
+
+.sameAsBillingCheckbox input:checked ~ .checkmark {
+    background: hsl(var(--primary));
+    border-color: hsl(var(--primary));
+}
+
+.checkmark::after {
+    content: '';
+    display: none;
+    width: 5px;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.sameAsBillingCheckbox input:checked ~ .checkmark::after {
+    display: block;
+}
+
+.checkboxLabel {
+    font-size: 0.9rem;
+    color: hsl(var(--text-main));
+    font-weight: 500;
+}
+
+.shippingFields {
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Disabled input styling for when Same as Billing is checked */
+.disabledInput {
+    background: #f1f5f9 !important;
+    cursor: not-allowed !important;
+    opacity: 0.7;
+}
+
+.disabledInput:hover {
+    border-color: hsl(var(--border-subtle)) !important;
+}
+
+/* Select dropdown styling */
+.formGroup select {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: 10px;
+    background: hsl(var(--card-bg));
+    color: hsl(var(--text-main));
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.formGroup select:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+}
+
+.formGroup select:disabled {
+    background: #f1f5f9;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Disabled input styling for when Same as Billing is checked */
+.disabledInput {
+    background: #f1f5f9 !important;
+    cursor: not-allowed !important;
+    opacity: 0.7;
+}
+
+.disabledInput:hover {
+    border-color: hsl(var(--border-subtle)) !important;
+}

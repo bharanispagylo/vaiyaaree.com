@@ -47,8 +47,11 @@ export default function ProductsPage() {
     const [importModal, setImportModal] = useState(false);
     const [importing, setImporting] = useState(false);
     const [syncWithMeta, setSyncWithMeta] = useState(false);
-    const [notification, setNotification] = useState(null);
+    const [resultModal, setResultModal] = useState(null); // { title, message, type, onClose }
     const [copiedId, setCopiedId] = useState(null);
+    const [successModal, setSuccessModal] = useState(null);
+    const [errorModal, setErrorModal] = useState(null);
+    const [confirmModal, setConfirmModal] = useState(null); // { title: string, message: string, onConfirm: function }
 
     // Stock History States
     const [showHistory, setShowHistory] = useState(false);
@@ -81,7 +84,10 @@ export default function ProductsPage() {
             setHistoryData(data || []);
         } catch (err) {
             console.error('History Fetch Error:', err.message || err);
-            alert('Could not fetch history: ' + (err.message || 'Unknown error'));
+            setErrorModal({
+                title: 'Error',
+                message: 'Could not fetch history: ' + (err.message || 'Unknown error')
+            });
         } finally {
             setHistoryLoading(false);
         }
@@ -101,7 +107,7 @@ export default function ProductsPage() {
 
     const shareToStatus = (product) => {
         const url = getShopUrl(product.id);
-        const text = encodeURIComponent(`💮 Checkout this beautiful ${product.name}!\n\nView details & Order here: ${url}`);
+        const text = encodeURIComponent(`Checkout this beautiful ${product.name}!\n\nView details & Order here: ${url}`);
         window.open(`https://wa.me/?text=${text}`, '_self');
     };
 
@@ -228,7 +234,11 @@ export default function ProductsPage() {
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
             if (!jsonData || jsonData.length === 0) {
-                setNotification({ message: '⚠️ Excel sheet appears to be empty!', type: 'error' });
+                setResultModal({
+                    title: 'Import Failed',
+                    message: 'Excel sheet appears to be empty! Please check your file.',
+                    type: 'error'
+                });
                 setImporting(false);
                 return;
             }
@@ -237,7 +247,6 @@ export default function ProductsPage() {
 
             let insertCount = 0;
             let updateCount = 0;
-            let fbSuccessCount = 0;
             const newlyImportedProducts = [];
 
             for (const rawRow of jsonData) {
@@ -351,7 +360,11 @@ export default function ProductsPage() {
                         if (insertError) {
                             console.error('Database Error for row:', name, JSON.stringify(insertError));
                             if (insertCount === 0 && updateCount === 0) {
-                                setNotification({ message: `❌ DB Error: ${insertError.message || 'Check required fields'}`, type: 'error' });
+                                setResultModal({
+                                    title: 'Import Error',
+                                    message: `Database Error: ${insertError.message || 'Check required fields'}`,
+                                    type: 'error'
+                                });
                             }
                             continue;
                         }
@@ -373,27 +386,6 @@ export default function ProductsPage() {
                             }
                         }
                     }
-
-                    // WhatsApp/Meta Catalogue Sync
-                    if (syncWithMeta && canPostToFacebook() && savedProduct?.image_url && savedProduct.image_url.startsWith('http')) {
-                        try {
-                            const fbRes = await fetch('/api/facebook/post', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    imageUrl: savedProduct.image_url,
-                                    name,
-                                    price,
-                                    description,
-                                    pageId: fbConfig.pageId,
-                                    accessToken: fbConfig.accessToken
-                                })
-                            });
-                            if (fbRes.ok) fbSuccessCount++;
-                        } catch (metaErr) {
-                            console.error('Meta sync failed for item:', name, metaErr);
-                        }
-                    }
                 } catch (rowErr) {
                     console.error('Error processing a single row:', rowErr);
                 }
@@ -401,25 +393,33 @@ export default function ProductsPage() {
 
             if (insertCount > 0 || updateCount > 0) {
                 const total = insertCount + updateCount;
-                const msg = syncWithMeta
-                    ? `✅ Processed ${total} items (${insertCount} new, ${updateCount} updated) & synced ${fbSuccessCount} with WhatsApp!`
-                    : `✅ Processed ${total} items (${insertCount} new, ${updateCount} updated)!`;
-                setNotification({ message: msg, type: 'success' });
+                setResultModal({
+                    title: 'Import Successful',
+                    message: `Processed ${total} items (${insertCount} new, ${updateCount} updated)!`,
+                    type: 'success'
+                });
 
                 // Open the image assigner modal with newly imported products
                 setImportedProductsForImage(newlyImportedProducts);
-            } else if (!notification) {
-                setNotification({ message: '⚠️ Import failed. Please check column headers.', type: 'error' });
+            } else {
+                setResultModal({
+                    title: 'Import Failed',
+                    message: 'Import failed. Please check column headers.',
+                    type: 'error'
+                });
             }
 
             fetchProducts();
             setImportModal(false);
-            setSyncWithMeta(false);
 
             e.target.value = '';
         } catch (err) {
             console.error('Major Excel Import Error:', err);
-            setNotification({ message: '❌ Invalid file or processing failed', type: 'error' });
+            setResultModal({
+                title: 'Import Error',
+                message: 'Invalid file or processing failed. Please try again.',
+                type: 'error'
+            });
         } finally {
             setImporting(false);
         }
@@ -427,7 +427,11 @@ export default function ProductsPage() {
 
     const handleExportExcel = () => {
         if (!products || products.length === 0) {
-            setNotification({ message: '⚠️ No products to export!', type: 'error' });
+            setResultModal({
+                title: 'Export Failed',
+                message: 'No products to export!',
+                type: 'error'
+            });
             return;
         }
 
@@ -471,10 +475,18 @@ export default function ProductsPage() {
             document.body.removeChild(link);
             URL.revokeObjectURL(downloadUrl);
 
-            setNotification({ message: `✅ Exported ${products.length} products successfully!`, type: 'success' });
+            setResultModal({
+                title: 'Export Successful',
+                message: `Exported ${products.length} products successfully!`,
+                type: 'success'
+            });
         } catch (err) {
             console.error('Export Error:', err);
-            setNotification({ message: '❌ Error exporting products', type: 'error' });
+            setResultModal({
+                title: 'Export Error',
+                message: 'Error exporting products. Please try again.',
+                type: 'error'
+            });
         }
     };
 
@@ -488,6 +500,7 @@ export default function ProductsPage() {
             product_group: formData.get('product_group') || null,
             description: formData.get('description'),
             type: productType,
+            tax_class: formData.get('tax_class') || 'GST_5',
             is_active: true,
             is_featured: formData.get('is_featured') === 'on',
             product_group: formData.get('is_explore') === 'on' ? 'EXPLORE' : (formData.get('product_group') || null)
@@ -603,7 +616,10 @@ export default function ProductsPage() {
             }
 
             fetchProducts();
-            alert('✨ Product Saved Successfully!\n\n✅ Updated in Website Database\n✅ Generated Catalog ID: ' + (productData.product_catalog_image_id || 'N/A') + '\n✅ Image stored in Media Library');
+            setSuccessModal({
+                title: 'Product Saved Successfully',
+                catalogId: productData.product_catalog_image_id || 'N/A'
+            });
             setIsEditing(false);
             setCurrentProduct(null);
             setProductImageUrl('');
@@ -611,7 +627,10 @@ export default function ProductsPage() {
             setPostToFacebook(false);
         } catch (error) {
             console.error(error);
-            alert('Failed to save product: ' + error.message);
+            setErrorModal({
+                title: 'Save Failed',
+                message: 'Failed to save product: ' + error.message
+            });
         }
     };
 
@@ -644,42 +663,55 @@ export default function ProductsPage() {
 
 
     const handleDelete = async (id) => {
-        if (!confirm('🚨 Are you sure you want to delete this saree? This will also remove its stock history and variants.')) return;
+        setConfirmModal({
+            title: 'Delete Saree?',
+            message: 'Are you sure you want to delete this saree? This will also remove its stock history and variants.',
+            onConfirm: async () => {
+                setLoading(true);
+                try {
+                    // 1. Delete dependent records first to avoid Foreign Key Constraint errors
+                    // Note: We don't delete order_items as they are historical records, 
+                    // but usually those should have SET NULL or CASCADE at DB level.
+                    await supabase.from('product_variants').delete().eq('product_id', id);
+                    await supabase.from('product_history').delete().eq('product_id', id);
+                    await supabase.from('whatsapp_cart').delete().eq('product_id', id);
 
-        setLoading(true);
-        try {
-            // 1. Delete dependent records first to avoid Foreign Key Constraint errors
-            // Note: We don't delete order_items as they are historical records, 
-            // but usually those should have SET NULL or CASCADE at DB level.
-            await supabase.from('product_variants').delete().eq('product_id', id);
-            await supabase.from('product_history').delete().eq('product_id', id);
-            await supabase.from('whatsapp_cart').delete().eq('product_id', id);
+                    // 2. Delete the main product
+                    const { error } = await supabase.from('products').delete().eq('id', id);
 
-            // 2. Delete the main product
-            const { error } = await supabase.from('products').delete().eq('id', id);
+                    if (error) {
+                        if (error.code === '23503') {
+                            setResultModal({
+                                title: 'Cannot Delete',
+                                message: 'This product has past orders. It has been hidden from the shop instead.',
+                                type: 'error'
+                            });
+                            // Deletion failed due to history, so let's just deactivate it
+                            await supabase.from('products').update({ is_active: false }).eq('id', id);
+                            fetchProducts();
+                            return;
+                        }
+                        throw error;
+                    }
 
-            if (error) {
-                if (error.code === '23503') {
-                    setNotification({
-                        message: '⚠️ Cannot delete: This saree has past orders. I have hidden it from the shop instead.',
+                    setResultModal({
+                        title: 'Deleted',
+                        message: 'Product deleted successfully.',
+                        type: 'success'
+                    });
+                    fetchProducts();
+                } catch (err) {
+                    console.error('Delete Error:', err);
+                    setResultModal({
+                        title: 'Delete Failed',
+                        message: `Delete failed: ${err.message || 'Check database permissions'}`,
                         type: 'error'
                     });
-                    // Deletion failed due to history, so let's just deactivate it
-                    await supabase.from('products').update({ is_active: false }).eq('id', id);
-                    fetchProducts();
-                    return;
+                } finally {
+                    setLoading(false);
                 }
-                throw error;
             }
-
-            setNotification({ message: '✅ Product deleted successfully', type: 'success' });
-            fetchProducts();
-        } catch (err) {
-            console.error('Delete Error:', err);
-            setNotification({ message: `❌ Delete failed: ${err.message || 'Check database permissions'}`, type: 'error' });
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     const categories = ['ALL', ...new Set(products.map(p => p.category).filter(Boolean))];
@@ -716,7 +748,8 @@ export default function ProductsPage() {
     };
 
     return (
-        <div className="animate-enter">
+        <>
+            <div className="animate-enter">
             {/* ─── MAIN LIST VIEW (Hidden when a sub-page is active) ─── */}
             {!isEditing && !showHistory && !importModal && (
                 <>
@@ -927,14 +960,15 @@ export default function ProductsPage() {
 
                     {/* ─── TABLE VIEW ─── */}
                     {viewMode === 'table' && (
-                        <div className="card" style={{ padding: 0 }}>
+                        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
                             {loading ? (
                                 <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
                                     <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} /> Loading...
                                 </div>
                             ) : (
-                                <table style={{ margin: 0 }}>
-                                    <thead style={{ background: '#f1f5f9' }}>
+                                <div style={{ minWidth: '950px' }}>
+                                    <table style={{ margin: 0, width: '100%' }}>
+                                        <thead style={{ background: '#f1f5f9' }}>
                                         <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                             <th>#</th>
                                             <th>Product</th>
@@ -1000,7 +1034,7 @@ export default function ProductsPage() {
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                    <span style={{ padding: '0.3rem 0.8rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', border: '1px solid hsl(var(--border-subtle))', whiteSpace: 'nowrap' }}>
                                                         {product.category}
                                                     </span>
                                                 </td>
@@ -1025,7 +1059,7 @@ export default function ProductsPage() {
                                         </td> */}
                                                 <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(product.price || 0).toLocaleString()}</td>
                                                 <td style={{ textAlign: 'center' }}>
-                                                    <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'}>
+                                                    <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'} style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
                                                         {product.stock} pcs
                                                     </span>
                                                 </td>
@@ -1037,7 +1071,6 @@ export default function ProductsPage() {
                                                         <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
                                                             <Share2 size={15} />
                                                         </button>
-                                                        <button onClick={() => openEditModal(product)} className="btn btn-secondary" style={{ padding: '0.4rem' }}><Edit size={15} /></button>
                                                         <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Details">
                                                             <PackageIcon size={15} />
                                                         </button>
@@ -1048,6 +1081,7 @@ export default function ProductsPage() {
                                         ))}
                                     </tbody>
                                 </table>
+                                </div>
                             )}
 
                             {/* Table Pagination */}
@@ -1129,10 +1163,6 @@ export default function ProductsPage() {
                                                         className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--primary))' }} title="View Product Page">
                                                         <Eye size={13} />
                                                     </button>
-                                                    <button onClick={() => openEditModal(product)}
-                                                        className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                                                        <Edit size={13} /> Edit
-                                                    </button>
                                                     <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--primary))' }} title="View Details">
                                                         <PackageIcon size={13} />
                                                     </button>
@@ -1170,7 +1200,7 @@ export default function ProductsPage() {
                     <div className="card shadow-premium" style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: '#ffffff' }}>
                         <div style={{ marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{currentProduct ? '✏️ Edit Product' : '✨ Add New Product'}</h2>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{currentProduct ? 'Edit Product' : 'Add New Product'}</h2>
                                 <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>Fill in the details for your catalogue.</p>
                             </div>
                             <button onClick={() => setIsEditing(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Products</button>
@@ -1249,7 +1279,12 @@ export default function ProductsPage() {
                                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                                                     {productImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
                                                         <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
-                                                            <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                            <img
+                                                                src={imgUrl}
+                                                                onClick={() => window.open(imgUrl, '_blank')}
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }}
+                                                                title="Click to view full image"
+                                                            />
                                                             <button type="button" onClick={() => {
                                                                 const urls = productImageUrl.split(',').filter(Boolean);
                                                                 urls.splice(idx, 1);
@@ -1298,7 +1333,7 @@ export default function ProductsPage() {
                                                             try {
                                                                 setOcrLoading(true);
                                                                 const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                                                                
+
                                                                 const uploadedUrls = [];
                                                                 for (const file of files) {
                                                                     // 1. OCR Check for existing watermark
@@ -1317,7 +1352,10 @@ export default function ProductsPage() {
                                                                     const ocrData = await ocrRes.json();
 
                                                                     if (ocrData.hasWatermark) {
-                                                                        alert("The image has already WaterMark");
+                                                                        setErrorModal({
+                                                                            title: 'Watermark Detected',
+                                                                            message: 'The image already has a WaterMark.'
+                                                                        });
                                                                         continue;
                                                                     }
 
@@ -1337,7 +1375,10 @@ export default function ProductsPage() {
                                                                     });
                                                                 }
                                                             } catch (err) {
-                                                                alert('Upload failed: ' + (err.message || 'Unknown error'));
+                                                                setErrorModal({
+                                                                    title: 'Upload Failed',
+                                                                    message: err.message || 'Unknown error'
+                                                                });
                                                             } finally {
                                                                 setOcrLoading(false);
                                                             }
@@ -1386,7 +1427,12 @@ export default function ProductsPage() {
                                                         {/* Thumbnail preview */}
                                                         {v.image_url && (
                                                             <div style={{ position: 'relative', width: '32px', height: '40px', flexShrink: 0 }}>
-                                                                <img src={v.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '5px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                                <img
+                                                                    src={v.image_url}
+                                                                    onClick={() => window.open(v.image_url, '_blank')}
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '5px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }}
+                                                                    title="Click to view full image"
+                                                                />
                                                                 <button type="button" onClick={() => updateVariant(i, 'image_url', '')} style={{ position: 'absolute', top: '-5px', right: '-5px', width: '14px', height: '14px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>✕</button>
                                                             </div>
                                                         )}
@@ -1426,7 +1472,10 @@ export default function ProductsPage() {
                                                                             if (!res.ok) throw new Error(data.error || 'Upload failed');
                                                                             updateVariant(i, 'image_url', data.url);
                                                                         } catch (err) {
-                                                                            alert('Upload failed: ' + (err.message || 'Unknown error'));
+                                                                            setErrorModal({
+                                                                                title: 'Upload Failed',
+                                                                                message: err.message || 'Upload failed'
+                                                                            });
                                                                         }
                                                                     }}
                                                                 />
@@ -1459,19 +1508,31 @@ export default function ProductsPage() {
                                 <textarea name="description" defaultValue={currentProduct?.description} rows={3}
                                     className="admin-input" style={{ resize: 'vertical' }} placeholder="Fabric, colors, design details..." />
                             </div>
-                            <div style={{ marginTop: '1.25rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>🏷️ Product Group / Tag</label>
-                                <input name="product_group" defaultValue={currentProduct?.product_group || ''} placeholder="e.g. Festive2026, NewArrivals, BridalSeason" className="admin-input" />
+                            <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Tax Class (GST)</label>
+                                    <select name="tax_class" defaultValue={currentProduct?.tax_class || 'GST_5'} className="admin-input-select">
+                                        <option value="GST_0">GST 0% (Exempt)</option>
+                                        <option value="GST_5">GST 5% (Default)</option>
+                                        <option value="GST_12">GST 12%</option>
+                                        <option value="GST_18">GST 18%</option>
+                                        <option value="GST_28">GST 28%</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Group / Tag</label>
+                                    <input name="product_group" defaultValue={currentProduct?.product_group || ''} placeholder="e.g. Festive2026, NewArrivals, BridalSeason" className="admin-input" />
+                                </div>
                             </div>
 
                             <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '12px', padding: '1rem', background: '#f1f5f9', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <input id="is_featured" name="is_featured" type="checkbox" defaultChecked={currentProduct?.is_featured} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
-                                    <label htmlFor="is_featured" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>✨ Feature on Home Page (Best Sellers)</label>
+                                    <label htmlFor="is_featured" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>Feature on Home Page (Best Sellers)</label>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>
                                     <input id="is_explore" name="is_explore" type="checkbox" defaultChecked={currentProduct?.product_group === 'EXPLORE'} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
-                                    <label htmlFor="is_explore" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>🚀 Explore Our Products Slider</label>
+                                    <label htmlFor="is_explore" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>Explore Our Products Slider</label>
                                 </div>
                             </div>
 
@@ -1508,7 +1569,7 @@ export default function ProductsPage() {
                                     {fbProcessing ? (
                                         <><Loader2 size={16} className="animate-spin" style={{ marginRight: '8px' }} /> Posting...</>
                                     ) : (
-                                        <>💾 Save Saree {postToFacebook ? '& Post' : ''}</>
+                                        <>💾 Save {postToFacebook ? '& Post' : ''}</>
                                     )}
                                 </button>
                             </div>
@@ -1589,23 +1650,7 @@ export default function ProductsPage() {
                                 <Upload size={30} />
                             </div>
                             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Bulk Import Catalog</h2>
-                            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>Upload your inventory spreadsheet to add sarees in bulk.</p>
-                        </div>
-
-                        <div style={{ background: '#f1f5f9', borderRadius: '15px', padding: '1.25rem', marginBottom: '1.5rem', border: '1px solid hsl(var(--border-subtle))', textAlign: 'left' }}>
-                            <h4 style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--primary))', marginBottom: '0.75rem' }}>Optional Settings</h4>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-                                <div>
-                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Sync with Meta Catalogue</div>
-                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Auto-post items to Facebook/WhatsApp shop</div>
-                                </div>
-                                <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
-                                    <input type="checkbox" checked={syncWithMeta} onChange={e => setSyncWithMeta(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: syncWithMeta ? 'hsl(var(--primary))' : '#333', transition: '.4s', borderRadius: '20px' }}>
-                                        <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: syncWithMeta ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
-                                    </span>
-                                </label>
-                            </div>
+                            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>Upload your inventory spreadsheet to add products in bulk.</p>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1631,21 +1676,6 @@ export default function ProductsPage() {
             )
             }
 
-            {
-                notification && (
-                    <div style={{
-                        position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 3000,
-                        padding: '1.25rem 2rem', borderRadius: '16px',
-                        background: notification.type === 'error' ? 'hsl(var(--danger))' : 'hsl(var(--success))',
-                        color: 'white', fontWeight: 800, boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                        display: 'flex', alignItems: 'center', gap: '10px',
-                        animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-                    }}>
-                        {notification.type === 'error' ? '❌' : '✅'} {notification.message}
-                        <button onClick={() => setNotification(null)} style={{ marginLeft: '1rem', background: 'rgba(0,0,0,0.2)', border: 'none', color: 'white', width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer' }}>&times;</button>
-                    </div>
-                )
-            }
 
             {
                 showMediaPicker && (
@@ -1654,6 +1684,8 @@ export default function ProductsPage() {
                         onSelect={async (url) => {
                             try {
                                 setOcrLoading(true);
+                                setShowMediaPicker(false);
+
                                 // 1. OCR Check for existing watermark in library image
                                 const res = await fetch(url);
                                 const blob = await res.blob();
@@ -1672,21 +1704,36 @@ export default function ProductsPage() {
                                 const ocrData = await ocrRes.json();
 
                                 if (ocrData.hasWatermark) {
-                                    alert("The image has already WaterMark");
-                                    return; // Stop selection
+                                    setErrorModal({
+                                        title: '🚫 Watermark Detected',
+                                        message: 'The image has already WaterMark'
+                                    });
+                                    return;
                                 }
+
+                                // 2. Get or generate catalog ID (same for all images of this product)
+                                const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+                                // 3. Stamp the catalog code onto the image
+                                const watermarkedBlob = await stampProductCode(url, catalogId);
+
+                                // 4. Upload the watermarked image
+                                const watermarkedUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
+
+                                // 5. Update product image URL with watermarked version
+                                if (activeImageField.type === 'product') {
+                                    setProductImageUrl(prev => prev ? `${prev},${watermarkedUrl}` : watermarkedUrl);
+                                    setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catalogId }));
+                                } else if (activeImageField.type === 'variant') {
+                                    updateVariant(activeImageField.index, 'image_url', watermarkedUrl);
+                                }
+
                             } catch (err) {
-                                console.error('Gallery OCR check error:', err);
+                                console.error('Media select error:', err);
+                                setNotification({ message: '❌ Failed to process image: ' + err.message, type: 'error' });
                             } finally {
                                 setOcrLoading(false);
                             }
-
-                            if (activeImageField.type === 'product') {
-                                setProductImageUrl(prev => prev ? `${prev},${url}` : url);
-                            } else if (activeImageField.type === 'variant') {
-                                updateVariant(activeImageField.index, 'image_url', url);
-                            }
-                            setShowMediaPicker(false);
                         }}
                         onClose={() => setShowMediaPicker(false)}
                     />
@@ -1696,15 +1743,17 @@ export default function ProductsPage() {
             {/* OCR Loading Overlay */}
             {ocrLoading && (
                 <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-                    zIndex: 5000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem'
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+                    zIndex: 7000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem'
                 }}>
                     <Loader2 size={42} style={{ color: 'white', animation: 'spin 1s linear infinite' }} />
-                    <div style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '0.05em', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 1.5rem', borderRadius: '12px' }}>
+                    <div style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '0.05em', background: 'rgba(0,0,0,0.5)', padding: '0.5rem 1.5rem', borderRadius: '12px' }}>
                         Searching for WaterMark...
                     </div>
                 </div>
             )}
+
+            </div>
 
             {/* PRODUCT IMAGE ASSIGNER (Post-Excel Import) */}
             {
@@ -1720,10 +1769,214 @@ export default function ProductsPage() {
                 )
             }
 
+            {/* SUCCESS MODAL */}
+            {
+                successModal && (
+                    <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+                        zIndex: 4000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }} onClick={() => setSuccessModal(null)}>
+                        <div style={{
+                            background: 'white', borderRadius: '20px', padding: '2.5rem',
+                            maxWidth: '420px', width: '90%', textAlign: 'center',
+                            boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+                            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                        }} onClick={e => e.stopPropagation()}>
+                            <div style={{
+                                width: '70px', height: '70px', borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 1.5rem', fontSize: '2rem'
+                            }}>
+                                ✓
+                            </div>
+                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.5rem', color: '#1f2937' }}>
+                                Product Saved Successfully!
+                            </h3>
+                            <button
+                                onClick={() => setSuccessModal(null)}
+                                style={{
+                                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                    color: 'white', border: 'none', padding: '0.875rem 2.5rem',
+                                    borderRadius: '12px', fontWeight: 700, fontSize: '1rem',
+                                    cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'
+                                }}
+                                onMouseEnter={e => { e.target.style.transform = 'scale(1.05)'; e.target.style.boxShadow = '0 10px 25px rgba(34, 197, 94, 0.4)'; }}
+                                onMouseLeave={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ERROR MODAL */}
+            {
+                errorModal && (
+                    <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                        zIndex: 6000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }} onClick={() => setErrorModal(null)}>
+                        <div style={{
+                            background: 'white', borderRadius: '20px', padding: '2.5rem',
+                            maxWidth: '420px', width: '90%', textAlign: 'center',
+                            boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+                            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                        }} onClick={e => e.stopPropagation()}>
+                            <div style={{
+                                width: '70px', height: '70px', borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 1.5rem', fontSize: '2rem'
+                            }}>
+                                ✕
+                            </div>
+                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1f2937' }}>
+                                {errorModal.title}
+                            </h3>
+                            <p style={{ color: '#374151', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                                {errorModal.message}
+                            </p>
+                            <button
+                                onClick={() => setErrorModal(null)}
+                                style={{
+                                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                    color: 'white', border: 'none', padding: '0.875rem 2.5rem',
+                                    borderRadius: '12px', fontWeight: 700, fontSize: '1rem',
+                                    cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'
+                                }}
+                                onMouseEnter={e => { e.target.style.transform = 'scale(1.05)'; e.target.style.boxShadow = '0 10px 25px rgba(239, 68, 68, 0.4)'; }}
+                                onMouseLeave={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* RESULT MODAL (Import/Export feedback) */}
+            {
+                resultModal && (
+                    <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+                        zIndex: 5500, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }} onClick={() => setResultModal(null)}>
+                        <div style={{
+                            background: 'white', borderRadius: '20px', padding: '2.5rem',
+                            maxWidth: '420px', width: '90%', textAlign: 'center',
+                            boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+                            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                        }} onClick={e => e.stopPropagation()}>
+                            <div style={{
+                                width: '70px', height: '70px', borderRadius: '50%',
+                                background: resultModal.type === 'error'
+                                    ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                                    : 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 1.5rem', fontSize: '2rem'
+                            }}>
+                                {resultModal.type === 'error' ? '✕' : '✓'}
+                            </div>
+                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1f2937' }}>
+                                {resultModal.title}
+                            </h3>
+                            <p style={{ color: '#374151', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                                {resultModal.message}
+                            </p>
+                            <button
+                                onClick={() => {
+                                    setResultModal(null);
+                                    if (resultModal.onClose) resultModal.onClose();
+                                }}
+                                style={{
+                                    background: resultModal.type === 'error'
+                                        ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                                        : 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                    color: 'white', border: 'none', padding: '0.875rem 2.5rem',
+                                    borderRadius: '12px', fontWeight: 700, fontSize: '1rem',
+                                    cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'
+                                }}
+                                onMouseEnter={e => {
+                                    e.target.style.transform = 'scale(1.05)';
+                                    e.target.style.boxShadow = resultModal.type === 'error'
+                                        ? '0 10px 25px rgba(239, 68, 68, 0.4)'
+                                        : '0 10px 25px rgba(34, 197, 94, 0.4)';
+                                }}
+                                onMouseLeave={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* CONFIRM MODAL */}
+            {
+                confirmModal && (
+                    <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+                        zIndex: 6500, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }} onClick={() => setConfirmModal(null)}>
+                        <div style={{
+                            background: 'white', borderRadius: '20px', padding: '2.5rem',
+                            maxWidth: '420px', width: '90%', textAlign: 'center',
+                            boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+                            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                        }} onClick={e => e.stopPropagation()}>
+                            <div style={{
+                                width: '70px', height: '70px', borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 1.5rem', fontSize: '2rem'
+                            }}>
+                                ?
+                            </div>
+                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1f2937' }}>
+                                {confirmModal.title}
+                            </h3>
+                            <p style={{ color: '#374151', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                                {confirmModal.message}
+                            </p>
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setConfirmModal(null)}
+                                    style={{
+                                        background: '#e5e7eb', color: '#374151', border: 'none',
+                                        padding: '0.875rem 2rem', borderRadius: '12px',
+                                        fontWeight: 700, fontSize: '1rem', cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        confirmModal.onConfirm();
+                                        setConfirmModal(null);
+                                    }}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                        color: 'white', border: 'none', padding: '0.875rem 2rem',
+                                        borderRadius: '12px', fontWeight: 700, fontSize: '1rem',
+                                        cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'
+                                    }}
+                                    onMouseEnter={e => { e.target.style.transform = 'scale(1.05)'; e.target.style.boxShadow = '0 10px 25px rgba(239, 68, 68, 0.4)'; }}
+                                    onMouseLeave={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
+                                >
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
             <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             `}</style>
-        </div>
+        </>
     );
 }

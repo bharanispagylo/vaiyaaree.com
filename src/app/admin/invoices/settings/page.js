@@ -63,7 +63,8 @@ export default function InvoiceSettingsPage() {
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             console.error(err);
-            alert('Failed to save settings');
+            setNotification({ message: 'Failed to save settings: ' + err.message, type: 'error' });
+            setTimeout(() => setNotification(null), 3500);
         } finally {
             setSaving(false);
         }
@@ -91,8 +92,8 @@ export default function InvoiceSettingsPage() {
                         <ArrowLeft size={20} />
                     </Link>
                     <div>
-                            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Invoice Settings</h1>
-                            <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Customize the look and feel of your Cast Printz invoices</p>
+                        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Invoice Settings</h1>
+                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Customize the look and feel of your Cast Printz invoices</p>
                     </div>
                 </div>
 

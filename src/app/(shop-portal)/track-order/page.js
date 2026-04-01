@@ -15,6 +15,9 @@ function TrackContent() {
     const [orderId, setOrderId] = useState(orderIdParam);
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [showRefundForm, setShowRefundForm] = useState(false);
+    const [refundReason, setRefundReason] = useState('');
+    const [requestingRefund, setRequestingRefund] = useState(false);
 
     useEffect(() => {
         if (orderIdParam) {
@@ -41,6 +44,37 @@ function TrackContent() {
             showToast('Failed to track order', 'error');
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handleRequestRefund() {
+        if (!refundReason.trim()) {
+            showToast('Please provide a reason for the refund.', 'error');
+            return;
+        }
+
+        setRequestingRefund(true);
+        try {
+            const { error } = await supabase
+                .from('orders')
+                .update({ 
+                    status: 'REFUND_REQUESTED',
+                    refund_reason: refundReason,
+                    refund_status: 'PENDING' 
+                })
+                .eq('id', order.id);
+
+            if (error) throw error;
+
+            showToast('Refund request submitted successfully.', 'success');
+            setShowRefundForm(false);
+            setRefundReason('');
+            fetchTrackingOrder(order.id);
+        } catch (err) {
+            console.error('Refund Request Error:', err);
+            showToast('Failed to submit refund request.', 'error');
+        } finally {
+            setRequestingRefund(false);
         }
     }
 
@@ -122,9 +156,45 @@ function TrackContent() {
                                 </div>
                                 {order.tracking_url && (
                                     <a href={order.tracking_url} target="_blank" className={styles.externalTrackLink}>
-                                        Track on Carrier Website →
+                                        Track on Carrier Website
                                     </a>
                                 )}
+                            </div>
+                        )}
+
+                        {order.status === 'DELIVERED' && !order.refund_status && (
+                            <div className={styles.refundSection}>
+                                {!showRefundForm ? (
+                                    <button onClick={() => setShowRefundForm(true)} className={styles.refundBtn}>
+                                        Request Refund
+                                    </button>
+                                ) : (
+                                    <div className={styles.refundForm}>
+                                        <h3>Request a Refund</h3>
+                                        <p>Please tell us why you are requesting a refund for this order.</p>
+                                        <textarea 
+                                            placeholder="Reason for refund..." 
+                                            value={refundReason} 
+                                            onChange={(e) => setRefundReason(e.target.value)}
+                                            className={styles.refundTextArea}
+                                        />
+                                        <div className={styles.refundActions}>
+                                            <button onClick={() => setShowRefundForm(false)} className={styles.cancelBtn}>Cancel</button>
+                                            <button onClick={handleRequestRefund} disabled={requestingRefund} className={styles.submitRefundBtn}>
+                                                {requestingRefund ? 'Submitting...' : 'Submit Request'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {order.status === 'REFUND_REQUESTED' && (
+                            <div className={styles.refundSection}>
+                                <div className={styles.refundInfo}>
+                                    <strong>Refund Status: Requested</strong>
+                                    <p>Your refund request is being reviewed by our team.</p>
+                                </div>
                             </div>
                         )}
 

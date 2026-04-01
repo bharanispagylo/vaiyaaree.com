@@ -43,7 +43,8 @@ export default function WhatsAppSettingsPage() {
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             console.error(err);
-            alert('Failed to save settings');
+            setNotification({ message: 'Failed to save settings. Please try again.', type: 'error' });
+            setTimeout(() => setNotification(null), 3000);
         } finally {
             setSaving(false);
         }

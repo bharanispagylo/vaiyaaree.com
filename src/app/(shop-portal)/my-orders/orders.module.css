@@ -80,6 +80,282 @@
     gap: 2.5rem;
 }
 
+/* Orders Table Styles */
+.ordersTableContainer {
+    background: var(--bg-card);
+    border-radius: 20px;
+    border: 1px solid hsl(var(--border-subtle));
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.ordersTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.ordersTable thead {
+    background: hsl(var(--bg-app));
+}
+
+.ordersTable th {
+    padding: 1.25rem 1.5rem;
+    text-align: left;
+    font-weight: 600;
+    color: hsl(var(--text-muted));
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid hsl(var(--border-subtle));
+}
+
+.ordersTable td {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid hsl(var(--border-subtle) / 0.5);
+    vertical-align: middle;
+}
+
+.ordersTable tbody tr:hover {
+    background: hsl(var(--bg-app) / 0.8);
+}
+
+.clickableRow {
+    cursor: pointer;
+}
+
+.ordersTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.cancelledRow {
+    opacity: 0.6;
+    background: hsl(var(--error) / 0.05);
+}
+
+.orderIdCell {
+    font-weight: 700;
+}
+
+.orderId {
+    color: hsl(var(--primary));
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.dateCell {
+    color: hsl(var(--text-muted));
+    white-space: nowrap;
+}
+
+.itemsCell {
+    max-width: 250px;
+}
+
+.itemPreview {
+    font-size: 0.8rem;
+    color: hsl(var(--text-muted));
+    margin-top: 0.25rem;
+    line-height: 1.4;
+}
+
+.itemName {
+    display: inline;
+}
+
+.totalCell {
+    font-weight: 700;
+    color: hsl(var(--text-main));
+    white-space: nowrap;
+}
+
+.statusCell {
+    white-space: nowrap;
+}
+
+.actionButtons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.actionBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: hsl(var(--bg-app));
+    color: hsl(var(--text-muted));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.actionBtn:hover {
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+}
+
+.cancelBtn {
+    color: #ef4444;
+}
+
+.cancelBtn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Status Icons */
+.statusIconDelivered { color: #10b981; }
+.statusIconCancelled { color: #ef4444; }
+.statusIconShipped { color: #3b82f6; }
+.statusIconPending { color: #f59e0b; }
+
+/* Cancel Modal */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+}
+
+.modal {
+    background: var(--bg-card);
+    border-radius: 20px;
+    border: 1px solid hsl(var(--border-subtle));
+    box-shadow: var(--shadow-card);
+    max-width: 450px;
+    width: 100%;
+    padding: 2rem;
+    animation: modalEnter 0.3s ease-out;
+}
+
+@keyframes modalEnter {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.modalHeader h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: hsl(var(--text-main));
+}
+
+.modalBody {
+    margin-bottom: 1.5rem;
+}
+
+.modalBody p {
+    color: hsl(var(--text-muted));
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.modalDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: hsl(var(--bg-app));
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.modalDetails span {
+    font-size: 0.9rem;
+    color: hsl(var(--text-main));
+}
+
+.modalWarning {
+    font-size: 0.85rem;
+    color: #f59e0b !important;
+    background: #fffbeb;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border-left: 3px solid #f59e0b;
+}
+
+.modalActions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.btnSecondary {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid hsl(var(--border-subtle));
+    background: transparent;
+    color: hsl(var(--text-muted));
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnSecondary:hover {
+    background: hsl(var(--bg-app));
+    color: hsl(var(--text-main));
+}
+
+.btnDanger {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: none;
+    background: #ef4444;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnDanger:hover {
+    background: #dc2626;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .ordersTable th,
+    .ordersTable td {
+        padding: 1rem;
+    }
+    
+    .itemsCell {
+        max-width: 150px;
+    }
+}
+
+@media (max-width: 768px) {
+    .ordersTableContainer {
+        overflow-x: auto;
+    }
+    
+    .ordersTable {
+        min-width: 800px;
+    }
+}
+
 .orderCard {
     background: var(--bg-card);
     border: 1px solid hsl(var(--border-subtle));
