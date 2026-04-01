@@ -1148,9 +1148,10 @@ export async function notifyOrderSuccess(orderId) {
         // Generate invoice via API
         let invoiceUrl = null;
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`);
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+            const response = await fetch(`${baseUrl}/api/invoice/${order.id}`);
             if (response.ok) {
-                invoiceUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`;
+                invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
             }
         } catch (err) {
             console.error('Failed to get invoice:', err);
@@ -1252,9 +1253,10 @@ export async function handlePaymentConfirmed(to, orderId) {
     // Generate invoice via API
         let invoiceUrl = null;
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`);
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+            const response = await fetch(`${baseUrl}/api/invoice/${order.id}`);
             if (response.ok) {
-                invoiceUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`;
+                invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
             }
         } catch (err) {
             console.error('Failed to get invoice:', err);
@@ -1898,9 +1900,10 @@ export async function processIncomingMessage(body) {
                             // Generate invoice via API
                             let invoiceUrl = null;
                             try {
-                                const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${orderId}`);
+                                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+                                const response = await fetch(`${baseUrl}/api/invoice/${orderId}`);
                                 if (response.ok) {
-                                    invoiceUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${orderId}`;
+                                    invoiceUrl = `${baseUrl}/api/invoice/${orderId}`;
                                 }
                             } catch (err) {
                                 console.error('Failed to get invoice:', err);
