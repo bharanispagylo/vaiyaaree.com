@@ -1,6 +1,55 @@
 import { jsPDF } from "jspdf";
 import { supabase } from "./supabaseClient";
 
+async function urlToBase64(url) {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.error("Failed to convert URL to base64:", e);
+        return null;
+    }
+}
+
+function formatAddress(addr) {
+    if (!addr) return "";
+    try {
+        if (typeof addr === 'string') {
+            if (addr.startsWith('{') && addr.endsWith('}')) {
+                const parsed = JSON.parse(addr);
+                const parts = [
+                    parsed.name,
+                    parsed.address,
+                    parsed.city,
+                    parsed.state,
+                    parsed.pincode
+                ].filter(Boolean);
+                return parts.join(', ');
+            }
+            return addr;
+        }
+        if (typeof addr === 'object') {
+            const parts = [
+                addr.name,
+                addr.address,
+                addr.city,
+                addr.state,
+                addr.pincode
+            ].filter(Boolean);
+            return parts.join(', ');
+        }
+    } catch (e) {
+        return String(addr);
+    }
+    return String(addr);
+}
+
 export async function generateInvoicePDF(order) {
     const doc = new jsPDF();
 
@@ -29,14 +78,22 @@ export async function generateInvoicePDF(order) {
         console.error("PDF Branding Error:", e);
     }
 
-    // Logo
+    // Logo Pre-loading and Adding
     if (branding.shop_logo) {
         try {
-            // Attempt to add logo - needs to be base64 or reachable URL
-            // For simple implementation we try to add it from URL (jsPDF handles some URLs if CORS allows)
-            doc.addImage(branding.shop_logo, 'PNG', 10, 10, 30, 30);
+            let logoSrc = branding.shop_logo;
+            // Handle relative paths
+            if (logoSrc.startsWith('/') && typeof window !== 'undefined') {
+                logoSrc = window.location.origin + logoSrc;
+            }
+            
+            const logoBase64 = await urlToBase64(logoSrc);
+            if (logoBase64) {
+                // jsPDF.addImage works best with base64 data URIs
+                doc.addImage(logoBase64, 'PNG', 10, 10, 30, 30, undefined, 'FAST');
+            }
         } catch (err) {
-            console.error("Logo add failed:", err);
+            console.error("Logo injection failed:", err);
         }
     }
 
@@ -73,8 +130,23 @@ export async function generateInvoicePDF(order) {
     doc.text(order.customer_name || "Valued Customer", 10, 61);
     doc.setFont("helvetica", "normal");
     doc.text(`Phone: ${order.customer_phone}`, 10, 67);
-    const addressLines = doc.splitTextToSize(order.delivery_address || order.shipping_address || "Address not provided", 80);
-    doc.text(addressLines, 10, 73);
+
+    // Split into Billing and Shipping
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("BILLING ADDRESS", 10, 75);
+    doc.text("SHIPPING ADDRESS", 105, 75);
+    doc.setTextColor(0);
+    doc.setFontSize(9);
+
+    const billingText = formatAddress(order.billing_address || order.delivery_address) || "—";
+    const shippingText = formatAddress(order.shipping_address || order.delivery_address) || "—";
+
+    const billingLines = doc.splitTextToSize(billingText, 85);
+    const shippingLines = doc.splitTextToSize(shippingText, 85);
+
+    doc.text(billingLines, 10, 80);
+    doc.text(shippingLines, 105, 80);
 
     // Table Header
     let y = 95;

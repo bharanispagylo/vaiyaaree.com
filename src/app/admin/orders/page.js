@@ -1734,13 +1734,6 @@ export default function OrdersPage() {
                                             </div>
                                         )}
 
-                                        {/* Admin Notes */}
-                                        {selectedOrder.admin_notes && (
-                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.5rem' }}>🔒 Admin Notes (Private)</h4>
-                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.admin_notes}</p>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             </div>

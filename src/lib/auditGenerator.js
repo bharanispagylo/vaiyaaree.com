@@ -1,6 +1,23 @@
 import { jsPDF } from "jspdf";
 import { supabase } from "./supabaseClient";
 
+async function urlToBase64(url) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.error("Failed to convert URL to base64:", e);
+        return null;
+    }
+}
+
 export async function generateAuditPDF({ timeframe, orders, products, metrics }) {
     const doc = new jsPDF();
 
@@ -18,6 +35,7 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
         if (data) {
             data.forEach(item => {
                 if (branding.hasOwnProperty(item.key)) branding[item.key] = item.value;
+                if (item.key === 'shop_logo') branding.shop_logo = item.value;
             });
         }
     } catch (e) {
@@ -25,8 +43,19 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
     }
 
     // --- Page 1: Executive Summary ---
-
     // Header
+    if (branding.shop_logo) {
+        try {
+            let logoSrc = branding.shop_logo;
+            if (logoSrc.startsWith('/') && typeof window !== 'undefined') {
+                logoSrc = window.location.origin + logoSrc;
+            }
+            const b64 = await urlToBase64(logoSrc);
+            if (b64) doc.addImage(b64, 'PNG', 10, 10, 20, 20);
+        } catch (err) {
+            console.error("Audit Logo Error:", err);
+        }
+    }
     doc.setFontSize(22);
     doc.setTextColor(30, 30, 30);
     doc.text('CAST PRINTZ - BUSINESS AUDIT REPORT', 105, 20, { align: 'center' });

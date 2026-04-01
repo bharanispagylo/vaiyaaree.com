@@ -61,6 +61,39 @@ export default function InvoicesPage() {
     // Reset page when search changes
     useEffect(() => { setInvoicePage(1); }, [searchTerm]);
 
+    const formatAddress = (addr) => {
+        if (!addr) return "";
+        try {
+            if (typeof addr === 'string') {
+                if (addr.startsWith('{') && addr.endsWith('}')) {
+                    const parsed = JSON.parse(addr);
+                    const parts = [
+                        parsed.name,
+                        parsed.address,
+                        parsed.city,
+                        parsed.state,
+                        parsed.pincode
+                    ].filter(Boolean);
+                    return parts.join(', ');
+                }
+                return addr;
+            }
+            if (typeof addr === 'object') {
+                const parts = [
+                    addr.name,
+                    addr.address,
+                    addr.city,
+                    addr.state,
+                    addr.pincode
+                ].filter(Boolean);
+                return parts.join(', ');
+            }
+        } catch (e) {
+            return String(addr);
+        }
+        return String(addr);
+    };
+
     const openInvoice = async (order) => {
         setSelectedInvoice(order);
         const { data } = await supabase
@@ -252,9 +285,17 @@ export default function InvoicesPage() {
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                                         {settings.shop_logo ? (
-                                            <img src={settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`} alt="Logo" style={{ height: '40px', objectFit: 'contain' }} />
+                                            <img src={settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`} 
+                                                alt="Logo" 
+                                                style={{ height: '40px', objectFit: 'contain' }}
+                                                onError={(e) => { e.target.src = '/images/cp-logo.png'; }}
+                                            />
                                         ) : (
-                                            <img src="/images/cp-logo.png" alt="Logo" style={{ height: '40px', objectFit: 'contain' }} />
+                                            <img src="/images/cp-logo.png" 
+                                                alt="Logo" 
+                                                style={{ height: '40px', objectFit: 'contain' }}
+                                                onError={(e) => { e.target.src = '/images/aiswarya-logo.png'; }}
+                                            />
                                         )}
                                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', margin: 0, color: '#111827' }}>{settings.shop_name}</h1>
                                     </div>
@@ -276,11 +317,21 @@ export default function InvoicesPage() {
                                     <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Bill To</div>
                                     <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>{selectedInvoice.customer_name || 'WhatsApp Customer'}</div>
                                     <div style={{ fontSize: '0.9rem', color: '#4b5563', marginTop: '0.25rem' }}>{selectedInvoice.customer_phone}</div>
-                                    {selectedInvoice.delivery_address && (
-                                        <div style={{ fontSize: '0.9rem', color: '#4b5563', marginTop: '0.5rem', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
-                                            {selectedInvoice.delivery_address}
+                                    
+                                    <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem' }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Billing Address</div>
+                                            <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.5' }}>
+                                                {formatAddress(selectedInvoice.billing_address || selectedInvoice.delivery_address) || '—'}
+                                            </div>
                                         </div>
-                                    )}
+                                        <div>
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Shipping Address</div>
+                                            <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.5' }}>
+                                                {formatAddress(selectedInvoice.shipping_address || selectedInvoice.delivery_address) || '—'}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Payment Info</div>

@@ -42,7 +42,7 @@ export default function ShopHeader() {
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
                         <Link href="/" className={styles.logoLink}>
-                            <img src="/images/cp-logo.png" alt="Cast Printz" className={styles.logoImg} />
+                            <img src="/images/cp-logo.png" alt="Cast Printz" className={styles.logoImg} onError={(e) => { e.target.src = '/images/cp-logo.svg'; }} />
                             <span className={styles.logoBrandName}>CAST PRINTZ</span>
                         </Link>
                     </div>

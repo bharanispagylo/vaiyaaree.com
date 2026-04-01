@@ -378,11 +378,33 @@ export default function BroadcastPage() {
                                                         onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
                                                 </div>
                                                 {/* Info */}
-                                                <div style={{ fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                                <div style={{ 
+                                                    fontWeight: 600, 
+                                                    fontSize: '0.78rem', 
+                                                    whiteSpace: 'nowrap', 
+                                                    overflow: 'hidden', 
+                                                    textOverflow: 'ellipsis',
+                                                    color: isSelected ? 'hsl(var(--text-main))' : '#ffffff'
+                                                }}>
+                                                    {p.name}
+                                                </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                    <span style={{ color: 'hsl(var(--primary))', fontWeight: 700, fontSize: '0.75rem' }}>₹{(p.price || 0).toLocaleString()}</span>
+                                                    <span style={{ 
+                                                        color: isSelected ? 'hsl(var(--primary))' : '#ffffff', 
+                                                        fontWeight: 700, 
+                                                        fontSize: '0.75rem' 
+                                                    }}>
+                                                        ₹{(p.price || 0).toLocaleString()}
+                                                    </span>
                                                     {p.product_group && (
-                                                        <span style={{ padding: '1px 5px', borderRadius: '9999px', fontSize: '0.55rem', fontWeight: 700, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))' }}>
+                                                        <span style={{ 
+                                                            padding: '1px 5px', 
+                                                            borderRadius: '9999px', 
+                                                            fontSize: '0.55rem', 
+                                                            fontWeight: 700, 
+                                                            background: isSelected ? 'hsl(var(--accent) / 0.15)' : 'rgba(255,255,255,0.15)',
+                                                            color: isSelected ? 'hsl(var(--accent))' : '#ffffff' 
+                                                        }}>
                                                             {p.product_group}
                                                         </span>
                                                     )}
