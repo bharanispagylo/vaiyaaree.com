@@ -20,6 +20,7 @@ export default function MyOrdersPage() {
     const [otp, setOtp] = useState('');
     const [generatedOtp, setGeneratedOtp] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [alertModal, setAlertModal] = useState({ show: false, title: '', message: '' });
 
     useEffect(() => {
         if (user?.phone) {
@@ -82,7 +83,7 @@ export default function MyOrdersPage() {
     function handleCancelClick(order) {
         const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
         if (!cancellableStatuses.includes(order.status)) {
-            alert('This order cannot be cancelled. It may already be shipped or delivered.');
+            setAlertModal({ show: true, title: 'Cannot Cancel', message: 'This order cannot be cancelled. It may already be shipped or delivered.' });
             return;
         }
         setSelectedOrder(order);
@@ -114,7 +115,7 @@ export default function MyOrdersPage() {
             
             if (!response.ok) {
                 console.error('Failed to send OTP');
-                alert('Failed to send OTP. Please try again.');
+                setAlertModal({ show: true, title: 'OTP Failed', message: 'Failed to send OTP. Please try again.' });
             }
         } catch (err) {
             console.error('Error sending OTP:', err);
@@ -128,7 +129,7 @@ export default function MyOrdersPage() {
         
         // Verify OTP
         if (!otpSent || otp !== generatedOtp) {
-            alert('Invalid OTP. Please enter the correct OTP sent to your WhatsApp.');
+            setAlertModal({ show: true, title: 'Invalid OTP', message: 'Please enter the correct OTP sent to your WhatsApp.' });
             return;
         }
         
@@ -214,7 +215,7 @@ export default function MyOrdersPage() {
 
         } catch (err) {
             console.error('Cancel Order Error:', err);
-            alert('Failed to cancel order. Please try again or contact support.');
+            setAlertModal({ show: true, title: 'Cancellation Failed', message: 'Failed to cancel order. Please try again or contact support.' });
         } finally {
             setCancellingId(null);
             setSelectedOrder(null);
@@ -271,6 +272,30 @@ export default function MyOrdersPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Global Alert Modal */}
+            {alertModal.show && (
+                <div className={styles.modalOverlay} style={{ zIndex: 9999 }}>
+                    <div className={styles.modal} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <div style={{ background: '#fee2e2', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
+                                <AlertTriangle size={30} color="#dc2626" />
+                            </div>
+                            <h3 style={{ fontSize: '1.25rem', color: '#111827', marginBottom: '0.5rem', fontWeight: 700 }}>{alertModal.title}</h3>
+                            <p style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: 1.5 }}>
+                                {alertModal.message}
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => setAlertModal({ show: false, title: '', message: '' })} 
+                            className={styles.btnPrimary} 
+                            style={{ width: '100%', padding: '0.875rem' }}
+                        >
+                            Okay, Got it
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Cancel Confirmation Modal */}
             {showCancelModal && selectedOrder && (
