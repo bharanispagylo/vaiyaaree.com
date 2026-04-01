@@ -246,8 +246,8 @@ export default function BroadcastPage() {
         width: '20px', height: '20px', borderRadius: '5px', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer', transition: 'all 0.15s',
-        background: checked ? 'hsl(var(--primary))' : 'transparent',
-        border: checked ? '2px solid hsl(var(--primary))' : '2px solid hsl(var(--border-subtle))',
+        background: checked ? 'hsl(var(--accent))' : 'transparent',
+        border: checked ? '2px solid hsl(var(--accent))' : '2px solid hsl(var(--border-subtle))',
         color: 'white'
     });
 
@@ -309,14 +309,14 @@ export default function BroadcastPage() {
                                 <div style={{
                                     width: '26px', height: '26px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 700,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: selectedProducts.size > 0 ? 'hsl(var(--success))' : 'hsl(var(--primary))',
+                                    background: selectedProducts.size > 0 ? 'hsl(var(--success))' : 'hsl(var(--accent))',
                                     color: 'white'
                                 }}>
                                     {selectedProducts.size > 0 ? <Check size={14} /> : '1'}
                                 </div>
                                 <h3 style={{ margin: 0, fontSize: '0.95rem' }}>
                                     Select Products
-                                    {selectedProducts.size > 0 && <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'hsl(var(--primary))', marginLeft: '0.5rem' }}>({selectedProducts.size} selected)</span>}
+                                    {selectedProducts.size > 0 && <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'hsl(var(--accent))', marginLeft: '0.5rem' }}>({selectedProducts.size} selected)</span>}
                                 </h3>
                             </div>
                             {productSectionOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -364,8 +364,8 @@ export default function BroadcastPage() {
                                             <div key={p.id} onClick={() => toggleProduct(p.id)}
                                                 style={{
                                                     padding: '0.5rem', cursor: 'pointer', borderRadius: '12px', transition: 'all 0.2s',
-                                                    border: isSelected ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
-                                                    background: isSelected ? 'hsl(var(--primary) / 0.08)' : 'hsl(var(--bg-panel))',
+                                                    border: isSelected ? '2px solid hsl(var(--accent))' : '1px solid hsl(var(--border-subtle))',
+                                                    background: isSelected ? 'hsl(var(--accent) / 0.08)' : 'hsl(var(--bg-panel))',
                                                     position: 'relative'
                                                 }}>
                                                 {/* Checkbox */}
@@ -378,9 +378,9 @@ export default function BroadcastPage() {
                                                         onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
                                                 </div>
                                                 {/* Info */}
-                                                <div style={{ fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                                <div style={{ fontWeight: 600, fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isSelected ? 'black' : 'white' }}>{p.name}</div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                    <span style={{ color: 'hsl(var(--primary))', fontWeight: 700, fontSize: '0.75rem' }}>₹{(p.price || 0).toLocaleString()}</span>
+                                                    <span style={{ color: 'hsl(var(--accent))', fontWeight: 800, fontSize: '0.85rem' }}>₹{(p.price || 0).toLocaleString()}</span>
                                                     {p.product_group && (
                                                         <span style={{ padding: '1px 5px', borderRadius: '9999px', fontSize: '0.55rem', fontWeight: 700, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))' }}>
                                                             {p.product_group}
@@ -542,11 +542,11 @@ export default function BroadcastPage() {
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
                                     {selectedProductsList.map(p => (
-                                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem', background: '#f1f5f9', borderRadius: '8px', fontSize: '0.78rem' }}>
+                                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle) / 0.1)', color: 'white', borderRadius: '8px', fontSize: '0.78rem' }}>
                                             <img src={p.image_url} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }}
                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=50&q=60'; }} />
-                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{p.name}</span>
-                                            <button onClick={() => toggleProduct(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', padding: '2px', fontSize: '14px', lineHeight: 1 }}>&times;</button>
+                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: 'white' }}>{p.name}</span>
+                                            <button onClick={() => toggleProduct(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: '2px', fontSize: '14px', lineHeight: 1 }}>&times;</button>
                                         </div>
                                     ))}
                                 </div>

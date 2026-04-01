@@ -1629,6 +1629,14 @@ export async function confirmCancelOrder(to, orderId) {
         })
         .eq('id', upperOrderId);
     
+    // Always create a refund entry for cancellations so admin can review
+    await supabase.from('refunds').insert({
+        order_id: upperOrderId,
+        amount: existingOrder?.total_amount || 0,
+        reason: 'Order Cancelled by Customer via WhatsApp',
+        status: 'REQUESTED'
+    });
+    
     // Add to status history (both tables for compatibility)
     await supabase.from('order_status_history').insert({
         order_id: upperOrderId,
@@ -1693,8 +1701,19 @@ export async function processRefundOrder(to, orderId) {
 }
 
 export async function confirmRefundOrder(to, orderId, reason) {
+    const { data: order } = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
+    
     await supabase.from('orders').update({ status: 'REFUND_REQUESTED', refund_reason: reason, refund_status: 'PENDING' }).eq('id', orderId);
     await supabase.from('customers').update({ admin_notes: null }).eq('phone', to);
+    
+    if (order) {
+        await supabase.from('refunds').insert({
+            order_id: orderId,
+            amount: order.total_amount,
+            reason: reason,
+            status: 'REQUESTED'
+        });
+    }
     
     return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.`, [{ id: "menu_main", title: "Main Menu" }]);
 }

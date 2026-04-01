@@ -23,6 +23,7 @@
   --text-main: 0 0% 5%;          /* #0d0d0d - Pure Black/Deepest Grey */
   --text-muted: 0 0% 35%;        /* #595959 - Mid Grey (Visible on both) */
   --text-dim: 0 0% 60%;          /* #999999 - Light Grey */
+  --accent: 0 72% 51%;           /* #d43f3f - Premium Deep Saree Red */
   --text-on-primary: 0 0% 100%;
 
   /* UI Elements */
