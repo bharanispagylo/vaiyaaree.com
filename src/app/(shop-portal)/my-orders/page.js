@@ -45,39 +45,9 @@ export default function MyOrdersPage() {
         }
     }
 
-    async function handleDownloadInvoice(order) {
-        if (order.invoice_url) {
-            window.open(order.invoice_url, '_blank');
-            return;
-        }
-
-        setGeneratingId(order.id);
-        try {
-            await fetch('/api/orders/notify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: order.id })
-            });
-
-            const interval = setInterval(async () => {
-                const { data } = await supabase.from('orders').select('invoice_url').eq('id', order.id).single();
-                if (data?.invoice_url) {
-                    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, invoice_url: data.invoice_url } : o));
-                    setGeneratingId(null);
-                    clearInterval(interval);
-                    window.open(data.invoice_url, '_blank');
-                }
-            }, 3000);
-
-            setTimeout(() => {
-                clearInterval(interval);
-                if (generatingId === order.id) setGeneratingId(null);
-            }, 30000);
-
-        } catch (err) {
-            console.error('Failed to trigger invoice generation:', err);
-            setGeneratingId(null);
-        }
+    function handleDownloadInvoice(order) {
+        // Direct link is now used in the UI, this function is kept for fallback reference
+        window.open(`/api/invoice/${order.id}`, '_blank');
     }
 
     function handleCancelClick(order) {
@@ -451,14 +421,15 @@ export default function MyOrdersPage() {
                                     </td>
                                     <td className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
                                         <div className={styles.actionButtons}>
-                                            <button
-                                                onClick={() => handleDownloadInvoice(order)}
-                                                className={`${styles.actionBtn} ${generatingId === order.id ? styles.pulsing : ''}`}
-                                                disabled={generatingId !== null}
+                                            <a
+                                                href={`/api/invoice/${order.id}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`${styles.actionBtn}`}
                                                 title="Download Invoice"
                                             >
                                                 <Download size={16} />
-                                            </button>
+                                            </a>
                                             
                                             {canCancel(order.status) && (
                                                 <button

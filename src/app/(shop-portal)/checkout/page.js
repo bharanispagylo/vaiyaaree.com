@@ -16,21 +16,13 @@ export default function CheckoutPage() {
     const [invoiceUrl, setInvoiceUrl] = useState(null);
     const [polling, setPolling] = useState(false);
 
-    // Polling for invoice_url
+    // The invoice is now dynamically generated via the API route natively without needing to wait
+    // for an external worker to upload to supabase. We can just link directly to it.
     useEffect(() => {
-        let interval;
-        if (orderData?.orderId && !invoiceUrl) {
-            setPolling(true);
-            interval = setInterval(async () => {
-                const { data } = await supabase.from('orders').select('invoice_url').eq('id', orderData.orderId).single();
-                if (data?.invoice_url) {
-                    setInvoiceUrl(data.invoice_url);
-                    setPolling(false);
-                    clearInterval(interval);
-                }
-            }, 3000);
+        if (orderData?.orderId) {
+            setInvoiceUrl(`/api/invoice/${orderData.orderId}`);
+            setPolling(false);
         }
-        return () => clearInterval(interval);
     }, [orderData?.orderId, invoiceUrl, supabase]);
 
     // Sync shipping with billing when sameAsBilling is checked
