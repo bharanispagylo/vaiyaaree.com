@@ -111,38 +111,49 @@ export default function RefundsPage() {
             let updates = {
                 status: processAction === 'approve' ? 'APPROVED' : 
                         processAction === 'reject' ? 'REJECTED' : 'COMPLETED',
-                admin_notes: processNote,
-                updated_at: now
+                // Removed non-existent temporal columns to prevent database errors
+                // updated_at: now 
             };
 
-            if (processAction === 'approve') {
-                updates.approved_at = now;
-            } else if (processAction === 'complete') {
-                updates.completed_at = now;
-                // Update order status to REFUNDED
-                await supabase.from('orders').update({ 
+            // Order status update (only for COMPLETION)
+            if (processAction === 'complete') {
+                const { error: orderError } = await supabase.from('orders').update({ 
                     status: 'REFUNDED',
-                    updated_at: now 
+                    admin_notes: `Refund processed and completed on ${new Date().toLocaleString()}. Note: ${processNote}`
                 }).eq('id', selectedRefund.order_id);
+                if (orderError) throw orderError;
             }
 
-            const { error } = await supabase
+            // Update main refund record
+            const { error: refundError } = await supabase
                 .from('refunds')
                 .update(updates)
                 .eq('id', selectedRefund.id);
+            if (refundError) throw refundError;
 
-            // Add activity log manually
-            await supabase.from('order_status_logs').insert({
+            // Add activity log manually (Standard auditing)
+            const { error: logError } = await supabase.from('order_status_logs').insert({
                 order_id: selectedRefund.order_id,
                 status: updates.status,
                 notes: `Refund ${updates.status}: ${processNote || 'Processed by Admin'}`,
                 created_at: now
             });
+            if (logError) throw logError;
 
-            if (error) throw error;
-
-            // Send notification to customer
-            await sendRefundNotification(selectedRefund, updates.status);
+            // Send notification to customer via WhatsApp
+            try {
+                await fetch('/api/refunds/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        refundId: selectedRefund.id, 
+                        status: updates.status, 
+                        notes: processNote 
+                    })
+                });
+            } catch (err) {
+                console.error('Notification error:', err);
+            }
 
             showNotification(`Refund ${processAction}ed successfully`, 'success');
             setShowProcessModal(false);
@@ -150,39 +161,16 @@ export default function RefundsPage() {
             setProcessNote('');
             fetchRefunds();
         } catch (err) {
-            console.error('Error processing refund:', err);
-            showNotification('Failed to process refund', 'error');
+            console.error('Error processing refund:', err.message || err);
+            if (typeof err === 'object') {
+                console.log('Detailed error:', JSON.stringify(err, null, 2));
+            }
+            showNotification(`Failed to process refund: ${err.message || 'Unknown error'}`, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const sendRefundNotification = async (refund, status) => {
-        try {
-            // This would integrate with your WhatsApp/email notification system
-            const order = refund.orders;
-            if (!order) return;
-
-            const message = status === 'APPROVED' 
-                ? `Your refund request for Order #${order.id} has been APPROVED. Refund amount: ₹${refund.amount}. It will be processed within 5-7 business days.`
-                : status === 'REJECTED'
-                ? `Your refund request for Order #${order.id} has been REJECTED. Reason: ${refund.admin_notes || 'Please contact support for details.'}`
-                : `Your refund for Order #${order.id} has been COMPLETED. Amount ₹${refund.amount} has been refunded to your original payment method.`;
-
-            // Call notification API
-            await fetch('/api/notifications/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: order.customer_phone,
-                    message: message,
-                    type: 'refund_update'
-                })
-            });
-        } catch (err) {
-            console.error('Error sending notification:', err);
-        }
-    };
 
     const getTimeline = (refund) => {
         const timeline = [];
@@ -307,7 +295,7 @@ export default function RefundsPage() {
             </div>
 
             {/* Refunds Table */}
-            <div style={{ background: 'hsl(var(--bg-card))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', overflow: 'hidden' }}>
+            <div style={{ background: 'hsl(var(--bg-card))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', overflowX: 'auto' }}>
                 {loading ? (
                     <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>
                         <RefreshCcw size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '1rem' }} />
@@ -328,7 +316,7 @@ export default function RefundsPage() {
                                 <th>Reason</th>
                                 <th>Status</th>
                                 <th>Requested</th>
-                                <th>Actions</th>
+                                <th style={{ minWidth: '220px' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>

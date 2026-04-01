@@ -71,8 +71,9 @@ export default function AnalyticsHub() {
         }
 
         // 1. Summary Stats
-        const totalRevenue = filteredOrders.reduce((sum, o) => sum + (o.status !== 'CANCELLED' ? (o.total_amount || 0) : 0), 0);
-        const avgOrderValue = filteredOrders.length ? (totalRevenue / filteredOrders.length) : 0;
+        const validOrders = filteredOrders.filter(o => o.status !== 'CANCELLED');
+        const totalRevenue = validOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+        const avgOrderValue = validOrders.length ? (totalRevenue / validOrders.length) : 0;
 
         // 2. Sales Trend (Dynamic based on range)
         const trendMap = {};

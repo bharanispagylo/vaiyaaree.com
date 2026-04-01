@@ -60,7 +60,7 @@ export default function CheckoutPage() {
     const states = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"];
 
     const handlePlaceOrder = async () => {
-        if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingAddress) {
+        if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingAddress || !checkoutForm.billingCity || !checkoutForm.billingPincode || !checkoutForm.billingWhatsApp || !checkoutForm.billingEmail) {
             showToast('Please fill all required billing details', 'error');
             return;
         }
@@ -292,14 +292,25 @@ export default function CheckoutPage() {
                         </div>
                     </div>
 
-                    <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
-                        <label>WHATSAPP NUMBER (Optional)</label>
-                        <input 
-                            type="tel" 
-                            value={checkoutForm.billingWhatsApp || ''} 
-                            onChange={e => setCheckoutForm(p => ({ ...p, billingWhatsApp: e.target.value }))} 
-                            placeholder="WhatsApp number for order updates" 
-                        />
+                    <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                        <div className={styles.formGroup}>
+                            <label>WHATSAPP NUMBER</label>
+                            <input 
+                                type="tel" 
+                                value={checkoutForm.billingWhatsApp || ''} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingWhatsApp: e.target.value }))} 
+                                placeholder="WhatsApp number for order updates" 
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label>EMAIL ADDRESS</label>
+                            <input 
+                                type="email" 
+                                value={checkoutForm.billingEmail || ''} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingEmail: e.target.value }))} 
+                                placeholder="your@email.com" 
+                            />
+                        </div>
                     </div>
 
                     <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
@@ -341,15 +352,6 @@ export default function CheckoutPage() {
                                 value={checkoutForm.billingPincode || ''} 
                                 onChange={e => setCheckoutForm(p => ({ ...p, billingPincode: e.target.value }))} 
                                 placeholder="6-digit pincode" 
-                            />
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label>EMAIL (Optional)</label>
-                            <input 
-                                type="email" 
-                                value={checkoutForm.billingEmail || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingEmail: e.target.value }))} 
-                                placeholder="your@email.com" 
                             />
                         </div>
                     </div>

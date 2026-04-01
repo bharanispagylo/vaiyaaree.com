@@ -52,14 +52,15 @@ export default function AdminDashboard() {
                 ]);
 
                 const orders = ordersRes.data || [];
+                const activeOrders = orders.filter(o => o.status !== 'CANCELLED');
                 const today = new Date().toISOString().split('T')[0];
 
-                const totalRevenue = orders.reduce((s, o) => s + (o.total_amount || 0), 0);
-                const uniqueCustomers = new Set(orders.map(o => o.customer_phone)).size;
-                const pendingOrders = orders.filter(o => ['PENDING', 'PLACED', 'AWAITING_PAYMENT'].includes(o.status)).length;
-                const shippedOrders = orders.filter(o => o.status === 'SHIPPED').length;
-                const deliveredOrders = orders.filter(o => o.status === 'DELIVERED').length;
-                const todayOrders = orders.filter(o => o.created_at?.startsWith(today)).length;
+                const totalRevenue = activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
+                const uniqueCustomers = new Set(activeOrders.map(o => o.customer_phone)).size;
+                const pendingOrders = activeOrders.filter(o => ['PENDING', 'PLACED', 'AWAITING_PAYMENT'].includes(o.status)).length;
+                const shippedOrders = activeOrders.filter(o => o.status === 'SHIPPED').length;
+                const deliveredOrders = activeOrders.filter(o => o.status === 'DELIVERED').length;
+                const todayOrders = activeOrders.filter(o => o.created_at?.startsWith(today)).length;
 
                 const lowStock = (productsRes.data || []).filter(p => p.stock < 5).slice(0, 5);
 
@@ -74,7 +75,7 @@ export default function AdminDashboard() {
                 });
                 const topSelling = Object.values(productSales).sort((a, b) => b.sold - a.sold).slice(0, 5);
 
-                const newStats = { revenue: totalRevenue, orders: orders.length, customers: uniqueCustomers, pending: pendingOrders, shipped: shippedOrders, delivered: deliveredOrders, todayOrders };
+                const newStats = { revenue: totalRevenue, orders: activeOrders.length, customers: uniqueCustomers, pending: pendingOrders, shipped: shippedOrders, delivered: deliveredOrders, todayOrders };
                 const newRecent = orders.slice(0, 6);
 
                 // Store in cache

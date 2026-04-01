@@ -124,7 +124,8 @@ export default function InvoicesPage() {
     const totalInvoicePages = Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE);
     const paginatedInvoices = filteredInvoices.slice((invoicePage - 1) * INVOICES_PER_PAGE, invoicePage * INVOICES_PER_PAGE);
 
-    const totalRevenue = invoices.reduce((s, o) => s + (o.total_amount || 0), 0);
+    const activeOrders = invoices.filter(o => o.status !== 'CANCELLED');
+    const totalRevenue = activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
     const paidInvoices = invoices.filter(o => ['PAID', 'DELIVERED', 'SHIPPED'].includes(o.status));
     const paidTotal = paidInvoices.reduce((s, o) => s + (o.total_amount || 0), 0);
     const unpaidTotal = totalRevenue - paidTotal;

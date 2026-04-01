@@ -163,9 +163,10 @@ export default function InvoiceReportPage() {
     };
 
     const filteredOrders = orders.filter(o =>
-        o.id.toString().includes(searchTerm) ||
+        (o.status !== 'CANCELLED') &&
+        (o.id.toString().includes(searchTerm) ||
         o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.customer_phone?.includes(searchTerm)
+        o.customer_phone?.includes(searchTerm))
     );
 
     const metrics = {

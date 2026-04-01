@@ -23,7 +23,7 @@
   --text-main: 0 0% 5%;          /* #0d0d0d - Pure Black/Deepest Grey */
   --text-muted: 0 0% 35%;        /* #595959 - Mid Grey (Visible on both) */
   --text-dim: 0 0% 60%;          /* #999999 - Light Grey */
-  --accent: 0 72% 51%;           /* #d43f3f - Premium Deep Saree Red */
+  --accent: 0 0% 10%;           /* Premium Matte Black (Matching Primary) */
   --text-on-primary: 0 0% 100%;
 
   /* UI Elements */
@@ -40,7 +40,7 @@
   --radius-sm: 0.5rem;
   --radius: 0.75rem;
   --radius-lg: 1.25rem;
-  --sidebar-width: 15rem;
+  --sidebar-width: 17rem;
 
   /* Premium Effects */
   --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.05);

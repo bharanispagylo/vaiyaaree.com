@@ -73,6 +73,7 @@
 }
 
 .formGroup input,
+.formGroupFull input,
 .formGroupFull textarea,
 .formGroup select {
     background: hsl(var(--text-main) / 0.04);
@@ -86,6 +87,7 @@
 }
 
 .formGroup input:focus,
+.formGroupFull input:focus,
 .formGroupFull textarea:focus {
     border-color: hsl(var(--primary) / 0.4);
     background: hsl(var(--text-main) / 0.07);

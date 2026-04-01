@@ -84,9 +84,7 @@ export default function OrdersPage() {
     const [showResendEmailModal, setShowResendEmailModal] = useState(false);
     const [showResendWhatsAppModal, setShowResendWhatsAppModal] = useState(false);
     const [statusConfirmModal, setStatusConfirmModal] = useState(null);
-    const [showRefundModal, setShowRefundModal] = useState(false);
-    const [refundAmount, setRefundAmount] = useState('');
-    const [refundReason, setRefundReason] = useState('');
+
     const [newOrder, setNewOrder] = useState({
         customer_name: '',
         customer_phone: '',
@@ -553,67 +551,7 @@ export default function OrdersPage() {
         }
     };
 
-    const handleRefund = async () => {
-        if (!selectedOrder || !refundAmount || !refundReason.trim()) return;
 
-        const amount = parseFloat(refundAmount);
-        if (isNaN(amount) || amount <= 0 || amount > selectedOrder.total_amount) {
-            setNotification({ message: '❌ Invalid refund amount', type: 'error' });
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // Update order with refund info
-            await supabase
-                .from('orders')
-                .update({
-                    refund_amount: amount,
-                    refund_status: 'PENDING',
-                    refund_reason: refundReason,
-                    admin_notes: `Refund of ₹${amount} requested. Reason: ${refundReason}`
-                })
-                .eq('id', selectedOrder.id);
-
-            // Add to activity log
-            await supabase.from('order_status_logs').insert({
-                order_id: selectedOrder.id,
-                status: 'REFUND_REQUESTED',
-                notes: `Refund of ₹${amount} requested. Reason: ${refundReason}`,
-                created_at: new Date().toISOString()
-            });
-
-            // Create entry in refunds table for the Refunds page
-            const { error: refundError } = await supabase.from('refunds').insert({
-                order_id: selectedOrder.id,
-                amount: amount,
-                reason: refundReason,
-                status: 'REQUESTED'
-            });
-
-            if (refundError) {
-                console.error('Manual refund insert error:', refundError);
-                setNotification({ message: `⚠️ Refund requested, but tracking failed: ${refundError.message}`, type: 'warning' });
-            } else {
-                setNotification({ message: '✅ Refund request successfully sent to Refunds list', type: 'success' });
-            }
-
-            setShowRefundModal(false);
-            setRefundAmount('');
-            setRefundReason('');
-            fetchOrders();
-
-            // Refresh selected order
-            const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', selectedOrder.id).single();
-            setSelectedOrder(updatedOrder);
-
-        } catch (err) {
-            console.error('Refund Error:', err);
-            setNotification({ message: '❌ Failed to process refund', type: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const saveOrderEdits = async () => {
         try {
@@ -1635,52 +1573,7 @@ export default function OrdersPage() {
                                                 )}
 
 
-                                                {/* Refund Button */}
-                                                <button
-                                                    onClick={() => setShowRefundModal(true)}
-                                                    className="btn btn-secondary"
-                                                    style={{ width: '100%' }}
-                                                >
-                                                    <IndianRupee size={16} /> Process Refund
-                                                </button>
 
-                                                {/* Refund Modal */}
-                                                {showRefundModal && (
-                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#fef3c7', borderRadius: '10px', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                            <IndianRupee size={14} /> Process Refund
-                                                        </div>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="Refund Amount (₹)"
-                                                            value={refundAmount}
-                                                            onChange={e => setRefundAmount(e.target.value)}
-                                                            style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
-                                                        />
-                                                        <textarea
-                                                            placeholder="Enter refund reason..."
-                                                            value={refundReason}
-                                                            onChange={e => setRefundReason(e.target.value)}
-                                                            style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', minHeight: '60px' }}
-                                                        />
-                                                        <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>
-                                                            Max refund: ₹{selectedOrder?.total_amount?.toLocaleString()}
-                                                        </div>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                            <button onClick={() => { setShowRefundModal(false); setRefundAmount(''); setRefundReason(''); }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                            <button
-                                                                onClick={handleRefund}
-                                                                disabled={!refundAmount || !refundReason.trim()}
-                                                                className="btn btn-primary"
-                                                                style={{ fontSize: '0.8rem', background: '#f59e0b' }}
-                                                            >Process Refund</button>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                <a href={`https://wa.me/${selectedOrder.customer_phone}`} className="btn btn-secondary" style={{ width: '100%', textAlign: 'center', justifyContent: 'center' }}>
-                                                    <MessageCircle size={14} /> Contact via WhatsApp
-                                                </a>
                                                 <button
                                                     onClick={() => handleDeleteOrder(selectedOrder.id)}
                                                     className="btn"
@@ -1737,30 +1630,7 @@ export default function OrdersPage() {
                                             </div>
                                         )}
 
-                                        {/* Refund Info Display */}
-                                        {(selectedOrder.refund_amount || selectedOrder.refund_status) && (
-                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#fef3c7', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#f59e0b', marginBottom: '0.5rem' }}>💰 Refund Info</h4>
-                                                {selectedOrder.refund_amount > 0 && (
-                                                    <div style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Refund Amount:</span>
-                                                        <span style={{ marginLeft: '0.5rem', fontWeight: 600 }}>₹{selectedOrder.refund_amount.toLocaleString()}</span>
-                                                    </div>
-                                                )}
-                                                {selectedOrder.refund_status && (
-                                                    <div style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Refund Status:</span>
-                                                        <span style={{ marginLeft: '0.5rem', textTransform: 'uppercase', fontWeight: 600 }}>{selectedOrder.refund_status}</span>
-                                                    </div>
-                                                )}
-                                                {selectedOrder.refund_reason && (
-                                                    <div style={{ fontSize: '0.85rem' }}>
-                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Reason:</span>
-                                                        <span style={{ marginLeft: '0.5rem' }}>{selectedOrder.refund_reason}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+
 
                                     </div>
                                 </div>

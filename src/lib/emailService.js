@@ -33,8 +33,14 @@ export async function sendOrderConfirmationEmail(order) {
     const invoiceUrl = order.invoice_url || `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`;
     const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order-confirmation?orderId=${order.id}`;
 
-    const { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
-    const shopLogo = logoSetting?.value || '';
+    let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
+    let shopLogo = logoSetting?.value || '';
+    
+    // Ensure shopLogo is an absolute URL for email clients
+    if (shopLogo && !shopLogo.startsWith('http')) {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+        shopLogo = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (shopLogo.startsWith('/') ? '' : '/') + shopLogo;
+    }
 
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Cast Printz" <orders@castprintz.com>',
@@ -130,8 +136,14 @@ export async function sendOrderConfirmationEmail(order) {
 export async function sendOrderStatusEmail(order, status) {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return { success: true };
     
-    const { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
-    const shopLogo = logoSetting?.value || '';
+    let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
+    let shopLogo = logoSetting?.value || '';
+    
+    // Ensure shopLogo is an absolute URL for email clients
+    if (shopLogo && !shopLogo.startsWith('http')) {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+        shopLogo = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (shopLogo.startsWith('/') ? '' : '/') + shopLogo;
+    }
 
     const statusConfig = {
         'PAID': { title: 'Payment Confirmed', body: 'We have received your payment for order #' + order.id + '. Your order is being processed.' },

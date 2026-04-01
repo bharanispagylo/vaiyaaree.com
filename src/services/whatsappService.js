@@ -21,17 +21,22 @@ const truncate = (str, limit) => (str && str.length > limit) ? str.substring(0, 
 function normalizePhoneNumber(phone) {
     if (!phone) return phone;
     
-    // Remove any non-digit characters
+    // Remove any non-digit characters (+ , - , space)
     let digits = phone.replace(/\D/g, '');
     
-    // If it starts with 0, remove the leading 0 and add India country code (91)
-    if (digits.startsWith('0')) {
-        digits = '91' + digits.substring(1);
+    // Remove leading zeros
+    while (digits.startsWith('0')) {
+        digits = digits.substring(1);
     }
     
-    // If it doesn't have a country code (less than 12 digits for India), add 91
-    if (digits.length === 10) {
-        digits = '91' + digits;
+    // If it starts with 91 and has 12 digits, it's correct for India
+    if (digits.length === 12 && digits.startsWith('91')) {
+        return digits;
+    }
+    
+    // If it has 10 digits and starts with [6-9], add 91
+    if (digits.length === 10 && /^[6789]/.test(digits)) {
+        return '91' + digits;
     }
     
     return digits;
@@ -234,16 +239,36 @@ export async function sendDocument(to, link, caption, filename) {
 // ─── 3. CART MANAGEMENT & STOCK ───────────────────────────────────────────────
 
 async function getCart(phone) {
-    const { data } = await supabase.from('whatsapp_cart').select('*').eq('phone', phone).order('created_at', { ascending: true });
+    const normalizedPhone = normalizePhoneNumber(phone);
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2));
+    }
+
+    const { data } = await supabase
+        .from('whatsapp_cart')
+        .select('*')
+        .in('phone', phoneVariations)
+        .order('created_at', { ascending: true });
     return data || [];
 }
 
 async function addToCart(phone, product, quantity = 1, variant = null) {
+    const normalizedPhone = normalizePhoneNumber(phone);
     const productId = product.id;
     const variantId = variant?.id || null;
 
-    // Check if same product+variant combo exists
-    const query = supabase.from('whatsapp_cart').select('*').eq('phone', phone).eq('product_id', productId);
+    // Check both variations
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2));
+    }
+
+    const query = supabase.from('whatsapp_cart')
+        .select('*')
+        .in('phone', phoneVariations)
+        .eq('product_id', productId);
+    
     if (variantId) query.eq('variant_id', variantId);
     else query.is('variant_id', null);
 
@@ -253,7 +278,7 @@ async function addToCart(phone, product, quantity = 1, variant = null) {
         await supabase.from('whatsapp_cart').update({ quantity: existing.quantity + quantity }).eq('id', existing.id);
     } else {
         await supabase.from('whatsapp_cart').insert({
-            phone,
+            phone: normalizedPhone,
             product_id: productId,
             product_name: product.name,
             price: variant ? variant.price : product.price,
@@ -266,7 +291,12 @@ async function addToCart(phone, product, quantity = 1, variant = null) {
 }
 
 async function clearCart(phone) {
-    await supabase.from('whatsapp_cart').delete().eq('phone', phone);
+    const normalizedPhone = normalizePhoneNumber(phone);
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2));
+    }
+    await supabase.from('whatsapp_cart').delete().in('phone', phoneVariations);
 }
 
 // Deduct stock for all items in an order
@@ -440,199 +470,233 @@ async function getLocalLogoAsBase64() {
 async function generateAndUploadInvoice(order) {
     try {
         const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const centerX = pageWidth / 2;
+        const margin = 15;
+        const rightColX = 140;
 
         // Fetch branding from settings
-        let branding = {
+        let settings = {
             shop_name: 'Cast Printz',
-            shop_logo: ''
+            shop_logo: '',
+            shop_address: 'Premium Textiles',
+            shop_gstin: '',
+            bill_footer: 'Thank you for shopping with us!'
         };
 
         try {
             const { data } = await supabase.from('app_settings').select('*');
             if (data) {
                 data.forEach(item => {
-                    if (item.key === 'shop_name' || item.key === 'companyName') {
-                        branding.shop_name = item.value;
-                    } else if (item.key === 'shop_logo') {
-                        branding.shop_logo = item.value;
-                    }
+                    if (item.key === 'shop_name' || item.key === 'companyName') settings.shop_name = item.value;
+                    else if (item.key === 'shop_logo') settings.shop_logo = item.value;
+                    else if (item.key === 'shop_address') settings.shop_address = item.value;
+                    else if (item.key === 'shop_gstin') settings.shop_gstin = item.value;
+                    else if (item.key === 'bill_footer') settings.bill_footer = item.value;
                 });
             }
-        } catch (e) {
-            console.error("PDF Branding Error:", e);
-        }
+        } catch (e) { console.error("PDF Branding Error:", e); }
 
-        // Header with logo if available
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const centerX = pageWidth / 2;
-
-        if (branding.shop_logo) {
-            try {
-                let logoBase64 = null;
-                
-                // First, try to use local logo file
-                logoBase64 = await getLocalLogoAsBase64();
-                
-                // If no local logo, try fetching from URL
-                if (!logoBase64 && branding.shop_logo.startsWith('http')) {
-                    logoBase64 = await fetchLogoAsBase64(branding.shop_logo);
-                }
-                
-                // If we have a logo (local or fetched), add it to PDF
-                if (logoBase64) {
-                    // Add logo image to PDF
-                    doc.addImage(logoBase64, 'PNG', centerX - 15, 10, 30, 30);
-                    doc.setFontSize(18);
-                    doc.text(branding.shop_name || "Cast Printz", centerX, 50, { align: "center" });
-                } else {
-                    throw new Error('No logo available');
-                }
-            } catch (imgError) {
-                console.error('[INVOICE] Logo processing error:', imgError);
-                // Fallback to text if image fails
-                doc.setFontSize(22);
-                doc.text(branding.shop_name || "Cast Printz", centerX, 20, { align: "center" });
-            }
+        // --- 1. HEADER ---
+        // Logo & Shop Name (Left)
+        let logoBase64 = await getLocalLogoAsBase64() || (settings.shop_logo.startsWith('http') ? await fetchLogoAsBase64(settings.shop_logo) : null);
+        if (logoBase64) {
+            doc.addImage(logoBase64, 'PNG', margin, 10, 20, 20);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text(settings.shop_name, margin + 25, 23);
         } else {
+            doc.setFont("helvetica", "bold");
             doc.setFontSize(22);
-            doc.text(branding.shop_name || "Cast Printz", centerX, 20, { align: "center" });
+            doc.text(settings.shop_name, margin, 25);
         }
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text(settings.shop_address, margin + (logoBase64 ? 25 : 0), 28);
+        if (settings.shop_gstin) doc.text(`GSTIN: ${settings.shop_gstin}`, margin + (logoBase64 ? 25 : 0), 32);
+
+        // Header Title (Right)
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(24);
+        doc.setFont("helvetica", "bold");
+        doc.text("INVOICE", 195, 25, { align: "right" });
         
         doc.setFontSize(10);
-        doc.text(`Order ID: #${order.id}`, 15, 35);
-        doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 40);
+        doc.setFont("helvetica", "bold");
+        doc.text(`#${order.id}`, 195, 31, { align: "right" });
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text(`${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, 195, 36, { align: "right" });
 
-        // Customer Info - Show billing and shipping
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 45, 195, 45);
+
+        // --- 2. BILL TO & PAYMENT INFO ---
         let y = 55;
-        
-        // Billing Address
+        doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
-        doc.text("Bill To:", 15, y);
+        doc.setTextColor(150, 150, 150);
+        doc.text("BILL TO", margin, y);
+        doc.text("PAYMENT INFO", rightColX, y);
+        
+        y += 6;
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(order.customer_name || 'Customer', margin, y);
+        doc.setFontSize(10);
+        doc.text(`Method: ${order.payment_method || 'COD'}`, rightColX, y);
+        
+        y += 5;
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        y += 6;
+        doc.setTextColor(80, 80, 80);
+        doc.text(`${order.customer_phone || ''}`, margin, y);
+        doc.text(`Status: ${order.status}`, rightColX, y);
+
+        // Delivery Address
+        y += 8;
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(150, 150, 150);
+        doc.text("BILLING ADDRESS", margin, y);
+        doc.text("SHIPPING ADDRESS", margin + 70, y);
+
+        y += 5;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 60, 60);
         
-        const billing = order.billing_address || {};
-        const billingName = billing.name || order.customer_name || 'Valued Customer';
-        const billingAddr = billing.address || order.delivery_address || 'Address provided';
-        const billingMobile = billing.mobile || order.customer_phone || '';
-        
-        doc.text(billingName, 15, y);
-        y += 6;
-        if (billingMobile) {
-            doc.text(`📱 ${billingMobile}`, 15, y);
-            y += 6;
-        }
-        const splitBilling = doc.splitTextToSize(billingAddr, 80);
-        doc.text(splitBilling, 15, y);
-        y += splitBilling.length * 6 + 4;
-        
-        // Shipping Address (if different from billing)
-        const shipping = order.shipping_address || {};
-        const shippingAddr = shipping.address || billingAddr;
-        
-        if (shippingAddr !== billingAddr || shipping.name !== billingName) {
-            doc.setFont("helvetica", "bold");
-            doc.text("Ship To:", 15, y);
-            doc.setFont("helvetica", "normal");
-            y += 6;
-            
-            const shipName = shipping.name || billingName;
-            const shipMobile = shipping.mobile || billingMobile;
-            
-            doc.text(shipName, 15, y);
-            y += 6;
-            if (shipMobile) {
-                doc.text(`📱 ${shipMobile}`, 15, y);
-                y += 6;
+        const addrNormalizer = (addr) => {
+            if (!addr) return "Same as billing";
+            if (typeof addr === 'string') {
+                try {
+                    const p = JSON.parse(addr);
+                    return `${p.address || ''}, ${p.city || ''}, ${p.state || ''} ${p.pincode || ''}`;
+                } catch { return addr; }
             }
-            const splitShipping = doc.splitTextToSize(shippingAddr, 80);
-            doc.text(splitShipping, 15, y);
-            y += splitShipping.length * 6 + 10;
-        } else {
-            y += 10;
-        }
+            return `${addr.address || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.pincode || ''}`;
+        };
 
-        // Items
-        doc.setFillColor(240, 240, 240);
-        doc.rect(10, y, 190, 8, 'F');
+        const billingAddr = addrNormalizer(order.billing_address || order.delivery_address);
+        const shippingAddr = addrNormalizer(order.shipping_address || order.delivery_address);
+
+        const billLines = doc.splitTextToSize(billingAddr, 60);
+        const shipLines = doc.splitTextToSize(shippingAddr, 60);
+        doc.text(billLines, margin, y);
+        doc.text(shipLines, margin + 70, y);
+        
+        y += Math.max(billLines.length, shipLines.length) * 5 + 10;
+
+        // --- 3. ITEMS TABLE ---
+        doc.setFillColor(245, 246, 247);
+        doc.rect(margin, y, 180, 10, 'F');
         doc.setFont("helvetica", "bold");
-        doc.text("Item", 15, y + 6);
-        doc.text("Qty", 140, y + 6, { align: "right" });
-        doc.text("Price", 170, y + 6, { align: "right" });
-        doc.text("Total", 195, y + 6, { align: "right" });
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text("#", margin + 3, y + 6.5);
+        doc.text("ITEM", margin + 15, y + 6.5);
+        doc.text("QTY", 140, y + 6.5, { align: "center" });
+        doc.text("PRICE", 165, y + 6.5, { align: "right" });
+        doc.text("TOTAL", 195, y + 6.5, { align: "right" });
 
-        y += 14;
+        y += 15;
         doc.setFont("helvetica", "normal");
+        doc.setTextColor(0, 0, 0);
 
-        let grandTotal = 0;
         if (order.order_items) {
-            order.order_items.forEach(item => {
+            order.order_items.forEach((item, i) => {
                 const total = item.price_at_time * item.quantity;
-                grandTotal += total;
+                doc.setTextColor(150, 150, 150);
+                doc.text(String(i + 1), margin + 3, y);
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFont("helvetica", "bold");
                 const itemName = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
-                doc.text(itemName.substring(0, 35), 15, y);
-                doc.text(String(item.quantity), 140, y, { align: "right" });
-                doc.text(item.price_at_time.toLocaleString(), 170, y, { align: "right" });
+                doc.text(itemName.substring(0, 45), margin + 15, y);
+                
+                doc.setFont("helvetica", "normal");
+                doc.text(String(item.quantity), 140, y, { align: "center" });
+                doc.text((item.price_at_time || 0).toLocaleString(), 165, y, { align: "right" });
+                doc.setFont("helvetica", "bold");
                 doc.text(total.toLocaleString(), 195, y, { align: "right" });
-                y += 8;
+                
+                y += 5;
+                doc.setDrawColor(245, 246, 247);
+                doc.line(margin, y, 195, y);
+                y += 7;
             });
         }
 
-        // Summary
-        doc.setFontSize(10);
+        // --- 4. SUMMARY ---
+        y += 5;
+        const summaryWidth = 70;
+        const summaryX = 195 - summaryWidth;
+        
+        doc.setFillColor(249, 250, 251);
+        doc.rect(summaryX, y, summaryWidth, 40, 'F');
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        
+        let sumY = y + 7;
         const subtotal = order.subtotal || (order.total_amount - (order.shipping_cost || 0) - (order.tax_amount || 0));
-        doc.text(`Subtotal:`, 140, y, { align: "right" });
-        doc.text(`Rs. ${subtotal.toLocaleString()}`, 195, y, { align: "right" });
-        y += 6;
-
-        if (order.shipping_cost > 0) {
-            doc.text(`Shipping:`, 140, y, { align: "right" });
-            doc.text(`Rs. ${order.shipping_cost.toLocaleString()}`, 195, y, { align: "right" });
-            y += 6;
+        doc.text("Subtotal:", summaryX + 5, sumY);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Rs. ${subtotal.toLocaleString()}`, 195 - 5, sumY, { align: "right" });
+        
+        sumY += 6;
+        doc.setTextColor(100, 100, 100);
+        doc.text("Shipping:", summaryX + 5, sumY);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Rs. ${(order.shipping_cost || 0).toLocaleString()}`, 195 - 5, sumY, { align: "right" });
+        
+        if (order.tax_amount > 0) {
+            sumY += 6;
+            doc.setTextColor(100, 100, 100);
+            doc.text("Tax:", summaryX + 5, sumY);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Rs. ${parseFloat(order.tax_amount).toLocaleString()}`, 195 - 5, sumY, { align: "right" });
         }
-
-        const cgst = order.cgst || 0;
-        const sgst = order.sgst || 0;
-        const igst = order.igst || 0;
-        const taxAmount = order.tax_amount || (cgst + sgst + igst);
-
-        if (taxAmount > 0) {
-            if (cgst > 0 || sgst > 0) {
-                if (cgst > 0) {
-                    doc.text(`CGST (2.5%):`, 140, y, { align: "right" });
-                    doc.text(`Rs. ${cgst.toLocaleString()}`, 195, y, { align: "right" });
-                    y += 6;
-                }
-                if (sgst > 0) {
-                    doc.text(`SGST (2.5%):`, 140, y, { align: "right" });
-                    doc.text(`Rs. ${sgst.toLocaleString()}`, 195, y, { align: "right" });
-                    y += 6;
-                }
-            } else if (igst > 0) {
-                doc.text(`IGST (5%):`, 140, y, { align: "right" });
-                doc.text(`Rs. ${igst.toLocaleString()}`, 195, y, { align: "right" });
-                y += 6;
-            }
-        }
-
-        y += 2;
+        
+        sumY += 10;
+        doc.setDrawColor(230, 230, 230);
+        doc.line(summaryX + 5, sumY - 4, 195 - 5, sumY - 4);
+        
+        doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
-        doc.text(`Grand Total: Rs. ${(order.total_amount || grandTotal).toLocaleString()}`, 195, y, { align: "right" });
+        doc.text("Grand Total:", summaryX + 5, sumY);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Rs. ${(order.total_amount || 0).toLocaleString()}`, 195 - 5, sumY, { align: "right" });
 
+        // --- 5. FOOTER ---
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(100, 100, 100);
+        doc.text(settings.bill_footer, margin, 270);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(`Generated on ${new Date().toLocaleString()} | Visit castprintz.vercel.app`, margin, 275);
+
+        // Upload
         const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
         const fileName = `invoice_${order.id}.pdf`;
-        const { error } = await supabase.storage.from('invoices').upload(fileName, pdfBuffer, { contentType: 'application/pdf', upsert: true });
+        const { error: uploadError } = await supabase.storage.from('invoices').upload(fileName, pdfBuffer, { contentType: 'application/pdf', upsert: true });
 
-        if (error) return null;
-        const { data } = supabase.storage.from('invoices').getPublicUrl(fileName);
-        const invoiceUrl = data.publicUrl;
+        if (uploadError) {
+            console.error("PDF Upload Error:", uploadError);
+            return null;
+        }
+        
+        const { data: urlData } = supabase.storage.from('invoices').getPublicUrl(fileName);
+        const invoiceUrl = urlData.publicUrl;
 
-        // Save URL to Database
         await supabase.from('orders').update({ invoice_url: invoiceUrl }).eq('id', order.id);
-
         return invoiceUrl;
-    } catch (e) { console.error(e); return null; }
+    } catch (e) { console.error("PDF Generator Error:", e); return null; }
 }
 
 // ─── 5. FLOW FUNCTIONS ───────────────────────────────────────────────────────
@@ -728,11 +792,20 @@ export async function sendMainMenu(to) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprintz.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
-    // Fetch dynamic welcome message from settings, fallback to standard text
+    // Fetch dynamic welcome message
     const welcomeMsg = await getConfig('wa_welcome_message', 'Explore our premium collection and manage your orders:');
+    
+    // Fetch welcome image or shop logo
+    let welcomeImg = await getConfig('wa_welcome_image', null) || await getConfig('shop_logo', 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1000&q=80');
 
-    // Directly Send Action Buttons - Main Menu
-    await sendButtons(to, `${welcomeMsg}\n\nShop Online: ${shopUrl}`, [
+    // Ensure it's absolute URL so WhatsApp can display it
+    if (welcomeImg && !welcomeImg.startsWith('http')) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprintz.vercel.app');
+        welcomeImg = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (welcomeImg.startsWith('/') ? '' : '/') + welcomeImg;
+    }
+
+    // Use sendImageButtons for a richer first impression
+    await sendImageButtons(to, welcomeImg, `${welcomeMsg}\n\n🛒 Shop Online: ${shopUrl}`, [
         { id: "menu_catalogue", title: "View Catalogue" },
         { id: "menu_track", title: "My Orders" },
         { id: "menu_contact", title: "Contact Us" }
@@ -1688,7 +1761,24 @@ export async function handleRefundOrder(to) {
 export async function processRefundOrder(to, orderId) {
     const upperOrderId = orderId.toUpperCase();
     const normalizedPhone = normalizePhoneNumber(to);
-    const { data: order } = await supabase.from('orders').select('*').eq('id', upperOrderId).eq('customer_phone', normalizedPhone).single();
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2));
+    }
+    
+    // Check if order exists and belongs to user (try all phone variations)
+    let order = null;
+    for (const phone of phoneVariations) {
+        const { data } = await supabase.from('orders')
+            .select('*')
+            .eq('id', upperOrderId)
+            .eq('customer_phone', phone)
+            .single();
+        if (data) {
+            order = data;
+            break;
+        }
+    }
     
     if (!order || order.status !== 'DELIVERED') {
         return sendButtons(to, `Order *${orderId}* not found or is not in a refundable status (must be DELIVERED).`, [{ id: "menu_main", title: "Main Menu" }]);
@@ -1704,7 +1794,14 @@ export async function confirmRefundOrder(to, orderId, reason) {
     const { data: order } = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
     
     await supabase.from('orders').update({ status: 'REFUND_REQUESTED', refund_reason: reason, refund_status: 'PENDING' }).eq('id', orderId);
-    await supabase.from('customers').update({ admin_notes: null }).eq('phone', to);
+    
+    const normalizedPhone = normalizePhoneNumber(to);
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2));
+    }
+    
+    await supabase.from('customers').update({ admin_notes: null }).in('phone', phoneVariations);
     
     if (order) {
         await supabase.from('refunds').insert({
@@ -1902,10 +1999,22 @@ export async function processIncomingMessage(body) {
         // --- 0. CUSTOMER SYNC (Always ensure customer exists) ---
         let customer = null;
         try {
-            const { data, error } = await supabase.from('customers').select('*').eq('phone', from).single();
+            // Check both variations
+            const normalizedPhone = normalizePhoneNumber(from);
+            const phoneVariations = [normalizedPhone];
+            if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+                phoneVariations.push(normalizedPhone.substring(2));
+            }
+
+            const { data, error } = await supabase.from('customers')
+                .select('*')
+                .in('phone', phoneVariations)
+                .limit(1)
+                .single();
+
             if (!data) {
                 const { data: newCust, error: insertErr } = await supabase.from('customers').insert({
-                    phone: from,
+                    phone: normalizedPhone,
                     name: profileName,
                     role: 'user'
                 }).select().single();
@@ -2063,10 +2172,16 @@ export async function processIncomingMessage(body) {
 
             // ─── STEP 2: Draft check — only reached for non-keyword messages ───
             // Check for DRAFT orders that need billing or shipping address
+            const normalizedPhone = normalizePhoneNumber(from);
+            const phoneVariations = [normalizedPhone];
+            if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+                phoneVariations.push(normalizedPhone.substring(2));
+            }
+
             const { data: draft } = await supabase
                 .from('orders')
                 .select('id, billing_address, shipping_address')
-                .eq('customer_phone', from)
+                .in('customer_phone', phoneVariations)
                 .eq('status', 'DRAFT')
                 .order('created_at', { ascending: false })
                 .limit(1)
