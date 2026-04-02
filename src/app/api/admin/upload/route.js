@@ -65,17 +65,17 @@ export async function GET() {
     try {
         // List files from root and subfolders
         const { data: rootFiles, error: rootError } = await supabaseAdmin.storage.from(BUCKET_NAME).list('', {
-            limit: 200,
+            limit: 500,
             sortBy: { column: 'created_at', order: 'desc' },
         });
 
         const { data: withWatermarkFiles, error: wmError } = await supabaseAdmin.storage.from(BUCKET_NAME).list('with-watermark', {
-            limit: 200,
+            limit: 500,
             sortBy: { column: 'created_at', order: 'desc' },
         });
 
         const { data: withoutWatermarkFiles, error: noWmError } = await supabaseAdmin.storage.from(BUCKET_NAME).list('without-watermark', {
-            limit: 200,
+            limit: 500,
             sortBy: { column: 'created_at', order: 'desc' },
         });
 
@@ -84,8 +84,8 @@ export async function GET() {
         // Combine all files and add folder information
         const allFiles = [];
         
-        // Process root files
-        (rootFiles || []).filter(f => f.id !== null).forEach(file => {
+        // Process root files (filter out temp files)
+        (rootFiles || []).filter(f => f.id !== null && !f.name.startsWith('temp-check-')).forEach(file => {
             const { data: { publicUrl } } = supabaseAdmin.storage
                 .from(BUCKET_NAME)
                 .getPublicUrl(file.name);
@@ -100,8 +100,8 @@ export async function GET() {
             allFiles.push({ ...file, url: publicUrl, folder: 'with-watermark' });
         });
 
-        // Process without-watermark files
-        (withoutWatermarkFiles || []).filter(f => f.id !== null).forEach(file => {
+        // Process without-watermark files (filter out any stray temp files)
+        (withoutWatermarkFiles || []).filter(f => f.id !== null && !f.name.startsWith('temp-check-')).forEach(file => {
             const { data: { publicUrl } } = supabaseAdmin.storage
                 .from(BUCKET_NAME)
                 .getPublicUrl(`without-watermark/${file.name}`);
@@ -125,6 +125,7 @@ export async function POST(request) {
         const file = formData.get('file');
         const catalogId = formData.get('catalogId'); // Get catalog ID if provided
         const alreadyWatermarked = formData.get('alreadyWatermarked') === 'true'; // Check if already watermarked
+        const skipDetection = formData.get('skipDetection') === 'true'; // New: skip OCR if we know the status
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -138,7 +139,11 @@ export async function POST(request) {
         let hasWatermark = false;
         let folder = 'without-watermark';
         
-        if (alreadyWatermarked) {
+        if (skipDetection) {
+            hasWatermark = alreadyWatermarked;
+            folder = hasWatermark ? 'with-watermark' : 'without-watermark';
+            console.log(`[UPLOAD] Skipping detection for ${file.name} - using hasWatermark: ${hasWatermark}`);
+        } else if (alreadyWatermarked) {
             // Image is already watermarked (e.g., from product upload)
             hasWatermark = true;
             folder = 'with-watermark';

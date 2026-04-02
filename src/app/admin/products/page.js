@@ -1362,7 +1362,9 @@ export default function ProductsPage() {
                                                                     // 2. First, Store the ORIGINAL CLEAN image to Media Library
                                                                     const originalFd = new FormData();
                                                                     originalFd.append('file', file, file.name);
-                                                                    // API will detect no watermark and store in without-watermark folder
+                                                                    originalFd.append('skipDetection', 'true'); // Don't run OCR on original clean file
+                                                                    originalFd.append('alreadyWatermarked', 'false');
+                                                                    
                                                                     await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
 
                                                                     // 3. Proceed with stamping and upload for the product itself
@@ -1477,6 +1479,8 @@ export default function ProductsPage() {
                                                                                 // 1. Store the ORIGINAL CLEAN image to Media Library
                                                                                 const originalFd = new FormData();
                                                                                 originalFd.append('file', file, file.name);
+                                                                                originalFd.append('skipDetection', 'true');
+                                                                                originalFd.append('alreadyWatermarked', 'false');
                                                                                 await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
 
                                                                                 // 2. Perform watermarking for the product variant record

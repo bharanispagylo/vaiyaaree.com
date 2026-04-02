@@ -121,6 +121,8 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
             // 2. First, Store the ORIGINAL CLEAN image to Media Library
             const originalFd = new FormData();
             originalFd.append('file', file, file.name);
+            originalFd.append('skipDetection', 'true');
+            originalFd.append('alreadyWatermarked', 'false');
             await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
 
             // 3. Proceed with assigning and stamping

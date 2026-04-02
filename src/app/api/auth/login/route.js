@@ -2,24 +2,11 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req) {
     try {
-        const text = await req.text();
-        console.log('Raw body:', text);
-
-        if (!text) {
-            return NextResponse.json({ error: 'Empty body' }, { status: 400 });
-        }
-
-        let body;
-        try {
-            body = JSON.parse(text);
-        } catch (e) {
-            console.error('Manual JSON parse error:', e);
-            return NextResponse.json({ error: 'Invalid JSON: ' + e.message, received: text }, { status: 400 });
-        }
-
+        const body = await req.json();
         const { username, password } = body;
-        const VALID_USERNAME = 'castprintz';
-        const VALID_PASSWORD = 'saree2024';
+        
+        const VALID_USERNAME = process.env.ADMIN_USERNAME || 'aiswarya';
+        const VALID_PASSWORD = process.env.ADMIN_PASSWORD || 'saree2024';
 
         if (username === VALID_USERNAME && password === VALID_PASSWORD) {
             return NextResponse.json({ success: true, role: 'admin' });
@@ -28,6 +15,6 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     } catch (error) {
         console.error('Fatal Login error:', error);
-        return NextResponse.json({ error: 'Server error: ' + error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Server error' }, { status: 500 });
     }
 }
