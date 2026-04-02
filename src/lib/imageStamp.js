@@ -93,6 +93,7 @@ export async function uploadWatermarkedImage(blob, catalogId) {
     const formData = new FormData();
     formData.append('file', blob, `${catalogId}-watermarked.jpg`);
     formData.append('catalogId', catalogId); // Pass catalog ID to upload
+    formData.append('alreadyWatermarked', 'true'); // Indicate this image is already watermarked
 
     console.log('Uploading watermarked image with catalog ID:', catalogId);
 

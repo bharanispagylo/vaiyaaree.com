@@ -1359,7 +1359,13 @@ export default function ProductsPage() {
                                                                         continue;
                                                                     }
 
-                                                                    // 2. Proceed with stamping and upload
+                                                                    // 2. First, Store the ORIGINAL CLEAN image to Media Library
+                                                                    const originalFd = new FormData();
+                                                                    originalFd.append('file', file, file.name);
+                                                                    // API will detect no watermark and store in without-watermark folder
+                                                                    await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
+
+                                                                    // 3. Proceed with stamping and upload for the product itself
                                                                     const localUrl = URL.createObjectURL(file);
                                                                     const watermarkedBlob = await stampProductCode(localUrl, catalogId);
                                                                     URL.revokeObjectURL(localUrl);
@@ -1461,23 +1467,40 @@ export default function ProductsPage() {
                                                                     type="file"
                                                                     accept="image/*"
                                                                     style={{ display: 'none' }}
-                                                                    onChange={async (e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (!file) return;
-                                                                        try {
-                                                                            const fd = new FormData();
-                                                                            fd.append('file', file, file.name);
-                                                                            const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-                                                                            const data = await res.json();
-                                                                            if (!res.ok) throw new Error(data.error || 'Upload failed');
-                                                                            updateVariant(i, 'image_url', data.url);
-                                                                        } catch (err) {
-                                                                            setErrorModal({
-                                                                                title: 'Upload Failed',
-                                                                                message: err.message || 'Upload failed'
-                                                                            });
-                                                                        }
-                                                                    }}
+                                                                        onChange={async (e) => {
+                                                                            const file = e.target.files?.[0];
+                                                                            if (!file) return;
+                                                                            try {
+                                                                                setOcrLoading(true);
+                                                                                const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                                                                                
+                                                                                // 1. Store the ORIGINAL CLEAN image to Media Library
+                                                                                const originalFd = new FormData();
+                                                                                originalFd.append('file', file, file.name);
+                                                                                await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
+
+                                                                                // 2. Perform watermarking for the product variant record
+                                                                                const localUrl = URL.createObjectURL(file);
+                                                                                const watermarkedBlob = await stampProductCode(localUrl, catalogId);
+                                                                                URL.revokeObjectURL(localUrl);
+                                                                                
+                                                                                const uploadedUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
+                                                                                updateVariant(i, 'image_url', uploadedUrl);
+                                                                                
+                                                                                // If we generated a new catalog ID, make sure to update the product too
+                                                                                if (!currentProduct?.product_catalog_image_id) {
+                                                                                    setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: catalogId }));
+                                                                                }
+                                                                            } catch (err) {
+                                                                                console.error('Variant upload error:', err);
+                                                                                setErrorModal({
+                                                                                    title: 'Upload Failed',
+                                                                                    message: err.message || 'Upload failed'
+                                                                                });
+                                                                            } finally {
+                                                                                setOcrLoading(false);
+                                                                            }
+                                                                        }}
                                                                 />
                                                             </label>
                                                         </div>

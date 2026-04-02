@@ -33,19 +33,19 @@ export async function POST(request) {
 
         // Pattern matching for Catalog IDs (matches pattern like CAT-XXXXX or ASR-XXXXX)
         const patterns = [
-            /CAT[-\s]?([A-Z0-9]{3,8})/i,
-            /ASR[-\s]?([A-Z0-9]{3,8})/i,
-            /CP[-\s]?([A-Z0-9]{3,8})/i,
-            /([A-Z]{2,3})[-\s]([A-Z0-9]{3,8})/i,
+            { regex: /CAT[-\s]?([A-Z0-9]{3,8})/i, prefix: 'CAT-' },
+            { regex: /ASR[-\s]?([A-Z0-9]{3,8})/i, prefix: 'ASR-' },
+            { regex: /CP[-\s]?([A-Z0-9]{3,8})/i, prefix: 'CP-' },
+            { regex: /([A-Z]{2,3})[-\s]([A-Z0-9]{3,8})/i, prefix: '' },
         ];
 
         let catalogId = null;
         for (const pattern of patterns) {
-            const m = detectedText.match(pattern);
+            const m = detectedText.match(pattern.regex);
             if (m) {
-                const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '').toUpperCase();
-                if (code.length >= 4) {
-                    catalogId = code;
+                const codePart = (m[1] + (m[2] || '')).replace(/[-\s]/g, '').toUpperCase();
+                if (codePart.length >= 3) {
+                    catalogId = pattern.prefix ? (pattern.prefix + codePart) : codePart;
                     break;
                 }
             }

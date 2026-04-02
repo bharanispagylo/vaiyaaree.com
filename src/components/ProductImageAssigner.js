@@ -51,9 +51,9 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
         ));
 
         try {
-            // 1. Generate a unique catalog ID (CAT-XXXXX format)
-            const catalogId = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-            console.log('Generated catalog ID:', catalogId);
+            // 1. Get or generate a unique catalog ID (CAT-XXXXX format)
+            const catalogId = item.catalogId || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+            console.log('Using catalog ID:', catalogId);
 
             // 2. Stamp the catalog ID onto the image via Canvas
             const watermarkedBlob = await stampProductCode(rawImageUrl, catalogId);
@@ -118,7 +118,12 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                 return;
             }
 
-            // 2. Proceed with assigning and stamping
+            // 2. First, Store the ORIGINAL CLEAN image to Media Library
+            const originalFd = new FormData();
+            originalFd.append('file', file, file.name);
+            await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
+
+            // 3. Proceed with assigning and stamping
             const objectUrl = URL.createObjectURL(file);
             await assignImage(index, objectUrl);
         } catch (err) {

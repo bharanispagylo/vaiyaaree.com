@@ -309,51 +309,37 @@ export default function MediaLibraryPage() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Upload failed');
 
-            // 🔍 Automatic Detection & Dual Storage Logic
-            setAnalyzing(true);
-            try {
-                // 1. OCR Analysis (Primary for CAT Code Watermark)
-                const ocrRes = await fetch('/api/admin/ocr', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ base64Image: data.url })
-                });
-                const ocrData = await ocrRes.json();
-
-                const hasCatCode = !!ocrData.catalogId;
-
-                if (!hasCatCode) {
-                    // It's a CLEAN image — Store strictly in 'Without Watermark'
-                    const newNoWatermark = [...noWatermarkImages, data.url];
-                    setNoWatermarkImages(newNoWatermark);
-                    await updateSetting('no_watermark_images', newNoWatermark);
-                    setNotification({ message: '✅ Clean image stored (Without Watermark)', type: 'success' });
-                } else {
-                    // It's already WATERMARKED (has CAT code) — Store in 'With Watermark'
-                    const newWatermark = [...watermarkImages, data.url];
-                    setWatermarkImages(newWatermark);
-                    await updateSetting('watermark_images', newWatermark);
-                    setNotification({ message: `✅ Catalog Code detected (${ocrData.catalogId}): Stored in 'With Watermark'`, type: 'success' });
-                }
-
-            } catch (analyzeErr) {
-                console.error('Detection suite failed:', analyzeErr);
-                setNotification({ message: '✅ Upload complete (analysis skipped)', type: 'success' });
-            } finally {
-                setAnalyzing(false);
+            // Use watermark detection result from upload API
+            const hasWatermark = data.hasWatermark || false;
+            const folder = data.folder || 'without-watermark';
+            
+            if (hasWatermark && folder === 'with-watermark') {
+                // Image has watermark - store in watermark collection
+                const newWatermark = [...watermarkImages, data.url];
+                setWatermarkImages(newWatermark);
+                await updateSetting('watermark_images', newWatermark);
+                setNotification({ message: '✅ Watermark detected: Image stored in "With Watermark" collection', type: 'success' });
+            } else {
+                // Image has no watermark - store in no-watermark collection
+                const newNoWatermark = [...noWatermarkImages, data.url];
+                setNoWatermarkImages(newNoWatermark);
+                await updateSetting('no_watermark_images', newNoWatermark);
+                setNotification({ message: '✅ No watermark detected: Image stored in "Without Watermark" collection', type: 'success' });
             }
 
+            // Refresh the file list
             fetchFiles();
+
         } catch (err) {
-            console.error('Upload process error:', err);
-            setNotification({ message: `❌ Upload failed: ${err.message}`, type: 'error' });
+            console.error('Upload error:', err);
+            setNotification({ message: '❌ Upload failed: ' + err.message, type: 'error' });
         } finally {
             setUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
-    const handleDelete = async (fileName) => {
+    const handleDelete = async (fullPath) => {
         setConfirmAction({
             type: 'delete',
             title: 'Delete Image?',
@@ -364,38 +350,47 @@ export default function MediaLibraryPage() {
                     const res = await fetch('/api/admin/upload', {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fileName }),
+                        body: JSON.stringify({ fileName: fullPath }),
                     });
 
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Delete failed');
 
-                    const { data: urlData } = supabase.storage.from('media').getPublicUrl(fileName);
-                    const fileUrl = urlData.publicUrl;
+                    // Get the URL from the files array using the full path
+                    const fileToDelete = files.find(f => {
+                        const filePath = f.folder && f.folder !== 'root' 
+                            ? `${f.folder}/${f.name}` 
+                            : f.name;
+                        return filePath === fullPath;
+                    });
 
-                    if (heroImages.includes(fileUrl)) {
-                        const newHero = heroImages.filter(u => u !== fileUrl);
-                        setHeroImages(newHero);
-                        await updateSetting('hero_slider_images', newHero);
-                    }
-                    if (galleryImages.includes(fileUrl)) {
-                        const newGallery = galleryImages.filter(u => u !== fileUrl);
-                        setGalleryImages(newGallery);
-                        await updateSetting('gallery_images', newGallery);
-                    }
-                    if (watermarkImages.includes(fileUrl)) {
-                        const newWm = watermarkImages.filter(u => u !== fileUrl);
-                        setWatermarkImages(newWm);
-                        await updateSetting('watermark_images', newWm);
-                    }
-                    if (noWatermarkImages.includes(fileUrl)) {
-                        const newNoWm = noWatermarkImages.filter(u => u !== fileUrl);
-                        setNoWatermarkImages(newNoWm);
-                        await updateSetting('no_watermark_images', newNoWm);
+                    if (fileToDelete) {
+                        const fileUrl = fileToDelete.url;
+
+                        if (heroImages.includes(fileUrl)) {
+                            const newHero = heroImages.filter(u => u !== fileUrl);
+                            setHeroImages(newHero);
+                            await updateSetting('hero_slider_images', newHero);
+                        }
+                        if (galleryImages.includes(fileUrl)) {
+                            const newGallery = galleryImages.filter(u => u !== fileUrl);
+                            setGalleryImages(newGallery);
+                            await updateSetting('gallery_images', newGallery);
+                        }
+                        if (watermarkImages.includes(fileUrl)) {
+                            const newWm = watermarkImages.filter(u => u !== fileUrl);
+                            setWatermarkImages(newWm);
+                            await updateSetting('watermark_images', newWm);
+                        }
+                        if (noWatermarkImages.includes(fileUrl)) {
+                            const newNoWm = noWatermarkImages.filter(u => u !== fileUrl);
+                            setNoWatermarkImages(newNoWm);
+                            await updateSetting('no_watermark_images', newNoWm);
+                        }
                     }
 
                     setNotification({ message: '✅ Image deleted', type: 'success' });
-                    if (selectedFile?.name === fileName) setSelectedFile(null);
+                    if (selectedFile?.name === fullPath.split('/').pop()) setSelectedFile(null);
                     fetchFiles();
                 } catch (err) {
                     console.error('Delete error:', err);
@@ -673,7 +668,11 @@ export default function MediaLibraryPage() {
                                 <button
                                     onClick={(e) => { 
                                         e.stopPropagation(); 
-                                        handleDelete(file.name); 
+                                        // Use full path for files in folders, or just name for root files
+                                        const fullPath = file.folder && file.folder !== 'root' 
+                                            ? `${file.folder}/${file.name}` 
+                                            : file.name;
+                                        handleDelete(fullPath); 
                                     }}
                                     style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--danger))', cursor: 'pointer' }}
                                     title="Delete"
@@ -741,7 +740,12 @@ export default function MediaLibraryPage() {
                                             <button onClick={() => copyToClipboard(file.url)} className="btn btn-secondary" style={{ padding: '0.4rem' }}>
                                                 <Copy size={14} />
                                             </button>
-                                            <button onClick={() => handleDelete(file.name)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))' }}>
+                                            <button onClick={() => {
+                                            const fullPath = file.folder && file.folder !== 'root' 
+                                                ? `${file.folder}/${file.name}` 
+                                                : file.name;
+                                            handleDelete(fullPath);
+                                        }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))' }}>
                                                 <Trash2 size={14} />
                                             </button>
                                         </div>
