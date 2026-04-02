@@ -62,10 +62,6 @@ export default function AdminDashboard() {
                 const newStats = { revenue: totalRevenue, orders: activeOrders.length, customers: uniqueCustomers, pending: pendingOrders, shipped: shippedOrders, delivered: deliveredOrders, todayOrders };
                 const newRecent = orders.slice(0, 6);
 
-                // Store in cache
-                _dashCache = { stats: newStats, recentOrders: newRecent, lowStockProducts: lowStock, topProducts: topSelling };
-                _dashCacheTs = Date.now();
-
                 setStats(newStats);
                 setRecentOrders(newRecent);
                 setLowStockProducts(lowStock);

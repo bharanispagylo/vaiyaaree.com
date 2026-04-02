@@ -1713,20 +1713,11 @@ export default function ProductsPage() {
                                 setOcrLoading(true);
                                 setShowMediaPicker(false);
 
-                                // 1. OCR Check for existing watermark in library image
-                                const res = await fetch(url);
-                                const blob = await res.blob();
-                                const reader = new FileReader();
-                                const base64Promise = new Promise((resolve) => {
-                                    reader.onload = () => resolve(reader.result);
-                                    reader.readAsDataURL(blob);
-                                });
-                                const base64Image = await base64Promise;
-
+                                // 1. OCR Check for existing watermark in library image using direct URL
                                 const ocrRes = await fetch('/api/admin/ocr', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ base64Image })
+                                    body: JSON.stringify({ imageUrl: url })
                                 });
                                 const ocrData = await ocrRes.json();
 
