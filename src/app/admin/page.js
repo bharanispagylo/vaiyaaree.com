@@ -5,11 +5,6 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck } from 'lucide-react';
 
-// Simple in-memory cache for dashboard data (30s TTL)
-let _dashCache = null;
-let _dashCacheTs = 0;
-const DASH_TTL = 30_000;
-
 export default function AdminDashboard() {
     const [stats, setStats] = useState({ revenue: 0, orders: 0, customers: 0, pending: 0, shipped: 0, delivered: 0, whatsappOrders: 0, todayOrders: 0 });
     const [recentOrders, setRecentOrders] = useState([]);
@@ -18,18 +13,7 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchDashboardData = async (forceRefresh = false) => {
-            // Return cached data instantly if still fresh
-            if (!forceRefresh && _dashCache && Date.now() - _dashCacheTs < DASH_TTL) {
-                const c = _dashCache;
-                setStats(c.stats);
-                setRecentOrders(c.recentOrders);
-                setLowStockProducts(c.lowStockProducts);
-                setTopProducts(c.topProducts);
-                setLoading(false);
-                return;
-            }
-
+        const fetchDashboardData = async () => {
             setLoading(true);
             try {
                 // Parallel queries — only fetch required columns
@@ -99,8 +83,7 @@ export default function AdminDashboard() {
         const channel = supabase
             .channel('dashboard_orders')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
-                _dashCache = null; // invalidate cache
-                fetchDashboardData(true);
+                fetchDashboardData();
             })
             .subscribe();
 
