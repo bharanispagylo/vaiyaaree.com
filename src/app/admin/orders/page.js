@@ -67,7 +67,7 @@ export default function OrdersPage() {
     const [orderItems, setOrderItems] = useState([]);
     const [isEditingItems, setIsEditingItems] = useState(false);
     const [notification, setNotification] = useState(null);
-    const [confirmDelete, setConfirmDelete] = useState(null); // { orderId }
+    const [confirmDelete, setConfirmDelete] = useState(null); // { ids: string[] }
     const [orderActivityLogs, setOrderActivityLogs] = useState([]);
     const [hasMounted, setHasMounted] = useState(false);
     const [showShippingModal, setShowShippingModal] = useState(false);
@@ -109,8 +109,60 @@ export default function OrdersPage() {
         topProducts: []
     });
     const [timeRange, setTimeRange] = useState('MONTHLY'); // DAILY, MONTHLY, QUARTERLY, ALL
+    const [selectedOrderIds, setSelectedOrderIds] = useState([]);
 
 
+
+    const toggleSelectItem = (id) => {
+        setSelectedOrderIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0) {
+            setSelectedOrderIds([]);
+        } else {
+            setSelectedOrderIds(filteredOrders.map(o => o.id));
+        }
+    };
+
+    const handleBulkDelete = async (idsToDelete = null) => {
+        const ids = idsToDelete || selectedOrderIds;
+        if (!ids.length) return;
+        setConfirmDelete({ ids });
+    };
+
+    const handleDeleteOrderConfirmed = async () => {
+        if (!confirmDelete) return;
+        const { ids } = confirmDelete;
+        setConfirmDelete(null);
+
+        setLoading(true);
+        try {
+            // Delete order items first (cascading delete should ideally be in DB, but being safe)
+            // If DB doesn't have CASCADE, we delete manually
+            await supabase.from('order_items').delete().in('order_id', ids);
+            await supabase.from('order_status_logs').delete().in('order_id', ids);
+
+            const { error } = await supabase
+                .from('orders')
+                .delete()
+                .in('id', ids);
+
+            if (error) throw error;
+
+            setNotification({ type: 'success', message: `${ids.length} order(s) deleted successfully` });
+            setSelectedOrderIds(prev => prev.filter(id => !ids.includes(id)));
+            fetchOrders();
+            setSelectedOrder(null);
+        } catch (err) {
+            console.error('Delete Error:', err);
+            setNotification({ type: 'error', message: `Failed to delete order(s): ${err.message || 'Database error'}` });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchAnalytics = async (allOrders) => {
         try {
@@ -343,15 +395,15 @@ export default function OrdersPage() {
 
                 fetchOrders();
                 setNotification({
-                    message: `✅ Order updated to ${newStatus}`,
+                    message: `Order updated to ${newStatus}`,
                     type: 'success'
                 });
 
             } else {
-                setNotification({ message: `❌ Failed: ${data.error}`, type: 'error' });
+                setNotification({ message: `Failed: ${data.error}`, type: 'error' });
             }
         } catch (error) {
-            setNotification({ message: '❌ Error updating status', type: 'error' });
+            setNotification({ message: 'Error updating status', type: 'error' });
         }
         setTimeout(() => setNotification(null), 4000);
     };
@@ -368,46 +420,8 @@ export default function OrdersPage() {
     };
 
 
-    const handleDeleteOrder = async (orderId) => {
-        setConfirmDelete({ orderId });
-    };
-
-    const handleDeleteOrderConfirmed = async (orderId) => {
-        setConfirmDelete(null);
-
-        setLoading(true);
-        try {
-            // 1. Delete order items first (cascading delete should ideally be in DB, but being safe)
-            const { error: itemsError } = await supabase
-                .from('order_items')
-                .delete()
-                .eq('order_id', orderId);
-
-            if (itemsError) throw itemsError;
-
-            // 2. Delete the order
-            const { error: orderError } = await supabase
-                .from('orders')
-                .delete()
-                .eq('id', orderId);
-
-            if (orderError) throw orderError;
-
-            setNotification({
-                message: '✅ Order deleted successfully',
-                type: 'success'
-            });
-            setSelectedOrder(null);
-            fetchOrders();
-        } catch (err) {
-            console.error('Delete Error:', err);
-            setNotification({
-                message: '❌ Failed to delete order',
-                type: 'error'
-            });
-        } finally {
-            setLoading(false);
-        }
+    const handleDeleteOrder = (orderId) => {
+        setConfirmDelete({ ids: [orderId] });
     };
 
     const handleCancelOrder = async () => {
@@ -478,9 +492,9 @@ export default function OrdersPage() {
 
             if (refundError) {
                 console.error('Refund tracking error:', refundError);
-                setNotification({ message: `⚠️ Order cancelled, but refund track failed: ${refundError.message}`, type: 'warning' });
+                setNotification({ message: `Order cancelled, but refund track failed: ${refundError.message}`, type: 'warning' });
             } else {
-                setNotification({ message: '✅ Order cancelled and successfully sent to Refunds', type: 'success' });
+                setNotification({ message: 'Order cancelled and successfully sent to Refunds', type: 'success' });
             }
 
             setShowCancelModal(false);
@@ -493,7 +507,7 @@ export default function OrdersPage() {
 
         } catch (err) {
             console.error('Cancel Error:', err);
-            setNotification({ message: '❌ Failed to cancel order', type: 'error' });
+            setNotification({ message: 'Failed to cancel order', type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -512,15 +526,15 @@ export default function OrdersPage() {
             });
 
             if (res.ok) {
-                setNotification({ message: '✅ Order confirmation email resent', type: 'success' });
+                setNotification({ message: 'Order confirmation email resent', type: 'success' });
                 setShowResendEmailModal(false);
             } else {
                 const data = await res.json();
-                setNotification({ message: `❌ Failed: ${data.error}`, type: 'error' });
+                setNotification({ message: `Failed: ${data.error}`, type: 'error' });
             }
         } catch (err) {
             console.error('Resend Email Error:', err);
-            setNotification({ message: '❌ Failed to resend email', type: 'error' });
+            setNotification({ message: 'Failed to resend email', type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -538,15 +552,15 @@ export default function OrdersPage() {
             });
 
             if (res.ok) {
-                setNotification({ message: '✅ Order confirmation WhatsApp resent', type: 'success' });
+                setNotification({ message: 'Order confirmation WhatsApp resent', type: 'success' });
                 setShowResendWhatsAppModal(false);
             } else {
                 const data = await res.json();
-                setNotification({ message: `❌ Failed: ${data.error}`, type: 'error' });
+                setNotification({ message: `Failed: ${data.error}`, type: 'error' });
             }
         } catch (err) {
             console.error('Resend WhatsApp Error:', err);
-            setNotification({ message: '❌ Failed to resend WhatsApp', type: 'error' });
+            setNotification({ message: 'Failed to resend WhatsApp', type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -603,7 +617,7 @@ export default function OrdersPage() {
 
             if (itemsError) throw itemsError;
 
-            setNotification({ message: '✅ Order items updated and totals recalculated', type: 'success' });
+            setNotification({ message: 'Order items updated and totals recalculated', type: 'success' });
             setIsEditingItems(false);
             fetchOrders();
             // Refresh local selectedOrder
@@ -612,7 +626,7 @@ export default function OrdersPage() {
 
         } catch (error) {
             console.error(error);
-            setNotification({ message: '❌ Failed to save edits', type: 'error' });
+            setNotification({ message: 'Failed to save edits', type: 'error' });
         } finally {
             setLoading(false);
             setTimeout(() => setNotification(null), 3000);
@@ -645,17 +659,13 @@ export default function OrdersPage() {
     const paginatedOrders = filteredOrders.slice((ordersPage - 1) * ORDERS_PER_PAGE, ordersPage * ORDERS_PER_PAGE);
 
     const orderCounts = {
-
         ALL: orders.length,
-
         PLACED: orders.filter(o => o.status === 'PLACED').length,
-
         PAID: orders.filter(o => o.status === 'PAID').length,
-
         SHIPPED: orders.filter(o => o.status === 'SHIPPED').length,
-
         DELIVERED: orders.filter(o => o.status === 'DELIVERED').length,
-
+        CANCELLED: orders.filter(o => o.status === 'CANCELLED').length,
+        REFUNDED: orders.filter(o => o.status === 'REFUNDED').length,
     };
 
 
@@ -730,7 +740,7 @@ export default function OrdersPage() {
                                                             color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
                                                             border: '1px solid hsl(var(--border-subtle))'
                                                         }}>
-                                                            {src === 'ALL' ? '🌐 All' : src === 'WEBSITE' ? '🌐 Website' : '💬 WhatsApp'}
+                                                            {src === 'ALL' ? 'All' : src === 'WEBSITE' ? 'Website' : 'WhatsApp'}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -944,6 +954,14 @@ export default function OrdersPage() {
                                                         <tr style={{ color: '#475569', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
 
                                                             <th>Order ID</th>
+                                                            <th style={{ width: '40px', textAlign: 'center' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length}
+                                                                    onChange={toggleSelectAll}
+                                                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                                                />
+                                                            </th>
                                                             <th>Customer</th>
                                                             <th style={{ textAlign: 'left' }}>Region</th>
                                                             <th style={{ textAlign: 'center' }}>Source</th>
@@ -973,14 +991,22 @@ export default function OrdersPage() {
                                                                 return (
                                                                     <React.Fragment key={order.id}>
                                                                         <tr
-                                                                            onClick={() => openOrderDetail(order)}
                                                                             style={{
                                                                                 cursor: 'pointer',
-                                                                                background: selectedOrder?.id === order.id ? 'hsl(var(--primary) / 0.05)' : 'transparent',
+                                                                                background: selectedOrder?.id === order.id ? 'hsl(var(--primary) / 0.05)' :
+                                                                                           selectedOrderIds.includes(order.id) ? 'hsl(var(--primary) / 0.02)' : 'transparent',
                                                                                 transition: 'background 0.2s'
                                                                             }}
                                                                         >
-                                                                            <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
+                                                                            <td onClick={() => openOrderDetail(order)} style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
+                                                                            <td style={{ textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleSelectItem(order.id); }}>
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={selectedOrderIds.includes(order.id)}
+                                                                                    onChange={() => {}}
+                                                                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                                                                />
+                                                                            </td>
                                                                             <td>
                                                                                 <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
                                                                                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
@@ -997,7 +1023,7 @@ export default function OrdersPage() {
                                                                                     color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : 'hsl(var(--primary))',
                                                                                     border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
                                                                                 }}>
-                                                                                    {src === 'WEBSITE' ? '🌐' : '💬'} {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
+                                                                                    {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
                                                                                 </span>
                                                                             </td>
                                                                             <td style={{ textAlign: 'right', fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</td>
@@ -1067,13 +1093,13 @@ export default function OrdersPage() {
                                         <button onClick={() => { setSelectedOrder(null); setOrderItems([]); setIsEditingItems(false); }} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
                                         {!isEditingItems ? (
                                             <button onClick={() => setIsEditingItems(true)} className="btn btn-primary" style={{ fontSize: '0.85rem', background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-                                                ✏️ Edit Order
+                                                Edit Order
                                             </button>
                                         ) : (
                                             <>
-                                                <button onClick={() => { setIsEditingItems(false); openOrderDetail(selectedOrder); }} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>✕ Cancel</button>
+                                                <button onClick={() => { setIsEditingItems(false); openOrderDetail(selectedOrder); }} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>Cancel</button>
                                                 <button onClick={saveOrderEdits} disabled={loading} className="btn btn-primary" style={{ fontSize: '0.85rem', background: 'linear-gradient(135deg, #10b981, #059669)' }}>
-                                                    {loading ? <Loader2 size={14} className="animate-spin" /> : '💾 Save Changes'}
+                                                    {loading ? <Loader2 size={14} className="animate-spin" /> : 'Save Changes'}
                                                 </button>
                                             </>
                                         )}
@@ -1103,7 +1129,7 @@ export default function OrdersPage() {
 
                                     {/* Left: Items */}
                                     <div>
-                                        <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>🛒 Order Items</h3>
+                                        <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>Order Items</h3>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                             {orderItems.map((item, idx) => (
                                                 <div key={idx} style={{ display: 'flex', gap: '1.5rem', background: '#ffffff', padding: '1rem', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
@@ -1168,7 +1194,7 @@ export default function OrdersPage() {
 
                                         {/* Order Activity Log - Moved to Left Side */}
                                         <div className="card-sub" style={{ marginTop: '2.5rem', padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>📋 Order Activity Log</h4>
+                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Order Activity Log</h4>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                                 {orderActivityLogs.length === 0 ? (
                                                     <div style={{ textAlign: 'center', padding: '1rem', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>
@@ -1241,7 +1267,7 @@ export default function OrdersPage() {
                                     {/* Right: Summary & Customer */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                         <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
-                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>📍 Customer Info</h4>
+                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Customer Info</h4>
                                             {isEditingItems ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                                     <input
@@ -1380,7 +1406,7 @@ export default function OrdersPage() {
                                         {/* Order Activity Log - REMOVED from right side, now on left */}
 
                                         <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>💰 Order Summary</h4>
+                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Order Summary</h4>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem', color: 'hsl(var(--text-main))' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span>Subtotal:</span>
@@ -1425,7 +1451,7 @@ export default function OrdersPage() {
                                         </div>
 
                                         <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>⚙️ Actions</h4>
+                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Actions</h4>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
                                                 <select
                                                     value={selectedOrder.status}
@@ -1543,6 +1569,24 @@ export default function OrdersPage() {
                                                         <Truck size={16} /> Update Tracking Info
                                                     </button>
                                                 )}
+
+                                                <button 
+                                                    onClick={() => handleBulkDelete([selectedOrder.id])}
+                                                    className="btn" 
+                                                    style={{ 
+                                                        width: '100%', 
+                                                        marginTop: '0.5rem',
+                                                        background: 'hsl(var(--danger) / 0.1)', 
+                                                        color: '#ef4444', 
+                                                        border: '1px solid rgba(239,68,68,0.2)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px'
+                                                    }}
+                                                >
+                                                    <Trash2 size={15} /> Delete Order
+                                                </button>
 
                                                 {/* Resend Email Button */}
                                                 <button
@@ -1778,7 +1822,7 @@ export default function OrdersPage() {
                                                     <button
                                                         onClick={async () => {
                                                             if (!newOrder.customer_name || !newOrder.customer_phone || newOrder.items.length === 0) {
-                                                                setNotification({ message: '⚠️ Please fill all customer details and add at least one item.', type: 'error' }); return;
+                                                                setNotification({ message: 'Please fill all customer details and add at least one item.', type: 'error' }); return;
                                                             }
                                                             setLoading(true);
                                                             try {
@@ -1887,13 +1931,13 @@ export default function OrdersPage() {
                                                                     }
                                                                 }
 
-                                                                setNotification({ message: '✅ Manual Order Created Successfully! Stock updated.', type: 'success' });
+                                                                setNotification({ message: 'Manual Order Created Successfully! Stock updated.', type: 'success' });
                                                                 setIsAddingOrder(false);
                                                                 setNewOrder({ customer_name: '', customer_email: '', customer_phone: '', delivery_address: '', shipping_state: 'Tamil Nadu', payment_method: 'UPI', send_notifications: 'both', items: [] });
                                                                 fetchOrders();
                                                             } catch (err) {
                                                                 console.error('Manual Order Error:', err);
-                                                                setNotification({ message: `❌ Failed to create order: ${err.message || 'Unknown error'}`, type: 'error' });
+                                                                setNotification({ message: `Failed to create order: ${err.message || 'Unknown error'}`, type: 'error' });
                                                             } finally {
                                                                 setLoading(false);
                                                                 setTimeout(() => setNotification(null), 3000);
@@ -1933,19 +1977,77 @@ export default function OrdersPage() {
                         </div>
                     )}
 
-                    {/* Confirm Delete Modal */}
+                    {/* Delete Confirmation Modal */}
                     {confirmDelete && (
-                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={() => setConfirmDelete(null)}>
-                            <div className="card shadow-premium animate-enter" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center', borderRadius: '24px', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--danger) / 0.3)' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: 'hsl(var(--danger))' }}>
-                                    <Trash2 size={40} />
+                        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+                            <div className="card" style={{ maxWidth: '400px', width: '90%', padding: '2rem', textAlign: 'center', animation: 'scaleUp 0.3s ease' }}>
+                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                                    <Trash2 size={32} />
                                 </div>
-                                <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900 }}>Delete Order?</h3>
-                                <p style={{ margin: '0 0 2rem', color: 'hsl(var(--text-muted))', lineHeight: 1.6 }}>This will <strong>permanently</strong> delete the order and all its items. This action cannot be undone.</p>
-                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <button onClick={() => setConfirmDelete(null)} className="btn btn-secondary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 700 }}>Cancel</button>
-                                    <button onClick={() => handleDeleteOrderConfirmed(confirmDelete.orderId)} className="btn btn-primary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 800, background: 'hsl(var(--danger))', border: 'none' }}>Delete</button>
+                                <h3 style={{ marginBottom: '0.75rem', fontWeight: 800 }}>Confirm Delete?</h3>
+                                <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '2rem', lineHeight: 1.5 }}>
+                                    This action will permanently remove {confirmDelete.ids.length > 1 ? `${confirmDelete.ids.length} order records` : 'the order record'} and restore any associated stock. This cannot be undone.
+                                </p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <button onClick={() => setConfirmDelete(null)} className="btn btn-secondary">Keep Order</button>
+                                    <button onClick={handleDeleteOrderConfirmed} className="btn" style={{ background: '#ef4444', color: 'white' }}>Delete Now</button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Bulk Action Bar */}
+                    {selectedOrderIds.length > 0 && (
+                        <div style={{
+                            position: 'fixed',
+                            bottom: '2rem',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: 'hsl(var(--text-main))',
+                            color: 'white',
+                            padding: '1rem 2rem',
+                            borderRadius: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2rem',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                            zIndex: 1000,
+                            animation: 'slideUp 0.3s ease'
+                        }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                                {selectedOrderIds.length} Orders Selected
+                            </div>
+                            <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.2)' }} />
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button onClick={handleBulkDelete} style={{
+                                    background: 'rgba(239,68,68,0.2)',
+                                    border: '1px solid rgba(239,68,68,0.5)',
+                                    color: '#f87171',
+                                    padding: '0.5rem 1.25rem',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    transition: 'all 0.2s'
+                                }}>
+                                    <Trash2 size={16} /> Delete Selected
+                                </button>
+                                <button onClick={() => setSelectedOrderIds([])} style={{
+                                    background: 'transparent',
+                                    border: '1px solid rgba(255,255,255,0.3)',
+                                    color: 'white',
+                                    padding: '0.5rem 1.25rem',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}>
+                                    Cancel
+                                </button>
                             </div>
                         </div>
                     )}

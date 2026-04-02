@@ -155,8 +155,8 @@ export default function BroadcastPage() {
         const targetCustomers = customers.filter(c => selectedCustomers.has(c.phone));
         const targetProducts = products.filter(p => selectedProducts.has(p.id));
 
-        if (targetCustomers.length === 0) return setNotification({ message: '⚠️ Please select at least one customer.', type: 'error' });
-        if (!message.trim()) return setNotification({ message: '⚠️ Please enter a broadcast message.', type: 'error' });
+        if (targetCustomers.length === 0) return setNotification({ message: 'Please select at least one customer.', type: 'error' });
+        if (!message.trim()) return setNotification({ message: 'Please enter a broadcast message.', type: 'error' });
 
         const confirmMsg = targetProducts.length > 0
             ? `Send broadcast with ${targetProducts.length} product(s) to ${targetCustomers.length} customer(s)?`
@@ -665,7 +665,7 @@ export default function BroadcastPage() {
                         )}
 
                         <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>
-                            ⚠️ Rapid bulk messaging may result in temporary WhatsApp account limitations. Messages are sent sequentially.
+                            Rapid bulk messaging may result in temporary WhatsApp account limitations. Messages are sent sequentially.
                         </div>
                     </div>
                 </div>

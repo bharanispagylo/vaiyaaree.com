@@ -141,7 +141,7 @@ export default function AnalyticsHub() {
                 revenue: totalRevenue,
                 orders: filteredOrders.length,
                 customers: customers.length,
-                products: products.length,
+                products: products.filter(p => p.is_active !== false).length,
                 aov: avgOrderValue
             },
             salesTrends: trendData,

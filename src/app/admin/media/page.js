@@ -39,7 +39,7 @@ export default function MediaLibraryPage() {
             setFiles(data.files || []);
         } catch (err) {
             console.error('Error fetching media:', err);
-            setNotification({ message: '❌ Failed to load media library: ' + err.message, type: 'error' });
+            setNotification({ message: 'Failed to load media library: ' + err.message, type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -74,7 +74,7 @@ export default function MediaLibraryPage() {
             if (error) throw error;
         } catch (err) {
             console.error(`Error updating ${key}:`, err);
-            setNotification({ message: `❌ Failed to update ${key}`, type: 'error' });
+            setNotification({ message: `Failed to update ${key}`, type: 'error' });
         }
     };
 
@@ -134,7 +134,7 @@ export default function MediaLibraryPage() {
             onConfirm: async () => {
                 setConfirmAction(null);
                 setAnalyzing(true);
-                setNotification({ message: '🔍 Analyzing all images for watermarks...', type: 'success' });
+                setNotification({ message: 'Analyzing all images for watermarks...', type: 'success' });
 
         const newWatermarkList = [];
         const newNoWatermarkList = [];
@@ -171,7 +171,7 @@ export default function MediaLibraryPage() {
 
         setAnalyzing(false);
                 setNotification({
-                    message: `✅ Re-analyzed ${analyzed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
+                    message: `Re-analyzed ${analyzed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
                     type: 'success'
                 });
             }
@@ -186,7 +186,7 @@ export default function MediaLibraryPage() {
             onConfirm: async () => {
                 setConfirmAction(null);
                 setAnalyzing(true);
-                setNotification({ message: `🔍 Analyzing ${files.length} images...`, type: 'success' });
+                setNotification({ message: `Analyzing ${files.length} images...`, type: 'success' });
 
         const newWatermarkList = [];
         const newNoWatermarkList = [];
@@ -225,7 +225,7 @@ export default function MediaLibraryPage() {
 
         setAnalyzing(false);
                 setNotification({
-                    message: `✅ Categorized ${processed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
+                    message: `Categorized ${processed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
                     type: 'success'
                 });
             }
@@ -248,7 +248,7 @@ export default function MediaLibraryPage() {
         if (files.length === 0) return;
 
         setAnalyzing(true);
-        setNotification({ message: `🔍 Auto-categorizing ${files.length} images...`, type: 'success' });
+        setNotification({ message: `Auto-categorizing ${files.length} images...`, type: 'success' });
 
         const newWatermarkList = [];
         const newNoWatermarkList = [];
@@ -287,7 +287,7 @@ export default function MediaLibraryPage() {
 
         setAnalyzing(false);
         setNotification({
-            message: `✅ Auto-categorized: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
+            message: `Auto-categorized: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
             type: 'success'
         });
     };
@@ -318,13 +318,13 @@ export default function MediaLibraryPage() {
                 const newWatermark = [...watermarkImages, data.url];
                 setWatermarkImages(newWatermark);
                 await updateSetting('watermark_images', newWatermark);
-                setNotification({ message: '✅ Watermark detected: Image stored in "With Watermark" collection', type: 'success' });
+                setNotification({ message: 'Watermark detected: Image stored in "With Watermark" collection', type: 'success' });
             } else {
                 // Image has no watermark - store in no-watermark collection
                 const newNoWatermark = [...noWatermarkImages, data.url];
                 setNoWatermarkImages(newNoWatermark);
                 await updateSetting('no_watermark_images', newNoWatermark);
-                setNotification({ message: '✅ No watermark detected: Image stored in "Without Watermark" collection', type: 'success' });
+                setNotification({ message: 'No watermark detected: Image stored in "Without Watermark" collection', type: 'success' });
             }
 
             // Refresh the file list
@@ -332,7 +332,7 @@ export default function MediaLibraryPage() {
 
         } catch (err) {
             console.error('Upload error:', err);
-            setNotification({ message: '❌ Upload failed: ' + err.message, type: 'error' });
+            setNotification({ message: 'Upload failed: ' + err.message, type: 'error' });
         } finally {
             setUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -389,12 +389,12 @@ export default function MediaLibraryPage() {
                         }
                     }
 
-                    setNotification({ message: '✅ Image deleted', type: 'success' });
+                    setNotification({ message: 'Image deleted', type: 'success' });
                     if (selectedFile?.name === fullPath.split('/').pop()) setSelectedFile(null);
                     fetchFiles();
                 } catch (err) {
                     console.error('Delete error:', err);
-                    setNotification({ message: '❌ Delete failed: ' + err.message, type: 'error' });
+                    setNotification({ message: 'Delete failed: ' + err.message, type: 'error' });
                 }
             }
         });
@@ -403,7 +403,7 @@ export default function MediaLibraryPage() {
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
-        setNotification({ message: '📋 Link copied to clipboard', type: 'success' });
+        setNotification({ message: 'Link copied to clipboard', type: 'success' });
     };
 
     const filteredFiles = files.filter(f => {

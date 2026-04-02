@@ -19,11 +19,11 @@ const STATUS_COLORS = {
 };
 
 const METHOD_ICONS = {
-    Razorpay: { color: '#3395FF', label: 'Razorpay', icon: '💳' },
-    PhonePe: { color: '#5e17eb', label: 'PhonePe', icon: '📱' },
-    UPI: { color: '#00b300', label: 'UPI', icon: '📲' },
-    COD: { color: '#f59e0b', label: 'COD', icon: '💵' },
-    WhatsApp: { color: 'hsl(var(--primary))', label: 'WhatsApp', icon: '💬' },
+    Razorpay: { color: '#3395FF', label: 'Razorpay', icon: '' },
+    PhonePe: { color: '#5e17eb', label: 'PhonePe', icon: '' },
+    UPI: { color: '#00b300', label: 'UPI', icon: '' },
+    COD: { color: '#f59e0b', label: 'COD', icon: '' },
+    WhatsApp: { color: 'hsl(var(--primary))', label: 'WhatsApp', icon: '' },
 };
 
 export default function PaymentGatewayPage() {

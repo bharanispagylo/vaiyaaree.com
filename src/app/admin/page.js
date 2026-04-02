@@ -23,7 +23,7 @@ export default function AdminDashboard() {
                         .select('id, status, total_amount, customer_phone, customer_name, created_at, payment_method')
                         .neq('status', 'DRAFT')
                         .order('created_at', { ascending: false })
-                        .limit(200), // cap at 200 for speed
+                        .limit(2000), // increased limit for accurate counts
                     supabase
                         .from('products')
                         .select('id, name, stock, image_url')
@@ -40,11 +40,11 @@ export default function AdminDashboard() {
                 const today = new Date().toISOString().split('T')[0];
 
                 const totalRevenue = activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
-                const uniqueCustomers = new Set(activeOrders.map(o => o.customer_phone)).size;
+                const uniqueCustomers = new Set(orders.map(o => o.customer_phone)).size;
                 const pendingOrders = activeOrders.filter(o => ['PENDING', 'PLACED', 'AWAITING_PAYMENT'].includes(o.status)).length;
                 const shippedOrders = activeOrders.filter(o => o.status === 'SHIPPED').length;
                 const deliveredOrders = activeOrders.filter(o => o.status === 'DELIVERED').length;
-                const todayOrders = activeOrders.filter(o => o.created_at?.startsWith(today)).length;
+                const todayOrders = orders.filter(o => o.created_at?.startsWith(today)).length;
 
                 const lowStock = (productsRes.data || []).filter(p => p.stock < 5).slice(0, 5);
 
@@ -59,7 +59,7 @@ export default function AdminDashboard() {
                 });
                 const topSelling = Object.values(productSales).sort((a, b) => b.sold - a.sold).slice(0, 5);
 
-                const newStats = { revenue: totalRevenue, orders: activeOrders.length, customers: uniqueCustomers, pending: pendingOrders, shipped: shippedOrders, delivered: deliveredOrders, todayOrders };
+                const newStats = { revenue: totalRevenue, orders: orders.length, customers: uniqueCustomers, pending: pendingOrders, shipped: shippedOrders, delivered: deliveredOrders, todayOrders };
                 const newRecent = orders.slice(0, 6);
 
                 setStats(newStats);
@@ -278,7 +278,7 @@ export default function AdminDashboard() {
                         </div>
                         <div style={{ padding: '0 1.5rem' }}>
                             {lowStockProducts.length === 0 ? (
-                                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.875rem' }}>All products are well stocked ✓</div>
+                                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.875rem' }}>All products are well stocked</div>
                             ) : (
                                 lowStockProducts.map((p, index) => (
                                     <div key={p.id} style={{
@@ -310,7 +310,7 @@ export default function AdminDashboard() {
                         </div>
                         <div style={{ padding: '1rem', textAlign: 'center' }}>
                             <Link href="/admin/products" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'hsl(var(--primary))' }}>
-                                Restock Inventory →
+                                Restock Inventory
                             </Link>
                         </div>
                     </div>

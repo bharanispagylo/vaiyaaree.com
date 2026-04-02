@@ -218,11 +218,11 @@ export default function SchedulePostPage() {
 
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'PENDING': return { label: '⏳ Pending', cls: 'badge badge-placed', color: 'hsl(var(--warning))' };
-            case 'POSTING': return { label: '🔄 Posting...', cls: 'badge badge-shipped', color: 'hsl(var(--primary))' };
-            case 'POSTED': return { label: '✅ Posted', cls: 'badge badge-delivered', color: 'hsl(var(--success))' };
-            case 'FAILED': return { label: '❌ Failed', cls: 'badge badge-cancelled', color: 'hsl(var(--danger))' };
-            case 'CANCELLED': return { label: '🚫 Cancelled', cls: 'badge', color: 'hsl(var(--text-muted))' };
+            case 'PENDING': return { label: 'Pending', cls: 'badge badge-placed', color: 'hsl(var(--warning))' };
+            case 'POSTING': return { label: 'Posting...', cls: 'badge badge-shipped', color: 'hsl(var(--primary))' };
+            case 'POSTED': return { label: 'Posted', cls: 'badge badge-delivered', color: 'hsl(var(--success))' };
+            case 'FAILED': return { label: 'Failed', cls: 'badge badge-cancelled', color: 'hsl(var(--danger))' };
+            case 'CANCELLED': return { label: 'Cancelled', cls: 'badge', color: 'hsl(var(--text-muted))' };
             default: return { label: status, cls: 'badge', color: 'hsl(var(--text-muted))' };
         }
     };
@@ -258,7 +258,7 @@ export default function SchedulePostPage() {
             {/* Header */}
             <div className="admin-header-row">
                 <div>
-                    <h1>Schedule Posts 🕐</h1>
+                    <h1>Schedule Posts</h1>
                     <p>Schedule product posts to Facebook at the perfect time</p>
                 </div>
                 <button onClick={() => { setShowForm(true); setEditingId(null); setSelectedProduct(null); setCaption(''); setScheduleDate(''); setScheduleTime(''); }} className="btn btn-primary">

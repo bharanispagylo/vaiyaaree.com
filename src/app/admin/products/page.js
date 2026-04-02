@@ -69,6 +69,7 @@ export default function ProductsPage() {
     const [importedProductsForImage, setImportedProductsForImage] = useState(null);
     const [productsPage, setProductsPage] = useState(1);
     const PRODUCTS_PER_PAGE = 10;
+    const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     const fetchHistory = async (product) => {
         setSelectedProductForHistory(product);
@@ -501,7 +502,7 @@ export default function ProductsPage() {
             description: formData.get('description'),
             type: productType,
             tax_class: formData.get('tax_class') || 'GST_5',
-            is_active: true,
+            is_active: formData.get('is_active') === 'on',
             is_featured: formData.get('is_featured') === 'on',
             product_group: formData.get('is_explore') === 'on' ? 'EXPLORE' : (formData.get('product_group') || null)
         };
@@ -669,42 +670,76 @@ export default function ProductsPage() {
             onConfirm: async () => {
                 setLoading(true);
                 try {
-                    // 1. Delete dependent records first to avoid Foreign Key Constraint errors
-                    // Note: We don't delete order_items as they are historical records, 
-                    // but usually those should have SET NULL or CASCADE at DB level.
-                    await supabase.from('product_variants').delete().eq('product_id', id);
-                    await supabase.from('product_history').delete().eq('product_id', id);
-                    await supabase.from('whatsapp_cart').delete().eq('product_id', id);
+                    // Deactivate instead of hard delete
+                    const { error } = await supabase
+                        .from('products')
+                        .update({ is_active: false })
+                        .eq('id', id);
 
-                    // 2. Delete the main product
-                    const { error } = await supabase.from('products').delete().eq('id', id);
-
-                    if (error) {
-                        if (error.code === '23503') {
-                            setResultModal({
-                                title: 'Cannot Delete',
-                                message: 'This product has past orders. It has been hidden from the shop instead.',
-                                type: 'error'
-                            });
-                            // Deletion failed due to history, so let's just deactivate it
-                            await supabase.from('products').update({ is_active: false }).eq('id', id);
-                            fetchProducts();
-                            return;
-                        }
-                        throw error;
-                    }
+                    if (error) throw error;
 
                     setResultModal({
-                        title: 'Deleted',
-                        message: 'Product deleted successfully.',
+                        title: 'Product Deactivated',
+                        message: 'This product has been hidden from the shop and marked as INACTIVE.',
                         type: 'success'
                     });
                     fetchProducts();
                 } catch (err) {
-                    console.error('Delete Error:', err);
+                    console.error('Deactivation Error:', err);
                     setResultModal({
-                        title: 'Delete Failed',
-                        message: `Delete failed: ${err.message || 'Check database permissions'}`,
+                        title: 'Action Failed',
+                        message: `Could not deactivate: ${err.message}`,
+                        type: 'error'
+                    });
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
+    };
+
+    const toggleSelectItem = (id) => {
+        setSelectedProductIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedProductIds.length === filtered.length && filtered.length > 0) {
+            setSelectedProductIds([]);
+        } else {
+            setSelectedProductIds(filtered.map(p => p.id));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (!selectedProductIds.length) return;
+        
+        setConfirmModal({
+            title: 'Deactivate Products',
+            message: `Are you sure you want to deactivate ${selectedProductIds.length} products? They will be hidden from the shop and marked as INACTIVE.`,
+            onConfirm: async () => {
+                setLoading(true);
+                try {
+                    const { error } = await supabase
+                        .from('products')
+                        .update({ is_active: false })
+                        .in('id', selectedProductIds);
+
+                    if (error) throw error;
+
+                    setResultModal({
+                        title: 'Products Deactivated',
+                        message: `Successfully deactivated ${selectedProductIds.length} products.`,
+                        type: 'success'
+                    });
+                    setSelectedProductIds([]);
+                    fetchProducts();
+                } catch (err) {
+                    console.error('Bulk Deactivation Error:', err);
+                    setResultModal({
+                        title: 'Bulk Action Failed',
+                        message: `Failed to deactivate products: ${err.message}`,
                         type: 'error'
                     });
                 } finally {
@@ -737,8 +772,8 @@ export default function ProductsPage() {
 
 
 
-    const totalStock = products.reduce((s, p) => s + (p.stock || 0), 0);
-    const totalValue = products.reduce((s, p) => s + ((p.price || 0) * (p.stock || 0)), 0);
+    const totalStock = filtered.reduce((s, p) => s + (p.stock || 0), 0);
+    const totalValue = filtered.reduce((s, p) => s + ((p.price || 0) * (p.stock || 0)), 0);
 
     const inputStyle = {
         width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
@@ -757,7 +792,7 @@ export default function ProductsPage() {
                     <div className="admin-header-row">
                         <div>
                             <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
-                            <p>Manage your premium saree collection • {products.length} items</p>
+                            <p>Manage your premium saree collection • {filtered.length} items</p>
                         </div>
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button onClick={() => setImportModal(true)} className="btn btn-secondary">
@@ -804,7 +839,7 @@ export default function ProductsPage() {
                     {/* Group Tags Filter */}
                     {/* {groups.length > 1 && (
                 <div className="admin-filter-row" style={{ marginTop: '-0.75rem' }}>
-                    <span style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginRight: '0.5rem' }}>🏷️ Groups:</span>
+                    <span style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginRight: '0.5rem' }}>Groups:</span>
                     {groups.map(grp => (
                         <button key={grp} onClick={() => setGroupFilter(grp)} style={{
                             padding: '0.35rem 0.9rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600,
@@ -842,7 +877,7 @@ export default function ProductsPage() {
                                 className="admin-input-select"
                             >
                                 <option value="newest">Newest First</option>
-                                <option value="low_stock">⚠️ Low Stock First</option>
+                                <option value="low_stock">Low Stock First</option>
                                 <option value="high_price">Price: High to Low</option>
                             </select>
                         </div>
@@ -971,6 +1006,14 @@ export default function ProductsPage() {
                                         <thead style={{ background: '#f1f5f9' }}>
                                         <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                             <th>#</th>
+                                            <th style={{ width: '40px', textAlign: 'center' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={filtered.length > 0 && selectedProductIds.length === filtered.length}
+                                                    onChange={toggleSelectAll}
+                                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                                />
+                                            </th>
                                             <th>Product</th>
                                             <th>Category</th>
                                             {/* <th>Group</th>
@@ -984,8 +1027,18 @@ export default function ProductsPage() {
                                         {filtered.length === 0 ? (
                                             <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
                                         ) : paginatedProducts.map((product, idx) => (
-                                            <tr key={product.id}>
-                                                <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{idx + 1}</td>
+                                            <tr key={product.id} style={{
+                                                background: selectedProductIds.includes(product.id) ? 'hsl(var(--primary) / 0.02)' : 'transparent'
+                                            }}>
+                                                <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{(productsPage - 1) * PRODUCTS_PER_PAGE + idx + 1}</td>
+                                                <td style={{ textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleSelectItem(product.id); }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedProductIds.includes(product.id)}
+                                                        onChange={() => {}}
+                                                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                                    />
+                                                </td>
                                                 <td style={{ padding: '0.75rem 1.5rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', cursor: 'pointer' }} onClick={() => openEditModal(product)} title="Click to edit product">
                                                         <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))', position: 'relative' }}>
@@ -1026,6 +1079,9 @@ export default function ProductsPage() {
                                                                 {product.is_featured && (
                                                                     <span style={{ fontSize: '0.65rem', background: 'hsl(var(--primary))', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>FEATURED</span>
                                                                 )}
+                                                                {product.is_active === false && (
+                                                                    <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>INACTIVE</span>
+                                                                )}
                                                             </div>
                                                             <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                                 {product.description || '—'}
@@ -1041,7 +1097,7 @@ export default function ProductsPage() {
                                                 {/* <td>
                                             {product.product_group ? (
                                                 <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.3)' }}>
-                                                    🏷️ {product.product_group}
+                                                    {product.product_group}
                                                 </span>
                                             ) : (
                                                 <span style={{ fontSize: '0.73rem', color: 'hsl(var(--text-muted) / 0.5)' }}>—</span>
@@ -1131,7 +1187,9 @@ export default function ProductsPage() {
                                                         )}
                                                     </>
                                                 ) : (
-                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>💮</div>
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>
+                                                        <ImageIcon size={48} color="hsl(var(--text-muted))" />
+                                                    </div>
                                                 )}
                                                 {/* Stock badge */}
                                                 <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
@@ -1359,15 +1417,7 @@ export default function ProductsPage() {
                                                                         continue;
                                                                     }
 
-                                                                    // 2. First, Store the ORIGINAL CLEAN image to Media Library
-                                                                    const originalFd = new FormData();
-                                                                    originalFd.append('file', file, file.name);
-                                                                    originalFd.append('skipDetection', 'true'); // Don't run OCR on original clean file
-                                                                    originalFd.append('alreadyWatermarked', 'false');
-                                                                    
-                                                                    await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
-
-                                                                    // 3. Proceed with stamping and upload for the product itself
+                                                                    // 2. Proceed with stamping and upload for the product itself
                                                                     const localUrl = URL.createObjectURL(file);
                                                                     const watermarkedBlob = await stampProductCode(localUrl, catalogId);
                                                                     URL.revokeObjectURL(localUrl);
@@ -1476,14 +1526,7 @@ export default function ProductsPage() {
                                                                                 setOcrLoading(true);
                                                                                 const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
                                                                                 
-                                                                                // 1. Store the ORIGINAL CLEAN image to Media Library
-                                                                                const originalFd = new FormData();
-                                                                                originalFd.append('file', file, file.name);
-                                                                                originalFd.append('skipDetection', 'true');
-                                                                                originalFd.append('alreadyWatermarked', 'false');
-                                                                                await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
-
-                                                                                // 2. Perform watermarking for the product variant record
+                                                                                // 1. Perform watermarking for the product variant record
                                                                                 const localUrl = URL.createObjectURL(file);
                                                                                 const watermarkedBlob = await stampProductCode(localUrl, catalogId);
                                                                                 URL.revokeObjectURL(localUrl);
@@ -1561,6 +1604,13 @@ export default function ProductsPage() {
                                     <input id="is_explore" name="is_explore" type="checkbox" defaultChecked={currentProduct?.product_group === 'EXPLORE'} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
                                     <label htmlFor="is_explore" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>Explore Our Products Slider</label>
                                 </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>
+                                    <input id="is_active_toggle" name="is_active" type="checkbox" defaultChecked={currentProduct ? currentProduct.is_active !== false : true} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                                    <label htmlFor="is_active_toggle" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        Product Status (Active - Visible in Shop)
+                                        {(currentProduct && currentProduct.is_active === false) && <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 800 }}>(Currently Hidden)</span>}
+                                    </label>
+                                </div>
                             </div>
 
                             {/* Facebook Integration */}
@@ -1585,18 +1635,38 @@ export default function ProductsPage() {
 
                                 {postToFacebook && !fbConfig.pageId && (
                                     <div style={{ marginTop: '10px', fontSize: '0.72rem', color: 'hsl(var(--danger))', background: 'hsl(var(--danger) / 0.1)', padding: '8px', borderRadius: '6px' }}>
-                                        ⚠️ Facebook account not linked. <button type="button" onClick={() => router.push('/admin/facebook')} style={{ background: 'none', border: 'none', color: '#1877F2', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Connect Account</button>
+                                        Facebook account not linked. <button type="button" onClick={() => router.push('/admin/facebook')} style={{ background: 'none', border: 'none', color: '#1877F2', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Connect Account</button>
                                     </div>
                                 )}
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.75rem' }}>
                                 <button type="button" onClick={() => setIsEditing(false)} className="btn btn-secondary">Cancel</button>
+                                {currentProduct && (
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            handleDelete(currentProduct.id);
+                                            setIsEditing(false);
+                                        }}
+                                        className="btn"
+                                        style={{ 
+                                            background: 'hsl(var(--danger) / 0.1)',
+                                            color: 'hsl(var(--danger))',
+                                            border: '1px solid hsl(var(--danger) / 0.3)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <Trash2 size={16} /> Delete Product
+                                    </button>
+                                )}
                                 <button type="submit" className="btn btn-primary" disabled={fbProcessing}>
                                     {fbProcessing ? (
                                         <><Loader2 size={16} className="animate-spin" style={{ marginRight: '8px' }} /> Posting...</>
                                     ) : (
-                                        <>💾 Save {postToFacebook ? '& Post' : ''}</>
+                                        <>Save {postToFacebook ? '& Post' : ''}</>
                                     )}
                                 </button>
                             </div>
@@ -1723,7 +1793,7 @@ export default function ProductsPage() {
 
                                 if (ocrData.hasWatermark) {
                                     setErrorModal({
-                                        title: '🚫 Watermark Detected',
+                                        title: 'Watermark Detected',
                                         message: 'The image has already WaterMark'
                                     });
                                     return;
@@ -1748,7 +1818,7 @@ export default function ProductsPage() {
 
                             } catch (err) {
                                 console.error('Media select error:', err);
-                                setNotification({ message: '❌ Failed to process image: ' + err.message, type: 'error' });
+                                setNotification({ message: 'Failed to process image: ' + err.message, type: 'error' });
                             } finally {
                                 setOcrLoading(false);
                             }
@@ -1995,6 +2065,61 @@ export default function ProductsPage() {
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             `}</style>
+            {/* Bulk Action Bar */}
+            {selectedProductIds.length > 0 && !isEditing && !showHistory && !importModal && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '2rem',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'hsl(var(--text-main))',
+                    color: 'white',
+                    padding: '1rem 2rem',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2rem',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                    zIndex: 1000,
+                    animation: 'slideUp 0.3s ease'
+                }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                        {selectedProductIds.length} Products Selected
+                    </div>
+                    <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.2)' }} />
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <button onClick={handleBulkDelete} style={{
+                            background: 'rgba(239,68,68,0.2)',
+                            border: '1px solid rgba(239,68,68,0.5)',
+                            color: '#f87171',
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}>
+                            <Trash2 size={16} /> Delete Selected
+                        </button>
+                        <button onClick={() => setSelectedProductIds([])} style={{
+                            background: 'transparent',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            color: 'white',
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                        }}>
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

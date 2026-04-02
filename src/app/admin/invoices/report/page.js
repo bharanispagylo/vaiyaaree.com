@@ -419,7 +419,7 @@ export default function InvoiceReportPage() {
                     display: 'flex', alignItems: 'center', gap: '12px',
                     animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}>
-                    {notification.type === 'error' ? '✕' : '✓'} {notification.message}
+                    {notification.message}
                 </div>
             )}
             <style jsx>{`
