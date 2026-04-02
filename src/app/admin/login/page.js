@@ -130,7 +130,7 @@ export default function AdminLoginPage() {
                     </button>
 
                     <div style={{ textAlign: 'center' }}>
-                        <a href="#" style={{ color: '#888', fontSize: '0.85rem', textDecoration: 'underline' }}>Forgot Password?</a>
+                        <a href="/admin/login/forgot-password" style={{ color: 'hsl(var(--primary))', fontSize: '0.85rem', textDecoration: 'underline' }}>Forgot Password?</a>
                     </div>
                 </form>
 
