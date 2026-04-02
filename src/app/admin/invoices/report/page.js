@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, DollarSign, ShoppingCart, Eye, X } from 'lucide-react';
+import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
@@ -362,7 +362,6 @@ export default function InvoiceReportPage() {
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Location</th>
                                 <th style={{ textAlign: 'right', padding: '1rem 1.5rem' }}>Total</th>
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Status</th>
-                                <th style={{ textAlign: 'center', padding: '1rem 1.5rem' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -397,15 +396,6 @@ export default function InvoiceReportPage() {
                                                 color: o.status === 'DELIVERED' || o.status === 'PAID' ? 'white' : 'hsl(var(--text-main))',
                                                 border: `1px solid ${o.status === 'DELIVERED' || o.status === 'PAID' ? 'transparent' : 'hsl(var(--border-subtle))'}`
                                             }}>{o.status}</span>
-                                        </td>
-                                        <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
-                                            <button
-                                                onClick={() => setViewInvoice(o)}
-                                                className="btn btn-secondary"
-                                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            >
-                                                <Eye size={14} /> View
-                                            </button>
                                         </td>
                                     </tr>
                                 ))

@@ -30,8 +30,9 @@ export async function sendOrderConfirmationEmail(order) {
         </tr>`
     ).join('') || '';
 
-    const invoiceUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/invoice/${order.id}`;
-    const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order-confirmation?orderId=${order.id}`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
+    const orderUrl = `${baseUrl}/order-confirmation?orderId=${order.id}`;
 
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
@@ -119,6 +120,9 @@ export async function sendOrderConfirmationEmail(order) {
                     <p style="color: #666; font-size: 0.9em; margin-top: 30px; text-align: center;">
                         We'll notify you when your order ships. For any queries, contact us at <a href="mailto:support@castprintz.com">support@castprintz.com</a>
                     </p>
+                    <p style="text-align: center; margin-top: 20px;">
+                        <a href="${baseUrl}" style="color: #4f46e5; text-decoration: none; font-weight: bold; font-size: 1.1em;">Shop Online</a>
+                    </p>
                 </div>
             </div>
         `
@@ -154,7 +158,8 @@ export async function sendOrderStatusEmail(order, status) {
     };
 
     const config = statusConfig[status] || { title: `Order Update: ${status}`, body: `Your order #${order.id} status has been updated to: ${status}` };
-    const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/order-confirmation?orderId=${order.id}`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const orderUrl = `${baseUrl}/order-confirmation?orderId=${order.id}`;
 
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Cast Printz" <orders@castprintz.com>',
@@ -179,6 +184,9 @@ export async function sendOrderStatusEmail(order, status) {
 
                     <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
                         For any queries, contact us at <a href="mailto:support@castprintz.com">support@castprintz.com</a>
+                    </p>
+                    <p style="text-align: center; margin-top: 20px;">
+                        <a href="${baseUrl}" style="color: #4f46e5; text-decoration: none; font-weight: bold; font-size: 1.1em;">Shop Online</a>
                     </p>
                 </div>
             </div>

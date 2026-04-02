@@ -475,7 +475,7 @@ export async function sendMainMenu(to) {
     }
 
     // Use sendImageButtons for a richer first impression
-    await sendImageButtons(to, welcomeImg, `${welcomeMsg}\n\n🛒 Shop Online: ${shopUrl}`, [
+    await sendImageButtons(to, welcomeImg, welcomeMsg, [
         { id: "menu_catalogue", title: "View Catalogue" },
         { id: "menu_track", title: "My Orders" },
         { id: "menu_contact", title: "Contact Us" }
@@ -663,8 +663,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
     } else {
         await sendButtons(to, `✅ That's all ${totalCount} saree${totalCount > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
             { id: "menu_catalogue", title: "📖 More Types" },
-            { id: "menu_cart", title: "🛒 View Cart" },
-            { id: "menu_shop_web", title: "🛍️ Visit Web Store" }
+            { id: "menu_cart", title: "🛒 View Cart" }
         ]);
     }
 }
@@ -1111,7 +1110,7 @@ export async function askPaymentMode(to, orderId) {
     ]);
 }
 // Centralized Order Notification (Rich Message + Invoice)
-export async function notifyOrderSuccess(orderId) {
+export async function notifyOrderSuccess(orderId, isPaid = false) {
     try {
         console.log(`[NOTIFY] Triggering success notification for #${orderId}`);
         const { data: order, error } = await supabase
@@ -1128,41 +1127,40 @@ export async function notifyOrderSuccess(orderId) {
         const to = order.customer_phone;
         if (!to) return;
 
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
         const total = order.total_amount?.toLocaleString() || '0';
         const itemsList = (order.order_items || [])
             .map(item => `• ${item.product_name} x${item.quantity} — ₹${(item.price_at_time * item.quantity).toLocaleString()}`)
             .join('\n');
 
+        const statusEmoji = isPaid ? '✅' : '🎉';
+        const statusText = isPaid ? 'Payment Confirmed! Thank you!' : 'Hi ' + (order.customer_name || 'Customer') + '! Your order has been placed successfully.';
+
         const message =
-            `✅ *Order Confirmed — Cast Printz* 🎉\n\n` +
-            `Hi ${order.customer_name || 'Customer'}! Your order has been placed successfully.\n\n` +
+            `${statusEmoji} *Order Confirmed — Cast Printz* ${statusEmoji}\n\n` +
+            `${statusText}\n\n` +
             `📦 *Order ID:* #${orderId}\n` +
             `💰 *Grand Total:* ₹${total}\n` +
             `🛍️ *Items:*\n${itemsList}\n\n` +
             `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
+            `🌐 *Shop Online:* ${baseUrl}\n\n` +
             `📄 Generating your invoice...`;
 
         await sendText(to, message);
 
-        // Send Invoice
-        // Generate invoice via API
-        let invoiceUrl = null;
-        try {
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-            const response = await fetch(`${baseUrl}/api/invoice/${order.id}`);
-            if (response.ok) {
-                invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
-            }
-        } catch (err) {
-            console.error('Failed to get invoice:', err);
-        }
+        // Send Invoice (Generate URL directly to avoid blocking fetch loopback)
+        const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
+
         if (invoiceUrl) {
             await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
         }
+        
+        // Wait a bit to ensure messages arrive in visually pleasant order
+        await new Promise(r => setTimeout(r, 1200));
 
         await sendButtons(to, "Thank you for shopping with *Cast Printz*!\n\nTap below to manage your order:", [
             { id: "menu_track", title: "Track Order" },
-            { id: "menu_my_orders", title: "My Orders" },
+            { id: "menu_my_orders", title: "View Order" },
             { id: `menu_cancel_order`, title: "Cancel Order" }
         ]);
 
@@ -1207,7 +1205,7 @@ export async function finalizeOrder(to, method, orderId) {
         const upiId = 'samypranesh@okicici';
         const payeeName = 'Cast Printz Sarees';
         const note = `Order+${orderId}`;
-        const upiLink = `upi://pay?pa=${upiId}\u0026pn=${payeeName}\u0026am=${rawAmount}\u0026cu=INR\u0026tn=${note}`;
+        const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${rawAmount}&cu=INR&tn=${note}`;
 
         await sendText(to,
             `📲 *UPI Payment — ₹${total}*\n\n` +
@@ -1247,31 +1245,8 @@ export async function handlePaymentConfirmed(to, orderId) {
     await clearCart(to);
     await deductStock(orderId);
 
-    const { data: order } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
-
-    await sendText(to, `✅ *Payment Confirmed! Thank you!*\n\nGenerating your invoice now...`);
-    // Generate invoice via API
-        let invoiceUrl = null;
-        try {
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-            const response = await fetch(`${baseUrl}/api/invoice/${order.id}`);
-            if (response.ok) {
-                invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
-            }
-        } catch (err) {
-            console.error('Failed to get invoice:', err);
-        }
-    if (invoiceUrl) {
-        await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
-    } else {
-        await sendText(to, `⚠️ Invoice generation failed. Please contact us with Order ID: *#${orderId}*`);
-    }
-
-    await sendButtons(to, "Thank you for shopping with *Cast Printz*!\n\nTap below to manage your order:", [
-        { id: "menu_track", title: "📦 Track Order" },
-        { id: "menu_my_orders", title: "🛍️ My Orders" },
-        { id: "menu_cancel_order", title: "❌ Cancel Order" }
-    ]);
+    // Unify logic by calling notifyOrderSuccess
+    return await notifyOrderSuccess(orderId, true);
 }
 export async function handleCancelOrder(to) {
     // Normalize phone number to handle both formats (with/without country code)
@@ -1440,13 +1415,16 @@ export async function confirmCancelOrder(to, orderId) {
         })
         .eq('id', upperOrderId);
     
-    // Always create a refund entry for cancellations so admin can review
-    await supabase.from('refunds').insert({
-        order_id: upperOrderId,
-        amount: existingOrder?.total_amount || 0,
-        reason: 'Order Cancelled by Customer via WhatsApp',
-        status: 'REQUESTED'
-    });
+    // Only create a refund entry if money was actually collected (PAID or AWAITING_PAYMENT)
+    // PLACED (COD) orders never took money, so no refund is needed
+    if (['PAID', 'AWAITING_PAYMENT'].includes(existingOrder?.status)) {
+        await supabase.from('refunds').insert({
+            order_id: upperOrderId,
+            amount: existingOrder?.total_amount || 0,
+            reason: 'Order Cancelled by Customer via WhatsApp (Paid Order)',
+            status: 'REQUESTED'
+        });
+    }
     
     // Add to status history (both tables for compatibility)
     await supabase.from('order_status_history').insert({
@@ -1567,25 +1545,21 @@ export async function handleTrackOrder(to) {
         phoneVariations.push('91' + to);
     }
     
-    // Query with OR condition for all phone variations
-    let orders = [];
-    for (const phone of phoneVariations) {
-        const { data } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('customer_phone', phone)
-            .neq('status', 'DRAFT')
-            .order('created_at', { ascending: false })
-            .limit(1);
-        if (data && data.length > 0) {
-            orders = data;
-            break;
-        }
-    }
+    // Query with IN condition for all phone variations to get the absolute latest order
+    const { data: oList, error } = await supabase
+        .from('orders')
+        .select('*')
+        .in('customer_phone', phoneVariations)
+        .neq('status', 'DRAFT')
+        .order('created_at', { ascending: false })
+        .limit(1);
+    
+    const orders = oList || [];
     
     if (!orders?.length) return sendButtons(to, "No previous orders found.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
 
     const o = orders[0];
+    const sourceLabel = o.source === 'WEBSITE' ? '🌐 Website' : '📱 WhatsApp';
     const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
     
     const buttons = [
@@ -1596,7 +1570,15 @@ export async function handleTrackOrder(to) {
         buttons.unshift({ id: "menu_cancel_order", title: "Cancel Order" });
     }
     
-    await sendButtons(to, `Last Order Details\n\nID: #${o.id}\nStatus: ${o.status}\nAmount: ₹${o.total_amount}\nDate: ${new Date(o.created_at).toLocaleDateString()}`, buttons);
+    await sendButtons(to, 
+        `🛒 *Latest Order Details*\n\n` +
+        `Order ID: *#${o.id}*\n` +
+        `Source: *${sourceLabel}*\n` +
+        `Status: *${o.status}*\n` +
+        `Amount: *₹${o.total_amount?.toLocaleString()}*\n` +
+        `Date: *${new Date(o.created_at).toLocaleDateString()}*`, 
+        buttons
+    );
 }
 
 export async function handleContact(to) {
@@ -1897,21 +1879,19 @@ export async function processIncomingMessage(body) {
                         } else if (order.payment_method === 'COD') {
                             await sendText(from, "📄 Generating your invoice...");
                             const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
-                            // Generate invoice via API
-                            let invoiceUrl = null;
-                            try {
-                                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-                                const response = await fetch(`${baseUrl}/api/invoice/${orderId}`);
-                                if (response.ok) {
-                                    invoiceUrl = `${baseUrl}/api/invoice/${orderId}`;
-                                }
-                            } catch (err) {
-                                console.error('Failed to get invoice:', err);
-                            }
+                            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+                            const invoiceUrl = `${baseUrl}/api/invoice/${orderId}`;
+
                             if (invoiceUrl) {
                                 await sendDocument(from, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
                             }
-                            await sendText(from, "💗 We will contact you shortly to confirm cash on delivery dispatch!");
+                            
+                            // Unify with bot flow by providing the same buttons
+                            await sendButtons(from, "💗 We will contact you shortly to confirm cash on delivery dispatch!\n\nTap below to manage your order:", [
+                                { id: "menu_track", title: "Track Order" },
+                                { id: "menu_my_orders", title: "View Order" },
+                                { id: `menu_cancel_order`, title: "Cancel Order" }
+                            ]);
                         }
                         return;
                     }

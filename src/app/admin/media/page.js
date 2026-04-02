@@ -418,14 +418,16 @@ export default function MediaLibraryPage() {
         if (activeGroup === 'watermark') {
             return watermarkImages.includes(f.url);
         } else if (activeGroup === 'no-watermark') {
-            return noWatermarkImages.includes(f.url);
+            // Show all images that are NOT watermarked (includes uncategorized)
+            return !watermarkImages.includes(f.url);
         }
         return true; // 'all' group
     });
 
     // Calculate actual counts based on files that exist
     const actualWatermarkCount = files.filter(f => watermarkImages.includes(f.url)).length;
-    const actualNoWatermarkCount = files.filter(f => noWatermarkImages.includes(f.url)).length;
+    // 'Without watermark' = everything NOT in the watermark list (includes uncategorized images)
+    const actualNoWatermarkCount = files.filter(f => !watermarkImages.includes(f.url)).length;
 
     useEffect(() => {
         if (notification) {

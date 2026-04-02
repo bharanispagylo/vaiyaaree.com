@@ -58,12 +58,31 @@ export function ShopProvider({ children }) {
         localStorage.setItem('cast_prince_cart', JSON.stringify(cart));
 
         const syncCart = async () => {
-            if (user?.id) {
+            if (user?.phone) {
                 try {
-                    await supabase
-                        .from('customers')
-                        .update({ cart_data: cart })
-                        .eq('id', user.id);
+                    const digits = user.phone.replace(/\D/g, '');
+                    const primaryPhone = (digits.length === 10) ? '91' + digits : digits;
+                    const phoneVariations = [digits];
+                    if (digits.length === 10) phoneVariations.push('91' + digits);
+                    else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
+
+                    // Clean existing cross-platform cart entries for this user
+                    await supabase.from('whatsapp_cart').delete().in('phone', phoneVariations);
+
+                    // Sync current state explicitly up to DB
+                    if (cart.length > 0) {
+                        const inserts = cart.map(item => ({
+                            phone: primaryPhone,
+                            product_id: item.id,
+                            product_name: item.name,
+                            price: item.price,
+                            quantity: item.qty,
+                            image_url: item.image_url,
+                            variant_id: item.variantId || null,
+                            variant_name: item.variantName || null
+                        }));
+                        await supabase.from('whatsapp_cart').insert(inserts);
+                    }
                 } catch (err) {
                     console.error('Cart sync error:', err);
                 }
@@ -72,34 +91,56 @@ export function ShopProvider({ children }) {
 
         const timer = setTimeout(syncCart, 1000);
         return () => clearTimeout(timer);
-    }, [cart, user?.id, hasMounted, isCartLoaded]);
+    }, [cart, user?.phone, hasMounted, isCartLoaded]);
 
     // Load cart from DB when user logs in or session is restored
     useEffect(() => {
         if (!hasMounted) return;
 
         const loadUserCart = async () => {
-            if (user?.id) {
+            if (user?.phone) {
                 try {
-                    const { data } = await supabase.from('customers').select('cart_data').eq('id', user.id).single();
-                    if (data?.cart_data && Array.isArray(data.cart_data)) {
-                        setCart(prev => {
-                            // Merge guest items into DB items
-                            const dbCart = [...data.cart_data];
-                            const guestItems = prev.filter(g => !dbCart.find(d => (g.variantId ? d.variantId === g.variantId : d.id === g.id)));
-                            const merged = [...dbCart, ...guestItems];
-                            return merged;
-                        });
-                    }
+                    const digits = user.phone.replace(/\D/g, '');
+                    const phoneVariations = [digits];
+                    if (digits.length === 10) phoneVariations.push('91' + digits);
+                    else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
+
+                    const { data } = await supabase.from('whatsapp_cart').select('*').in('phone', phoneVariations);
+                    
+                    setCart(prev => {
+                        // Standardize DB items
+                        const dbCart = (data || []).map(dbItem => ({
+                            id: dbItem.product_id,
+                            name: dbItem.product_name,
+                            price: dbItem.price,
+                            qty: dbItem.quantity,
+                            image_url: dbItem.image_url,
+                            variantId: dbItem.variant_id,
+                            variantName: dbItem.variant_name
+                        }));
+                        
+                        // If we have items in DB, sync them. 
+                        // If DB is empty, but we have guest items, we might want to preserve them ONLY IF this is the first load after login
+                        // However, to keep it strictly synced, if a user is logged in, the DB is the source of truth.
+                        
+                        const guestItems = prev.filter(g => !dbCart.find(d => (g.variantId ? d.variantId === g.variantId : d.id === g.id)));
+                        
+                        // Only merge guest items if the user just recently signed in (isCartLoaded was false)
+                        if (!isCartLoaded && guestItems.length > 0) {
+                            return [...dbCart, ...guestItems];
+                        }
+                        
+                        return dbCart;
+                    });
                 } catch (err) {
-                    console.error('Error loading DB cart:', err);
+                    console.error('Error loading WhatsApp cross-platform cart:', err);
                 }
             }
             setIsCartLoaded(true); // Now we are safe to sync back to DB
         };
 
         loadUserCart();
-    }, [user?.id, hasMounted]);
+    }, [user?.phone, hasMounted]);
 
     // Initial local cart load on mount
     useEffect(() => {
@@ -120,9 +161,6 @@ export function ShopProvider({ children }) {
                 const { data: dbUser } = await supabase.from('customers').select('*').eq('id', localUser.id).single();
                 const activeUser = dbUser || localUser;
                 setUser(activeUser);
-                if (activeUser.cart_data && Array.isArray(activeUser.cart_data) && activeUser.cart_data.length > 0) {
-                    setCart(activeUser.cart_data);
-                }
                 setCheckoutForm(prev => ({
                     ...prev,
                     billingName: activeUser.name || '',

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, ChevronLeft, Download, XCircle, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, ChevronLeft, Download, XCircle, AlertTriangle, CheckCircle, Globe } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
 import styles from './orders.module.css';
@@ -31,10 +31,18 @@ export default function MyOrdersPage() {
     async function fetchUserOrders() {
         setLoading(true);
         try {
+            const digits = (user.phone || '').replace(/\D/g, '');
+            const phoneVariations = [digits];
+            if (digits.length === 10) {
+                phoneVariations.push('91' + digits);
+            } else if (digits.length === 12 && digits.startsWith('91')) {
+                phoneVariations.push(digits.substring(2));
+            }
+
             const { data } = await supabase
                 .from('orders')
                 .select('*, order_items(*)')
-                .eq('customer_phone', user.phone)
+                .in('customer_phone', phoneVariations)
                 .order('created_at', { ascending: false });
 
             if (data) setOrders(data);
@@ -390,6 +398,19 @@ export default function MyOrdersPage() {
                                 >
                                     <td className={styles.orderIdCell}>
                                         <span className={styles.orderId}>#{order.id}</span>
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '4px', 
+                                            fontSize: '0.65rem', 
+                                            fontWeight: 700, 
+                                            marginTop: '4px',
+                                            textTransform: 'uppercase',
+                                            color: order.source === 'WEBSITE' ? '#6366f1' : '#22c55e'
+                                        }}>
+                                            {order.source === 'WEBSITE' ? <Globe size={10} /> : <MessageCircle size={10} />}
+                                            {order.source === 'WEBSITE' ? 'WEB ORDER' : 'WHATSAPP'}
+                                        </div>
                                     </td>
                                     <td className={styles.dateCell}>
                                         {new Date(order.created_at).toLocaleDateString('en-IN', {
