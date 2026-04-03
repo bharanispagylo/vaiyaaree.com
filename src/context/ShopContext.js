@@ -1,12 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import { supabase } from '@/lib/supabaseClient';
 
 const ShopContext = createContext();
 
@@ -159,18 +154,26 @@ export function ShopProvider({ children }) {
         if (storedUser) {
             try {
                 const localUser = JSON.parse(storedUser);
-                const { data: dbUser } = await supabase.from('customers').select('*').eq('id', localUser.id).single();
-                const activeUser = dbUser || localUser;
-                setUser(activeUser);
-                setCheckoutForm(prev => ({
-                    ...prev,
-                    billingName: activeUser.name || '',
-                    billingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : '',
-                    shippingName: activeUser.name || '',
-                    shippingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : ''
-                }));
-            } catch (e) {
-                console.error('Failed to parse user session');
+                
+                // Only fetch from database if we have a valid ID
+                if (localUser.id && localUser.id !== 'undefined') {
+                    const { data: dbUser } = await supabase.from('customers').select('*').eq('id', localUser.id).single();
+                    const activeUser = dbUser || localUser;
+                    setUser(activeUser);
+                    setCheckoutForm(prev => ({
+                        ...prev,
+                        billingName: activeUser.name || '',
+                        billingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : '',
+                        shippingName: activeUser.name || '',
+                        shippingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : ''
+                    }));
+                } else {
+                    // Use stored user as-is if ID is invalid
+                    setUser(localUser);
+                }
+            } catch (error) {
+                console.error('Session check error:', error);
+                // Clear invalid stored user
                 localStorage.removeItem('cast_prince_user');
             }
         }

@@ -17,6 +17,160 @@ import {
 import MediaPicker from '@/components/MediaPicker';
 import ProductImageAssigner from '@/components/ProductImageAssigner';
 import { stampProductCode, uploadWatermarkedImage } from '@/lib/imageStamp';
+import { validateMediaImageForProduct } from '@/lib/catCodeProcessor';
+
+// Canvas-based text detection from image (same as media library)
+async function detectWatermarkInBuffer(imageBuffer, fileName = '') {
+    try {
+        console.log(`[PRODUCT] Reading text from image: ${fileName}`);
+        
+        // Use Canvas to read text from image
+        const { createCanvas, loadImage } = await import('canvas');
+        
+        const image = await loadImage(imageBuffer);
+        const canvas = createCanvas(image.width, image.height);
+        const ctx = canvas.getContext('2d');
+        
+        ctx.drawImage(image, 0, 0);
+        
+        // Focus on larger area including bottom-right where CAT codes usually are
+        const checkWidth = Math.min(400, canvas.width * 0.6);
+        const checkHeight = Math.min(200, canvas.height * 0.4);
+        const startX = canvas.width - checkWidth;
+        const startY = canvas.height - checkHeight;
+        
+        console.log(`[PRODUCT] Checking area: x=${startX}-${startX + checkWidth}, y=${startY}-${startY + checkHeight}`);
+        
+        // Get image data from bottom-right area
+        const imageData = ctx.getImageData(startX, startY, checkWidth, checkHeight);
+        const data = imageData.data;
+        
+        // Look for bright pixels (text) with lower threshold to catch CAT codes
+        let brightPixels = [];
+        const step = 1; // Sample every pixel for better accuracy
+        
+        for (let y = 0; y < checkHeight; y += step) {
+            for (let x = 0; x < checkWidth; x += step) {
+                const idx = (y * checkWidth + x) * 4;
+                const r = data[idx];
+                const g = data[idx + 1];
+                const b = data[idx + 2];
+                const brightness = (r + g + b) / 3;
+                
+                // Look for bright pixels (white/light text) - lower threshold
+                if (brightness > 160) {
+                    brightPixels.push({ x, y, brightness });
+                }
+            }
+        }
+        
+        console.log(`[PRODUCT] Found ${brightPixels.length} bright pixels (brightness > 160)`);
+        
+        // Need fewer bright pixels to indicate text
+        if (brightPixels.length > 20) {
+            // Group bright pixels into potential text regions
+            const textRegions = groupPixelsIntoRegions(brightPixels);
+            console.log(`[PRODUCT] Found ${textRegions.length} potential text regions`);
+            
+            // Check if regions look like text (linear patterns)
+            let textLikeRegions = 0;
+            for (const region of textRegions) {
+                if (isTextLikeRegion(region)) {
+                    textLikeRegions++;
+                }
+            }
+            
+            console.log(`[PRODUCT] Found ${textLikeRegions} text-like regions`);
+            
+            // Need at least 1 text-like region to be CAT code
+            if (textLikeRegions >= 1) {
+                console.log(`[PRODUCT] Text region detected - likely CAT code present`);
+                return true;
+            }
+        }
+        
+        console.log(`[PRODUCT] No text detected in image`);
+        return false;
+        
+    } catch (error) {
+        console.error('[PRODUCT] Canvas detection error:', error);
+        return false;
+    }
+}
+
+// Check if a region of pixels looks like text (linear patterns)
+function isTextLikeRegion(region) {
+    if (region.length < 5) return false;
+    
+    // Find bounding box
+    const minX = Math.min(...region.map(p => p.x));
+    const maxX = Math.max(...region.map(p => p.x));
+    const minY = Math.min(...region.map(p => p.y));
+    const maxY = Math.max(...region.map(p => p.y));
+    
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    // Text is usually wider than it is tall (horizontal) or taller than wide (vertical)
+    const aspectRatio = width / height;
+    
+    // Check if region has text-like proportions
+    const hasTextShape = (aspectRatio > 2 && aspectRatio < 10) || (aspectRatio > 0.1 && aspectRatio < 0.5);
+    
+    // Check if pixels are somewhat linear (not scattered)
+    const density = region.length / (width * height);
+    const hasLinearPattern = density > 0.1;
+    
+    console.log(`[PRODUCT TEXT CHECK] Region: ${region.length} pixels, size: ${width}x${height}, ratio: ${aspectRatio.toFixed(2)}, density: ${density.toFixed(3)} -> ${hasTextShape && hasLinearPattern ? 'TEXT-LIKE' : 'NOT TEXT'}`);
+    
+    return hasTextShape && hasLinearPattern;
+}
+
+// Group bright pixels into text regions
+function groupPixelsIntoRegions(pixels) {
+    if (pixels.length === 0) return [];
+    
+    const regions = [];
+    const visited = new Set();
+    
+    for (const pixel of pixels) {
+        const key = `${pixel.x},${pixel.y}`;
+        if (visited.has(key)) continue;
+        
+        const region = [];
+        const queue = [pixel];
+        
+        while (queue.length > 0) {
+            const current = queue.shift();
+            const currentKey = `${current.x},${current.y}`;
+            
+            if (visited.has(currentKey)) continue;
+            visited.add(currentKey);
+            region.push(current);
+            
+            // Find nearby pixels (within 10 pixels)
+            for (const other of pixels) {
+                const otherKey = `${other.x},${other.y}`;
+                if (visited.has(otherKey)) continue;
+                
+                const distance = Math.sqrt(
+                    Math.pow(current.x - other.x, 2) + 
+                    Math.pow(current.y - other.y, 2)
+                );
+                
+                if (distance <= 10) {
+                    queue.push(other);
+                }
+            }
+        }
+        
+        if (region.length >= 3) { // At least 3 pixels to form text
+            regions.push(region);
+        }
+    }
+    
+    return regions;
+}
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -1394,35 +1548,65 @@ export default function ProductsPage() {
 
                                                                 const uploadedUrls = [];
                                                                 for (const file of files) {
-                                                                    // 1. OCR Check for existing watermark
-                                                                    const reader = new FileReader();
-                                                                    const base64Promise = new Promise((resolve) => {
-                                                                        reader.onload = () => resolve(reader.result);
-                                                                        reader.readAsDataURL(file);
-                                                                    });
-                                                                    const base64Image = await base64Promise;
+                                                                    // 1. Canvas-based CAT code detection (same as media library)
+                                                                    const buffer = await file.arrayBuffer();
+                                                                    const imageBuffer = Buffer.from(buffer);
+                                                                    
+                                                                    // Use the same detection logic as media library
+                                                                    const hasCatCode = await detectWatermarkInBuffer(imageBuffer, file.name);
 
-                                                                    const ocrRes = await fetch('/api/admin/ocr', {
-                                                                        method: 'POST',
-                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ base64Image })
-                                                                    });
-                                                                    const ocrData = await ocrRes.json();
-
-                                                                    if (ocrData.hasWatermark) {
+                                                                    if (hasCatCode) {
                                                                         setErrorModal({
                                                                             title: 'Watermark Detected',
-                                                                            message: 'The image already has a WaterMark.'
+                                                                            message: 'The image already has a CAT code watermark.'
                                                                         });
                                                                         continue;
                                                                     }
 
-                                                                    // 2. Proceed with stamping and upload for the product itself
+                                                                    // 2. Upload original image to without-watermark folder
+                                                                    const originalFormData = new FormData();
+                                                                    originalFormData.append('file', file);
+                                                                    originalFormData.append('skipDetection', 'true');
+                                                                    originalFormData.append('alreadyWatermarked', 'false');
+
+                                                                    const originalUploadRes = await fetch('/api/admin/upload', {
+                                                                        method: 'POST',
+                                                                        body: originalFormData
+                                                                    });
+
+                                                                    if (!originalUploadRes.ok) {
+                                                                        throw new Error('Failed to upload original image');
+                                                                    }
+
+                                                                    const originalUploadData = await originalUploadRes.json();
+                                                                    console.log(`[PRODUCT] Original image saved to: ${originalUploadData.url}`);
+
+                                                                    // 3. Create watermarked version for product
                                                                     const localUrl = URL.createObjectURL(file);
                                                                     const watermarkedBlob = await stampProductCode(localUrl, catalogId);
                                                                     URL.revokeObjectURL(localUrl);
-                                                                    const uploadedUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
-                                                                    uploadedUrls.push(uploadedUrl);
+                                                                    
+                                                                    // 4. Upload watermarked image to with-watermark folder
+                                                                    const watermarkedFormData = new FormData();
+                                                                    watermarkedFormData.append('file', new File([watermarkedBlob], file.name, { type: file.type }));
+                                                                    watermarkedFormData.append('skipDetection', 'true');
+                                                                    watermarkedFormData.append('alreadyWatermarked', 'true');
+                                                                    watermarkedFormData.append('catalogId', catalogId);
+
+                                                                    const watermarkedUploadRes = await fetch('/api/admin/upload', {
+                                                                        method: 'POST',
+                                                                        body: watermarkedFormData
+                                                                    });
+
+                                                                    if (!watermarkedUploadRes.ok) {
+                                                                        throw new Error('Failed to upload watermarked image');
+                                                                    }
+
+                                                                    const watermarkedUploadData = await watermarkedUploadRes.json();
+                                                                    console.log(`[PRODUCT] Watermarked image saved to: ${watermarkedUploadData.url}`);
+                                                                    
+                                                                    // 5. Use watermarked version for product
+                                                                    uploadedUrls.push(watermarkedUploadData.url);
                                                                 }
 
                                                                 if (uploadedUrls.length > 0) {
@@ -1526,13 +1710,65 @@ export default function ProductsPage() {
                                                                                 setOcrLoading(true);
                                                                                 const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
                                                                                 
-                                                                                // 1. Perform watermarking for the product variant record
+                                                                                // 1. Canvas-based CAT code detection (same as media library)
+                                                                                const buffer = await file.arrayBuffer();
+                                                                                const imageBuffer = Buffer.from(buffer);
+                                                                                
+                                                                                // Use the same detection logic as media library
+                                                                                const hasCatCode = await detectWatermarkInBuffer(imageBuffer, file.name);
+
+                                                                                if (hasCatCode) {
+                                                                                    setErrorModal({
+                                                                                        title: 'Watermark Detected',
+                                                                                        message: 'The image already has a CAT code watermark.'
+                                                                                    });
+                                                                                    return;
+                                                                                }
+
+                                                                                // 2. Upload original image to without-watermark folder
+                                                                                const originalFormData = new FormData();
+                                                                                originalFormData.append('file', file);
+                                                                                originalFormData.append('skipDetection', 'true');
+                                                                                originalFormData.append('alreadyWatermarked', 'false');
+
+                                                                                const originalUploadRes = await fetch('/api/admin/upload', {
+                                                                                    method: 'POST',
+                                                                                    body: originalFormData
+                                                                                });
+
+                                                                                if (!originalUploadRes.ok) {
+                                                                                    throw new Error('Failed to upload original image');
+                                                                                }
+
+                                                                                const originalUploadData = await originalUploadRes.json();
+                                                                                console.log(`[PRODUCT VARIANT] Original image saved to: ${originalUploadData.url}`);
+
+                                                                                // 3. Create watermarked version for product
                                                                                 const localUrl = URL.createObjectURL(file);
                                                                                 const watermarkedBlob = await stampProductCode(localUrl, catalogId);
                                                                                 URL.revokeObjectURL(localUrl);
                                                                                 
-                                                                                const uploadedUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
-                                                                                updateVariant(i, 'image_url', uploadedUrl);
+                                                                                // 4. Upload watermarked image to with-watermark folder
+                                                                                const watermarkedFormData = new FormData();
+                                                                                watermarkedFormData.append('file', new File([watermarkedBlob], file.name, { type: file.type }));
+                                                                                watermarkedFormData.append('skipDetection', 'true');
+                                                                                watermarkedFormData.append('alreadyWatermarked', 'true');
+                                                                                watermarkedFormData.append('catalogId', catalogId);
+
+                                                                                const watermarkedUploadRes = await fetch('/api/admin/upload', {
+                                                                                    method: 'POST',
+                                                                                    body: watermarkedFormData
+                                                                                });
+
+                                                                                if (!watermarkedUploadRes.ok) {
+                                                                                    throw new Error('Failed to upload watermarked image');
+                                                                                }
+
+                                                                                const watermarkedUploadData = await watermarkedUploadRes.json();
+                                                                                console.log(`[PRODUCT VARIANT] Watermarked image saved to: ${watermarkedUploadData.url}`);
+                                                                                
+                                                                                // 5. Use watermarked version for variant
+                                                                                updateVariant(i, 'image_url', watermarkedUploadData.url);
                                                                                 
                                                                                 // If we generated a new catalog ID, make sure to update the product too
                                                                                 if (!currentProduct?.product_catalog_image_id) {
@@ -1783,18 +2019,12 @@ export default function ProductsPage() {
                                 setOcrLoading(true);
                                 setShowMediaPicker(false);
 
-                                // 1. OCR Check for existing watermark in library image using direct URL
-                                const ocrRes = await fetch('/api/admin/ocr', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ imageUrl: url })
-                                });
-                                const ocrData = await ocrRes.json();
-
-                                if (ocrData.hasWatermark) {
+                                // 1. Fast validation for existing CAT code in library image
+                                const validation = await validateMediaImageForProduct(url);
+                                if (!validation.valid) {
                                     setErrorModal({
                                         title: 'Watermark Detected',
-                                        message: 'The image has already WaterMark'
+                                        message: 'The image already has a CAT code watermark.'
                                     });
                                     return;
                                 }
@@ -1802,23 +2032,65 @@ export default function ProductsPage() {
                                 // 2. Get or generate catalog ID (same for all images of this product)
                                 const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
-                                // 3. Stamp the catalog code onto the image
+                                // 3. Download the image from Media Library URL
+                                const response = await fetch(url);
+                                const blob = await response.blob();
+                                const file = new File([blob], `media-image-${Date.now()}.jpg`, { type: blob.type });
+
+                                // 4. Upload original image to without-watermark folder
+                                const originalFormData = new FormData();
+                                originalFormData.append('file', file);
+                                originalFormData.append('skipDetection', 'true');
+                                originalFormData.append('alreadyWatermarked', 'false');
+
+                                const originalUploadRes = await fetch('/api/admin/upload', {
+                                    method: 'POST',
+                                    body: originalFormData
+                                });
+
+                                if (!originalUploadRes.ok) {
+                                    throw new Error('Failed to upload original image');
+                                }
+
+                                const originalUploadData = await originalUploadRes.json();
+                                console.log(`[PRODUCT LIBRARY] Original image saved to: ${originalUploadData.url}`);
+
+                                // 5. Create watermarked version for product
                                 const watermarkedBlob = await stampProductCode(url, catalogId);
+                                
+                                // 6. Upload watermarked image to with-watermark folder
+                                const watermarkedFormData = new FormData();
+                                watermarkedFormData.append('file', new File([watermarkedBlob], file.name, { type: file.type }));
+                                watermarkedFormData.append('skipDetection', 'true');
+                                watermarkedFormData.append('alreadyWatermarked', 'true');
+                                watermarkedFormData.append('catalogId', catalogId);
 
-                                // 4. Upload the watermarked image
-                                const watermarkedUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
+                                const watermarkedUploadRes = await fetch('/api/admin/upload', {
+                                    method: 'POST',
+                                    body: watermarkedFormData
+                                });
 
-                                // 5. Update product image URL with watermarked version
+                                if (!watermarkedUploadRes.ok) {
+                                    throw new Error('Failed to upload watermarked image');
+                                }
+
+                                const watermarkedUploadData = await watermarkedUploadRes.json();
+                                console.log(`[PRODUCT LIBRARY] Watermarked image saved to: ${watermarkedUploadData.url}`);
+
+                                // 7. Update product image URL with watermarked version
                                 if (activeImageField.type === 'product') {
-                                    setProductImageUrl(prev => prev ? `${prev},${watermarkedUrl}` : watermarkedUrl);
+                                    setProductImageUrl(prev => prev ? `${prev},${watermarkedUploadData.url}` : watermarkedUploadData.url);
                                     setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catalogId }));
                                 } else if (activeImageField.type === 'variant') {
-                                    updateVariant(activeImageField.index, 'image_url', watermarkedUrl);
+                                    updateVariant(activeImageField.index, 'image_url', watermarkedUploadData.url);
                                 }
 
                             } catch (err) {
                                 console.error('Media select error:', err);
-                                setNotification({ message: 'Failed to process image: ' + err.message, type: 'error' });
+                                setErrorModal({
+                                    title: 'Processing Error',
+                                    message: 'Failed to process image: ' + err.message
+                                });
                             } finally {
                                 setOcrLoading(false);
                             }

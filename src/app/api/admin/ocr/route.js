@@ -37,11 +37,21 @@ export async function POST(request) {
 
         let ocrJson = await callOcr('2');
         let detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
+        
+        console.log(`[OCR] Engine 2 result:`, JSON.stringify(ocrJson, null, 2));
+        console.log(`[OCR] Engine 2 detected text: "${detectedText}"`);
 
         if (!detectedText.trim() || ocrJson.IsErroredOnProcessing) {
+            console.log(`[OCR] Engine 2 failed, trying Engine 1...`);
             ocrJson = await callOcr('1');
             detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
+            console.log(`[OCR] Engine 1 result:`, JSON.stringify(ocrJson, null, 2));
+            console.log(`[OCR] Engine 1 detected text: "${detectedText}"`);
         }
+
+        console.log(`[OCR] Final detected text: "${detectedText}"`);
+        console.log(`[OCR] Text length: ${detectedText.length}`);
+        console.log(`[OCR] IsErroredOnProcessing: ${ocrJson.IsErroredOnProcessing}`);
 
         // Patterns to detect our specific watermark formats (CAT-XXXXX, etc.)
         const patterns = [
@@ -53,9 +63,13 @@ export async function POST(request) {
         ];
 
         let catalogId = null;
+        console.log(`[OCR] Testing patterns against: "${detectedText}"`);
+        
         for (const pattern of patterns) {
             const match = detectedText.match(pattern.regex);
+            console.log(`[OCR] Pattern ${pattern.regex}:`, match ? 'MATCHED' : 'NO MATCH');
             if (match) {
+                console.log(`[OCR] Match groups:`, match);
                 // Determine the code part based on whether we matched a prefix or a generic ID
                 let codePart;
                 if (pattern.prefix) {
@@ -64,12 +78,17 @@ export async function POST(request) {
                     codePart = (match[1] + '-' + match[2]).trim().toUpperCase();
                 }
                 
+                console.log(`[OCR] Code part: "${codePart}", Length: ${codePart.length}`);
+                
                 if (codePart.length >= 3) {
                     catalogId = pattern.prefix ? (pattern.prefix + codePart) : codePart;
+                    console.log(`[OCR] Found catalog ID: ${catalogId}`);
                     break;
                 }
             }
         }
+
+        console.log(`[OCR] Final result: hasWatermark=${!!catalogId}, catalogId=${catalogId}`);
 
         return NextResponse.json({
             hasWatermark: !!catalogId,
