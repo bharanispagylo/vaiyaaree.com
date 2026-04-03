@@ -39,8 +39,12 @@ export async function sendOrderConfirmationEmail(order) {
     
     // Ensure shopLogo is an absolute URL for email clients
     if (shopLogo && !shopLogo.startsWith('http')) {
+        let logoPath = shopLogo;
+        if (!shopLogo.startsWith('/')) {
+            logoPath = '/images/' + shopLogo;
+        }
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-        shopLogo = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (shopLogo.startsWith('/') ? '' : '/') + shopLogo;
+        shopLogo = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + logoPath;
     }
 
     const mailOptions = {
@@ -137,7 +141,7 @@ export async function sendOrderConfirmationEmail(order) {
     }
 }
 
-export async function sendOrderStatusEmail(order, status) {
+export async function sendOrderStatusEmail(order, status, specificEmails = null) {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return { success: true };
     
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
@@ -145,8 +149,12 @@ export async function sendOrderStatusEmail(order, status) {
     
     // Ensure shopLogo is an absolute URL for email clients
     if (shopLogo && !shopLogo.startsWith('http')) {
+        let logoPath = shopLogo;
+        if (!shopLogo.startsWith('/')) {
+            logoPath = '/images/' + shopLogo;
+        }
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-        shopLogo = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (shopLogo.startsWith('/') ? '' : '/') + shopLogo;
+        shopLogo = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + logoPath;
     }
 
     const statusConfig = {
@@ -161,9 +169,12 @@ export async function sendOrderStatusEmail(order, status) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const orderUrl = `${baseUrl}/order-confirmation?orderId=${order.id}`;
 
+    const toEmails = specificEmails ? Array.from(specificEmails).join(',') : (order.customer_email || order.customer_phone);
+    if (!toEmails || toEmails.indexOf('@') === -1) return { success: true };
+    
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Cast Printz" <orders@castprintz.com>',
-        to: order.customer_email || order.customer_phone,
+        to: toEmails,
         subject: `${config.title} - ${order.id}`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">

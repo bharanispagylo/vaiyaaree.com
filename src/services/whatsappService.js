@@ -587,7 +587,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
     if (searchFilter) query = query.ilike('category', `%${searchFilter}%`);
 
     const streamId = startStream(to);
-    const PAGE_LIMIT = 60; // Set high to capture everything in one flow
+    const PAGE_LIMIT = 5; // Reduced from 60 to 5 as per user request for pagination flow
 
     let { data: prods, count: totalCount, error: queryError } = await query.order('created_at', { ascending: false }).range(startOffset, startOffset + PAGE_LIMIT - 1);
 
@@ -657,7 +657,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
     if (hasMore) {
         await sendButtons(to, `👇 Showing ${nextOffset} of ${totalCount} sarees in *${categoryName}*.`, [
-            { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Show More" },
+            { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Show Next 5" },
             { id: "menu_catalogue", title: "📖 Back to Types" }
         ]);
     } else {
@@ -892,12 +892,14 @@ export async function handleSavedBilling(to, orderId) {
     if (lastOrder && lastOrder.billing_address) {
         await supabase.from('orders').update({
             customer_name: lastOrder.billing_address.name || lastOrder.customer_name,
-            customer_email: lastOrder.customer_email,
+            customer_email: lastOrder.customer_email || lastOrder.billing_address.email,
+            billing_phone: lastOrder.billing_address.mobile || lastOrder.customer_phone || to,
+            billing_email: lastOrder.customer_email || lastOrder.billing_address.email,
             billing_address: lastOrder.billing_address
         }).eq('id', orderId);
         
         // If no email exists, ask for it
-        if (!lastOrder.customer_email) {
+        if (!lastOrder.customer_email && !lastOrder.billing_address.email) {
             await sendText(to,
                 `📧 *Email Address Required*\n\n` +
                 `We need your email address to send order confirmation and updates.\n\n` +
@@ -926,13 +928,15 @@ export async function askShippingSameAsBilling(to, orderId) {
 // Handle shipping same as billing - copy billing to shipping
 export async function handleShippingSame(to, orderId) {
     const { data: order } = await supabase.from('orders')
-        .select('billing_address, customer_name, customer_phone')
+        .select('billing_address, customer_name, customer_phone, customer_email')
         .eq('id', orderId)
         .single();
     
     if (order && order.billing_address) {
         await supabase.from('orders').update({
-            shipping_address: order.billing_address
+            shipping_address: order.billing_address,
+            shipping_phone: order.billing_address.mobile || order.customer_phone || to,
+            shipping_email: order.billing_address.email || order.customer_email
         }).eq('id', orderId);
     }
     
@@ -951,52 +955,54 @@ export async function handleNewBillingAddress(to, orderId, text) {
 
     if (rawBody.includes(',')) {
         const parts = rawBody.split(',').map(p => p.trim());
-        if (parts.length >= 4) {
+        if (parts.length >= 3) {
             name = parts[0];
             mobile = parts[1];
-            email = parts[2];
-            address = parts.slice(3).join(', ');
-        } else if (parts.length === 3) {
-            name = parts[0];
-            mobile = parts[1];
-            address = parts[2];
+            if (parts[2].includes('@')) {
+                email = parts[2];
+                address = parts.slice(3).join(', ');
+            } else {
+                email = '';
+                address = parts.slice(2).join(', ');
+            }
         } else if (parts.length === 2) {
             name = parts[0];
             address = parts[1];
         }
     } else if (rawBody.includes('\n')) {
         const parts = rawBody.split('\n').map(p => p.trim()).filter(Boolean);
-        if (parts.length >= 4) {
+        if (parts.length >= 3) {
             name = parts[0];
             mobile = parts[1];
-            email = parts[2];
-            address = parts.slice(3).join(', ');
-        } else if (parts.length === 3) {
-            name = parts[0];
-            mobile = parts[1];
-            address = parts[2];
+            if (parts[2].includes('@')) {
+                email = parts[2];
+                address = parts.slice(3).join(', ');
+            } else {
+                email = '';
+                address = parts.slice(2).join(', ');
+            }
         } else if (parts.length === 2) {
             name = parts[0];
             address = parts[1];
         }
     }
 
-    // Validate email if provided
+    // Validate email if an @ is present in the text but not picked up, or if they tried to provide one
     if (email && !email.includes('@')) {
         await sendText(to, "⚠️ Invalid email format. Please try again with correct format:\n\nName, Mobile, Email, Address");
         return;
     }
 
-    const billingData = {
-        name,
-        mobile,
-        email,
-        address
-    };
+    // Require email
+    if (!email) {
+        await sendText(to, "⚠️ Email is missing. Please try again with correct format:\n\nName, Mobile, Email, Address\n\nExample:\nLakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001");
+        return;
+    }
 
     const billingAddress = {
         name: name,
         mobile: mobile,
+        email: email,
         address: address
     };
 
@@ -1004,6 +1010,8 @@ export async function handleNewBillingAddress(to, orderId, text) {
         customer_name: name,
         customer_phone: mobile,
         customer_email: email,
+        billing_phone: mobile,
+        billing_email: email,
         billing_address: billingAddress
     }).eq('id', orderId);
 
@@ -1015,6 +1023,7 @@ export async function handleNewBillingAddress(to, orderId, text) {
 export async function handleNewShippingAddress(to, orderId, text) {
     let name = 'Valued Customer';
     let mobile = to;
+    let email = '';
     let address = text.trim();
 
     const rawBody = text.trim();
@@ -1024,7 +1033,12 @@ export async function handleNewShippingAddress(to, orderId, text) {
         if (parts.length >= 3) {
             name = parts[0];
             mobile = parts[1];
-            address = parts.slice(2).join(', ');
+            if (parts[2].includes('@')) {
+                email = parts[2];
+                address = parts.slice(3).join(', ');
+            } else {
+                address = parts.slice(2).join(', ');
+            }
         } else if (parts.length === 2) {
             name = parts[0];
             address = parts[1];
@@ -1034,7 +1048,12 @@ export async function handleNewShippingAddress(to, orderId, text) {
         if (parts.length >= 3) {
             name = parts[0];
             mobile = parts[1];
-            address = parts.slice(2).join(', ');
+            if (parts[2].includes('@')) {
+                email = parts[2];
+                address = parts.slice(3).join(', ');
+            } else {
+                address = parts.slice(2).join(', ');
+            }
         } else if (parts.length === 2) {
             name = parts[0];
             address = parts[1];
@@ -1044,11 +1063,14 @@ export async function handleNewShippingAddress(to, orderId, text) {
     const shippingAddress = {
         name: name,
         mobile: mobile,
+        email: email,
         address: address
     };
 
     await supabase.from('orders').update({
-        shipping_address: shippingAddress
+        shipping_address: shippingAddress,
+        shipping_phone: mobile,
+        shipping_email: email
     }).eq('id', orderId);
 
     // Continue to state selection
@@ -1125,9 +1147,13 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
         }
 
         const to = order.customer_phone;
-        if (!to) return;
+        const bPhone = order.billing_phone || (typeof order.billing_address === 'object' ? order.billing_address?.phone : null);
+        
+        const targets = [...new Set([to, bPhone].filter(Boolean).map(t => String(t).trim()))];
+        if (targets.length === 0) return;
 
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
         const total = order.total_amount?.toLocaleString() || '0';
         const itemsList = (order.order_items || [])
             .map(item => `• ${item.product_name} x${item.quantity} — ₹${(item.price_at_time * item.quantity).toLocaleString()}`)
@@ -1146,23 +1172,25 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
             `🌐 *Shop Online:* ${baseUrl}\n\n` +
             `📄 Generating your invoice...`;
 
-        await sendText(to, message);
+        for (const targetPhone of targets) {
+            try {
+                await sendText(targetPhone, message);
 
-        // Send Invoice (Generate URL directly to avoid blocking fetch loopback)
-        const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
+                if (invoiceUrl) {
+                    await sendDocument(targetPhone, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
+                }
+                
+                await new Promise(r => setTimeout(r, 1200));
 
-        if (invoiceUrl) {
-            await sendDocument(to, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
+                await sendButtons(targetPhone, "Thank you for shopping with *Cast Printz*!\n\nTap below to manage your order:", [
+                    { id: "menu_track", title: "Track Order" },
+                    { id: "menu_my_orders", title: "View Order" },
+                    { id: `menu_cancel_order`, title: "Cancel Order" }
+                ]);
+            } catch (notifyErr) {
+                console.error(`[NOTIFY] Error notifying target ${targetPhone}:`, notifyErr);
+            }
         }
-        
-        // Wait a bit to ensure messages arrive in visually pleasant order
-        await new Promise(r => setTimeout(r, 1200));
-
-        await sendButtons(to, "Thank you for shopping with *Cast Printz*!\n\nTap below to manage your order:", [
-            { id: "menu_track", title: "Track Order" },
-            { id: "menu_my_orders", title: "View Order" },
-            { id: `menu_cancel_order`, title: "Cancel Order" }
-        ]);
 
         console.log(`[NOTIFY] Notification sent successfully for #${orderId}`);
     } catch (err) {
@@ -1851,8 +1879,8 @@ export async function processIncomingMessage(body) {
                             await sendText(from,
                                 `📝 *Complete Your Order* (#${orderId})\n\n` +
                                 `Please reply with your delivery details in this format:\n\n` +
-                                `*Name, Mobile Number, Full Address*\n\n` +
-                                `Example:\n_Lakshmi, 9876543210, 12 Main St, Bangalore_`
+                                `*Name, Mobile Number, Email, Full Address*\n\n` +
+                                `Example:\n_Lakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore_`
                             );
                             return;
                         }
@@ -2073,17 +2101,10 @@ export async function processIncomingMessage(body) {
                 const orderId = id.replace('new_billing_', '');
                 await supabase.from('orders').update({ billing_address: null }).eq('id', orderId);
                 return await sendText(from,
-                    `📝 *Enter New Billing Address*
-
-` +
-                    `Reply with your *billing details* in this format:
-
-` +
-                    `*Name, Mobile Number, Full Address*
-
-` +
-                    `Example:
-_Lakshmi, 9876543210, 12 Main St, Bangalore, 560001_`
+                    `📝 *Enter New Billing Address*\n\n` +
+                    `Reply with your *billing details* in this format:\n\n` +
+                    `*Name, Mobile Number, Email, Full Address*\n\n` +
+                    `Example:\n_Lakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001_`
                 );
             }
 
@@ -2095,17 +2116,10 @@ _Lakshmi, 9876543210, 12 Main St, Bangalore, 560001_`
             if (id.startsWith('shipping_diff_')) {
                 const orderId = id.replace('shipping_diff_', '');
                 return await sendText(from,
-                    `📝 *Enter Shipping Address*
-
-` +
-                    `Reply with your *shipping details* in this format:
-
-` +
-                    `*Name, Mobile Number, Full Address*
-
-` +
-                    `Example:
-_Lakshmi, 9876543210, 12 Main St, Bangalore, 560001_`
+                    `📝 *Enter Shipping Address*\n\n` +
+                    `Reply with your *shipping details* in this format:\n\n` +
+                    `*Name, Mobile Number, Email, Full Address*\n\n` +
+                    `Example:\n_Lakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001_`
                 );
             }
 

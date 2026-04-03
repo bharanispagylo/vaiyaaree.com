@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
 
 export async function POST(request) {
     try {
-        const { orderId, sendWhatsApp, sendEmail } = await request.json();
+        const { orderId, sendWhatsApp, sendEmail, targetPhone, targetEmail } = await request.json();
         
         if (!orderId) {
             return new Response(JSON.stringify({ error: 'Order ID is required' }), {
@@ -30,9 +30,10 @@ export async function POST(request) {
         const notifications = [];
 
         // Send WhatsApp notification
-        if (sendWhatsApp && order.customer_phone) {
+        const finalPhone = targetPhone || order.billing_phone || order.customer_phone;
+        if (sendWhatsApp && finalPhone) {
             try {
-                await sendText(order.customer_phone, 
+                await sendText(finalPhone, 
                     `✅ *Order Confirmed — Cast Printz* 🎉\n\n` +
                     `Dear ${order.customer_name},\n\n` +
                     `Your order #${orderId} has been placed successfully.\n\n` +
@@ -42,7 +43,7 @@ export async function POST(request) {
                     `• Items: ${order.order_items?.length || 0} product(s)\n\n` +
                     `Thank you for shopping with Cast Printz! 💖`
                 );
-                notifications.push('WhatsApp');
+                notifications.push(`WhatsApp (${finalPhone})`);
             } catch (whatsappErr) {
                 console.error('Failed to send WhatsApp notification:', whatsappErr);
                 notifications.push('WhatsApp (failed)');
@@ -50,10 +51,13 @@ export async function POST(request) {
         }
         
         // Send Email notification
-        if (sendEmail && order.customer_email) {
+        const finalEmail = targetEmail || order.billing_email || order.customer_email;
+        if (sendEmail && finalEmail) {
             try {
-                await sendOrderConfirmationEmail(order);
-                notifications.push('Email');
+                // Ensure the order object has the correct target email for the service
+                const orderWithTarget = { ...order, customer_email: finalEmail };
+                await sendOrderConfirmationEmail(orderWithTarget);
+                notifications.push(`Email (${finalEmail})`);
             } catch (emailErr) {
                 console.error('Failed to send email notification:', emailErr);
                 notifications.push('Email (failed)');

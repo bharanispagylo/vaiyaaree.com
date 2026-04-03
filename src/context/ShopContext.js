@@ -38,6 +38,7 @@ export function ShopProvider({ children }) {
         shippingCity: '',
         shippingState: 'Tamil Nadu',
         shippingPincode: '',
+        shippingEmail: '',
         sameAsBilling: true,
         // Payment
         paymentMethod: 'COD'
@@ -181,8 +182,8 @@ export function ShopProvider({ children }) {
         setCart([]);
         setIsCartLoaded(true);
         setCheckoutForm({
-            billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '',
-            shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '',
+            billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
+            shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '', shippingEmail: '',
             sameAsBilling: true, paymentMethod: 'COD'
         });
         showToast('Logged out successfully');
@@ -345,6 +346,7 @@ export function ShopProvider({ children }) {
         const shippingPincode = checkoutForm.sameAsBilling ? checkoutForm.billingPincode : checkoutForm.shippingPincode;
         const shippingName = checkoutForm.sameAsBilling ? checkoutForm.billingName : checkoutForm.shippingName;
         const shippingPhone = checkoutForm.sameAsBilling ? checkoutForm.billingPhone : checkoutForm.shippingPhone;
+        const shippingEmail = checkoutForm.sameAsBilling ? checkoutForm.billingEmail : checkoutForm.shippingEmail;
 
         if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingAddress) {
             showToast('Please fill all required billing fields', 'error');
@@ -380,6 +382,7 @@ export function ShopProvider({ children }) {
             const shippingAddressObj = {
                 name: shippingName,
                 phone: shippingPhone,
+                email: shippingEmail || null,
                 address: shippingAddress,
                 city: shippingCity,
                 state: shippingState,
@@ -438,6 +441,10 @@ export function ShopProvider({ children }) {
                 delivery_address: fullShippingAddress,
                 billing_address: billingAddressObj,
                 shipping_address: shippingAddressObj,
+                billing_email: checkoutForm.billingEmail || null,
+                shipping_email: shippingEmail || null,
+                billing_phone: checkoutForm.billingPhone || null,
+                shipping_phone: shippingPhone || null,
                 shipping_state: shippingState,
                 shipping_cost: taxDetails.shipping,
                 shipping_zone_id: taxDetails.activeZone?.id,
@@ -514,6 +521,11 @@ export function ShopProvider({ children }) {
             };
 
             setCart([]);
+            setCheckoutForm({
+                billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
+                shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '', shippingEmail: '',
+                sameAsBilling: true, paymentMethod: 'COD'
+            });
             showToast('Order Placed Successfully!', 'success');
 
             // Trigger Email Notification automatically

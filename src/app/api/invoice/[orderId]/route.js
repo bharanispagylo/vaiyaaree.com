@@ -97,18 +97,18 @@ export async function generateOrderPDFBuffer(order, settings) {
                 ]
             },
             { text: String(item.quantity || 1), alignment: 'center', fontSize: 10 },
-            { text: `Rs.${(item.price_at_time || 0).toLocaleString('en-IN')}`, alignment: 'right', fontSize: 10 },
-            { text: `Rs.${((item.price_at_time || 0) * (item.quantity || 1)).toLocaleString('en-IN')}`, alignment: 'right', fontSize: 10, bold: true },
+            { text: `₹${(item.price_at_time || 0).toLocaleString('en-IN')}`, alignment: 'right', fontSize: 10 },
+            { text: `₹${((item.price_at_time || 0) * (item.quantity || 1)).toLocaleString('en-IN')}`, alignment: 'right', fontSize: 10, bold: true },
         ])
     ];
 
     // Totals rows
     const totalsTable = [
-        ...(subtotal > 0 ? [[{ text: 'Subtotal', color: '#6b7280' }, { text: `Rs.${subtotal.toLocaleString('en-IN')}`, alignment: 'right', color: '#6b7280' }]] : []),
-        ...(cgst > 0 ? [[{ text: 'CGST (2.5%)', color: '#6b7280' }, { text: `Rs.${cgst.toLocaleString('en-IN')}`, alignment: 'right', color: '#6b7280' }]] : []),
-        ...(sgst > 0 ? [[{ text: 'SGST (2.5%)', color: '#6b7280' }, { text: `Rs.${sgst.toLocaleString('en-IN')}`, alignment: 'right', color: '#6b7280' }]] : []),
-        ...(igst > 0 ? [[{ text: 'IGST (5%)', color: '#6b7280' }, { text: `Rs.${igst.toLocaleString('en-IN')}`, alignment: 'right', color: '#6b7280' }]] : []),
-        [{ text: 'Shipping', color: '#6b7280' }, { text: shipping > 0 ? `Rs.${shipping.toLocaleString('en-IN')}` : 'FREE', alignment: 'right', color: '#6b7280' }],
+        ...(subtotal > 0 ? [[{ text: 'Subtotal', color: '#6b7280' }, { text: `₹${subtotal.toLocaleString('en-IN')}`, alignment: 'right', color: '#6b7280' }]] : []),
+        ...(cgst > 0 ? [[{ text: 'CGST (2.5%)', color: '#6b7280' }, { text: `₹${cgst.toLocaleString('en-IN')}`, alignment: 'right', color: '#6b7280' }]] : []),
+        ...(sgst > 0 ? [[{ text: 'SGST (2.5%)', color: '#6b7280' }, { text: `₹${sgst.toLocaleString('en-IN')}`, alignment: 'right', color: '#6b7280' }]] : []),
+        ...(igst > 0 ? [[{ text: 'IGST (5%)', color: '#6b7280' }, { text: `₹${igst.toLocaleString('en-IN')}`, alignment: 'right', color: '#6b7280' }]] : []),
+        [{ text: 'Shipping', color: '#6b7280' }, { text: shipping > 0 ? `₹${shipping.toLocaleString('en-IN')}` : 'FREE', alignment: 'right', color: '#6b7280' }],
     ];
 
     const headerRow = logoBase64
@@ -177,24 +177,38 @@ export async function generateOrderPDFBuffer(order, settings) {
                             { text: order.customer_name || 'Customer', fontSize: 13, bold: true, color: '#111827', margin: [0, 4, 0, 0] },
                             { text: order.customer_phone || '', fontSize: 9, color: '#6b7280' },
                             { text: order.customer_email || '', fontSize: 9, color: '#6b7280' },
+                            
+                            // Nested columns for Billing and Shipping
+                            {
+                                columns: [
+                                    {
+                                        stack: [
+                                            { text: 'BILLING ADDRESS', fontSize: 7.5, bold: true, color: '#9ca3af', characterSpacing: 1, margin: [0, 16, 0, 4] },
+                                            { text: formatAddress(order.billing_address || order.delivery_address), fontSize: 9, color: '#374151', lineHeight: 1.2 }
+                                        ],
+                                        width: '50%'
+                                    },
+                                    {
+                                        stack: [
+                                            { text: 'SHIPPING ADDRESS', fontSize: 7.5, bold: true, color: '#9ca3af', characterSpacing: 1, margin: [0, 16, 0, 4] },
+                                            { text: formatAddress(order.shipping_address || order.delivery_address || order.billing_address), fontSize: 9, color: '#374151', lineHeight: 1.2 }
+                                        ],
+                                        width: '50%'
+                                    }
+                                ],
+                                columnGap: 15
+                            }
                         ],
-                        width: '33%'
+                        width: '65%'
                     },
                     {
                         stack: [
-                            { text: 'SHIPPING ADDRESS', fontSize: 7.5, bold: true, color: '#9ca3af', characterSpacing: 1 },
-                            { text: formatAddress(order.shipping_address || order.delivery_address || order.billing_address), fontSize: 9, color: '#6b7280', margin: [0, 4, 0, 0] },
+                            { text: 'PAYMENT INFO', fontSize: 7.5, bold: true, color: '#9ca3af', characterSpacing: 1, alignment: 'right' },
+                            { text: `Method: ${order.payment_method || 'N/A'}`, fontSize: 9, color: '#374151', margin: [0, 4, 0, 0], alignment: 'right' },
+                            { text: `Status: ${order.status || 'PLACED'}`, fontSize: 9, color: '#374151', alignment: 'right' },
+                            { text: `Source: ${order.source === 'WEBSITE' ? 'Website' : 'WhatsApp'}`, fontSize: 9, color: '#374151', alignment: 'right' },
                         ],
-                        width: '33%'
-                    },
-                    {
-                        stack: [
-                            { text: 'PAYMENT INFO', fontSize: 7.5, bold: true, color: '#9ca3af', characterSpacing: 1 },
-                            { text: `Method: ${order.payment_method || 'N/A'}`, fontSize: 9, color: '#374151', margin: [0, 4, 0, 0] },
-                            { text: `Status: ${order.status || 'PLACED'}`, fontSize: 9, color: '#374151' },
-                            { text: `Source: ${order.source === 'WEBSITE' ? 'Website' : 'WhatsApp'}`, fontSize: 9, color: '#374151' },
-                        ],
-                        width: '33%'
+                        width: '35%'
                     }
                 ],
                 columnGap: 15,
@@ -239,7 +253,7 @@ export async function generateOrderPDFBuffer(order, settings) {
                                         ],
                                         [
                                             { text: 'Grand Total', bold: true, fontSize: 13, color: '#111827' },
-                                            { text: `Rs.${total.toLocaleString('en-IN')}`, bold: true, fontSize: 13, color: '#111827', alignment: 'right' }
+                                            { text: `₹${total.toLocaleString('en-IN')}`, bold: true, fontSize: 13, color: '#111827', alignment: 'right' }
                                         ]
                                     ]
                                 },

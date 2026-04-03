@@ -205,12 +205,45 @@ export async function POST(request) {
         // Refetch order to get updated shipping info for the message
         const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', orderId).single();
 
-        // 4. Send notifications to customer
-        const message = await getStatusMessage(orderId, status, updatedOrder || order, items);
-        await sendWhatsAppText(order.customer_phone, message);
-        await sendOrderStatusEmail(updatedOrder || order, status);
+        // 4. Determine Targets
+        const finalOrder = updatedOrder || order;
+        
+        // Find Phones
+        const billPhone = finalOrder.billing_phone || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.phone || finalOrder.billing_address?.mobile : null) || finalOrder.customer_phone;
+        const shipPhone = finalOrder.shipping_phone || (typeof finalOrder.shipping_address === 'object' ? finalOrder.shipping_address?.phone || finalOrder.shipping_address?.mobile : null);
+        
+        const targetPhones = new Set();
+        if (billPhone) targetPhones.add(billPhone);
+        if (['SHIPPED', 'DELIVERED'].includes(status) && shipPhone) {
+            targetPhones.add(shipPhone);
+        }
 
-        console.log(`✅ Order ${orderId} → ${status} | WhatsApp notification sent to ${order.customer_phone}`);
+        // Find Emails
+        const billEmail = finalOrder.billing_email || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.email : null) || finalOrder.customer_email;
+        const shipEmail = finalOrder.shipping_email || (typeof finalOrder.shipping_address === 'object' ? finalOrder.shipping_address?.email : null);
+        
+        const targetEmails = new Set();
+        if (billEmail && billEmail.includes('@')) targetEmails.add(billEmail);
+        if (['SHIPPED', 'DELIVERED'].includes(status) && shipEmail && shipEmail.includes('@')) {
+            targetEmails.add(shipEmail);
+        }
+
+        // 5. Send notifications to all targets
+        const message = await getStatusMessage(orderId, status, finalOrder, items);
+        
+        // WhatsApp
+        for (const phone of targetPhones) {
+            await sendWhatsAppText(phone, message);
+        }
+        
+        // Email
+        if (targetEmails.size > 0) {
+            await sendOrderStatusEmail(finalOrder, status, targetEmails);
+        } else {
+            await sendOrderStatusEmail(finalOrder, status); // fallback just in case
+        }
+
+        console.log(`✅ Order ${orderId} → ${status} | Notifications sent to ${targetPhones.size} phones and ${targetEmails.size} emails.`);
 
         return new Response(JSON.stringify({
             success: true,

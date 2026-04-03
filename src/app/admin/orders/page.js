@@ -22,6 +22,17 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 const STATUS_OPTIONS = ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
 const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP'];
 
+// Helper: parse Supabase UTC timestamps reliably (adds 'Z' if missing so JS treats it as UTC → converts to IST)
+const toIST = (dStr, opts) => {
+    if (!dStr) return '';
+    let s = String(dStr);
+    if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
+    if (!s.endsWith('Z') && !s.includes('+')) s += 'Z';
+    try {
+        return new Date(s).toLocaleString('en-IN', opts);
+    } catch (e) { return dStr; }
+};
+
 
 
 const getStatusReference = (status) => {
@@ -87,8 +98,10 @@ export default function OrdersPage() {
 
     const [newOrder, setNewOrder] = useState({
         customer_name: '',
-        customer_email: '',
-        customer_phone: '',
+        billing_email: '',
+        shipping_email: '',
+        billing_phone: '',
+        shipping_phone: '',
         shipping_address: '',
         billing_address: '',
         shipping_state: 'Tamil Nadu',
@@ -110,6 +123,7 @@ export default function OrdersPage() {
     });
     const [timeRange, setTimeRange] = useState('MONTHLY'); // DAILY, MONTHLY, QUARTERLY, ALL
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+    const [notificationSelection, setNotificationSelection] = useState(null); // { type: 'email' | 'whatsapp', billing: string, shipping: string, orderId: string }
 
 
 
@@ -353,12 +367,12 @@ export default function OrdersPage() {
         // This avoids browser 'popup blocked' issues during async status updates.
     };
 
-    const updateOrderStatus = async (orderId, newStatus, shippingData = {}) => {
+    const updateOrderStatus = async (orderId, newStatus, shippingData = {}, targetPhone = null) => {
         try {
             const res = await fetch('/api/orders/update-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId, status: newStatus, ...shippingData })
+                body: JSON.stringify({ orderId, status: newStatus, targetPhone, ...shippingData })
             });
 
             const data = await res.json();
@@ -513,56 +527,94 @@ export default function OrdersPage() {
         }
     };
 
-    const handleResendEmail = async () => {
+    const handleResendEmail = async (targetEmail = null) => {
         if (!selectedOrder) return;
+        
+        // If targetEmail is not provided and billing/shipping emails are different, show selection
+        if (!targetEmail) {
+            const bEmail = selectedOrder.billing_email || (typeof selectedOrder.billing_address === 'object' ? selectedOrder.billing_address?.email : null) || selectedOrder.customer_email;
+            const sEmail = selectedOrder.shipping_email || (typeof selectedOrder.shipping_address === 'object' ? selectedOrder.shipping_address?.email : null);
+            
+            if (bEmail && sEmail && bEmail !== sEmail) {
+                setNotificationSelection({ type: 'email', billing: bEmail, shipping: sEmail, orderId: selectedOrder.id });
+                setShowResendEmailModal(false);
+                return;
+            }
+            targetEmail = bEmail || sEmail;
+        }
+
+        if (!targetEmail) {
+            setNotification({ message: 'No email address found for this order.', type: 'error' });
+            return;
+        }
 
         setLoading(true);
+        setShowResendEmailModal(false);
+        setNotificationSelection(null);
         try {
-            // Call API to resend order confirmation
-            const res = await fetch('/api/orders/resend-email', {
+            const res = await fetch('/api/admin/send-order-notification', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: selectedOrder.id })
+                body: JSON.stringify({ orderId: selectedOrder.id, sendEmail: true, targetEmail: targetEmail })
             });
 
             if (res.ok) {
-                setNotification({ message: 'Order confirmation email resent', type: 'success' });
-                setShowResendEmailModal(false);
+                setNotification({ message: `Order confirmation email resent to ${targetEmail}`, type: 'success' });
             } else {
                 const data = await res.json();
-                setNotification({ message: `Failed: ${data.error}`, type: 'error' });
+                setNotification({ message: `Failed: ${data.message || data.error}`, type: 'error' });
             }
         } catch (err) {
             console.error('Resend Email Error:', err);
             setNotification({ message: 'Failed to resend email', type: 'error' });
         } finally {
             setLoading(false);
+            setTimeout(() => setNotification(null), 3000);
         }
     };
 
-    const handleResendWhatsApp = async () => {
+    const handleResendWhatsApp = async (targetPhone = null) => {
         if (!selectedOrder) return;
 
+        if (!targetPhone) {
+            const bPhone = selectedOrder.billing_phone || (typeof selectedOrder.billing_address === 'object' ? selectedOrder.billing_address?.phone : null) || selectedOrder.customer_phone;
+            const sPhone = selectedOrder.shipping_phone || (typeof selectedOrder.shipping_address === 'object' ? selectedOrder.shipping_address?.phone : null);
+
+            if (bPhone && sPhone && bPhone !== sPhone) {
+                setNotificationSelection({ type: 'whatsapp', billing: bPhone, shipping: sPhone, orderId: selectedOrder.id });
+                setShowResendWhatsAppModal(false);
+                return;
+            }
+            targetPhone = bPhone || sPhone;
+        }
+
+        if (!targetPhone) {
+            setNotification({ message: 'No phone number found for this order.', type: 'error' });
+            return;
+        }
+
         setLoading(true);
+        setShowResendWhatsAppModal(false);
+        setNotificationSelection(null);
         try {
-            const res = await fetch('/api/orders/resend-whatsapp', {
+            const res = await fetch('/api/admin/send-order-notification', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: selectedOrder.id })
+                body: JSON.stringify({ orderId: selectedOrder.id, sendWhatsApp: true, targetPhone: targetPhone })
             });
 
             if (res.ok) {
-                setNotification({ message: 'Order confirmation WhatsApp resent', type: 'success' });
-                setShowResendWhatsAppModal(false);
+                setNotification({ message: `WhatsApp notification resent to ${targetPhone}`, type: 'success' });
             } else {
                 const data = await res.json();
-                setNotification({ message: `Failed: ${data.error}`, type: 'error' });
+                setNotification({ message: `Failed: ${data.message || data.error}`, type: 'error' });
             }
         } catch (err) {
             console.error('Resend WhatsApp Error:', err);
             setNotification({ message: 'Failed to resend WhatsApp', type: 'error' });
         } finally {
             setLoading(false);
+            setTimeout(() => setNotification(null), 3000);
         }
     };
 
@@ -1032,7 +1084,7 @@ export default function OrdersPage() {
                                                                                 <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
                                                                             </td>
                                                                             <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-                                                                                {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                                                                {toIST(order.created_at, { day: '2-digit', month: 'short' })}
                                                                             </td>
                                                                             <td style={{ textAlign: 'right' }}>
                                                                                 <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
@@ -1087,7 +1139,7 @@ export default function OrdersPage() {
                                 <div style={{ padding: '1.5rem 2rem', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.id}</h2>
-                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Placed on {new Date(selectedOrder.created_at).toLocaleString('en-IN')}</div>
+                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Placed on {toIST(selectedOrder.created_at)}</div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                                         <button onClick={() => { setSelectedOrder(null); setOrderItems([]); setIsEditingItems(false); }} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
@@ -1243,12 +1295,7 @@ export default function OrdersPage() {
                                                                         {log.status}
                                                                     </span>
                                                                     <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
-                                                                        {new Date(log.created_at).toLocaleString('en-IN', {
-                                                                            day: '2-digit',
-                                                                            month: 'short',
-                                                                            hour: '2-digit',
-                                                                            minute: '2-digit'
-                                                                        })}
+                                                                        {toIST(log.created_at, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
                                                                     </span>
                                                                 </div>
                                                                 {log.notes && (
@@ -1330,8 +1377,6 @@ export default function OrdersPage() {
                                                                             if (parsed.city) parts.push(parsed.city);
                                                                             if (parsed.state) parts.push(parsed.state);
                                                                             if (parsed.pincode) parts.push(parsed.pincode);
-                                                                            if (parsed.phone) parts.push(`Phone: ${parsed.phone}`);
-                                                                            if (parsed.email) parts.push(`Email: ${parsed.email}`);
                                                                             return parts.join(', ');
                                                                         } catch (e) {
                                                                             return addr;
@@ -1347,14 +1392,33 @@ export default function OrdersPage() {
                                                                     if (addr.city) parts.push(addr.city);
                                                                     if (addr.state) parts.push(addr.state);
                                                                     if (addr.pincode) parts.push(addr.pincode);
-                                                                    if (addr.phone) parts.push(`Phone: ${addr.phone}`);
-                                                                    if (addr.email) parts.push(`Email: ${addr.email}`);
                                                                     return parts.join(', ');
                                                                 }
-                                                                return String(addr);
-                                                            })()}
-                                                        </div>
+                                                            return String(addr);
+                                                        })()}
                                                     </div>
+                                                    {(() => {
+                                                        const addr = selectedOrder.billing_address;
+                                                        const email = selectedOrder.billing_email || (typeof addr === 'object' ? addr?.email : null) || selectedOrder.customer_email;
+                                                        const phone = selectedOrder.billing_phone || (typeof addr === 'object' ? addr?.phone : null) || selectedOrder.customer_phone;
+                                                        return (
+                                                            <>
+                                                                {email && (
+                                                                    <div style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Email: </span>
+                                                                        <span style={{ color: 'hsl(var(--text-main))', wordBreak: 'break-all' }}>{email}</span>
+                                                                    </div>
+                                                                )}
+                                                                {phone && (
+                                                                    <div style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Phone: </span>
+                                                                        <span style={{ color: 'hsl(var(--text-main))' }}>{phone}</span>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
 
                                                     <div style={{ marginTop: '0.75rem' }}>
                                                         <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Shipping Address</div>
@@ -1373,11 +1437,8 @@ export default function OrdersPage() {
                                                                             if (parsed.city) parts.push(parsed.city);
                                                                             if (parsed.state) parts.push(parsed.state);
                                                                             if (parsed.pincode) parts.push(parsed.pincode);
-                                                                            if (parsed.phone) parts.push(`Phone: ${parsed.phone}`);
                                                                             return parts.join(', ');
-                                                                        } catch (e) {
-                                                                            return addr;
-                                                                        }
+                                                                        } catch (e) { return addr; }
                                                                     }
                                                                     return addr;
                                                                 }
@@ -1389,7 +1450,6 @@ export default function OrdersPage() {
                                                                     if (addr.city) parts.push(addr.city);
                                                                     if (addr.state) parts.push(addr.state);
                                                                     if (addr.pincode) parts.push(addr.pincode);
-                                                                    if (addr.phone) parts.push(`Phone: ${addr.phone}`);
                                                                     return parts.join(', ');
                                                                 }
                                                                 return String(addr);
@@ -1398,6 +1458,27 @@ export default function OrdersPage() {
                                                         {selectedOrder.shipping_state && (
                                                             <div style={{ marginTop: '0.25rem', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{selectedOrder.shipping_state}</div>
                                                         )}
+                                                        {(() => {
+                                                            const addr = selectedOrder.shipping_address;
+                                                            const email = selectedOrder.shipping_email || (typeof addr === 'object' ? addr?.email : null);
+                                                            const phone = selectedOrder.shipping_phone || (typeof addr === 'object' ? addr?.phone : null);
+                                                            return (
+                                                                <>
+                                                                    {email && (
+                                                                        <div style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                                                                            <span style={{ color: 'hsl(var(--text-muted))' }}>Email: </span>
+                                                                            <span style={{ color: 'hsl(var(--text-main))', wordBreak: 'break-all' }}>{email}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    {phone && (
+                                                                        <div style={{ marginTop: '0.25rem', fontSize: '0.85rem' }}>
+                                                                            <span style={{ color: 'hsl(var(--text-muted))' }}>Phone: </span>
+                                                                            <span style={{ color: 'hsl(var(--text-main))' }}>{phone}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </>
                                             )}
@@ -1457,12 +1538,24 @@ export default function OrdersPage() {
                                                     value={selectedOrder.status}
                                                     onChange={(e) => {
                                                         const newStatus = e.target.value;
+                                                        
+                                                        // Close all other inline action forms
+                                                        setShowResendEmailModal(false);
+                                                        setShowResendWhatsAppModal(false);
+                                                        setShowShippingForm(false);
+                                                        setStatusConfirmModal(null);
+                                                        // showCancelModal is an overlay, but good to reset if changing status
+                                                        
                                                         if (newStatus === 'SHIPPED') {
                                                             setShowShippingForm(true);
                                                         } else if (newStatus === 'CANCELLED') {
                                                             setShowCancelModal(true);
                                                         } else if (['PAID', 'PACKING', 'DELIVERED'].includes(newStatus)) {
-                                                            setStatusConfirmModal({ status: newStatus, title: `Confirm ${newStatus}`, message: `Change order status to ${newStatus}? This will send notifications to the customer.` });
+                                                            setStatusConfirmModal({ 
+                                                                status: newStatus, 
+                                                                title: `Confirm ${newStatus}`, 
+                                                                message: `Change order status to ${newStatus}? This will automatically notify all relevant contacts via WhatsApp and Email.`,
+                                                            });
                                                         } else {
                                                             updateOrderStatus(selectedOrder.id, newStatus);
                                                         }
@@ -1588,55 +1681,107 @@ export default function OrdersPage() {
                                                     <Trash2 size={15} /> Delete Order
                                                 </button>
 
-                                                {/* Resend Email Button */}
-                                                <button
-                                                    onClick={() => setShowResendEmailModal(true)}
-                                                    className="btn btn-secondary"
-                                                    style={{ width: '100%' }}
-                                                >
-                                                    <Mail size={16} /> Resend Email
-                                                </button>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                    <button
+                                                        onClick={() => { 
+                                                            setShowResendWhatsAppModal(true); 
+                                                            setShowResendEmailModal(false); 
+                                                            setStatusConfirmModal(null);
+                                                            setShowShippingForm(false);
+                                                            setNotificationSelection(null); 
+                                                        }}
+                                                        className="btn btn-secondary"
+                                                        style={{ width: '100%', background: '#e8fff3', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)' }}
+                                                    >
+                                                        <MessageCircle size={16} /> Send in WhatsApp
+                                                    </button>
 
-                                                {/* Resend Email Modal */}
-                                                {showResendEmailModal && (
-                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                            <Mail size={14} /> Resend Email
+                                                    {/* Resend WhatsApp Modal */}
+                                                    {showResendWhatsAppModal && (
+                                                        <div className="animate-enter" style={{ marginBottom: '0.75rem', padding: '1rem', background: '#e8fff3', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <MessageCircle size={14} /> Send WhatsApp
+                                                            </div>
+                                                            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
+                                                                Send order confirmation via WhatsApp?
+                                                            </p>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                                <button onClick={() => setShowResendWhatsAppModal(false)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
+                                                                <button
+                                                                    onClick={() => handleResendWhatsApp()}
+                                                                    className="btn"
+                                                                    style={{ fontSize: '0.8rem', background: '#10b981', color: 'white' }}
+                                                                >Send Message</button>
+                                                            </div>
                                                         </div>
-                                                        <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
-                                                            Resend order confirmation email to customer?
+                                                    )}
+
+                                                    <button
+                                                        onClick={() => { 
+                                                            setShowResendEmailModal(true); 
+                                                            setShowResendWhatsAppModal(false); 
+                                                            setStatusConfirmModal(null);
+                                                            setShowShippingForm(false);
+                                                            setNotificationSelection(null); 
+                                                        }}
+                                                        className="btn btn-secondary"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        <Mail size={16} /> Resend Email
+                                                    </button>
+
+                                                    {/* Resend Email Modal */}
+                                                    {showResendEmailModal && (
+                                                        <div className="animate-enter" style={{ marginBottom: '0.75rem', padding: '1rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <Mail size={14} /> Resend Email
+                                                            </div>
+                                                            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
+                                                                Resend order confirmation email to customer?
+                                                            </p>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                                <button onClick={() => setShowResendEmailModal(false)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
+                                                                <button
+                                                                    onClick={() => handleResendEmail()}
+                                                                    className="btn btn-primary"
+                                                                    style={{ fontSize: '0.8rem' }}
+                                                                >Send Email</button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Notification Selection Modal (Multi-contact) */}
+                                                {notificationSelection && (
+                                                    <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#fff', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            {notificationSelection.type === 'email' ? <Mail size={14} /> : <MessageCircle size={14} />} 
+                                                            Select {notificationSelection.type === 'email' ? 'Email' : 'Phone'}
+                                                        </div>
+                                                        <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
+                                                            Multiple {notificationSelection.type}s found. Please select which one to use:
                                                         </p>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                            <button onClick={() => setShowResendEmailModal(false)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                            <button
-                                                                onClick={handleResendEmail}
-                                                                className="btn btn-primary"
-                                                                style={{ fontSize: '0.8rem' }}
-                                                            >Send Email</button>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                            <button 
+                                                                onClick={() => notificationSelection.type === 'email' ? handleResendEmail(notificationSelection.billing) : handleResendWhatsApp(notificationSelection.billing)} 
+                                                                className="btn btn-secondary" 
+                                                                style={{ fontSize: '0.8rem', justifyContent: 'flex-start', padding: '0.6rem 1rem', wordBreak: 'break-all', height: 'auto', textAlign: 'left' }}
+                                                            >
+                                                                <strong>Billing:</strong> {notificationSelection.billing}
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => notificationSelection.type === 'email' ? handleResendEmail(notificationSelection.shipping) : handleResendWhatsApp(notificationSelection.shipping)} 
+                                                                className="btn btn-secondary" 
+                                                                style={{ fontSize: '0.8rem', justifyContent: 'flex-start', padding: '0.6rem 1rem', wordBreak: 'break-all', height: 'auto', textAlign: 'left' }}
+                                                            >
+                                                                <strong>Shipping:</strong> {notificationSelection.shipping}
+                                                            </button>
+                                                            <button onClick={() => setNotificationSelection(null)} className="btn" style={{ fontSize: '0.8rem', background: '#f1f5f9', color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>
+                                                                Cancel
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 )}
-
-
-
-                                                <button
-                                                    onClick={() => handleDeleteOrder(selectedOrder.id)}
-                                                    className="btn"
-                                                    style={{
-                                                        width: '100%',
-                                                        marginTop: '0.5rem',
-                                                        background: 'rgba(239, 68, 68, 0.1)',
-                                                        color: '#f87171',
-                                                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        gap: '0.5rem',
-                                                        fontWeight: 600
-                                                    }}
-                                                >
-                                                    <Trash2 size={14} /> Delete Order
-                                                </button>
                                             </div>
                                         </div>
 
@@ -1703,12 +1848,20 @@ export default function OrdersPage() {
                                             <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Email Address</label>
-                                            <input type="email" placeholder="customer@email.com" value={newOrder.customer_email || ''} onChange={e => setNewOrder({ ...newOrder, customer_email: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Email</label>
+                                            <input type="email" placeholder="billing@email.com" value={newOrder.billing_email || ''} onChange={e => setNewOrder({ ...newOrder, billing_email: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>WhatsApp Phone</label>
-                                            <input type="tel" placeholder="91..." value={newOrder.customer_phone} onChange={e => setNewOrder({ ...newOrder, customer_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Email</label>
+                                            <input type="email" placeholder="shipping@email.com" value={newOrder.shipping_email || ''} onChange={e => setNewOrder({ ...newOrder, shipping_email: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Phone</label>
+                                            <input type="tel" placeholder="91..." value={newOrder.billing_phone} onChange={e => setNewOrder({ ...newOrder, billing_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Phone</label>
+                                            <input type="tel" placeholder="91..." value={newOrder.shipping_phone} onChange={e => setNewOrder({ ...newOrder, shipping_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Send Notifications</label>
@@ -1821,7 +1974,7 @@ export default function OrdersPage() {
                                                     </div>
                                                     <button
                                                         onClick={async () => {
-                                                            if (!newOrder.customer_name || !newOrder.customer_phone || newOrder.items.length === 0) {
+                                                            if (!newOrder.customer_name || !newOrder.billing_phone || newOrder.items.length === 0) {
                                                                 setNotification({ message: 'Please fill all customer details and add at least one item.', type: 'error' }); return;
                                                             }
                                                             setLoading(true);
@@ -1829,7 +1982,7 @@ export default function OrdersPage() {
                                                                 const orderId = `MAN-${Date.now().toString().slice(-6)}`;
 
                                                                 // ────── NORMALISE PHONE & SYNC CUSTOMER ──────
-                                                                const cleanPhone = newOrder.customer_phone.replace(/\D/g, '');
+                                                                const cleanPhone = newOrder.billing_phone.replace(/\D/g, '');
                                                                 const normalizedPhone = cleanPhone.startsWith('91') ? cleanPhone : (cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone);
 
                                                                 const { data: existingCusts, error: lookupError } = await supabase.from('customers').select('id, name').eq('phone', normalizedPhone);
@@ -1855,8 +2008,12 @@ export default function OrdersPage() {
                                                                 const { error: ordErr } = await supabase.from('orders').insert({
                                                                     id: orderId,
                                                                     customer_name: newOrder.customer_name,
-                                                                    customer_email: newOrder.customer_email || null,
+                                                                    customer_email: newOrder.billing_email || null,
                                                                     customer_phone: normalizedPhone, // Ensures sync with Customers page aggregation
+                                                                    billing_email: newOrder.billing_email || null,
+                                                                    shipping_email: newOrder.shipping_email || null,
+                                                                    billing_phone: normalizedPhone,
+                                                                    shipping_phone: newOrder.shipping_phone ? (newOrder.shipping_phone.startsWith('91') ? newOrder.shipping_phone : `91${newOrder.shipping_phone}`) : normalizedPhone,
                                                                     delivery_address: newOrder.shipping_address,
                                                                     billing_address: newOrder.billing_address || newOrder.shipping_address,
                                                                     shipping_state: newOrder.shipping_state,
@@ -1933,7 +2090,7 @@ export default function OrdersPage() {
 
                                                                 setNotification({ message: 'Manual Order Created Successfully! Stock updated.', type: 'success' });
                                                                 setIsAddingOrder(false);
-                                                                setNewOrder({ customer_name: '', customer_email: '', customer_phone: '', delivery_address: '', shipping_state: 'Tamil Nadu', payment_method: 'UPI', send_notifications: 'both', items: [] });
+                                                                setNewOrder({ customer_name: '', billing_email: '', shipping_email: '', billing_phone: '', shipping_phone: '', delivery_address: '', shipping_state: 'Tamil Nadu', payment_method: 'UPI', send_notifications: 'both', items: [] });
                                                                 fetchOrders();
                                                             } catch (err) {
                                                                 console.error('Manual Order Error:', err);
@@ -1979,18 +2136,18 @@ export default function OrdersPage() {
 
                     {/* Delete Confirmation Modal */}
                     {confirmDelete && (
-                        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-                            <div className="card" style={{ maxWidth: '400px', width: '90%', padding: '2rem', textAlign: 'center', animation: 'scaleUp 0.3s ease' }}>
-                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-                                    <Trash2 size={32} />
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, animation: 'fadeIn 0.2s ease' }}>
+                            <div className="card shadow-premium" style={{ maxWidth: '400px', width: '90%', padding: '2.5rem 2rem', textAlign: 'center', animation: 'scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', background: '#fff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px' }}>
+                                <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: '0 10px 20px rgba(239,68,68,0.1)' }}>
+                                    <Trash2 size={36} />
                                 </div>
-                                <h3 style={{ marginBottom: '0.75rem', fontWeight: 800 }}>Confirm Delete?</h3>
-                                <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '2rem', lineHeight: 1.5 }}>
+                                <h3 style={{ marginBottom: '0.75rem', fontWeight: 800, fontSize: '1.5rem', color: 'hsl(var(--text-main))' }}>Confirm Delete?</h3>
+                                <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '2.5rem', lineHeight: 1.6, fontSize: '0.95rem' }}>
                                     This action will permanently remove {confirmDelete.ids.length > 1 ? `${confirmDelete.ids.length} order records` : 'the order record'} and restore any associated stock. This cannot be undone.
                                 </p>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <button onClick={() => setConfirmDelete(null)} className="btn btn-secondary">Keep Order</button>
-                                    <button onClick={handleDeleteOrderConfirmed} className="btn" style={{ background: '#ef4444', color: 'white' }}>Delete Now</button>
+                                    <button onClick={() => setConfirmDelete(null)} className="btn btn-secondary" style={{ padding: '0.75rem', borderRadius: '12px' }}>Keep Order</button>
+                                    <button onClick={handleDeleteOrderConfirmed} className="btn" style={{ background: '#ef4444', color: 'white', padding: '0.75rem', borderRadius: '12px', fontWeight: 700 }}>Delete Now</button>
                                 </div>
                             </div>
                         </div>
@@ -2054,6 +2211,7 @@ export default function OrdersPage() {
 
 
                     <style jsx>{`
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 @keyframes expand { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 2000px; } }
                 .animate-expand { animation: expand 0.4s ease-out; overflow: hidden; }
                 .card-sub { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }

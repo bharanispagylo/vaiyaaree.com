@@ -445,7 +445,7 @@ export default function CheckoutPage() {
 
                         <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                             <div className={styles.formGroup}>
-                                <label>PINCODE</label>
+                                <label>SHIPPING PINCODE</label>
                                 <input 
                                     type="text" 
                                     value={checkoutForm.shippingPincode || ''} 
@@ -455,6 +455,19 @@ export default function CheckoutPage() {
                                     className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
                                 />
                             </div>
+                            <div className={styles.formGroup}>
+                                <label>SHIPPING EMAIL</label>
+                                <input 
+                                    type="email" 
+                                    value={checkoutForm.shippingEmail || ''} 
+                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingEmail: e.target.value }))} 
+                                    placeholder="recipient@email.com"
+                                    disabled={checkoutForm.sameAsBilling}
+                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                />
+                            </div>
+                        </div>
+                        <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                             <div className={styles.formGroup}>
                                 <label>COUNTRY</label>
                                 <select 

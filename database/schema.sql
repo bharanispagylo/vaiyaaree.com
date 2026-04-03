@@ -709,3 +709,19 @@ insert into app_settings (key, value, description) values
 ('wa_catalog_header', 'PREMIUM COLLECTIONS', 'Header for the main catalog list'),
 ('wa_catalog_body', 'Curated just for you:', 'Body text for the main catalog list')
 on conflict (key) do nothing;
+
+-- ════════════════════════════════════════════════════════════════
+-- ORDER CONTACT MANAGEMENT ENHANCEMENTS 
+-- ════════════════════════════════════════════════════════════════
+-- Run this in the Supabase SQL Editor to add the granular contact fields.
+
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS billing_email TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_email TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS billing_phone TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_phone TEXT;
+
+-- Create indexes for searching by phone/email
+CREATE INDEX IF NOT EXISTS idx_orders_billing_email ON public.orders (billing_email);
+CREATE INDEX IF NOT EXISTS idx_orders_shipping_email ON public.orders (shipping_email);
+CREATE INDEX IF NOT EXISTS idx_orders_billing_phone ON public.orders (billing_phone);
+CREATE INDEX IF NOT EXISTS idx_orders_shipping_phone ON public.orders (shipping_phone);
