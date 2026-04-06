@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createCanvas, loadImage } from 'canvas';
 
 export async function POST(request) {
     try {
@@ -28,6 +27,16 @@ export async function POST(request) {
 
 async function detectWatermark(imageUrl) {
     try {
+        // Robust dynamic import for server-side native modules
+        let canvasLib;
+        try {
+            canvasLib = await import('canvas');
+        } catch (e) {
+            console.error('[DETECTOR] Native Canvas module not loaded:', e.message);
+            return false;
+        }
+
+        const { createCanvas, loadImage } = canvasLib;
         const image = await loadImage(imageUrl);
         const canvas = createCanvas(image.width, image.height);
         const ctx = canvas.getContext('2d');

@@ -9,6 +9,7 @@ const nextConfig = {
     minimumCacheTTL: 3600,
   },
  
+  serverExternalPackages: ['canvas'],
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
