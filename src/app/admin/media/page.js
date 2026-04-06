@@ -300,6 +300,7 @@ export default function MediaLibraryPage() {
         try {
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('mode', 'gallery');
 
             const res = await fetch('/api/admin/upload', {
                 method: 'POST',

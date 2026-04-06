@@ -54,27 +54,13 @@ export default function AdminDashboard() {
 
                 const productSales = {};
                 (itemsRes.data || []).forEach(item => {
-                    if (!item.product_name) return;
                     if (!productSales[item.product_name]) {
                         productSales[item.product_name] = { name: item.product_name, sold: 0, revenue: 0 };
                     }
-                    productSales[item.product_name].sold += (item.quantity || 0);
-                    productSales[item.product_name].revenue += ((item.price_at_time || 0) * (item.quantity || 0));
+                    productSales[item.product_name].sold += item.quantity;
+                    productSales[item.product_name].revenue += (item.price_at_time || 0) * item.quantity;
                 });
-                
-                const topSellingNames = Object.values(productSales)
-                    .sort((a, b) => b.sold - a.sold)
-                    .slice(0, 5);
-                
-                // Fetch images for top selling products to make it look premium
-                const topSellingWithImages = await Promise.all(topSellingNames.map(async (p) => {
-                    const { data: prodData } = await supabase
-                        .from('products')
-                        .select('image_url')
-                        .eq('name', p.name)
-                        .maybeSingle();
-                    return { ...p, image_url: prodData?.image_url || null };
-                }));
+                const topSelling = Object.values(productSales).sort((a, b) => b.sold - a.sold).slice(0, 5);
 
                 const newStats = { 
                     revenue: totalRevenue, 
@@ -89,7 +75,7 @@ export default function AdminDashboard() {
                 setStats(newStats);
                 setRecentOrders(recentOrdersRes.data || []);
                 setLowStockProducts(lowStock);
-                setTopProducts(topSellingWithImages);
+                setTopProducts(topSelling);
             } catch (error) {
                 console.error('Dashboard error:', error);
             } finally {
@@ -356,38 +342,19 @@ export default function AdminDashboard() {
                                         borderBottom: i < topProducts.length - 1 ? '1px solid hsl(var(--border-subtle))' : 'none'
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            {/* Rank Icon / Image */}
-                                            <div style={{ position: 'relative' }}>
-                                                <div style={{
-                                                    width: '40px', height: '40px', borderRadius: '10px',
-                                                    overflow: 'hidden', background: '#f1f5f9',
-                                                    border: i === 0 ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))'
-                                                }}>
-                                                    {p.image_url ? 
-                                                        <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Package size={16} color="hsl(var(--text-muted))" />
-                                                        </div>
-                                                    }
-                                                </div>
-                                                <div style={{
-                                                    position: 'absolute', top: '-6px', left: '-6px', 
-                                                    width: '20px', height: '20px', borderRadius: '50%',
-                                                    background: i === 0 ? 'hsl(var(--primary))' : i === 1 ? '#94a3b8' : '#cbd5e1',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    fontSize: '0.65rem', fontWeight: 800,
-                                                    color: 'white', border: '2px solid white',
-                                                    boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-                                                }}>{i + 1}</div>
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>{p.name}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{p.sold} quantities sold</div>
-                                            </div>
+                                            <div style={{
+                                                width: '24px', height: '24px', borderRadius: '50%',
+                                                background: i === 0 ? 'hsl(var(--primary))' : '#f1f5f9',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '0.75rem', fontWeight: 700,
+                                                color: i === 0 ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                                                border: i === 0 ? 'none' : '1px solid hsl(var(--border-subtle))'
+                                            }}>#{i + 1}</div>
+                                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>{p.name}</div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>₹{p.revenue.toLocaleString()}</div>
-                                            <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, textTransform: 'uppercase' }}>Revenue</div>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{p.revenue.toLocaleString()}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{p.sold} sold</div>
                                         </div>
                                     </div>
                                 ))

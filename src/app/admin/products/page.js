@@ -265,137 +265,48 @@ export default function ProductsPage() {
                     const name = row.name || row.productname || row.sareename || row.title || row.item || 'Untitled Saree';
                     const priceVal = parseFloat(row.price || row.sellingprice || row.mrp || row.rate || row.amount);
                     const price = isNaN(priceVal) ? 0 : priceVal;
-
                     const stockVal = parseInt(row.stock || row.quantity || row.qty || row.inventory || row.available);
                     const stock = isNaN(stockVal) ? 0 : stockVal;
-
                     const description = String(row.description || row.desc || row.details || row.about || row.info || '');
                     const category = String(row.category || row.collection || row.type || row.group || 'General');
 
                     const productData = {
-                        name,
-                        description,
-                        price,
-                        category,
-                        stock,
-                        type: 'simple',
-                        is_active: true,
-                        // Always ensure a catalog ID exists or is ready to be generated
+                        name, description, price, category, stock,
+                        type: 'simple', is_active: true,
                         product_catalog_image_id: row.catalogid || row.productcatalogimageid || row.code || ''
                     };
 
-                    let savedProduct = null;
-
                     if (id) {
-                        // Check if exists
                         const { data: existingData } = await supabase.from('products').select('*').eq('id', id).single();
-
                         if (existingData) {
-                            // Update
-                            // Only update stock if explicitly changing it, but Excel usually gives absolute numbers.
-                            // If user is syncing, replace stock and record diff.
                             const oldStock = existingData.stock || 0;
-                            const newStock = stock;
-                            const diff = newStock - oldStock;
-
-                            // Ensure catalog ID exists
-                            if (!existingData.product_catalog_image_id && !productData.product_catalog_image_id) {
-                                productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                            } else if (!productData.product_catalog_image_id) {
-                                // Keep existing if not provided in Excel
-                                delete productData.product_catalog_image_id;
-                            }
-
-                            const { data, error: updateError } = await supabase.from('products').update(productData).eq('id', id).select();
-
-                            if (updateError) {
-                                console.error('Update Error for row:', id, JSON.stringify(updateError));
-                                continue;
-                            }
-                            savedProduct = data?.[0];
-                            if (savedProduct) {
+                            const diff = stock - oldStock;
+                            if (!productData.product_catalog_image_id) delete productData.product_catalog_image_id;
+                            
+                            const { error: updateError } = await supabase.from('products').update(productData).eq('id', id);
+                            if (!updateError) {
                                 updateCount++;
-                                newlyImportedProducts.push(savedProduct);
-
-                                // History for stock adjustment
                                 if (diff !== 0) {
                                     await supabase.from('product_history').insert({
-                                        product_id: savedProduct.id,
-                                        change_type: diff > 0 ? 'ADJUSTMENT' : 'ADJUSTMENT',
+                                        product_id: existingData.id,
+                                        change_type: 'ADJUSTMENT',
                                         quantity_change: Math.abs(diff),
-                                        new_stock: newStock,
+                                        new_stock: stock,
                                         reason: 'Excel Bulk Sync'
                                     });
                                 }
                             }
-                        } else {
-                            // ID provided but not found, ignore ID and Insert
-                            // Generate new catalog ID if not provided
-                            if (!productData.product_catalog_image_id) {
-                                productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                            }
-
-                            productData.total_added = stock;
-                            const { data, error: insertError } = await supabase.from('products').insert([productData]).select();
-                            if (!insertError && data?.[0]) {
-                                savedProduct = data[0];
-                                insertCount++;
-                                newlyImportedProducts.push(savedProduct);
-                                if (stock > 0) {
-                                    await supabase.from('product_history').insert({
-                                        product_id: savedProduct.id,
-                                        change_type: 'ADD',
-                                        quantity_change: stock,
-                                        new_stock: stock,
-                                        reason: 'Bulk Excel Import'
-                                    });
-                                }
-                            }
-                        }
-                    } else {
-                        // No ID, standard Insert
-                        // Generate new catalog ID if not provided
-                        if (!productData.product_catalog_image_id) {
-                            productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                        }
-
-                        productData.total_added = stock;
-                        const { data, error: insertError } = await supabase.from('products').insert([productData]).select();
-
-                        if (insertError) {
-                            console.error('Database Error for row:', name, JSON.stringify(insertError));
-                            if (insertCount === 0 && updateCount === 0) {
-                                setResultModal({
-                                    title: 'Import Error',
-                                    message: `Database Error: ${insertError.message || 'Check required fields'}`,
-                                    type: 'error'
-                                });
-                            }
                             continue;
                         }
-
-                        savedProduct = data?.[0];
-                        if (savedProduct) {
-                            insertCount++;
-                            newlyImportedProducts.push(savedProduct);
-
-                            // Log history
-                            if (stock > 0) {
-                                await supabase.from('product_history').insert({
-                                    product_id: savedProduct.id,
-                                    change_type: 'ADD',
-                                    quantity_change: stock,
-                                    new_stock: stock,
-                                    reason: 'Bulk Excel Import'
-                                });
-                            }
-                        }
                     }
+                    
+                    // No ID or not found -> New Draft
+                    newlyImportedProducts.push({ ...productData, isNew: true });
+                    insertCount++;
                 } catch (rowErr) {
                     console.error('Error processing a single row:', rowErr);
                 }
             }
-
             if (insertCount > 0 || updateCount > 0) {
                 const total = insertCount + updateCount;
                 setResultModal({
@@ -1335,317 +1246,114 @@ export default function ProductsPage() {
                                     <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Saree Image *</label>
-
-                                            {/* Image preview */}
                                             {productImageUrl && (
                                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                                                     {productImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
                                                         <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
-                                                            <img
-                                                                src={imgUrl}
-                                                                onClick={() => window.open(imgUrl, '_blank')}
-                                                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }}
-                                                                title="Click to view full image"
-                                                            />
+                                                            <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
                                                             <button type="button" onClick={() => {
                                                                 const urls = productImageUrl.split(',').filter(Boolean);
                                                                 urls.splice(idx, 1);
                                                                 setProductImageUrl(urls.join(','));
-                                                            }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700 }}>✕</button>
+                                                            }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
                                                         </div>
                                                     ))}
                                                 </div>
                                             )}
-
-                                            {/* Two option buttons */}
                                             <div style={{ display: 'flex', gap: '8px' }}>
-                                                {/* Option 1: Media Library */}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }}
-                                                    style={{
-                                                        flex: 1, height: '44px', borderRadius: '8px', cursor: 'pointer',
-                                                        background: '#f1f5f9', border: '1px dashed hsl(var(--primary) / 0.5)',
-                                                        color: 'hsl(var(--primary))', fontSize: '0.82rem', fontWeight: 600,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                                                    }}
-                                                >
-                                                    <ImageIcon size={15} /> From Library
+                                                <button type="button" onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, height: '44px' }}>
+                                                   <ImageIcon size={15} /> From Library
                                                 </button>
-
-                                                {/* Option 2: Upload from device */}
-                                                <label
-                                                    style={{
-                                                        flex: 1, height: '44px', borderRadius: '8px', cursor: 'pointer',
-                                                        background: '#f1f5f9', border: '1px dashed hsl(var(--border-subtle))',
-                                                        color: 'hsl(var(--text-muted))', fontSize: '0.82rem', fontWeight: 600,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                                                    }}
-                                                >
+                                                <label className="btn btn-secondary" style={{ flex: 1, height: '44px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                                     <Upload size={15} /> Upload Files
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        multiple
-                                                        style={{ display: 'none' }}
-                                                        onChange={async (e) => {
-                                                            const files = Array.from(e.target.files || []);
-                                                            if (!files.length) return;
-
-                                                            try {
-                                                                setOcrLoading(true);
-                                                                const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-
-                                                                const uploadedUrls = [];
-                                                                for (const file of files) {
-                                                                    // 1. Browser-based CAT code detection
-                                                                    const hasCatCode = await detectWatermark(file);
-
-                                                                    if (hasCatCode) {
-                                                                        setErrorModal({
-                                                                            title: 'watermark detected',
-                                                                            message: 'The image already contains a watermark.'
-                                                                        });
-                                                                        continue;
-                                                                    }
-
-                                                                    // 2. Upload original image to without-watermark folder
-                                                                    const originalFormData = new FormData();
-                                                                    originalFormData.append('file', file);
-                                                                    originalFormData.append('skipDetection', 'true');
-                                                                    originalFormData.append('alreadyWatermarked', 'false');
-
-                                                                    const originalUploadRes = await fetch('/api/admin/upload', {
-                                                                        method: 'POST',
-                                                                        body: originalFormData
-                                                                    });
-
-                                                                    if (!originalUploadRes.ok) {
-                                                                        throw new Error('Failed to upload original image');
-                                                                    }
-
-                                                                    const originalUploadData = await originalUploadRes.json();
-                                                                    console.log(`[PRODUCT] Original image saved to: ${originalUploadData.url}`);
-
-                                                                    // 3. Create watermarked version for product
-                                                                    const localUrl = URL.createObjectURL(file);
-                                                                    const watermarkedBlob = await stampProductCode(localUrl, catalogId);
-                                                                    URL.revokeObjectURL(localUrl);
-                                                                    
-                                                                    // 4. Upload watermarked image to with-watermark folder
-                                                                    const watermarkedFormData = new FormData();
-                                                                    watermarkedFormData.append('file', new File([watermarkedBlob], file.name, { type: file.type }));
-                                                                    watermarkedFormData.append('skipDetection', 'true');
-                                                                    watermarkedFormData.append('alreadyWatermarked', 'true');
-                                                                    watermarkedFormData.append('catalogId', catalogId);
-
-                                                                    const watermarkedUploadRes = await fetch('/api/admin/upload', {
-                                                                        method: 'POST',
-                                                                        body: watermarkedFormData
-                                                                    });
-
-                                                                    if (!watermarkedUploadRes.ok) {
-                                                                        throw new Error('Failed to upload watermarked image');
-                                                                    }
-
-                                                                    const watermarkedUploadData = await watermarkedUploadRes.json();
-                                                                    console.log(`[PRODUCT] Watermarked image saved to: ${watermarkedUploadData.url}`);
-                                                                    
-                                                                    // 5. Use watermarked version for product
-                                                                    uploadedUrls.push(watermarkedUploadData.url);
+                                                    <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={async (e) => {
+                                                        const files = Array.from(e.target.files || []);
+                                                        if (!files.length) return;
+                                                        try {
+                                                            setOcrLoading(true);
+                                                            const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                                                            const processedUrls = [...(productImageUrl ? productImageUrl.split(',').filter(Boolean) : [])];
+                                                            for (const file of files) {
+                                                                const formData = new FormData();
+                                                                formData.append('file', file);
+                                                                formData.append('catalogId', catalogId);
+                                                                formData.append('requireClean', 'true');
+                                                                const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                const data = await res.json();
+                                                                if (!res.ok) {
+                                                                    if (data.error === 'Watermark already present') {
+                                                                        setErrorModal({ title: 'Watermark Blocked', message: `Image "${file.name}" already has a watermark.` });
+                                                                    } else throw new Error(data.error || 'Upload failed');
+                                                                    continue;
                                                                 }
-
-                                                                if (uploadedUrls.length > 0) {
-                                                                    setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catalogId }));
-                                                                    setProductImageUrl(prev => {
-                                                                        const existing = prev ? prev.split(',').filter(Boolean) : [];
-                                                                        return [...existing, ...uploadedUrls].join(',');
-                                                                    });
-                                                                }
-                                                            } catch (err) {
-                                                                setErrorModal({
-                                                                    title: 'Upload Failed',
-                                                                    message: err.message || 'Unknown error'
-                                                                });
-                                                            } finally {
-                                                                setOcrLoading(false);
+                                                                processedUrls.push(data.watermarkedUrl || data.url);
+                                                                if (!currentProduct?.product_catalog_image_id) setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
                                                             }
-                                                            e.target.value = '';
-                                                        }}
-                                                    />
+                                                            setProductImageUrl(processedUrls.join(','));
+                                                        } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
+                                                        finally { setOcrLoading(false); }
+                                                        e.target.value = '';
+                                                    }} />
                                                 </label>
                                             </div>
                                         </div>
                                         <div>
-                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold</label>
-                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} placeholder="e.g. 5" className="admin-input" />
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Threshold</label>
+                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} className="admin-input" />
                                         </div>
                                     </div>
                                 </div>
                             ) : (
                                 <div style={{ marginBottom: '1.5rem' }}>
-                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '8px' }}>
+                                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</div>
                                         Manage Variants (Multiple Colors/Options)
                                     </h3>
-                                    <div style={{ padding: '1.25rem', background: '#f1f5f9', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
+                                    <div style={{ padding: '1.25rem', background: '#f1f5f9', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                            <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Create different versions of this saree:</span>
-                                            <button type="button" onClick={addVariant} className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary) / 0.2)' }}>
+                                            <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Create different versions:</span>
+                                            <button type="button" onClick={addVariant} className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem' }}>
                                                 <Plus size={14} /> Add Variant
                                             </button>
                                         </div>
-
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                            {variants.length > 0 && (
-                                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', marginBottom: '-0.25rem', padding: '0 2px' }}>
-                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Color/Option</div>
-                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price (₹)</div>
-                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stock</div>
-                                                    <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Image</div>
-                                                    <div style={{ width: '20px' }}></div>
-                                                </div>
-                                            )}
                                             {variants.map((v, i) => (
-                                                <div key={i} className="animate-in fade-in" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'center' }}>
-                                                    <input placeholder="Red/Silk" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                    <input type="number" placeholder="0" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                    <input type="number" placeholder="0" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                        {/* Thumbnail preview */}
-                                                        {v.image_url && (
-                                                            <div style={{ position: 'relative', width: '32px', height: '40px', flexShrink: 0 }}>
-                                                                <img
-                                                                    src={v.image_url}
-                                                                    onClick={() => window.open(v.image_url, '_blank')}
-                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '5px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }}
-                                                                    title="Click to view full image"
-                                                                />
-                                                                <button type="button" onClick={() => updateVariant(i, 'image_url', '')} style={{ position: 'absolute', top: '-5px', right: '-5px', width: '14px', height: '14px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', fontSize: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>✕</button>
-                                                            </div>
-                                                        )}
-                                                        {/* Two buttons */}
-                                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }}
-                                                                style={{
-                                                                    flex: 1, height: '32px', borderRadius: '6px', cursor: 'pointer',
-                                                                    background: '#f1f5f9', border: '1px dashed hsl(var(--primary) / 0.5)',
-                                                                    color: 'hsl(var(--primary))', fontSize: '0.7rem', fontWeight: 600,
-                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
-                                                                }}
-                                                            >
-                                                                <ImageIcon size={11} /> Library
-                                                            </button>
-                                                            <label style={{
-                                                                flex: 1, height: '32px', borderRadius: '6px', cursor: 'pointer',
-                                                                background: '#f1f5f9', border: '1px dashed hsl(var(--border-subtle))',
-                                                                color: 'hsl(var(--text-muted))', fontSize: '0.7rem', fontWeight: 600,
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
-                                                            }}>
-                                                                <Upload size={11} /> Upload
-                                                                <input
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    style={{ display: 'none' }}
-                                                                        onChange={async (e) => {
-                                                                            const file = e.target.files?.[0];
-                                                                            if (!file) return;
-                                                                            try {
-                                                                                setOcrLoading(true);
-                                                                                const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                                                                                
-                                                                                // 1. Browser-based CAT code detection
-                                                                                const hasCatCode = await detectWatermark(file);
-
-                                                                                if (hasCatCode) {
-                                                                                    setErrorModal({
-                                                                                        title: 'watermark detected',
-                                                                                        message: 'The image already contains a watermark.'
-                                                                                    });
-                                                                                    return;
-                                                                                }
-
-                                                                                // 2. Upload original image to without-watermark folder
-                                                                                const originalFormData = new FormData();
-                                                                                originalFormData.append('file', file);
-                                                                                originalFormData.append('skipDetection', 'true');
-                                                                                originalFormData.append('alreadyWatermarked', 'false');
-
-                                                                                const originalUploadRes = await fetch('/api/admin/upload', {
-                                                                                    method: 'POST',
-                                                                                    body: originalFormData
-                                                                                });
-
-                                                                                if (!originalUploadRes.ok) {
-                                                                                    throw new Error('Failed to upload original image');
-                                                                                }
-
-                                                                                const originalUploadData = await originalUploadRes.json();
-                                                                                console.log(`[PRODUCT VARIANT] Original image saved to: ${originalUploadData.url}`);
-
-                                                                                // 3. Create watermarked version for product
-                                                                                const localUrl = URL.createObjectURL(file);
-                                                                                const watermarkedBlob = await stampProductCode(localUrl, catalogId);
-                                                                                URL.revokeObjectURL(localUrl);
-                                                                                
-                                                                                // 4. Upload watermarked image to with-watermark folder
-                                                                                const watermarkedFormData = new FormData();
-                                                                                watermarkedFormData.append('file', new File([watermarkedBlob], file.name, { type: file.type }));
-                                                                                watermarkedFormData.append('skipDetection', 'true');
-                                                                                watermarkedFormData.append('alreadyWatermarked', 'true');
-                                                                                watermarkedFormData.append('catalogId', catalogId);
-
-                                                                                const watermarkedUploadRes = await fetch('/api/admin/upload', {
-                                                                                    method: 'POST',
-                                                                                    body: watermarkedFormData
-                                                                                });
-
-                                                                                if (!watermarkedUploadRes.ok) {
-                                                                                    throw new Error('Failed to upload watermarked image');
-                                                                                }
-
-                                                                                const watermarkedUploadData = await watermarkedUploadRes.json();
-                                                                                console.log(`[PRODUCT VARIANT] Watermarked image saved to: ${watermarkedUploadData.url}`);
-                                                                                
-                                                                                // 5. Use watermarked version for variant
-                                                                                updateVariant(i, 'image_url', watermarkedUploadData.url);
-                                                                                
-                                                                                // If we generated a new catalog ID, make sure to update the product too
-                                                                                if (!currentProduct?.product_catalog_image_id) {
-                                                                                    setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: catalogId }));
-                                                                                }
-                                                                            } catch (err) {
-                                                                                console.error('Variant upload error:', err);
-                                                                                setErrorModal({
-                                                                                    title: 'Upload Failed',
-                                                                                    message: err.message || 'Upload failed'
-                                                                                });
-                                                                            } finally {
-                                                                                setOcrLoading(false);
-                                                                            }
-                                                                        }}
-                                                                />
-                                                            </label>
-                                                        </div>
+                                                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'center' }}>
+                                                    <input placeholder="Color" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} className="admin-input" style={{ padding: '0.5rem' }} />
+                                                    <input type="number" placeholder="Price" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
+                                                    <input type="number" placeholder="Stock" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />}
+                                                        <button type="button" onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem' }}>Library</button>
+                                                        <label className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem', cursor: 'pointer', textAlign: 'center' }}>
+                                                            Upload
+                                                            <input type="file" style={{ display: 'none' }} onChange={async (e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (!file) return;
+                                                                try {
+                                                                    setOcrLoading(true);
+                                                                    const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                                                                    const formData = new FormData();
+                                                                    formData.append('file', file);
+                                                                    formData.append('catalogId', catalogId);
+                                                                    formData.append('requireClean', 'true');
+                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                    const data = await res.json();
+                                                                    if (!res.ok) throw new Error(data.error || 'Upload failed');
+                                                                    updateVariant(i, 'image_url', data.watermarkedUrl || data.url);
+                                                                    if (!currentProduct?.product_catalog_image_id) setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
+                                                                } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
+                                                                finally { setOcrLoading(false); }
+                                                            }} />
+                                                        </label>
                                                     </div>
-                                                    <button type="button" onClick={() => removeVariant(i)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', border: 'none', color: 'hsl(var(--danger))', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                                                        onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--danger) / 0.2)'}
-                                                        onMouseLeave={e => e.currentTarget.style.background = 'hsl(var(--danger) / 0.1)'}>
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                    <button type="button" onClick={() => removeVariant(i)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', border: 'none', color: 'hsl(var(--danger))', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                                 </div>
                                             ))}
-                                            {variants.length === 0 && (
-                                                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'hsl(var(--text-muted))', fontSize: '0.85rem', border: '1px dashed hsl(var(--border-subtle))', borderRadius: '12px' }}>
-                                                    No variants added yet. Click <strong>"Add Variant"</strong> to start.
-                                                </div>
-                                            )}
                                         </div>
                                         <div style={{ marginTop: '1rem' }}>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold (Overall)</label>
-                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} placeholder="e.g. 5" className="admin-input" />
+                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} className="admin-input" />
                                         </div>
                                     </div>
                                 </div>
@@ -1653,8 +1361,7 @@ export default function ProductsPage() {
 
                             <div style={{ marginTop: '1.25rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Description</label>
-                                <textarea name="description" defaultValue={currentProduct?.description} rows={3}
-                                    className="admin-input" style={{ resize: 'vertical' }} placeholder="Fabric, colors, design details..." />
+                                <textarea name="description" defaultValue={currentProduct?.description} rows={3} className="admin-input" style={{ resize: 'vertical' }} />
                             </div>
                             <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                 <div>
@@ -1669,25 +1376,22 @@ export default function ProductsPage() {
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Group / Tag</label>
-                                    <input name="product_group" defaultValue={currentProduct?.product_group || ''} placeholder="e.g. Festive2026, NewArrivals, BridalSeason" className="admin-input" />
+                                    <input name="product_group" defaultValue={currentProduct?.product_group || ''} className="admin-input" />
                                 </div>
                             </div>
 
                             <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '12px', padding: '1rem', background: '#f1f5f9', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <input id="is_featured" name="is_featured" type="checkbox" defaultChecked={currentProduct?.is_featured} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
-                                    <label htmlFor="is_featured" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>Feature on Home Page (Best Sellers)</label>
+                                    <input id="is_featured" name="is_featured" type="checkbox" defaultChecked={currentProduct?.is_featured} />
+                                    <label htmlFor="is_featured" style={{ fontSize: '0.9rem', fontWeight: 700 }}>Feature on Home Page</label>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>
-                                    <input id="is_explore" name="is_explore" type="checkbox" defaultChecked={currentProduct?.product_group === 'EXPLORE'} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
-                                    <label htmlFor="is_explore" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>Explore Our Products Slider</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                                    <input id="is_explore" name="is_explore" type="checkbox" defaultChecked={currentProduct?.product_group === 'EXPLORE'} />
+                                    <label htmlFor="is_explore" style={{ fontSize: '0.9rem', fontWeight: 700 }}>Explore Our Products Slider</label>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>
-                                    <input id="is_active_toggle" name="is_active" type="checkbox" defaultChecked={currentProduct ? currentProduct.is_active !== false : true} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
-                                    <label htmlFor="is_active_toggle" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        Product Status (Active - Visible in Shop)
-                                        {(currentProduct && currentProduct.is_active === false) && <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 800 }}>(Currently Hidden)</span>}
-                                    </label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                                    <input id="is_active_toggle" name="is_active" type="checkbox" defaultChecked={currentProduct ? currentProduct.is_active !== false : true} />
+                                    <label htmlFor="is_active_toggle" style={{ fontSize: '0.9rem', fontWeight: 700 }}>Product Status (Active)</label>
                                 </div>
                             </div>
 
@@ -1698,54 +1402,26 @@ export default function ProductsPage() {
                                         <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                                             <Share2 size={16} />
                                         </div>
-                                        <div>
-                                            <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Facebook Meta Integration</div>
-                                            <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))' }}>Auto-post to your business page</div>
-                                        </div>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Facebook Meta Integration</div>
                                     </div>
                                     <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
                                         <input type="checkbox" checked={postToFacebook} onChange={e => setPostToFacebook(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                                        <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: postToFacebook ? '#1877F2' : '#ccc', transition: '.4s', borderRadius: '20px' }}>
-                                            <span style={{ position: 'absolute', content: '""', height: '14px', width: '14px', left: postToFacebook ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
+                                        <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: postToFacebook ? '#1877F2' : '#ccc', borderRadius: '20px' }}>
+                                            <span style={{ position: 'absolute', height: '14px', width: '14px', left: postToFacebook ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%' }}></span>
                                         </span>
                                     </label>
                                 </div>
-
-                                {postToFacebook && !fbConfig.pageId && (
-                                    <div style={{ marginTop: '10px', fontSize: '0.72rem', color: 'hsl(var(--danger))', background: 'hsl(var(--danger) / 0.1)', padding: '8px', borderRadius: '6px' }}>
-                                        Facebook account not linked. <button type="button" onClick={() => router.push('/admin/facebook')} style={{ background: 'none', border: 'none', color: '#1877F2', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Connect Account</button>
-                                    </div>
-                                )}
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.75rem' }}>
                                 <button type="button" onClick={() => setIsEditing(false)} className="btn btn-secondary">Cancel</button>
                                 {currentProduct && (
-                                    <button 
-                                        type="button" 
-                                        onClick={() => {
-                                            handleDelete(currentProduct.id);
-                                            setIsEditing(false);
-                                        }}
-                                        className="btn"
-                                        style={{ 
-                                            background: 'hsl(var(--danger) / 0.1)',
-                                            color: 'hsl(var(--danger))',
-                                            border: '1px solid hsl(var(--danger) / 0.3)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px'
-                                        }}
-                                    >
+                                    <button type="button" onClick={() => { handleDelete(currentProduct.id); setIsEditing(false); }} className="btn btn-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Trash2 size={16} /> Delete Product
                                     </button>
                                 )}
                                 <button type="submit" className="btn btn-primary" disabled={fbProcessing}>
-                                    {fbProcessing ? (
-                                        <><Loader2 size={16} className="animate-spin" style={{ marginRight: '8px' }} /> Posting...</>
-                                    ) : (
-                                        <>Save {postToFacebook ? '& Post' : ''}</>
-                                    )}
+                                    {fbProcessing ? 'Processing...' : 'Save Product'}
                                 </button>
                             </div>
                         </form>
@@ -1860,79 +1536,36 @@ export default function ProductsPage() {
                             try {
                                 setOcrLoading(true);
                                 setShowMediaPicker(false);
-
-                                // 1. Fast validation for existing CAT code in library image
-                                const hasCatCode = await detectWatermark(url);
-                                if (hasCatCode) {
-                                    setErrorModal({
-                                        title: 'watermark detected',
-                                        message: 'The image already contains a watermark.'
-                                    });
-                                    return;
-                                }
-
-                                // 2. Get or generate catalog ID (same for all images of this product)
-                                const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-
-                                // 3. Download the image from Media Library URL
                                 const response = await fetch(url);
                                 const blob = await response.blob();
                                 const file = new File([blob], `media-image-${Date.now()}.jpg`, { type: blob.type });
 
-                                // 4. Upload original image to without-watermark folder
-                                const originalFormData = new FormData();
-                                originalFormData.append('file', file);
-                                originalFormData.append('skipDetection', 'true');
-                                originalFormData.append('alreadyWatermarked', 'false');
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                formData.append('requireClean', 'true');
 
-                                const originalUploadRes = await fetch('/api/admin/upload', {
-                                    method: 'POST',
-                                    body: originalFormData
-                                });
-
-                                if (!originalUploadRes.ok) {
-                                    throw new Error('Failed to upload original image');
-                                }
-
-                                const originalUploadData = await originalUploadRes.json();
-                                console.log(`[PRODUCT LIBRARY] Original image saved to: ${originalUploadData.url}`);
-
-                                // 5. Create watermarked version for product
-                                const watermarkedBlob = await stampProductCode(url, catalogId);
+                                const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                const data = await uploadRes.json();
                                 
-                                // 6. Upload watermarked image to with-watermark folder
-                                const watermarkedFormData = new FormData();
-                                watermarkedFormData.append('file', new File([watermarkedBlob], file.name, { type: file.type }));
-                                watermarkedFormData.append('skipDetection', 'true');
-                                watermarkedFormData.append('alreadyWatermarked', 'true');
-                                watermarkedFormData.append('catalogId', catalogId);
-
-                                const watermarkedUploadRes = await fetch('/api/admin/upload', {
-                                    method: 'POST',
-                                    body: watermarkedFormData
-                                });
-
-                                if (!watermarkedUploadRes.ok) {
-                                    throw new Error('Failed to upload watermarked image');
+                                if (!uploadRes.ok) {
+                                    if (data.error === 'Watermark already present') {
+                                        setErrorModal({ title: 'Watermark Blocked', message: 'Image already has a watermark.' });
+                                        return;
+                                    }
+                                    throw new Error(data.error || 'Upload failed');
                                 }
 
-                                const watermarkedUploadData = await watermarkedUploadRes.json();
-                                console.log(`[PRODUCT LIBRARY] Watermarked image saved to: ${watermarkedUploadData.url}`);
-
-                                // 7. Update product image URL with watermarked version
+                                const finalUrl = data.watermarkedUrl || data.url;
                                 if (activeImageField.type === 'product') {
-                                    setProductImageUrl(prev => prev ? `${prev},${watermarkedUploadData.url}` : watermarkedUploadData.url);
-                                    setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catalogId }));
+                                    setProductImageUrl(prev => prev ? `${prev},${finalUrl}` : finalUrl);
+                                    if (!currentProduct?.product_catalog_image_id) {
+                                        setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: data.catalogId }));
+                                    }
                                 } else if (activeImageField.type === 'variant') {
-                                    updateVariant(activeImageField.index, 'image_url', watermarkedUploadData.url);
+                                    updateVariant(activeImageField.index, 'image_url', finalUrl);
                                 }
-
                             } catch (err) {
-                                console.error('Media select error:', err);
-                                setErrorModal({
-                                    title: 'Processing Error',
-                                    message: 'Failed to process image: ' + err.message
-                                });
+                                setErrorModal({ title: 'Processing Error', message: err.message });
                             } finally {
                                 setOcrLoading(false);
                             }
@@ -1955,7 +1588,6 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            </div>
 
             {/* PRODUCT IMAGE ASSIGNER (Post-Excel Import) */}
             {
@@ -2218,7 +1850,7 @@ export default function ProductsPage() {
                         }}>
                             <Trash2 size={16} /> Delete Selected
                         </button>
-                        <button onClick={() => setSelectedProductIds([])} style={{
+                                                <button onClick={() => setSelectedProductIds([])} style={{
                             background: 'transparent',
                             border: '1px solid rgba(255,255,255,0.3)',
                             color: 'white',
@@ -2234,6 +1866,7 @@ export default function ProductsPage() {
                     </div>
                 </div>
             )}
-        </>
-    );
+        </div>
+    </>
+);
 }

@@ -101,12 +101,18 @@ export default function OrdersPage() {
     const [newOrder, setNewOrder] = useState({
         customer_name: '',
         billing_email: '',
-        shipping_email: '',
         billing_phone: '',
+        billing_address: '',
+        billing_city: '',
+        billing_pincode: '',
+        billing_state: 'Tamil Nadu',
+        shipping_email: '',
         shipping_phone: '',
         shipping_address: '',
-        billing_address: '',
+        shipping_city: '',
+        shipping_pincode: '',
         shipping_state: 'Tamil Nadu',
+        same_as_billing: true,
         payment_method: 'UPI',
         send_notifications: 'both',
         items: [] // {product_id, product_name, quantity, price}
@@ -1855,25 +1861,77 @@ export default function OrdersPage() {
 
                                 <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                                        <div style={{ gridColumn: 'span 2', borderBottom: '1px solid hsl(var(--border-subtle))', paddingBottom: '0.5rem', marginBottom: '0.5rem' }}>
+                                            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'hsl(var(--primary))' }}>Billing Details</h3>
+                                        </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Customer Name</label>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Customer Name *</label>
                                             <input type="text" placeholder="John Doe" value={newOrder.customer_name} onChange={e => setNewOrder({ ...newOrder, customer_name: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Email</label>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Email *</label>
                                             <input type="email" placeholder="billing@email.com" value={newOrder.billing_email || ''} onChange={e => setNewOrder({ ...newOrder, billing_email: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Email</label>
-                                            <input type="email" placeholder="shipping@email.com" value={newOrder.shipping_email || ''} onChange={e => setNewOrder({ ...newOrder, shipping_email: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
-                                        </div>
-                                        <div>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Phone</label>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Phone *</label>
                                             <input type="tel" placeholder="91..." value={newOrder.billing_phone} onChange={e => setNewOrder({ ...newOrder, billing_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
                                         </div>
+                                        <div style={{ gridColumn: 'span 2' }}>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Address *</label>
+                                            <textarea rows={1} placeholder="Full billing address..." value={newOrder.billing_address} onChange={e => setNewOrder({ ...newOrder, billing_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
+                                        </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Phone</label>
-                                            <input type="tel" placeholder="91..." value={newOrder.shipping_phone} onChange={e => setNewOrder({ ...newOrder, shipping_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing City *</label>
+                                            <input type="text" placeholder="City" value={newOrder.billing_city} onChange={e => setNewOrder({ ...newOrder, billing_city: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Pincode *</label>
+                                            <input type="text" placeholder="600001" value={newOrder.billing_pincode} onChange={e => setNewOrder({ ...newOrder, billing_pincode: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing State</label>
+                                            <select value={newOrder.billing_state} onChange={e => setNewOrder({ ...newOrder, billing_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                                {["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"].map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+
+                                        <div style={{ gridColumn: 'span 2', marginTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'hsl(var(--primary))' }}>Shipping Details</h3>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>
+                                                <input type="checkbox" checked={newOrder.same_as_billing} onChange={e => setNewOrder({ ...newOrder, same_as_billing: e.target.checked })} />
+                                                Same as Billing
+                                            </label>
+                                        </div>
+
+                                        {!newOrder.same_as_billing && (
+                                            <>
+                                                <div style={{ gridColumn: 'span 2' }}>
+                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Address *</label>
+                                                    <textarea rows={1} placeholder="Full shipping address..." value={newOrder.shipping_address} onChange={e => setNewOrder({ ...newOrder, shipping_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping City *</label>
+                                                    <input type="text" placeholder="City" value={newOrder.shipping_city} onChange={e => setNewOrder({ ...newOrder, shipping_city: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Pincode *</label>
+                                                    <input type="text" placeholder="600001" value={newOrder.shipping_pincode} onChange={e => setNewOrder({ ...newOrder, shipping_pincode: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
+                                                    <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                                        {["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Phone</label>
+                                                    <input type="tel" placeholder="91..." value={newOrder.shipping_phone} onChange={e => setNewOrder({ ...newOrder, shipping_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} />
+                                                </div>
+                                            </>
+                                        )}
+
+                                        <div style={{ gridColumn: 'span 2', marginTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1.5rem' }}>
+                                            <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0', color: 'hsl(var(--primary))' }}>Order Options</h3>
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Send Notifications</label>
@@ -1884,23 +1942,11 @@ export default function OrdersPage() {
                                                 <option value="none">No Notifications</option>
                                             </select>
                                         </div>
-                                        <div style={{ gridColumn: 'span 2' }}>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping Address</label>
-                                            <textarea rows={1} placeholder="Full shipping address..." value={newOrder.shipping_address} onChange={e => setNewOrder({ ...newOrder, shipping_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
-                                        </div>
-                                        <div style={{ gridColumn: 'span 2' }}>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing Address</label>
-                                            <textarea rows={1} placeholder="Full billing address (if same as shipping, leave empty)..." value={newOrder.billing_address} onChange={e => setNewOrder({ ...newOrder, billing_address: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', resize: 'none' }} />
-                                        </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
-                                            <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
-                                                <option value="Tamil Nadu">Tamil Nadu</option>
-                                                <option value="Kerala">Kerala</option>
-                                                <option value="Karnataka">Karnataka</option>
-                                                <option value="Andhra Pradesh">Andhra Pradesh</option>
-                                                <option value="Telangana">Telangana</option>
-                                                <option value="Other">Other State</option>
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Payment Method</label>
+                                            <select value={newOrder.payment_method} onChange={e => setNewOrder({ ...newOrder, payment_method: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                                <option value="UPI">UPI / Online</option>
+                                                <option value="COD">Cash on Delivery</option>
                                             </select>
                                         </div>
                                     </div>
@@ -2003,8 +2049,9 @@ export default function OrdersPage() {
                                                                     const { error: custErr } = await supabase.from('customers').insert({
                                                                         phone: normalizedPhone,
                                                                         name: newOrder.customer_name || 'Website User',
-                                                                        address: newOrder.delivery_address,
-                                                                        state: newOrder.shipping_state,
+                                                                        address: newOrder.billing_address,
+                                                                        city: newOrder.billing_city,
+                                                                        state: newOrder.billing_state,
                                                                         role: 'user'
                                                                     });
                                                                     if (custErr) console.error('Failed to auto-create customer profile:', custErr);
@@ -2012,8 +2059,9 @@ export default function OrdersPage() {
                                                                     // Update existing customer with new latest details
                                                                     await supabase.from('customers').update({
                                                                         name: newOrder.customer_name || existingCusts[0].name,
-                                                                        address: newOrder.delivery_address,
-                                                                        state: newOrder.shipping_state
+                                                                        address: newOrder.billing_address || existingCusts[0].address,
+                                                                        city: newOrder.billing_city || existingCusts[0].city,
+                                                                        state: newOrder.billing_state || existingCusts[0].state
                                                                     }).eq('id', existingCusts[0].id);
                                                                 }
 
@@ -2021,14 +2069,41 @@ export default function OrdersPage() {
                                                                     id: orderId,
                                                                     customer_name: newOrder.customer_name,
                                                                     customer_email: newOrder.billing_email || null,
-                                                                    customer_phone: normalizedPhone, // Ensures sync with Customers page aggregation
+                                                                    customer_phone: normalizedPhone,
                                                                     billing_email: newOrder.billing_email || null,
-                                                                    shipping_email: newOrder.shipping_email || null,
+                                                                    shipping_email: newOrder.same_as_billing ? (newOrder.billing_email || null) : (newOrder.shipping_email || null),
                                                                     billing_phone: normalizedPhone,
-                                                                    shipping_phone: newOrder.shipping_phone ? (newOrder.shipping_phone.startsWith('91') ? newOrder.shipping_phone : `91${newOrder.shipping_phone}`) : normalizedPhone,
-                                                                    delivery_address: newOrder.shipping_address,
-                                                                    billing_address: newOrder.billing_address || newOrder.shipping_address,
-                                                                    shipping_state: newOrder.shipping_state,
+                                                                    shipping_phone: newOrder.same_as_billing ? normalizedPhone : (newOrder.shipping_phone ? (newOrder.shipping_phone.startsWith('91') ? newOrder.shipping_phone : `91${newOrder.shipping_phone}`) : normalizedPhone),
+                                                                    delivery_address: newOrder.same_as_billing 
+                                                                        ? `${newOrder.billing_address}, ${newOrder.billing_city} - ${newOrder.billing_pincode} (${newOrder.billing_state})`
+                                                                        : `${newOrder.shipping_address}, ${newOrder.shipping_city} - ${newOrder.shipping_pincode} (${newOrder.shipping_state})`,
+                                                                    billing_address: {
+                                                                        name: newOrder.customer_name,
+                                                                        phone: normalizedPhone,
+                                                                        email: newOrder.billing_email || null,
+                                                                        address: newOrder.billing_address,
+                                                                        city: newOrder.billing_city,
+                                                                        pincode: newOrder.billing_pincode,
+                                                                        state: newOrder.billing_state
+                                                                    },
+                                                                    shipping_address: newOrder.same_as_billing ? {
+                                                                        name: newOrder.customer_name,
+                                                                        phone: normalizedPhone,
+                                                                        email: newOrder.billing_email || null,
+                                                                        address: newOrder.billing_address,
+                                                                        city: newOrder.billing_city,
+                                                                        pincode: newOrder.billing_pincode,
+                                                                        state: newOrder.billing_state
+                                                                    } : {
+                                                                        name: newOrder.customer_name, // fallback or add shipping_name field
+                                                                        phone: newOrder.shipping_phone || normalizedPhone,
+                                                                        email: newOrder.shipping_email || newOrder.billing_email || null,
+                                                                        address: newOrder.shipping_address,
+                                                                        city: newOrder.shipping_city,
+                                                                        pincode: newOrder.shipping_pincode,
+                                                                        state: newOrder.shipping_state
+                                                                    },
+                                                                    shipping_state: newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state,
                                                                     total_amount: total,
                                                                     tax_amount: tax,
                                                                     cgst: cgst,
@@ -2036,7 +2111,7 @@ export default function OrdersPage() {
                                                                     igst: igst,
                                                                     shipping_cost: shipping,
                                                                     status: 'PLACED',
-                                                                    source: 'WHATSAPP',
+                                                                    source: 'ADMIN_MANUAL',
                                                                     payment_method: newOrder.payment_method
                                                                 });
                                                                 if (ordErr) throw ordErr;
@@ -2102,7 +2177,25 @@ export default function OrdersPage() {
 
                                                                 setNotification({ message: 'Manual Order Created Successfully! Stock updated.', type: 'success' });
                                                                 setIsAddingOrder(false);
-                                                                setNewOrder({ customer_name: '', billing_email: '', shipping_email: '', billing_phone: '', shipping_phone: '', delivery_address: '', shipping_state: 'Tamil Nadu', payment_method: 'UPI', send_notifications: 'both', items: [] });
+                                                                setNewOrder({
+                                                                    customer_name: '',
+                                                                    billing_email: '',
+                                                                    billing_phone: '',
+                                                                    billing_address: '',
+                                                                    billing_city: '',
+                                                                    billing_pincode: '',
+                                                                    billing_state: 'Tamil Nadu',
+                                                                    shipping_email: '',
+                                                                    shipping_phone: '',
+                                                                    shipping_address: '',
+                                                                    shipping_city: '',
+                                                                    shipping_pincode: '',
+                                                                    shipping_state: 'Tamil Nadu',
+                                                                    same_as_billing: true,
+                                                                    payment_method: 'UPI',
+                                                                    send_notifications: 'both',
+                                                                    items: []
+                                                                });
                                                                 fetchOrders();
                                                             } catch (err) {
                                                                 console.error('Manual Order Error:', err);

@@ -9,59 +9,54 @@ export function generateCatCode() {
 }
 
 // Process product image: validate, watermark, and upload
+// Process product image: validate, watermark, and upload in ONE high-performance backend call
 export async function processProductImage(imageFile, existingUrl = null) {
     try {
-        // Step 1: Check if image has CAT code
-        const hasWatermark = await detectWatermark(imageFile || existingUrl);
-        
-        if (hasWatermark) {
-            return {
-                success: false,
-                error: 'CAT_CODE_DETECTED',
-                message: 'CAT code already present in image'
-            };
+        let file = imageFile;
+
+        // If we only have a URL, fetch it and convert to a File object
+        if (!file && existingUrl) {
+            console.log(`[CAT CODE] Downloading library image for processing: ${existingUrl}`);
+            const response = await fetch(existingUrl);
+            const blob = await response.blob();
+            file = new File([blob], `media-image-${Date.now()}.jpg`, { type: blob.type });
         }
 
-        // Step 2: Generate new CAT code
-        const newCatCode = generateCatCode();
-        console.log(`[CAT CODE] Generated new code: ${newCatCode}`);
+        if (!file) throw new Error('No image source provided');
 
-        // Step 3: Get image URL (from file or existing URL)
-        let imageUrl;
-        if (existingUrl) {
-            imageUrl = existingUrl;
-        } else {
-            // Upload original image to without-watermark folder first
-            const formData = new FormData();
-            formData.append('file', imageFile);
-            formData.append('skipDetection', 'true');
-            formData.append('alreadyWatermarked', 'false');
+        // Prepare single-call upload (Backend handles OCR, storage, and double-versioning)
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('requireClean', 'true'); // Enforce Requirement 2
 
-            const uploadResponse = await fetch('/api/admin/upload', {
-                method: 'POST',
-                body: formData
-            });
+        console.log('[CAT CODE] Initiating high-performance backend processing...');
+        const response = await fetch('/api/admin/upload', {
+            method: 'POST',
+            body: formData
+        });
 
-            if (!uploadResponse.ok) {
-                throw new Error('Failed to upload original image');
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (data.error === 'Watermark already present') {
+                return {
+                    success: false,
+                    error: 'CAT_CODE_DETECTED',
+                    catalogId: data.catalogId,
+                    message: 'Watermark already present. Please use a clean image.'
+                };
             }
-
-            const uploadData = await uploadResponse.json();
-            imageUrl = uploadData.url;
+            throw new Error(data.error || 'Processing failed');
         }
 
-        // Step 4: Add watermark to image
-        const watermarkedBlob = await stampProductCode(imageUrl, newCatCode);
-        
-        // Step 5: Upload watermarked image
-        const watermarkedUrl = await uploadWatermarkedImage(watermarkedBlob, newCatCode);
+        console.log(`[CAT CODE] Processing complete. Catalog ID: ${data.catalogId}`);
 
         return {
             success: true,
-            catalogId: newCatCode,
-            originalImageUrl: imageUrl,
-            watermarkedImageUrl: watermarkedUrl,
-            message: 'Image processed successfully with new CAT code'
+            catalogId: data.catalogId,
+            originalImageUrl: data.originalUrl,
+            watermarkedImageUrl: data.watermarkedUrl,
+            message: 'Image processed successfully by backend'
         };
 
     } catch (error) {

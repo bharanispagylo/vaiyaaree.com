@@ -946,72 +946,31 @@ export async function handleShippingSame(to, orderId) {
 
 // Handle new billing address input
 export async function handleNewBillingAddress(to, orderId, text) {
-    let name = 'Valued Customer';
-    let mobile = to;
-    let email = '';
-    let address = text.trim();
-
-    const rawBody = text.trim();
-
-    if (rawBody.includes(',')) {
-        const parts = rawBody.split(',').map(p => p.trim());
-        if (parts.length >= 3) {
-            name = parts[0];
-            mobile = parts[1];
-            if (parts[2].includes('@')) {
-                email = parts[2];
-                address = parts.slice(3).join(', ');
-            } else {
-                email = '';
-                address = parts.slice(2).join(', ');
-            }
-        } else if (parts.length === 2) {
-            name = parts[0];
-            address = parts[1];
-        }
-    } else if (rawBody.includes('\n')) {
-        const parts = rawBody.split('\n').map(p => p.trim()).filter(Boolean);
-        if (parts.length >= 3) {
-            name = parts[0];
-            mobile = parts[1];
-            if (parts[2].includes('@')) {
-                email = parts[2];
-                address = parts.slice(3).join(', ');
-            } else {
-                email = '';
-                address = parts.slice(2).join(', ');
-            }
-        } else if (parts.length === 2) {
-            name = parts[0];
-            address = parts[1];
-        }
+    const parsed = parseAddressString(text, to);
+    
+    if (parsed.error) {
+        return await sendText(to, `⚠️ ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
     }
 
-    // Validate email if an @ is present in the text but not picked up, or if they tried to provide one
-    if (email && !email.includes('@')) {
-        await sendText(to, "⚠️ Invalid email format. Please try again with correct format:\n\nName, Mobile, Email, Address");
-        return;
-    }
-
-    // Require email
-    if (!email) {
-        await sendText(to, "⚠️ Email is missing. Please try again with correct format:\n\nName, Mobile, Email, Address\n\nExample:\nLakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001");
-        return;
+    if (!parsed.email) {
+        return await sendText(to, "⚠️ Email is missing. Please try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode\n\nExample:\nLakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001");
     }
 
     const billingAddress = {
-        name: name,
-        mobile: mobile,
-        email: email,
-        address: address
+        name: parsed.name,
+        mobile: parsed.mobile,
+        email: parsed.email,
+        address: parsed.address,
+        city: parsed.city,
+        pincode: parsed.pincode
     };
 
     await supabase.from('orders').update({
-        customer_name: name,
-        customer_phone: mobile,
-        customer_email: email,
-        billing_phone: mobile,
-        billing_email: email,
+        customer_name: parsed.name,
+        customer_phone: parsed.mobile,
+        customer_email: parsed.email,
+        billing_phone: parsed.mobile,
+        billing_email: parsed.email,
         billing_address: billingAddress
     }).eq('id', orderId);
 
@@ -1021,60 +980,93 @@ export async function handleNewBillingAddress(to, orderId, text) {
 
 // Handle new shipping address input
 export async function handleNewShippingAddress(to, orderId, text) {
-    let name = 'Valued Customer';
-    let mobile = to;
-    let email = '';
-    let address = text.trim();
-
-    const rawBody = text.trim();
-
-    if (rawBody.includes(',')) {
-        const parts = rawBody.split(',').map(p => p.trim());
-        if (parts.length >= 3) {
-            name = parts[0];
-            mobile = parts[1];
-            if (parts[2].includes('@')) {
-                email = parts[2];
-                address = parts.slice(3).join(', ');
-            } else {
-                address = parts.slice(2).join(', ');
-            }
-        } else if (parts.length === 2) {
-            name = parts[0];
-            address = parts[1];
-        }
-    } else if (rawBody.includes('\n')) {
-        const parts = rawBody.split('\n').map(p => p.trim()).filter(Boolean);
-        if (parts.length >= 3) {
-            name = parts[0];
-            mobile = parts[1];
-            if (parts[2].includes('@')) {
-                email = parts[2];
-                address = parts.slice(3).join(', ');
-            } else {
-                address = parts.slice(2).join(', ');
-            }
-        } else if (parts.length === 2) {
-            name = parts[0];
-            address = parts[1];
-        }
+    const parsed = parseAddressString(text, to);
+    
+    if (parsed.error) {
+        return await sendText(to, `⚠️ ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
     }
 
     const shippingAddress = {
-        name: name,
-        mobile: mobile,
-        email: email,
-        address: address
+        name: parsed.name,
+        mobile: parsed.mobile,
+        email: parsed.email,
+        address: parsed.address,
+        city: parsed.city,
+        pincode: parsed.pincode
     };
 
     await supabase.from('orders').update({
         shipping_address: shippingAddress,
-        shipping_phone: mobile,
-        shipping_email: email
+        shipping_phone: parsed.mobile,
+        shipping_email: parsed.email
     }).eq('id', orderId);
 
     // Continue to state selection
     return await askState(to, orderId);
+}
+
+// Helper to parse address strings
+function parseAddressString(text, defaultMobile) {
+    const rawBody = text.trim();
+    let name = 'Valued Customer';
+    let mobile = defaultMobile;
+    let email = '';
+    let address = '';
+    let city = '';
+    let pincode = '';
+
+    // Try splitting by comma or newline
+    const parts = rawBody.split(/[,\n]/).map(p => p.trim()).filter(Boolean);
+
+    if (parts.length >= 4) {
+        // Expected: Name, Mobile, Email, Address...
+        name = parts[0];
+        mobile = parts[1];
+        email = parts[2];
+        
+        // Sometimes email and mobile are swapped
+        if (mobile.includes('@') && !email.includes('@')) {
+            const temp = mobile; mobile = email; email = temp;
+        }
+
+        // Remaining parts are address, city, pincode
+        const remaining = parts.slice(3);
+        
+        // Try to identify pincode (6 digits)
+        const pinIdx = remaining.findIndex(p => /^\d{6}$/.test(p));
+        if (pinIdx !== -1) {
+            pincode = remaining[pinIdx];
+            // If city is before pincode
+            if (pinIdx > 0) city = remaining[pinIdx - 1];
+            address = remaining.slice(0, pinIdx > 0 ? pinIdx - 1 : pinIdx).join(', ');
+        } else {
+            // Fallback: last part is pincode? 
+            const lastPart = remaining[remaining.length - 1];
+            if (/\d{5,6}/.test(lastPart)) {
+                pincode = lastPart;
+                if (remaining.length > 1) city = remaining[remaining.length - 2];
+                address = remaining.slice(0, -2).join(', ');
+            } else {
+                address = remaining.join(', ');
+            }
+        }
+    } else if (parts.length >= 2) {
+        name = parts[0];
+        address = parts.slice(1).join(', ');
+    } else {
+        address = rawBody;
+    }
+
+    // Basic Validation
+    if (email && !email.includes('@')) {
+        return { error: "Invalid email format." };
+    }
+    
+    // Clean phone
+    mobile = mobile.replace(/\D/g, '');
+    if (mobile.length === 10) mobile = '91' + mobile;
+
+    return { name, mobile, email, address, city, pincode };
 }
 
 export async function askState(to, orderId) {
@@ -1936,7 +1928,7 @@ export async function processIncomingMessage(body) {
 
             const { data: draft } = await supabase
                 .from('orders')
-                .select('id, billing_address, shipping_address')
+                .select('id, billing_address, shipping_address, customer_state, customer_email')
                 .in('customer_phone', phoneVariations)
                 .eq('status', 'DRAFT')
                 .order('created_at', { ascending: false })
@@ -1950,31 +1942,37 @@ export async function processIncomingMessage(body) {
                     return await handleNewBillingAddress(from, draft.id, message.text.body);
                 }
                 
-                // Check if we need email (after billing address is set but email is missing)
+                // Check if we need email (fallback if email was missing during billing)
                 if (draft.billing_address && !draft.customer_email) {
                     console.log(`[WA] Saving email for draft ${draft.id}`);
                     const email = message.text.body.trim();
-                    // Simple email validation
                     if (email.includes('@') && email.includes('.')) {
                         await supabase.from('orders').update({
-                            customer_email: email
+                            customer_email: email,
+                            billing_email: email
                         }).eq('id', draft.id);
-                        
-                        // Continue to shipping address question
                         return await askShippingSameAsBilling(from, draft.id);
                     } else {
-                        await sendText(from, 
-                            "⚠️ Invalid email format. Please enter a valid email address:\n\n" +
-                            "Example: lakshmi@email.com"
-                        );
+                        await sendText(from, "⚠️ Invalid email format. Please enter a valid email address:");
                         return;
                     }
                 }
                 
-                // Check if we need shipping address
+                // Check if we need shipping address (only if not set)
                 if (!draft.shipping_address) {
                     console.log(`[WA] Saving shipping address for draft ${draft.id}`);
                     return await handleNewShippingAddress(from, draft.id, message.text.body);
+                }
+
+                // Check if we need state selection (via text)
+                if ((!draft.customer_state || draft.customer_state === 'Other') && !MENU_TRIGGERS.includes(text)) {
+                    console.log(`[WA] Attempting to set state for draft ${draft.id}: ${text}`);
+                    const INDIAN_STATES = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Puducherry", "Chandigarh", "Ladakh", "Jammu and Kashmir"];
+                    
+                    const matchedState = INDIAN_STATES.find(s => s.toLowerCase() === text.toLowerCase() || text.toLowerCase().includes(s.toLowerCase()));
+                    if (matchedState) {
+                        return await handleStateSelection(from, matchedState.toLowerCase().replace(/ /g, '_'), draft.id);
+                    }
                 }
             }
 
@@ -2115,10 +2113,12 @@ export async function processIncomingMessage(body) {
 
             if (id.startsWith('shipping_diff_')) {
                 const orderId = id.replace('shipping_diff_', '');
+                // Clear existing shipping address to trigger the draft check for next message
+                await supabase.from('orders').update({ shipping_address: null }).eq('id', orderId);
                 return await sendText(from,
                     `📝 *Enter Shipping Address*\n\n` +
                     `Reply with your *shipping details* in this format:\n\n` +
-                    `*Name, Mobile Number, Email, Full Address*\n\n` +
+                    `*Name, Mobile Number, Email, Full Address, City, Pincode*\n\n` +
                     `Example:\n_Lakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001_`
                 );
             }

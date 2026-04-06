@@ -66,9 +66,34 @@ export async function detectWatermark(buffer, fileName = '') {
         console.log(`[PROCESSOR] Bright pixel detection: ${brightPixels} pixels (${brightPercentage.toFixed(3)}%)`);
 
         // Trigger OCR if ANY significant bright pixels exist
-        if (brightPixels > 5 || brightPercentage > 0.01) {
-            console.log(`[PROCESSOR] Potential watermark detected (pixel cluster), calling OCR fallback...`);
-            return await callOcrApi(buffer, fileName);
+        if (brightPixels > 3 || brightPercentage > 0.005) {
+            console.log(`[PROCESSOR] Potential watermark detected (pixel cluster: ${brightPixels}), creating high-contrast crop...`);
+            
+            // Generate a high-contrast crop of the bottom 40%
+            const cropCanvas = createCanvas(canvas.width, Math.floor(canvas.height * 0.4));
+            const cropCtx = cropCanvas.getContext('2d');
+            
+            // Draw ONLY the bottom 40%
+            cropCtx.drawImage(image, 0, canvas.height - cropCanvas.height, canvas.width, cropCanvas.height, 0, 0, canvas.width, cropCanvas.height);
+            
+            // Apply Thresholding (make it B&W for OCR)
+            const cropData = cropCtx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
+            const d = cropData.data;
+            for (let i = 0; i < d.length; i += 4) {
+                const avg = (d[i] + d[i+1] + d[i+2]) / 3;
+                const v = avg > 128 ? 255 : 0; // Thresholding at 128
+                d[i] = d[i+1] = d[i+2] = v;
+            }
+            cropCtx.putImageData(cropData, 0, 0);
+            
+            const enhancedBuffer = cropCanvas.toBuffer('image/jpeg', { quality: 1.0 });
+            
+            // Try OCR on WHOLE image first (fallback to crop)
+            const result = await callOcrApi(buffer, fileName);
+            if (result.hasWatermark) return result;
+            
+            console.log(`[PROCESSOR] Generic OCR failed, trying ENHANCED CROP OCR...`);
+            return await callOcrApi(enhancedBuffer, 'enhanced-' + fileName);
         }
 
         console.log(`[PROCESSOR] No pixel clusters found, assuming clean image.`);
@@ -76,8 +101,7 @@ export async function detectWatermark(buffer, fileName = '') {
 
     } catch (err) {
         console.error('[PROCESSOR] Detection critical error:', err);
-        // On error, let's try OCR anyway if it's a product image
-        return await callOcrApi(buffer, fileName).catch(() => ({ hasWatermark: false }));
+        return { hasWatermark: false };
     }
 }
 

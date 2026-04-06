@@ -46,143 +46,62 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
     // Assign an image URL to a product row, stamp it, upload, save
     const assignImage = async (index, rawImageUrl) => {
         const item = items[index];
-
-        setItems(prev => prev.map((it, i) =>
-            i === index ? { ...it, status: 'stamping', previewUrl: rawImageUrl } : it
-        ));
+        setItems(prev => prev.map((it, i) => i === index ? { ...it, status: 'stamping', previewUrl: rawImageUrl } : it));
 
         try {
-            // 1. Get or generate a unique catalog ID (CAT-XXXXX format)
             const catalogId = item.catalogId || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-            console.log('Using catalog ID:', catalogId);
+            const res = await fetch(rawImageUrl);
+            const blob = await res.blob();
+            const fileToUpload = new File([blob], `assign-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-            // High-performance single-call upload (Backend handles detection, storage & watermarking)
             const formData = new FormData();
-            
-            // If it's a blob/file, pass it. If it's a URL, pass the URL and some instructions?
-            // Actually, rawImageUrl might be a blob from the Media Library.
-            // Let's assume rawImageUrl is a URL (the Prop says assignImage(index, rawImageUrl)).
-            
-            let fileToUpload;
-            if (rawImageUrl.startsWith('blob:')) {
-                const response = await fetch(rawImageUrl);
-                const blob = await response.blob();
-                fileToUpload = new File([blob], `excel-import-${Date.now()}.jpg`, { type: blob.type });
-            } else {
-                // If it's an existing Media Library URL, fetch it to pass as a file
-                // (Backend 'upload' currently expects a file)
-                const response = await fetch(rawImageUrl);
-                const blob = await response.blob();
-                fileToUpload = new File([blob], `excel-import-${Date.now()}.jpg`, { type: blob.type });
-            }
-
             formData.append('file', fileToUpload);
             formData.append('catalogId', catalogId);
             formData.append('requireClean', 'true');
 
-            const uploadRes = await fetch('/api/admin/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            const uploadData = await uploadRes.json();
-            if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload failed');
-
-            const finalUrl = uploadData.watermarkedUrl || uploadData.url;
-
-            // 5. Update or INSERT product
-            console.log(item.isNew ? 'Inserting new product:' : 'Updating product:', item.name);
+            const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+            const data = await uploadRes.json();
             
-            const dbData = {
-                name: item.name,
-                description: item.description,
-                price: item.price,
-                stock: item.stock,
-                category: item.category,
-                type: 'simple',
-                is_active: true,
-                image_url: finalUrl,
-                product_catalog_image_id: catalogId
-            };
-
-            let savedProduct = null;
-
-            if (item.isNew || !item.id) {
-                // INSERT NEW
-                dbData.total_added = item.stock || 0;
-                const { data, error } = await supabase.from('products').insert([dbData]).select();
-                if (error) throw error;
-                savedProduct = data?.[0];
-
-                // Add initial stock entry in history
-                if (savedProduct && savedProduct.stock > 0) {
-                    await supabase.from('product_history').insert({
-                        product_id: savedProduct.id,
-                        change_type: 'ADD',
-                        quantity_change: savedProduct.stock,
-                        new_stock: savedProduct.stock,
-                        reason: 'Initial Stock (Excel Import)'
-                    });
-                }
-            } else {
-                // UPDATE EXISTING
-                const { data, error } = await supabase.from('products').update(dbData).eq('id', item.id).select();
-                if (error) throw error;
-                savedProduct = data?.[0];
-            }
-
-            if (!savedProduct) throw new Error('Failed to save to database');
-
-            setItems(prev => prev.map((it, i) =>
-                i === index ? { ...it, ...savedProduct, status: 'done', previewUrl: finalUrl, catalogId } : it
-            ));
-        } catch (err) {
-            console.error('assignImage error:', err);
-            setItems(prev => prev.map((it, i) =>
-                i === index ? { ...it, status: 'error' } : it
-            ));
-            setErrorModal({ title: 'Assignment Failed', message: err.message });
-        }
-    };
-
-    // Handle file pick from device
-    const handleFileChange = async (e, index) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        try {
-            setOcrLoading(true);
-            // 1. OCR Check for existing watermark
-            const reader = new FileReader();
-            const base64Promise = new Promise((resolve) => {
-                reader.onload = () => resolve(reader.result);
-                reader.readAsDataURL(file);
-            });
-            const base64Image = await base64Promise;
-
-            const ocrRes = await fetch('/api/admin/ocr', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ base64Image })
-            });
-            const ocrData = await ocrRes.json();
-
-            if (ocrData.hasWatermark) {
-                setErrorModal({ title: 'Watermark Detected', message: 'The image has already WaterMark. Please upload a clean version.' });
-                e.target.value = '';
+            if (!uploadRes.ok) {
+                if (data.error === 'Watermark already present') {
+                    setErrorModal({ title: 'Watermark Blocked', message: 'This image already has a CAT code.' });
+                } else throw new Error(data.error || 'Upload failed');
+                setItems(prev => prev.map((it, i) => i === index ? { ...it, status: 'idle' } : it));
                 return;
             }
 
-            // 2. Simply proceed with assigning. 
-            // The backend /api/admin/upload now handles saving both original and watermarked versions in a single call.
-            const objectUrl = URL.createObjectURL(file);
-            await assignImage(index, objectUrl);
+            const finalUrl = data.watermarkedUrl || data.url;
+            const dbData = {
+                name: item.name, description: item.description, price: item.price, stock: item.stock,
+                category: item.category, type: 'simple', is_active: true,
+                image_url: finalUrl, product_catalog_image_id: catalogId
+            };
+
+            let savedProduct = null;
+            if (item.isNew) {
+                dbData.total_added = item.stock || 0;
+                const { data: insData, error } = await supabase.from('products').insert([dbData]).select();
+                if (error) throw error;
+                savedProduct = insData?.[0];
+            } else {
+                const { data: updData, error } = await supabase.from('products').update(dbData).eq('id', item.id).select();
+                if (error) throw error;
+                savedProduct = updData?.[0];
+            }
+
+            setItems(prev => prev.map((it, i) => i === index ? { ...it, ...savedProduct, status: 'done', previewUrl: finalUrl, catalogId } : it));
         } catch (err) {
-            console.error('OCR check error:', err);
-            setErrorModal({ title: 'Upload Failed', message: err.message });
-        } finally {
-            setOcrLoading(false);
+            setErrorModal({ title: 'Error', message: err.message });
+            setItems(prev => prev.map((it, i) => i === index ? { ...it, status: 'error' } : it));
         }
+    };
+
+    const handleFileChange = async (e, index) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const objectUrl = URL.createObjectURL(file);
+        await assignImage(index, objectUrl);
+        e.target.value = '';
     };
 
     const allDone = items.every(it => it.status === 'done');
@@ -408,26 +327,6 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                                             key={file.id}
                                             onClick={async () => {
                                                 const url = file.url;
-                                                try {
-                                                    setOcrLoading(true);
-                                                    // 1. OCR Check for existing watermark in library image using direct URL
-                                                    const ocrRes = await fetch('/api/admin/ocr', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ imageUrl: url })
-                                                    });
-                                                    const ocrData = await ocrRes.json();
-                                                    
-                                                    if (ocrData.hasWatermark) {
-                                                        setErrorModal({ title: 'Watermark Detected', message: 'The image has already WaterMark. Please upload a clean version.' });
-                                                        return; // Stop selection
-                                                    }
-                                                } catch (err) {
-                                                    console.error('Library OCR check error:', err);
-                                                } finally {
-                                                    setOcrLoading(false);
-                                                }
-
                                                 assignImage(activePickerIndex, url);
                                                 setActivePickerIndex(null);
                                             }}

@@ -12,239 +12,6 @@ const supabaseAdmin = createClient(
 
 const BUCKET_NAME = 'media';
 
-// Canvas-based text detection from image
-async function detectWatermarkInBuffer(imageBuffer, fileName = '') {
-    try {
-        console.log(`[DETECTION] Reading text from image: ${fileName}`);
-        
-        // Use Canvas to read text from image
-        const { createCanvas, loadImage } = await import('canvas');
-        
-        const image = await loadImage(imageBuffer);
-        const canvas = createCanvas(image.width, image.height);
-        const ctx = canvas.getContext('2d');
-        
-        ctx.drawImage(image, 0, 0);
-        
-        // Focus on larger area including bottom-right where CAT codes usually are
-        const checkWidth = Math.min(400, canvas.width * 0.6);
-        const checkHeight = Math.min(200, canvas.height * 0.4);
-        const startX = canvas.width - checkWidth;
-        const startY = canvas.height - checkHeight;
-        
-        console.log(`[DETECTION] Checking area: x=${startX}-${startX + checkWidth}, y=${startY}-${startY + checkHeight}`);
-        
-        // Get image data from bottom-right area
-        const imageData = ctx.getImageData(startX, startY, checkWidth, checkHeight);
-        const data = imageData.data;
-        
-        // Look for bright pixels (text) with lower threshold to catch CAT codes
-        let brightPixels = [];
-        const step = 1; // Sample every pixel for better accuracy
-        
-        for (let y = 0; y < checkHeight; y += step) {
-            for (let x = 0; x < checkWidth; x += step) {
-                const idx = (y * checkWidth + x) * 4;
-                const r = data[idx];
-                const g = data[idx + 1];
-                const b = data[idx + 2];
-                const brightness = (r + g + b) / 3;
-                
-                // Look for bright pixels (white/light text) - lower threshold
-                if (brightness > 160) {
-                    brightPixels.push({ x, y, brightness });
-                }
-            }
-        }
-        
-        console.log(`[DETECTION] Found ${brightPixels.length} bright pixels (brightness > 160)`);
-        
-        // Need fewer bright pixels to indicate text
-        if (brightPixels.length > 20) {
-            // Group bright pixels into potential text regions
-            const textRegions = groupPixelsIntoRegions(brightPixels);
-            console.log(`[DETECTION] Found ${textRegions.length} potential text regions`);
-            
-            // Check if regions look like text (linear patterns)
-            let textLikeRegions = 0;
-            for (const region of textRegions) {
-                if (isTextLikeRegion(region)) {
-                    textLikeRegions++;
-                }
-            }
-            
-            console.log(`[DETECTION] Found ${textLikeRegions} text-like regions`);
-            
-            // Need at least 1 text-like region to be CAT code
-            if (textLikeRegions >= 1) {
-                console.log(`[DETECTION] Text region detected - likely CAT code present`);
-                return true;
-            }
-        }
-        
-        console.log(`[DETECTION] No text detected in image`);
-        return false;
-        
-    } catch (error) {
-        console.error('Canvas detection error:', error);
-        // Fallback to OCR if Canvas fails
-        console.log(`[DETECTION] Canvas failed, trying OCR fallback...`);
-        return await detectWithOCR(imageBuffer);
-    }
-}
-
-// Check if a region of pixels looks like text (linear patterns)
-function isTextLikeRegion(region) {
-    if (region.length < 5) return false;
-    
-    // Find bounding box
-    const minX = Math.min(...region.map(p => p.x));
-    const maxX = Math.max(...region.map(p => p.x));
-    const minY = Math.min(...region.map(p => p.y));
-    const maxY = Math.max(...region.map(p => p.y));
-    
-    const width = maxX - minX;
-    const height = maxY - minY;
-    
-    // Text is usually wider than it is tall (horizontal) or taller than wide (vertical)
-    const aspectRatio = width / height;
-    
-    // Check if region has text-like proportions
-    const hasTextShape = (aspectRatio > 2 && aspectRatio < 10) || (aspectRatio > 0.1 && aspectRatio < 0.5);
-    
-    // Check if pixels are somewhat linear (not scattered)
-    const density = region.length / (width * height);
-    const hasLinearPattern = density > 0.1;
-    
-    console.log(`[TEXT CHECK] Region: ${region.length} pixels, size: ${width}x${height}, ratio: ${aspectRatio.toFixed(2)}, density: ${density.toFixed(3)} -> ${hasTextShape && hasLinearPattern ? 'TEXT-LIKE' : 'NOT TEXT'}`);
-    
-    return hasTextShape && hasLinearPattern;
-}
-
-// Group bright pixels into text regions
-function groupPixelsIntoRegions(pixels) {
-    if (pixels.length === 0) return [];
-    
-    const regions = [];
-    const visited = new Set();
-    
-    for (const pixel of pixels) {
-        const key = `${pixel.x},${pixel.y}`;
-        if (visited.has(key)) continue;
-        
-        const region = [];
-        const queue = [pixel];
-        
-        while (queue.length > 0) {
-            const current = queue.shift();
-            const currentKey = `${current.x},${current.y}`;
-            
-            if (visited.has(currentKey)) continue;
-            visited.add(currentKey);
-            region.push(current);
-            
-            // Find nearby pixels (within 10 pixels)
-            for (const other of pixels) {
-                const otherKey = `${other.x},${other.y}`;
-                if (visited.has(otherKey)) continue;
-                
-                const distance = Math.sqrt(
-                    Math.pow(current.x - other.x, 2) + 
-                    Math.pow(current.y - other.y, 2)
-                );
-                
-                if (distance <= 10) {
-                    queue.push(other);
-                }
-            }
-        }
-        
-        if (region.length >= 3) { // At least 3 pixels to form text
-            regions.push(region);
-        }
-    }
-    
-    return regions;
-}
-
-// OCR detection with better timeout handling
-async function detectWithOCR(imageBuffer) {
-    try {
-        console.log('[OCR] Starting OCR detection...');
-        
-        // Upload temporarily for OCR
-        const tempFileName = `temp-check-${Date.now()}.jpg`;
-        const { error: uploadError } = await supabaseAdmin.storage
-            .from(BUCKET_NAME)
-            .upload(tempFileName, imageBuffer, {
-                contentType: 'image/jpeg',
-                upsert: true
-            });
-
-        if (uploadError) {
-            console.error('Temp upload error:', uploadError);
-            return false;
-        }
-
-        // Get public URL for OCR
-        const { data: { publicUrl } } = supabaseAdmin.storage
-            .from(BUCKET_NAME)
-            .getPublicUrl(tempFileName);
-
-        // Call OCR API with shorter timeout (5 seconds)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-        
-        try {
-            const ocrResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin/ocr`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageUrl: publicUrl }),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (ocrResponse.ok) {
-                const ocrData = await ocrResponse.json();
-                
-                // Clean up temp file
-                await supabaseAdmin.storage
-                    .from(BUCKET_NAME)
-                    .remove([tempFileName]);
-
-                const hasCatCode = ocrData.hasWatermark || ocrData.catalogId;
-                
-                console.log(`[OCR] Result: hasWatermark=${ocrData.hasWatermark}, catalogId=${ocrData.catalogId}, detected=${hasCatCode}`);
-                
-                return hasCatCode;
-            } else {
-                throw new Error('OCR request failed');
-            }
-        } catch (ocrError) {
-            clearTimeout(timeoutId);
-            console.log('[OCR] Failed or timed out, cleaning up...');
-            
-            // Clean up temp file even if OCR fails
-            try {
-                await supabaseAdmin.storage
-                    .from(BUCKET_NAME)
-                    .remove([tempFileName]);
-            } catch (cleanupError) {
-                console.log('Cleanup failed:', cleanupError.message);
-            }
-            
-            // If OCR times out, assume it has CAT code (better to be safe)
-            console.log('[OCR] Assuming CAT code present due to timeout');
-            return true;
-        }
-
-    } catch (error) {
-        console.error('OCR detection error:', error);
-        return false;
-    }
-}
-
 // GET - List all files in the media bucket including subfolders
 export async function GET() {
     try {
@@ -347,6 +114,7 @@ export async function POST(request) {
         const file = formData.get('file');
         const catalogId = formData.get('catalogId') || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
         const skipDetection = formData.get('skipDetection') === 'true'; // Allow override for migrations
+        const mode = formData.get('mode') || 'product'; // 'gallery' or 'product'
 
         if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
 
@@ -396,6 +164,24 @@ export async function POST(request) {
             if (uploadErr) throw uploadErr;
 
             const publicUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl;
+            
+            // SYNC: Categorize as watermarked
+            try {
+                const { data: wmSettings } = await supabaseAdmin
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'watermark_images')
+                    .single();
+                
+                const currentWm = JSON.parse(wmSettings?.value || '[]');
+                if (!currentWm.includes(publicUrl)) {
+                    await supabaseAdmin.from('app_settings').upsert({
+                        key: 'watermark_images',
+                        value: JSON.stringify([...currentWm, publicUrl]),
+                        updated_at: new Date()
+                    });
+                }
+            } catch (err) { console.error('Existing WM sync error:', err); }
 
             return NextResponse.json({ 
                 success: true,
@@ -404,6 +190,46 @@ export async function POST(request) {
                 catalogId: finalId,
                 url: publicUrl,
                 watermarkedUrl: publicUrl
+            });
+        }
+
+        // 3.5 GALLERY MODE HANDLING (No Watermark Generation)
+        if (mode === 'gallery') {
+            console.log('[UPLOAD] Gallery mode: Storing without watermarking');
+            const path = `without_watermark/${catalogId}.${fileExt}`;
+            const { error: uploadErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(path, buffer, {
+                contentType: file.type,
+                upsert: true
+            });
+            if (uploadErr) throw uploadErr;
+
+            const publicUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl;
+            
+            // SYNC: Categorize as clean
+            try {
+                const { data: noWmSettings } = await supabaseAdmin
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'no_watermark_images')
+                    .single();
+                
+                const currentNoWm = JSON.parse(noWmSettings?.value || '[]');
+                if (!currentNoWm.includes(publicUrl)) {
+                    await supabaseAdmin.from('app_settings').upsert({
+                        key: 'no_watermark_images',
+                        value: JSON.stringify([...currentNoWm, publicUrl]),
+                        updated_at: new Date()
+                    });
+                }
+            } catch (err) { console.error('Gallery sync error:', err); }
+
+            return NextResponse.json({
+                success: true,
+                hasWatermark: false,
+                folder: 'without_watermark',
+                catalogId: catalogId,
+                url: publicUrl,
+                originalUrl: publicUrl
             });
         }
 
@@ -433,22 +259,35 @@ export async function POST(request) {
         if (wmErr) throw wmErr;
         const watermarkedUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(watermarkedPath).data.publicUrl;
 
-        // 5. Return both URLs and status as required
-        console.log(`[UPLOAD] Process complete. URLs generated: ${originalUrl}, ${watermarkedUrl}`);
-
-        // Sync Metadata to DB
+        // SYNC: Add to Media Library settings for tabs
         try {
-            await supabaseAdmin.from('app_settings').upsert({
-                key: `meta_${catalogId}`,
-                value: JSON.stringify({
-                    catalog_id: catalogId,
-                    original_url: originalUrl,
-                    watermarked_url: watermarkedUrl,
-                    created_at: new Date()
-                })
-            });
+            const { data: settings } = await supabaseAdmin
+                .from('app_settings')
+                .select('key, value')
+                .in('key', ['watermark_images', 'no_watermark_images']);
+            
+            const currentWm = JSON.parse(settings?.find(s => s.key === 'watermark_images')?.value || '[]');
+            const currentNoWm = JSON.parse(settings?.find(s => s.key === 'no_watermark_images')?.value || '[]');
+
+            // 1. Handle watermarked image (always created in product mode, or detected)
+            if (!currentWm.includes(watermarkedUrl)) {
+                await supabaseAdmin.from('app_settings').upsert({
+                    key: 'watermark_images',
+                    value: JSON.stringify([...currentWm, watermarkedUrl]),
+                    updated_at: new Date()
+                });
+            }
+
+            // 2. Handle original image
+            if (!currentNoWm.includes(originalUrl)) {
+                await supabaseAdmin.from('app_settings').upsert({
+                    key: 'no_watermark_images',
+                    value: JSON.stringify([...currentNoWm, originalUrl]),
+                    updated_at: new Date()
+                });
+            }
         } catch (syncErr) {
-            console.error('[UPLOAD] Metadata sync failed:', syncErr.message);
+            console.error('[UPLOAD] App settings sync error:', syncErr);
         }
 
         return NextResponse.json({ 
