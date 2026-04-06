@@ -1,15 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-
-// Load canvas dynamically for server-side use
-const getCanvas = async () => {
-    try {
-        // Switch to @napi-rs/canvas for Vercel/Lambda friendly native binaries
-        return await import('@napi-rs/canvas');
-    } catch (err) {
-        console.error('[PROCESSOR] Failed to load napi-rs canvas:', err.message);
-        return null;
-    }
-};
+import sharp from 'sharp';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -19,86 +9,39 @@ const supabaseAdmin = createClient(
 const BUCKET_NAME = 'media';
 
 /**
- * Robust Watermark Detection
- * 1. Fast pixel search (linear patterns/brightness)
- * 2. Regular OCR fallback
+ * Robust Watermark Detection using Sharp (Vercel-compatible)
  */
 export async function detectWatermark(buffer, fileName = '') {
-    const canvasLib = await getCanvas();
-    if (!canvasLib) return { hasWatermark: false };
-
-    const { createCanvas, loadImage } = canvasLib;
-
     try {
-        const image = await loadImage(buffer);
-        const canvas = createCanvas(image.width, image.height);
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = false; // Keep high-contrast edges
-        ctx.drawImage(image, 0, 0);
+        const image = sharp(buffer);
+        const metadata = await image.metadata();
+        const { width, height } = metadata;
 
-        // FOCUS AREA: Broad bottom half (where watermarks are usually placed)
-        const checkWidth = canvas.width;
-        const checkHeight = Math.floor(canvas.height * 0.5);
-        const startX = 0;
-        const startY = canvas.height - checkHeight;
+        console.log(`[PROCESSOR] Analyzing ${fileName} (${width}x${height})`);
 
-        console.log(`[PROCESSOR] Scanning zone: ${startX},${startY} to ${checkWidth},${startY + checkHeight}`);
+        // PIXEL ANALYSIS fallback: Sharp doesn't give raw pixels as easily as Canvas, 
+        // but we can use stats() or just trigger OCR based on the fact that we WANT to check all images.
+        // For efficiency, we only OCR images that look like they might have text in the bottom region.
+        
+        // 1. Try OCR on the full image first
+        const fullResult = await callOcrApi(buffer, fileName);
+        if (fullResult.hasWatermark) return fullResult;
 
-        const imageData = ctx.getImageData(startX, startY, checkWidth, checkHeight);
-        const data = imageData.data;
+        // 2. Try OCR on an ENHANCED crop of the bottom region
+        // Watermarks usually live in the bottom 40%
+        const cropHeight = Math.floor(height * 0.4);
+        const cropTop = height - cropHeight;
 
-        // Count bright white/light pixels - typical of CAT code text
-        let brightPixels = 0;
-        const totalPixels = checkWidth * checkHeight;
-        const sampleStep = totalPixels > 1000000 ? 12 : 4; // Sample less for huge ones
+        console.log(`[PROCESSOR] Generic OCR failed, trying enhanced bottom crop...`);
+        
+        const enhancedBuffer = await sharp(buffer)
+            .extract({ left: 0, top: cropTop, width, height: cropHeight })
+            .grayscale()
+            .normalize() // Boost contrast
+            .threshold(128) // Make it B&W for OCR engines
+            .toBuffer();
 
-        for (let i = 0; i < data.length; i += sampleStep) {
-            const r = data[i];
-            const g = data[i+1];
-            const b = data[i+2];
-            
-            // Look for high-contrast white text (all components high)
-            if (r > 185 && g > 185 && b > 185) {
-                brightPixels++;
-            }
-        }
-
-        const brightPercentage = (brightPixels / (totalPixels / (sampleStep/4))) * 100;
-        console.log(`[PROCESSOR] Bright pixel detection: ${brightPixels} pixels (${brightPercentage.toFixed(3)}%)`);
-
-        // Trigger OCR if ANY significant bright pixels exist
-        if (brightPixels > 3 || brightPercentage > 0.005) {
-            console.log(`[PROCESSOR] Potential watermark detected (pixel cluster: ${brightPixels}), creating high-contrast crop...`);
-            
-            // Generate a high-contrast crop of the bottom 40%
-            const cropCanvas = createCanvas(canvas.width, Math.floor(canvas.height * 0.4));
-            const cropCtx = cropCanvas.getContext('2d');
-            
-            // Draw ONLY the bottom 40%
-            cropCtx.drawImage(image, 0, canvas.height - cropCanvas.height, canvas.width, cropCanvas.height, 0, 0, canvas.width, cropCanvas.height);
-            
-            // Apply Thresholding (make it B&W for OCR)
-            const cropData = cropCtx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
-            const d = cropData.data;
-            for (let i = 0; i < d.length; i += 4) {
-                const avg = (d[i] + d[i+1] + d[i+2]) / 3;
-                const v = avg > 128 ? 255 : 0; // Thresholding at 128
-                d[i] = d[i+1] = d[i+2] = v;
-            }
-            cropCtx.putImageData(cropData, 0, 0);
-            
-            const enhancedBuffer = cropCanvas.toBuffer('image/jpeg', { quality: 1.0 });
-            
-            // Try OCR on WHOLE image first (fallback to crop)
-            const result = await callOcrApi(buffer, fileName);
-            if (result.hasWatermark) return result;
-            
-            console.log(`[PROCESSOR] Generic OCR failed, trying ENHANCED CROP OCR...`);
-            return await callOcrApi(enhancedBuffer, 'enhanced-' + fileName);
-        }
-
-        console.log(`[PROCESSOR] No pixel clusters found, assuming clean image.`);
-        return { hasWatermark: false };
+        return await callOcrApi(enhancedBuffer, 'enhanced-' + fileName);
 
     } catch (err) {
         console.error('[PROCESSOR] Detection critical error:', err);
@@ -108,7 +51,6 @@ export async function detectWatermark(buffer, fileName = '') {
 
 async function callOcrApi(buffer, fileName) {
     try {
-        // Convert buffer to base64 to avoid temporary files in storage
         const base64Image = `data:image/jpeg;base64,${buffer.toString('base64')}`;
         
         const ocrRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin/ocr`, {
@@ -131,52 +73,71 @@ async function callOcrApi(buffer, fileName) {
 }
 
 /**
- * Apply Watermark to Image
+ * Apply Watermark to Image using Sharp (Vercel-compatible)
  */
 export async function applyWatermark(buffer, code) {
-    const canvasLib = await getCanvas();
-    if (!canvasLib) throw new Error('Canvas not available');
-
-    const { createCanvas, loadImage } = canvasLib;
-
     try {
-        const image = await loadImage(buffer);
-        const canvas = createCanvas(image.width, image.height);
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(image, 0, 0);
-
-        const fontSize = Math.max(22, Math.round(canvas.width * 0.04));
-        const padding = Math.round(fontSize * 0.5);
-        ctx.font = `bold ${fontSize}px sans-serif`;
+        const image = sharp(buffer);
+        const metadata = await image.metadata();
+        const { width, height } = metadata;
 
         const text = code.toUpperCase();
-        const textWidth = ctx.measureText(text).width;
         
-        const badgeW = textWidth + padding * 2;
-        const badgeH = fontSize + padding;
+        // Scale font and dimensions based on image width
+        const fontSize = Math.max(22, Math.round(width * 0.04));
+        const paddingX = Math.round(fontSize * 0.8);
+        const paddingY = Math.round(fontSize * 0.4);
+        
+        // Estimate badge dimensions (SVG text doesn't give us measurements server-side easily)
+        // Average char width factor for sans-serif bold is ~0.65
+        const estTextWidth = Math.round(text.length * fontSize * 0.65);
+        const badgeW = estTextWidth + (paddingX * 2);
+        const badgeH = fontSize + (paddingY * 2);
         const margin = 20;
-        
-        const x = canvas.width - badgeW - margin;
-        const y = canvas.height - badgeH - margin;
 
-        // Dark Background Overlay (Semi-transparent)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-        ctx.beginPath();
-        ctx.roundRect(x, y, badgeW, badgeH, 10);
-        ctx.fill();
+        const x = width - badgeW - margin;
+        const y = height - badgeH - margin;
 
-        // Border
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        // Create an SVG overlay for the watermark badge
+        const svgBadge = `
+            <svg width="${badgeW}" height="${badgeH}" viewBox="0 0 ${badgeW} ${badgeH}">
+                <defs>
+                    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                        <feOffset dx="0" dy="2" result="offsetblur" />
+                        <feComponentTransfer>
+                            <feFuncA type="linear" slope="0.5" />
+                        </feComponentTransfer>
+                        <feMerge>
+                            <feMergeNode />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
+                <rect x="2" y="2" width="${badgeW - 4}" height="${badgeH - 4}" rx="10" 
+                    fill="rgba(0, 0, 0, 0.7)" 
+                    stroke="rgba(255, 255, 255, 0.4)" 
+                    stroke-width="2" 
+                    filter="url(#shadow)" />
+                <text x="50%" y="54%" 
+                    dominant-baseline="middle" 
+                    text-anchor="middle" 
+                    font-family="sans-serif" 
+                    font-size="${fontSize}" 
+                    font-weight="bold" 
+                    fill="white">${text}</text>
+            </svg>
+        `;
 
-        // White Bold Text
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 4;
-        ctx.fillText(text, x + padding, y + padding + (fontSize * 0.75));
+        return await image
+            .composite([{
+                input: Buffer.from(svgBadge),
+                top: y,
+                left: x
+            }])
+            .jpeg({ quality: 90 })
+            .toBuffer();
 
-        return canvas.toBuffer('image/jpeg', { quality: 0.9 });
     } catch (err) {
         console.error('[PROCESSOR] Watermark application failed:', err);
         throw err;
