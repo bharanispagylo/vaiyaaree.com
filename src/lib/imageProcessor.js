@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
+import { processOcr } from './ocrProcessor';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -52,22 +53,9 @@ export async function detectWatermark(buffer, fileName = '') {
 async function callOcrApi(buffer, fileName) {
     try {
         const base64Image = `data:image/jpeg;base64,${buffer.toString('base64')}`;
-        
-        const ocrRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin/ocr`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64Image })
-        });
-
-        const result = await ocrRes.json();
-        
-        return { 
-            hasWatermark: result.hasWatermark, 
-            catalogId: result.catalogId, 
-            text: result.detectedText 
-        };
+        return await processOcr(base64Image);
     } catch (err) {
-        console.error('[PROCESSOR] OCR call failed:', err);
+        console.error('[PROCESSOR] OCR processing failed:', err);
         return { hasWatermark: false };
     }
 }
