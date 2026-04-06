@@ -3,9 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 // Load canvas dynamically for server-side use
 const getCanvas = async () => {
     try {
-        return await import('canvas');
+        // Switch to @napi-rs/canvas for Vercel/Lambda friendly native binaries
+        return await import('@napi-rs/canvas');
     } catch (err) {
-        console.error('[PROCESSOR] Failed to load canvas:', err.message);
+        console.error('[PROCESSOR] Failed to load napi-rs canvas:', err.message);
         return null;
     }
 };

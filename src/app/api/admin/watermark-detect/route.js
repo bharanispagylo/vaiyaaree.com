@@ -27,12 +27,12 @@ export async function POST(request) {
 
 async function detectWatermark(imageUrl) {
     try {
-        // Robust dynamic import for server-side native modules
+        // Robust dynamic import for Vercel-friendly native binaries
         let canvasLib;
         try {
-            canvasLib = await import('canvas');
+            canvasLib = await import('@napi-rs/canvas');
         } catch (e) {
-            console.error('[DETECTOR] Native Canvas module not loaded:', e.message);
+            console.error('[DETECTOR] Native Canvas (napi-rs) not loaded:', e.message);
             return false;
         }
 

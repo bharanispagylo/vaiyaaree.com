@@ -9,7 +9,7 @@ const nextConfig = {
     minimumCacheTTL: 3600,
   },
  
-  serverExternalPackages: ['canvas'],
+  serverExternalPackages: ['canvas', '@napi-rs/canvas'],
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
