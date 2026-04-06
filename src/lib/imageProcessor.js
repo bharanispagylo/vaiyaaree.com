@@ -107,23 +107,17 @@ export async function detectWatermark(buffer, fileName = '') {
 
 async function callOcrApi(buffer, fileName) {
     try {
-        // Upload temporarily for OCR.space/Vision
-        const tempName = `ocr-temp-${Date.now()}.jpg`;
-        await supabaseAdmin.storage.from(BUCKET_NAME).upload(tempName, buffer, { contentType: 'image/jpeg' });
+        // Convert buffer to base64 to avoid temporary files in storage
+        const base64Image = `data:image/jpeg;base64,${buffer.toString('base64')}`;
         
-        const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(tempName);
-
         const ocrRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin/ocr`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageUrl: publicUrl })
+            body: JSON.stringify({ base64Image })
         });
 
         const result = await ocrRes.json();
         
-        // Clean up
-        await supabaseAdmin.storage.from(BUCKET_NAME).remove([tempName]);
-
         return { 
             hasWatermark: result.hasWatermark, 
             catalogId: result.catalogId, 

@@ -56,7 +56,7 @@ export async function GET() {
         const allFiles = [];
         
         // Process root files (filter out temp files)
-        rootFiles.filter(f => f.id !== null && !f.name.startsWith('temp-check-')).forEach(file => {
+        rootFiles.filter(f => f.id !== null && !f.name.startsWith('temp-check-') && !f.name.startsWith('ocr-temp-')).forEach(file => {
             try {
                 const { data: { publicUrl } } = supabaseAdmin.storage
                     .from(BUCKET_NAME)
@@ -80,7 +80,7 @@ export async function GET() {
         });
 
         // Process without_watermark files
-        noWmFiles.filter(f => f.id !== null && !f.name.startsWith('temp-check-')).forEach(file => {
+        noWmFiles.filter(f => f.id !== null && !f.name.startsWith('temp-check-') && !f.name.startsWith('ocr-temp-')).forEach(file => {
             try {
                 const { data: { publicUrl } } = supabaseAdmin.storage
                     .from(BUCKET_NAME)
