@@ -18,159 +18,9 @@ import MediaPicker from '@/components/MediaPicker';
 import ProductImageAssigner from '@/components/ProductImageAssigner';
 import { stampProductCode, uploadWatermarkedImage } from '@/lib/imageStamp';
 import { validateMediaImageForProduct } from '@/lib/catCodeProcessor';
+import { detectWatermark } from '@/lib/watermarkDetection';
 
-// Canvas-based text detection from image (same as media library)
-async function detectWatermarkInBuffer(imageBuffer, fileName = '') {
-    try {
-        console.log(`[PRODUCT] Reading text from image: ${fileName}`);
-        
-        // Use Canvas to read text from image
-        const { createCanvas, loadImage } = await import('canvas');
-        
-        const image = await loadImage(imageBuffer);
-        const canvas = createCanvas(image.width, image.height);
-        const ctx = canvas.getContext('2d');
-        
-        ctx.drawImage(image, 0, 0);
-        
-        // Focus on larger area including bottom-right where CAT codes usually are
-        const checkWidth = Math.min(400, canvas.width * 0.6);
-        const checkHeight = Math.min(200, canvas.height * 0.4);
-        const startX = canvas.width - checkWidth;
-        const startY = canvas.height - checkHeight;
-        
-        console.log(`[PRODUCT] Checking area: x=${startX}-${startX + checkWidth}, y=${startY}-${startY + checkHeight}`);
-        
-        // Get image data from bottom-right area
-        const imageData = ctx.getImageData(startX, startY, checkWidth, checkHeight);
-        const data = imageData.data;
-        
-        // Look for bright pixels (text) with lower threshold to catch CAT codes
-        let brightPixels = [];
-        const step = 1; // Sample every pixel for better accuracy
-        
-        for (let y = 0; y < checkHeight; y += step) {
-            for (let x = 0; x < checkWidth; x += step) {
-                const idx = (y * checkWidth + x) * 4;
-                const r = data[idx];
-                const g = data[idx + 1];
-                const b = data[idx + 2];
-                const brightness = (r + g + b) / 3;
-                
-                // Look for bright pixels (white/light text) - lower threshold
-                if (brightness > 160) {
-                    brightPixels.push({ x, y, brightness });
-                }
-            }
-        }
-        
-        console.log(`[PRODUCT] Found ${brightPixels.length} bright pixels (brightness > 160)`);
-        
-        // Need fewer bright pixels to indicate text
-        if (brightPixels.length > 20) {
-            // Group bright pixels into potential text regions
-            const textRegions = groupPixelsIntoRegions(brightPixels);
-            console.log(`[PRODUCT] Found ${textRegions.length} potential text regions`);
-            
-            // Check if regions look like text (linear patterns)
-            let textLikeRegions = 0;
-            for (const region of textRegions) {
-                if (isTextLikeRegion(region)) {
-                    textLikeRegions++;
-                }
-            }
-            
-            console.log(`[PRODUCT] Found ${textLikeRegions} text-like regions`);
-            
-            // Need at least 1 text-like region to be CAT code
-            if (textLikeRegions >= 1) {
-                console.log(`[PRODUCT] Text region detected - likely CAT code present`);
-                return true;
-            }
-        }
-        
-        console.log(`[PRODUCT] No text detected in image`);
-        return false;
-        
-    } catch (error) {
-        console.error('[PRODUCT] Canvas detection error:', error);
-        return false;
-    }
-}
-
-// Check if a region of pixels looks like text (linear patterns)
-function isTextLikeRegion(region) {
-    if (region.length < 5) return false;
-    
-    // Find bounding box
-    const minX = Math.min(...region.map(p => p.x));
-    const maxX = Math.max(...region.map(p => p.x));
-    const minY = Math.min(...region.map(p => p.y));
-    const maxY = Math.max(...region.map(p => p.y));
-    
-    const width = maxX - minX;
-    const height = maxY - minY;
-    
-    // Text is usually wider than it is tall (horizontal) or taller than wide (vertical)
-    const aspectRatio = width / height;
-    
-    // Check if region has text-like proportions
-    const hasTextShape = (aspectRatio > 2 && aspectRatio < 10) || (aspectRatio > 0.1 && aspectRatio < 0.5);
-    
-    // Check if pixels are somewhat linear (not scattered)
-    const density = region.length / (width * height);
-    const hasLinearPattern = density > 0.1;
-    
-    console.log(`[PRODUCT TEXT CHECK] Region: ${region.length} pixels, size: ${width}x${height}, ratio: ${aspectRatio.toFixed(2)}, density: ${density.toFixed(3)} -> ${hasTextShape && hasLinearPattern ? 'TEXT-LIKE' : 'NOT TEXT'}`);
-    
-    return hasTextShape && hasLinearPattern;
-}
-
-// Group bright pixels into text regions
-function groupPixelsIntoRegions(pixels) {
-    if (pixels.length === 0) return [];
-    
-    const regions = [];
-    const visited = new Set();
-    
-    for (const pixel of pixels) {
-        const key = `${pixel.x},${pixel.y}`;
-        if (visited.has(key)) continue;
-        
-        const region = [];
-        const queue = [pixel];
-        
-        while (queue.length > 0) {
-            const current = queue.shift();
-            const currentKey = `${current.x},${current.y}`;
-            
-            if (visited.has(currentKey)) continue;
-            visited.add(currentKey);
-            region.push(current);
-            
-            // Find nearby pixels (within 10 pixels)
-            for (const other of pixels) {
-                const otherKey = `${other.x},${other.y}`;
-                if (visited.has(otherKey)) continue;
-                
-                const distance = Math.sqrt(
-                    Math.pow(current.x - other.x, 2) + 
-                    Math.pow(current.y - other.y, 2)
-                );
-                
-                if (distance <= 10) {
-                    queue.push(other);
-                }
-            }
-        }
-        
-        if (region.length >= 3) { // At least 3 pixels to form text
-            regions.push(region);
-        }
-    }
-    
-    return regions;
-}
+// Replaced by @/lib/watermarkDetection
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -1548,17 +1398,13 @@ export default function ProductsPage() {
 
                                                                 const uploadedUrls = [];
                                                                 for (const file of files) {
-                                                                    // 1. Canvas-based CAT code detection (same as media library)
-                                                                    const buffer = await file.arrayBuffer();
-                                                                    const imageBuffer = Buffer.from(buffer);
-                                                                    
-                                                                    // Use the same detection logic as media library
-                                                                    const hasCatCode = await detectWatermarkInBuffer(imageBuffer, file.name);
+                                                                    // 1. Browser-based CAT code detection
+                                                                    const hasCatCode = await detectWatermark(file);
 
                                                                     if (hasCatCode) {
                                                                         setErrorModal({
-                                                                            title: 'Watermark Detected',
-                                                                            message: 'The image already has a CAT code watermark.'
+                                                                            title: 'watermark detected',
+                                                                            message: 'The image already contains a watermark.'
                                                                         });
                                                                         continue;
                                                                     }
@@ -1710,17 +1556,13 @@ export default function ProductsPage() {
                                                                                 setOcrLoading(true);
                                                                                 const catalogId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
                                                                                 
-                                                                                // 1. Canvas-based CAT code detection (same as media library)
-                                                                                const buffer = await file.arrayBuffer();
-                                                                                const imageBuffer = Buffer.from(buffer);
-                                                                                
-                                                                                // Use the same detection logic as media library
-                                                                                const hasCatCode = await detectWatermarkInBuffer(imageBuffer, file.name);
+                                                                                // 1. Browser-based CAT code detection
+                                                                                const hasCatCode = await detectWatermark(file);
 
                                                                                 if (hasCatCode) {
                                                                                     setErrorModal({
-                                                                                        title: 'Watermark Detected',
-                                                                                        message: 'The image already has a CAT code watermark.'
+                                                                                        title: 'watermark detected',
+                                                                                        message: 'The image already contains a watermark.'
                                                                                     });
                                                                                     return;
                                                                                 }
@@ -2020,11 +1862,11 @@ export default function ProductsPage() {
                                 setShowMediaPicker(false);
 
                                 // 1. Fast validation for existing CAT code in library image
-                                const validation = await validateMediaImageForProduct(url);
-                                if (!validation.valid) {
+                                const hasCatCode = await detectWatermark(url);
+                                if (hasCatCode) {
                                     setErrorModal({
-                                        title: 'Watermark Detected',
-                                        message: 'The image already has a CAT code watermark.'
+                                        title: 'watermark detected',
+                                        message: 'The image already contains a watermark.'
                                     });
                                     return;
                                 }

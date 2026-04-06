@@ -1,4 +1,5 @@
 import { stampProductCode, uploadWatermarkedImage } from './imageStamp';
+import { detectWatermark } from './watermarkDetection';
 
 // Generate a new CAT code
 export function generateCatCode() {
@@ -11,13 +12,12 @@ export function generateCatCode() {
 export async function processProductImage(imageFile, existingUrl = null) {
     try {
         // Step 1: Check if image has CAT code
-        const hasCatCode = await checkForCatCode(imageFile, existingUrl);
+        const hasWatermark = await detectWatermark(imageFile || existingUrl);
         
-        if (hasCatCode.detected) {
+        if (hasWatermark) {
             return {
                 success: false,
                 error: 'CAT_CODE_DETECTED',
-                catalogId: hasCatCode.catalogId,
                 message: 'CAT code already present in image'
             };
         }
