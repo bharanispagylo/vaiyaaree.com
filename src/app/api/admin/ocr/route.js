@@ -55,11 +55,12 @@ export async function POST(request) {
 
         // Patterns to detect our specific watermark formats (CAT-XXXXX, etc.)
         const patterns = [
-            // Matches CAT-A7B2C or similar alphanumeric patterns
-            { regex: /CAT[-\s]?([A-Z0-9]{3,8})/i, prefix: 'CAT-' },
-            { regex: /ASR[-\s]?([A-Z0-9]{3,8})/i, prefix: 'ASR-' },
-            { regex: /CP[-\s]?([A-Z0-9]{3,8})/i, prefix: 'CP-' },
-            { regex: /([A-Z]{2,3})[-\s]([A-Z0-9]{3,8})/i, prefix: '' }
+            // Matches CAT-A7B2C or similar alphanumeric patterns with fuzzy prefix
+            { regex: /(?:CAT|GAT|CRT|OAT|CAI|LAT|CHT)[-\s]?([A-Z0-9]{3,10})/i, prefix: 'CAT-' },
+            { regex: /ASR[-\s]?([A-Z0-9]{3,10})/i, prefix: 'ASR-' },
+            { regex: /CP[-\s]?([A-Z0-9]{3,10})/i, prefix: 'CP-' },
+            // Generic 2-3 char prefix followed by dash and alphanumeric
+            { regex: /([A-Z]{2,4})[-\s]([A-Z0-9]{3,10})/i, prefix: '' }
         ];
 
         let catalogId = null;

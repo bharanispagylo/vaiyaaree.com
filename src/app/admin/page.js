@@ -14,58 +14,82 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         const fetchDashboardData = async () => {
+            const today = new Date().toISOString().split('T')[0];
             setLoading(true);
             try {
-                // Parallel queries — only fetch required columns
-                const [ordersRes, productsRes, itemsRes] = await Promise.all([
-                    supabase
-                        .from('orders')
-                        .select('id, status, total_amount, customer_phone, customer_name, created_at, payment_method')
-                        .neq('status', 'DRAFT')
-                        .order('created_at', { ascending: false })
-                        .limit(2000), // increased limit for accurate counts
-                    supabase
-                        .from('products')
-                        .select('id, name, stock, image_url')
-                        .order('stock', { ascending: true })
-                        .limit(10),
-                    supabase
-                        .from('order_items')
-                        .select('product_name, quantity, price_at_time')
-                        .limit(500), // cap to avoid huge payloads
+                // Efficient Supabase counts for dashboard stats
+                const [
+                    totalRes,
+                    activeRes,
+                    pendingRes,
+                    shippedRes,
+                    deliveredRes,
+                    todayRes,
+                    productsRes,
+                    itemsRes,
+                    customerRes
+                ] = await Promise.all([
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'DRAFT'),
+                    supabase.from('orders').select('total_amount').neq('status', 'DRAFT').neq('status', 'CANCELLED'),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'PLACED', 'AWAITING_PAYMENT', 'AWAITING PAYMENT', 'awaiting_payment']),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'SHIPPED'),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'DELIVERED'),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today),
+                    supabase.from('products').select('id, name, stock, image_url').order('stock', { ascending: true }).limit(10),
+                    supabase.from('order_items').select('product_name, quantity, price_at_time').order('created_at', { ascending: false }).limit(1000),
+                    supabase.from('orders').select('customer_phone', { count: 'exact', head: true })
                 ]);
 
-                const orders = ordersRes.data || [];
-                const activeOrders = orders.filter(o => o.status !== 'CANCELLED');
-                const today = new Date().toISOString().split('T')[0];
-
-                const totalRevenue = activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
-                const uniqueCustomers = new Set(orders.map(o => o.customer_phone)).size;
-                const pendingOrders = activeOrders.filter(o => ['PENDING', 'PLACED', 'AWAITING_PAYMENT'].includes(o.status)).length;
-                const shippedOrders = activeOrders.filter(o => o.status === 'SHIPPED').length;
-                const deliveredOrders = activeOrders.filter(o => o.status === 'DELIVERED').length;
-                const todayOrders = orders.filter(o => o.created_at?.startsWith(today)).length;
+                // Calculate Revenue from the active orders summary
+                const totalRevenue = (activeRes.data || []).reduce((s, o) => s + (o.total_amount || 0), 0);
+                
+                // Fetch recent orders separately for the table
+                const recentOrdersRes = await supabase.from('orders')
+                    .select('id, status, total_amount, customer_phone, customer_name, created_at')
+                    .neq('status', 'DRAFT')
+                    .order('created_at', { ascending: false })
+                    .limit(6);
 
                 const lowStock = (productsRes.data || []).filter(p => p.stock < 5).slice(0, 5);
 
-                // Aggregate top products
                 const productSales = {};
                 (itemsRes.data || []).forEach(item => {
+                    if (!item.product_name) return;
                     if (!productSales[item.product_name]) {
                         productSales[item.product_name] = { name: item.product_name, sold: 0, revenue: 0 };
                     }
-                    productSales[item.product_name].sold += item.quantity;
-                    productSales[item.product_name].revenue += (item.price_at_time || 0) * item.quantity;
+                    productSales[item.product_name].sold += (item.quantity || 0);
+                    productSales[item.product_name].revenue += ((item.price_at_time || 0) * (item.quantity || 0));
                 });
-                const topSelling = Object.values(productSales).sort((a, b) => b.sold - a.sold).slice(0, 5);
+                
+                const topSellingNames = Object.values(productSales)
+                    .sort((a, b) => b.sold - a.sold)
+                    .slice(0, 5);
+                
+                // Fetch images for top selling products to make it look premium
+                const topSellingWithImages = await Promise.all(topSellingNames.map(async (p) => {
+                    const { data: prodData } = await supabase
+                        .from('products')
+                        .select('image_url')
+                        .eq('name', p.name)
+                        .maybeSingle();
+                    return { ...p, image_url: prodData?.image_url || null };
+                }));
 
-                const newStats = { revenue: totalRevenue, orders: orders.length, customers: uniqueCustomers, pending: pendingOrders, shipped: shippedOrders, delivered: deliveredOrders, todayOrders };
-                const newRecent = orders.slice(0, 6);
+                const newStats = { 
+                    revenue: totalRevenue, 
+                    orders: totalRes.count || 0, 
+                    customers: customerRes.count || 0, 
+                    pending: pendingRes.count || 0, 
+                    shipped: shippedRes.count || 0, 
+                    delivered: deliveredRes.count || 0, 
+                    todayOrders: todayRes.count || 0 
+                };
 
                 setStats(newStats);
-                setRecentOrders(newRecent);
+                setRecentOrders(recentOrdersRes.data || []);
                 setLowStockProducts(lowStock);
-                setTopProducts(topSelling);
+                setTopProducts(topSellingWithImages);
             } catch (error) {
                 console.error('Dashboard error:', error);
             } finally {
@@ -88,7 +112,7 @@ export default function AdminDashboard() {
 
     const getStatusReference = (status) => {
         switch (status) {
-            case 'PLACED': case 'PENDING': return 'badge-placed';
+            case 'PLACED': case 'PENDING': case 'AWAITING_PAYMENT': case 'PACKING': return 'badge-placed';
             case 'PAID': return 'badge-paid';
             case 'SHIPPED': return 'badge-shipped';
             case 'DELIVERED': return 'badge-delivered';
@@ -332,19 +356,38 @@ export default function AdminDashboard() {
                                         borderBottom: i < topProducts.length - 1 ? '1px solid hsl(var(--border-subtle))' : 'none'
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <div style={{
-                                                width: '24px', height: '24px', borderRadius: '50%',
-                                                background: i === 0 ? 'hsl(var(--primary))' : '#f1f5f9',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: '0.75rem', fontWeight: 700,
-                                                color: i === 0 ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-                                                border: i === 0 ? 'none' : '1px solid hsl(var(--border-subtle))'
-                                            }}>#{i + 1}</div>
-                                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>{p.name}</div>
+                                            {/* Rank Icon / Image */}
+                                            <div style={{ position: 'relative' }}>
+                                                <div style={{
+                                                    width: '40px', height: '40px', borderRadius: '10px',
+                                                    overflow: 'hidden', background: '#f1f5f9',
+                                                    border: i === 0 ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))'
+                                                }}>
+                                                    {p.image_url ? 
+                                                        <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
+                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Package size={16} color="hsl(var(--text-muted))" />
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <div style={{
+                                                    position: 'absolute', top: '-6px', left: '-6px', 
+                                                    width: '20px', height: '20px', borderRadius: '50%',
+                                                    background: i === 0 ? 'hsl(var(--primary))' : i === 1 ? '#94a3b8' : '#cbd5e1',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '0.65rem', fontWeight: 800,
+                                                    color: 'white', border: '2px solid white',
+                                                    boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                                                }}>{i + 1}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>{p.name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{p.sold} quantities sold</div>
+                                            </div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{p.revenue.toLocaleString()}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{p.sold} sold</div>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>₹{p.revenue.toLocaleString()}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, textTransform: 'uppercase' }}>Revenue</div>
                                         </div>
                                     </div>
                                 ))

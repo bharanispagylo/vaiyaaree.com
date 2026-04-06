@@ -311,9 +311,9 @@ export default function MediaLibraryPage() {
 
             // Use watermark detection result from upload API
             const hasWatermark = data.hasWatermark || false;
-            const folder = data.folder || 'without-watermark';
+            const folder = data.folder || 'without_watermark';
             
-            if (hasWatermark && folder === 'with-watermark') {
+            if (hasWatermark && folder === 'with_watermark') {
                 // Image has watermark - store in watermark collection
                 const newWatermark = [...watermarkImages, data.url];
                 setWatermarkImages(newWatermark);
@@ -871,4 +871,5 @@ export default function MediaLibraryPage() {
         </>
     );
 }
+
 

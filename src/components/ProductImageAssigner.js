@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabaseClient';
  *   onDone    - Called after all assignments are saved
  */
 export default function ProductImageAssigner({ products, onClose, onDone }) {
+    const [errorModal, setErrorModal] = useState(null);
     const [items, setItems] = useState(
         products.map(p => ({
             ...p,
@@ -55,38 +56,92 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
             const catalogId = item.catalogId || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
             console.log('Using catalog ID:', catalogId);
 
-            // 2. Stamp the catalog ID onto the image via Canvas
-            const watermarkedBlob = await stampProductCode(rawImageUrl, catalogId);
-
-            // 4. Upload the watermarked image to the media library
-            const finalUrl = await uploadWatermarkedImage(watermarkedBlob, catalogId);
-
-            // 5. Update product with the watermarked image URL and catalog ID
-            console.log('Updating product:', item.id, 'with URL:', finalUrl, 'catalog ID:', catalogId);
-            const { data: updateData, error: updateError } = await supabase.from('products')
-                .update({
-                    image_url: finalUrl,
-                    product_catalog_image_id: catalogId
-                })
-                .eq('id', item.id)
-                .select();
-
-            if (updateError) {
-                console.error('Update error:', updateError);
-                throw new Error('Failed to update product: ' + updateError.message);
+            // High-performance single-call upload (Backend handles detection, storage & watermarking)
+            const formData = new FormData();
+            
+            // If it's a blob/file, pass it. If it's a URL, pass the URL and some instructions?
+            // Actually, rawImageUrl might be a blob from the Media Library.
+            // Let's assume rawImageUrl is a URL (the Prop says assignImage(index, rawImageUrl)).
+            
+            let fileToUpload;
+            if (rawImageUrl.startsWith('blob:')) {
+                const response = await fetch(rawImageUrl);
+                const blob = await response.blob();
+                fileToUpload = new File([blob], `excel-import-${Date.now()}.jpg`, { type: blob.type });
+            } else {
+                // If it's an existing Media Library URL, fetch it to pass as a file
+                // (Backend 'upload' currently expects a file)
+                const response = await fetch(rawImageUrl);
+                const blob = await response.blob();
+                fileToUpload = new File([blob], `excel-import-${Date.now()}.jpg`, { type: blob.type });
             }
 
-            console.log('Update successful:', updateData);
+            formData.append('file', fileToUpload);
+            formData.append('catalogId', catalogId);
+            formData.append('requireClean', 'true');
+
+            const uploadRes = await fetch('/api/admin/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const uploadData = await uploadRes.json();
+            if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload failed');
+
+            const finalUrl = uploadData.watermarkedUrl || uploadData.url;
+
+            // 5. Update or INSERT product
+            console.log(item.isNew ? 'Inserting new product:' : 'Updating product:', item.name);
+            
+            const dbData = {
+                name: item.name,
+                description: item.description,
+                price: item.price,
+                stock: item.stock,
+                category: item.category,
+                type: 'simple',
+                is_active: true,
+                image_url: finalUrl,
+                product_catalog_image_id: catalogId
+            };
+
+            let savedProduct = null;
+
+            if (item.isNew || !item.id) {
+                // INSERT NEW
+                dbData.total_added = item.stock || 0;
+                const { data, error } = await supabase.from('products').insert([dbData]).select();
+                if (error) throw error;
+                savedProduct = data?.[0];
+
+                // Add initial stock entry in history
+                if (savedProduct && savedProduct.stock > 0) {
+                    await supabase.from('product_history').insert({
+                        product_id: savedProduct.id,
+                        change_type: 'ADD',
+                        quantity_change: savedProduct.stock,
+                        new_stock: savedProduct.stock,
+                        reason: 'Initial Stock (Excel Import)'
+                    });
+                }
+            } else {
+                // UPDATE EXISTING
+                const { data, error } = await supabase.from('products').update(dbData).eq('id', item.id).select();
+                if (error) throw error;
+                savedProduct = data?.[0];
+            }
+
+            if (!savedProduct) throw new Error('Failed to save to database');
 
             setItems(prev => prev.map((it, i) =>
-                i === index ? { ...it, status: 'done', previewUrl: finalUrl, catalogId } : it
+                i === index ? { ...it, ...savedProduct, status: 'done', previewUrl: finalUrl, catalogId } : it
             ));
         } catch (err) {
             console.error('assignImage error:', err);
             setItems(prev => prev.map((it, i) =>
                 i === index ? { ...it, status: 'error' } : it
             ));
-            alert('Failed: ' + err.message);
+            setErrorModal({ title: 'Assignment Failed', message: err.message });
         }
     };
 
@@ -113,24 +168,18 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
             const ocrData = await ocrRes.json();
 
             if (ocrData.hasWatermark) {
-                alert("The image has already WaterMark");
+                setErrorModal({ title: 'Watermark Detected', message: 'The image has already WaterMark. Please upload a clean version.' });
                 e.target.value = '';
                 return;
             }
 
-            // 2. First, Store the ORIGINAL CLEAN image to Media Library
-            const originalFd = new FormData();
-            originalFd.append('file', file, file.name);
-            originalFd.append('skipDetection', 'true');
-            originalFd.append('alreadyWatermarked', 'false');
-            await fetch('/api/admin/upload', { method: 'POST', body: originalFd });
-
-            // 3. Proceed with assigning and stamping
+            // 2. Simply proceed with assigning. 
+            // The backend /api/admin/upload now handles saving both original and watermarked versions in a single call.
             const objectUrl = URL.createObjectURL(file);
             await assignImage(index, objectUrl);
         } catch (err) {
             console.error('OCR check error:', err);
-            alert('Upload failed: ' + err.message);
+            setErrorModal({ title: 'Upload Failed', message: err.message });
         } finally {
             setOcrLoading(false);
         }
@@ -370,7 +419,7 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                                                     const ocrData = await ocrRes.json();
                                                     
                                                     if (ocrData.hasWatermark) {
-                                                        alert("The image has already WaterMark");
+                                                        setErrorModal({ title: 'Watermark Detected', message: 'The image has already WaterMark. Please upload a clean version.' });
                                                         return; // Stop selection
                                                     }
                                                 } catch (err) {
@@ -416,6 +465,43 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
             <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             `}</style>
+
+            {/* Error Modal */}
+            {errorModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                    backdropFilter: 'blur(4px)', zIndex: 9000, 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                }}>
+                    <div className='card shadow-premium' style={{
+                        maxWidth: '400px', width: '100%', padding: '2rem',
+                        textAlign: 'center', borderRadius: '24px'
+                    }}>
+                        <div style={{ 
+                            width: '64px', height: '64px', borderRadius: '20px', 
+                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 1.5rem'
+                        }}>
+                             <X size={32} />
+                        </div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>{errorModal.title}</h3>
+                        <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>{errorModal.message}</p>
+                        <button 
+                            onClick={() => setErrorModal(null)}
+                            className='admin-button-primary'
+                            style={{ width: '100%' }}
+                        >
+                            Got it
+                        </button>
+                    </div>
+                </div>
+            )}
+
+
+
+
+
         </div>
     );
 }

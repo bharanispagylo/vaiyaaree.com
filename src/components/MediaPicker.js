@@ -51,7 +51,15 @@ export default function MediaPicker({ onSelect, onClose, currentImage }) {
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Upload failed');
+            
+            if (!res.ok) {
+                if (data.error === 'Watermark already present') {
+                    alert('⚠️ Watermark detected! This image already has a CAT code and cannot be processed again.');
+                } else {
+                    throw new Error(data.error || 'Upload failed');
+                }
+                return;
+            }
 
             // Refresh the list and auto-select the new image
             await fetchFiles();

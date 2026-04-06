@@ -266,23 +266,23 @@ export async function GET() {
         }
 
         try {
-            const result = await supabaseAdmin.storage.from(BUCKET_NAME).list('with-watermark', {
+            const result = await supabaseAdmin.storage.from(BUCKET_NAME).list('with_watermark', {
                 limit: 500,
                 sortBy: { column: 'created_at', order: 'desc' },
             });
             wmFiles = result.data || [];
         } catch (err) {
-            console.log('[GET] With-watermark folder error:', err.message);
+            console.log('[GET] with_watermark folder error:', err.message);
         }
 
         try {
-            const result = await supabaseAdmin.storage.from(BUCKET_NAME).list('without-watermark', {
+            const result = await supabaseAdmin.storage.from(BUCKET_NAME).list('without_watermark', {
                 limit: 500,
                 sortBy: { column: 'created_at', order: 'desc' },
             });
             noWmFiles = result.data || [];
         } catch (err) {
-            console.log('[GET] Without-watermark folder error:', err.message);
+            console.log('[GET] without_watermark folder error:', err.message);
         }
 
         // Combine all files and add folder information
@@ -300,27 +300,27 @@ export async function GET() {
             }
         });
 
-        // Process with-watermark files
+        // Process with_watermark files
         wmFiles.filter(f => f.id !== null).forEach(file => {
             try {
                 const { data: { publicUrl } } = supabaseAdmin.storage
                     .from(BUCKET_NAME)
-                    .getPublicUrl(`with-watermark/${file.name}`);
-                allFiles.push({ ...file, url: publicUrl, folder: 'with-watermark' });
+                    .getPublicUrl(`with_watermark/${file.name}`);
+                allFiles.push({ ...file, url: publicUrl, folder: 'with_watermark' });
             } catch (err) {
-                console.log('[GET] Error getting URL for with-watermark file:', file.name);
+                console.log('[GET] Error getting URL for with_watermark file:', file.name);
             }
         });
 
-        // Process without-watermark files
+        // Process without_watermark files
         noWmFiles.filter(f => f.id !== null && !f.name.startsWith('temp-check-')).forEach(file => {
             try {
                 const { data: { publicUrl } } = supabaseAdmin.storage
                     .from(BUCKET_NAME)
-                    .getPublicUrl(`without-watermark/${file.name}`);
-                allFiles.push({ ...file, url: publicUrl, folder: 'without-watermark' });
+                    .getPublicUrl(`without_watermark/${file.name}`);
+                allFiles.push({ ...file, url: publicUrl, folder: 'without_watermark' });
             } catch (err) {
-                console.log('[GET] Error getting URL for without-watermark file:', file.name);
+                console.log('[GET] Error getting URL for without_watermark file:', file.name);
             }
         });
 
@@ -337,169 +337,132 @@ export async function GET() {
     }
 }
 
-// POST - Upload a file
+// POST - Upload a file and process according to requirements
 export async function POST(request) {
     try {
-        console.log('[UPLOAD] Starting upload process...');
-        
+        console.log('[UPLOAD] Starting high-performance upload process...');
+        const { detectWatermark, applyWatermark } = await import('@/lib/imageProcessor');
+
         const formData = await request.formData();
         const file = formData.get('file');
-        const catalogId = formData.get('catalogId'); // Get catalog ID if provided
-        const alreadyWatermarked = formData.get('alreadyWatermarked') === 'true'; // Check if already watermarked
-        const skipDetection = formData.get('skipDetection') === 'true'; // New: skip OCR if we know the status
+        const catalogId = formData.get('catalogId') || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        const skipDetection = formData.get('skipDetection') === 'true'; // Allow override for migrations
 
-        console.log(`[UPLOAD] File: ${file?.name}, catalogId: ${catalogId}, alreadyWatermarked: ${alreadyWatermarked}, skipDetection: ${skipDetection}`);
+        if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
 
-        if (!file) {
-            console.log('[UPLOAD] ERROR: No file provided');
-            return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-        }
-
-        const fileExt = file.name.split('.').pop();
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+        const fileExt = file.name.split('.').pop() || 'jpg';
 
-        console.log(`[UPLOAD] File size: ${buffer.length} bytes, extension: ${fileExt}`);
-
-        // Determine watermark status
-        let hasWatermark = false;
-        let folder = 'without-watermark';
-        
-        if (skipDetection) {
-            hasWatermark = alreadyWatermarked;
-            folder = hasWatermark ? 'with-watermark' : 'without-watermark';
-            console.log(`[UPLOAD] Skipping detection for ${file.name} - using hasWatermark: ${hasWatermark}`);
-        } else if (alreadyWatermarked) {
-            // Image is already watermarked (e.g., from product upload)
-            hasWatermark = true;
-            folder = 'with-watermark';
-            console.log(`[UPLOAD] Image ${file.name} is already watermarked (catalogId: ${catalogId})`);
-        } else {
-            // Detect watermark in the uploaded image using filename
-            console.log(`[UPLOAD] Starting watermark detection for ${file.name}...`);
-            hasWatermark = await detectWatermarkInBuffer(buffer, file.name);
-            folder = hasWatermark ? 'with-watermark' : 'without-watermark';
-            console.log(`[UPLOAD] Image ${file.name} - Watermark detected: ${hasWatermark}, folder: ${folder}`);
-        }
-        
-        // Use catalog ID as filename if provided, otherwise use random name
-        let fileName = catalogId ? `${catalogId}.${fileExt}` : `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-        
-        // Add folder prefix
-        const fullFileName = `${folder}/${fileName}`;
-        
-        console.log(`[UPLOAD] Final filename: ${fullFileName}`);
-
-        // Handle duplicate filenames by checking if file exists
-        try {
-            const fileDir = folder;
-            const plainFileName = fileName;
-            
-            const { data: existingFiles } = await supabaseAdmin.storage
-                .from(BUCKET_NAME)
-                .list(fileDir, { search: plainFileName });
-            
-            const fileExists = (existingFiles || []).some(f => f.name === plainFileName);
-            
-            if (fileExists) {
-                fileName = catalogId ? `${catalogId}-${Date.now()}.${fileExt}` : `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-                console.log(`[UPLOAD] File exists, new name: ${fileName}`);
-            }
-        } catch (err) {
-            console.warn('Existence check failed, proceeding anyway:', err);
-        }
-
-        const finalFileName = `${folder}/${fileName}`;
-        console.log(`[UPLOAD] Uploading to: ${finalFileName}`);
-
-        const { error: uploadError } = await supabaseAdmin.storage
-            .from(BUCKET_NAME)
-            .upload(finalFileName, buffer, {
-                contentType: file.type,
-                upsert: false,
-                metadata: { 
-                    catalogId: catalogId || null,
-                    hasWatermark: hasWatermark,
-                    originalName: file.name,
-                    alreadyWatermarked: alreadyWatermarked || false
-                }
+        // 0. Check Only Phase
+        if (formData.get('checkOnly') === 'true') {
+            console.log('[UPLOAD] Check-only mode requested');
+            const detection = await detectWatermark(buffer, file.name);
+            return NextResponse.json({ 
+                hasWatermark: detection.hasWatermark, 
+                catalogId: detection.catalogId 
             });
-
-        if (uploadError) {
-            console.error('[UPLOAD] Upload error:', uploadError);
-            throw uploadError;
         }
 
-        console.log(`[UPLOAD] Upload successful`);
+        // 1. Detection Phase
+        let detection = { hasWatermark: false };
+        if (!skipDetection) {
+            console.log('[UPLOAD] Running detection...');
+            detection = await detectWatermark(buffer, file.name);
+        }
 
-        const { data: { publicUrl } } = supabaseAdmin.storage
-            .from(BUCKET_NAME)
-            .getPublicUrl(finalFileName);
+        // 2. Requirement Handling
+        const requireClean = formData.get('requireClean') === 'true';
+        if (detection.hasWatermark && !skipDetection && requireClean) {
+            console.warn(`[UPLOAD] Watermark already present in ${file.name} (Clean required)`);
+            return NextResponse.json({ 
+                error: 'Watermark already present', 
+                catalogId: detection.catalogId,
+                status: 'REJECTED'
+            }, { status: 400 });
+        }
 
-        console.log(`[UPLOAD] Public URL: ${publicUrl}`);
+        // 3. Execution Phase
+        if (detection.hasWatermark && !skipDetection) {
+            // Already has watermark - Use detected ID to keep metadata consistent
+            const finalId = detection.catalogId || catalogId;
+            const path = `with_watermark/${finalId}.${fileExt}`;
+            console.log(`[UPLOAD] Saving existing watermarked image (${finalId}) up to: ${path}`);
+            
+            const { error: uploadErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(path, buffer, {
+                contentType: file.type,
+                upsert: true
+            });
+            if (uploadErr) throw uploadErr;
 
-        // SYNC: Update Media Library settings if watermarked
+            const publicUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl;
+
+            return NextResponse.json({ 
+                success: true,
+                hasWatermark: true,
+                folder: 'with_watermark',
+                catalogId: finalId,
+                url: publicUrl,
+                watermarkedUrl: publicUrl
+            });
+        }
+
+        // 4. Generation Phase: Create TWO versions (for new clean images)
+        // A. Original (without_watermark)
+        const originalPath = `without_watermark/${catalogId}.${fileExt}`;
+        console.log(`[UPLOAD] Saving original: ${originalPath}`);
+        
+        const { error: originalErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(originalPath, buffer, {
+            contentType: file.type,
+            upsert: true
+        });
+
+        if (originalErr) throw originalErr;
+        const originalUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(originalPath).data.publicUrl;
+
+        // B. Watermarked (with_watermark)
+        console.log(`[UPLOAD] Generating watermarked version for: ${catalogId}`);
+        const watermarkedBuffer = await applyWatermark(buffer, catalogId);
+        const watermarkedPath = `with_watermark/${catalogId}.${fileExt}`;
+        
+        const { error: wmErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(watermarkedPath, watermarkedBuffer, {
+            contentType: 'image/jpeg',
+            upsert: true
+        });
+
+        if (wmErr) throw wmErr;
+        const watermarkedUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(watermarkedPath).data.publicUrl;
+
+        // 5. Return both URLs and status as required
+        console.log(`[UPLOAD] Process complete. URLs generated: ${originalUrl}, ${watermarkedUrl}`);
+
+        // Sync Metadata to DB
         try {
-            if (hasWatermark) {
-                const { data: settingData } = await supabaseAdmin
-                    .from('app_settings')
-                    .select('value')
-                    .eq('key', 'watermark_images')
-                    .single();
-                
-                let watermarkList = [];
-                if (settingData?.value) {
-                    try { watermarkList = JSON.parse(settingData.value); } catch(e) {}
-                }
-                
-                if (!watermarkList.includes(publicUrl)) {
-                    watermarkList.push(publicUrl);
-                    await supabaseAdmin
-                        .from('app_settings')
-                        .upsert({ 
-                            key: 'watermark_images', 
-                            value: JSON.stringify(watermarkList),
-                            updated_at: new Date()
-                        });
-                    console.log(`[SYNC] Added ${publicUrl} to watermark_images settings`);
-                }
-            } else {
-                // Also add to no_watermark_images if preferred
-                const { data: settingData } = await supabaseAdmin
-                    .from('app_settings')
-                    .select('value')
-                    .eq('key', 'no_watermark_images')
-                    .single();
-                
-                let noWatermarkList = [];
-                if (settingData?.value) {
-                    try { noWatermarkList = JSON.parse(settingData.value); } catch(e) {}
-                }
-                
-                if (!noWatermarkList.includes(publicUrl)) {
-                    noWatermarkList.push(publicUrl);
-                    await supabaseAdmin
-                        .from('app_settings')
-                        .upsert({ 
-                            key: 'no_watermark_images', 
-                            value: JSON.stringify(noWatermarkList),
-                            updated_at: new Date()
-                        });
-                }
-            }
+            await supabaseAdmin.from('app_settings').upsert({
+                key: `meta_${catalogId}`,
+                value: JSON.stringify({
+                    catalog_id: catalogId,
+                    original_url: originalUrl,
+                    watermarked_url: watermarkedUrl,
+                    created_at: new Date()
+                })
+            });
         } catch (syncErr) {
-            console.error('Settings sync error:', syncErr);
+            console.error('[UPLOAD] Metadata sync failed:', syncErr.message);
         }
 
         return NextResponse.json({ 
-            url: publicUrl, 
-            name: finalFileName,
+            success: true,
+            hasWatermark: true, // The returned URL is watermarked
             catalogId: catalogId,
-            hasWatermark: hasWatermark,
-            folder: folder
+            url: watermarkedUrl,
+            originalUrl: originalUrl,
+            watermarkedUrl: watermarkedUrl,
+            folder: 'with_watermark'
         });
+
     } catch (err) {
-        console.error('Upload error:', err);
+        console.error('[UPLOAD] Core failure:', err);
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }
@@ -553,3 +516,4 @@ export async function DELETE(request) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }
+

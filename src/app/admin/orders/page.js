@@ -19,7 +19,7 @@ import {
 import { Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
-const STATUS_OPTIONS = ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
+const STATUS_OPTIONS = ['PLACED', 'AWAITING_PAYMENT', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
 const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP'];
 
 // Helper: parse Supabase UTC timestamps reliably (adds 'Z' if missing so JS treats it as UTC → converts to IST)
@@ -42,6 +42,8 @@ const getStatusReference = (status) => {
         case 'PLACED': return 'badge-placed';
 
         case 'PENDING': return 'badge-placed';
+
+        case 'AWAITING_PAYMENT': return 'badge-placed';
 
         case 'PAID': return 'badge-paid';
 
@@ -141,9 +143,10 @@ export default function OrdersPage() {
         }
     };
 
-    const handleBulkDelete = async (idsToDelete = null) => {
-        const ids = idsToDelete || selectedOrderIds;
-        if (!ids.length) return;
+    const handleBulkDelete = (idsToUse = null) => {
+        // Ensure idsToUse is actually an array, not a click event
+        const ids = Array.isArray(idsToUse) ? idsToUse : selectedOrderIds;
+        if (!ids || !ids.length) return;
         setConfirmDelete({ ids });
     };
 
@@ -229,8 +232,8 @@ export default function OrdersPage() {
                 channels[src] = (channels[src] || 0) + 1;
             });
             const channelData = [
-                { name: 'Website', value: channels.WEBSITE, color: 'hsl(195 85% 45%)' },
-                { name: 'WhatsApp', value: channels.WHATSAPP, color: 'hsl(var(--primary))' }
+                { name: 'Website', value: channels.WEBSITE, color: 'hsl(195 85% 40%)' },
+                { name: 'WhatsApp', value: channels.WHATSAPP, color: 'hsl(142 71% 45%)' }
             ];
 
             // 4. Status Data (from filtered set)
@@ -697,7 +700,8 @@ export default function OrdersPage() {
 
             (o.customer_phone || '').toLowerCase().includes(term);
 
-        const matchesStatus = statusFilter === 'ALL' || o.status === statusFilter;
+        const matchesStatus = statusFilter === 'ALL' || 
+            (statusFilter === 'AWAITING_PAYMENT' ? (o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING') : o.status === statusFilter);
 
         const orderSource = o.source || (o.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
 
@@ -713,7 +717,9 @@ export default function OrdersPage() {
     const orderCounts = {
         ALL: orders.length,
         PLACED: orders.filter(o => o.status === 'PLACED').length,
+        'AWAITING_PAYMENT': orders.filter(o => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING').length,
         PAID: orders.filter(o => o.status === 'PAID').length,
+        PACKING: orders.filter(o => o.status === 'PACKING').length,
         SHIPPED: orders.filter(o => o.status === 'SHIPPED').length,
         DELIVERED: orders.filter(o => o.status === 'DELIVERED').length,
         CANCELLED: orders.filter(o => o.status === 'CANCELLED').length,
@@ -774,7 +780,7 @@ export default function OrdersPage() {
                                                         border: statusFilter === status ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
                                                         boxShadow: statusFilter === status ? '0 4px 12px hsl(var(--primary) / 0.3)' : 'none'
                                                     }}>
-                                                        {status === 'ALL' ? 'All Orders' : status} <span style={{ opacity: 0.7, marginLeft: '4px' }}>({count})</span>
+                                                        {status === 'ALL' ? 'All Orders' : status.replace(/_/g, ' ')} <span style={{ opacity: 0.7, marginLeft: '4px' }}>({count})</span>
                                                     </button>
                                                 ))}
                                             </div>
@@ -784,13 +790,14 @@ export default function OrdersPage() {
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                     {SOURCE_FILTERS.map(src => (
                                                         <button key={src} onClick={() => setSourceFilter(src)} style={{
-                                                            padding: '0.4rem 1rem', borderRadius: '9999px', fontSize: '0.8rem',
+                                                            padding: '0.4rem 1.25rem', borderRadius: '9999px', fontSize: '0.8rem',
                                                             fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
                                                             background: sourceFilter === src
-                                                                ? src === 'WEBSITE' ? 'hsl(195 85% 40%)' : src === 'WHATSAPP' ? 'hsl(var(--primary))' : '#f1f5f9'
+                                                                ? src === 'WHATSAPP' ? 'hsl(142 71% 45%)' : 'hsl(195 85% 40%)' 
                                                                 : '#ffffff',
                                                             color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
-                                                            border: '1px solid hsl(var(--border-subtle))'
+                                                            border: sourceFilter === src ? '1px solid transparent' : '1px solid hsl(var(--border-subtle))',
+                                                            boxShadow: sourceFilter === src ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
                                                         }}>
                                                             {src === 'ALL' ? 'All' : src === 'WEBSITE' ? 'Website' : 'WhatsApp'}
                                                         </button>
@@ -1087,9 +1094,14 @@ export default function OrdersPage() {
                                                                                 {toIST(order.created_at, { day: '2-digit', month: 'short' })}
                                                                             </td>
                                                                             <td style={{ textAlign: 'right' }}>
-                                                                                <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                                                                                    <Eye size={14} /> View
-                                                                                </button>
+                                                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                                                    <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                                                                                        <Eye size={14} /> View
+                                                                                    </button>
+                                                                                    <button onClick={(e) => { e.stopPropagation(); handleBulkDelete([order.id]); }} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                        <Trash2 size={14} />
+                                                                                    </button>
+                                                                                </div>
                                                                             </td>
                                                                         </tr>
                                                                     </React.Fragment>
