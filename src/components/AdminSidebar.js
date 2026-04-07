@@ -42,6 +42,7 @@ const menuItems = [
     { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
     { name: 'Payment Gateway', href: '/admin/payments', icon: CreditCard },
     { name: 'CMS', href: '/admin/cms', icon: Layout },
+    { name: 'User Management', href: '/admin/users', icon: Users },
     { name: 'Shop Settings', href: '/admin/shop-settings', icon: Settings },
 ];
 

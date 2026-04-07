@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabaseClient';
+import { getAdminSettings } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -8,11 +10,25 @@ export async function POST(req) {
         const body = await req.json();
         const { username, password } = body;
         
-        const VALID_USERNAME = process.env.ADMIN_USERNAME || 'aiswarya';
-        const VALID_PASSWORD = process.env.ADMIN_PASSWORD || 'saree2024';
+        // 1. Try to find in admin_users table (Modern approach)
+        const { data: user, error: userError } = await supabase
+            .from('admin_users')
+            .select('role, password')
+            .eq('username', username)
+            .eq('is_active', true)
+            .maybeSingle();
 
-        if (username === VALID_USERNAME && password === VALID_PASSWORD) {
-            return NextResponse.json({ success: true, role: 'admin' });
+        if (user && user.password === password) {
+            // Update last login
+            await supabase.from('admin_users').update({ last_login: new Date().toISOString() }).eq('username', username);
+            return NextResponse.json({ success: true, role: user.role || 'admin', source: 'db_users' });
+        }
+
+        // 2. Fallback to settings mechanism (Old mechanism)
+        const { admin_username, admin_password } = await getAdminSettings();
+
+        if (username === admin_username && password === admin_password) {
+            return NextResponse.json({ success: true, role: 'admin', source: 'db_settings' });
         }
 
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });

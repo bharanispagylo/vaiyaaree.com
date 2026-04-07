@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import {
     Store, Save, Image, FileText, MapPin,
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
-    Upload, Globe, Phone, Mail
+    Upload, Globe, Phone, Mail, Lock, Shield, Key
 } from 'lucide-react';
 import MediaPicker from '@/components/MediaPicker';
 
@@ -205,6 +205,45 @@ export default function ShopSettingsPage() {
                         </div>
                     </div>
                 </section>
+                {/* Admin Security */}
+                <section className="settings-card card shadow-premium">
+                    <div className="card-header">
+                        <Lock size={20} color="hsl(var(--primary))" />
+                        <h3>Admin Security (Login)</h3>
+                    </div>
+                    <div className="fields-stack">
+                        <div className="field-group">
+                            <label><Shield size={14} color="hsl(var(--primary))" /> Admin Username</label>
+                            <input
+                                id="admin-username-field"
+                                type="text"
+                                value={settings.admin_username || ''}
+                                onChange={(e) => handleUpdate('admin_username', e.target.value)}
+                                placeholder="Username for admin login"
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label><Key size={14} color="hsl(var(--primary))" /> Admin Password</label>
+                            <input
+                                id="admin-password-field"
+                                type="password"
+                                value={settings.admin_password || ''}
+                                onChange={(e) => handleUpdate('admin_password', e.target.value)}
+                                placeholder="Change admin password"
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label><Key size={14} color="hsl(var(--primary))" /> Recovery PIN</label>
+                            <input
+                                id="admin-pin-field"
+                                type="text"
+                                value={settings.admin_recovery_pin || ''}
+                                onChange={(e) => handleUpdate('admin_recovery_pin', e.target.value)}
+                                placeholder="1234"
+                            />
+                        </div>
+                    </div>
+                </section>
 
                 {/* Contact Settings */}
                 <section className="settings-card card shadow-premium">
@@ -217,6 +256,7 @@ export default function ShopSettingsPage() {
                             <label>Contact Support Content</label>
                             <p className="hint">This is sent when user asks for contact info.</p>
                             <textarea
+                                id="contact-support-field"
                                 rows={6}
                                 value={settings.wa_contact_message || ''}
                                 onChange={(e) => handleUpdate('wa_contact_message', e.target.value)}

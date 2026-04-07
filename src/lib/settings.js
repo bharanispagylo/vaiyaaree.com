@@ -5,6 +5,36 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
+export async function getAdminSettings() {
+    try {
+        const { data, error } = await supabase
+            .from('app_settings')
+            .select('*')
+            .in('key', ['admin_username', 'admin_password', 'admin_recovery_pin']);
+
+        if (error) throw error;
+
+        const settings = {};
+        data.forEach(item => {
+            settings[item.key] = item.value;
+        });
+
+        // Use database value if it exists, otherwise fall back to environment variables
+        return {
+            admin_username: settings.admin_username || process.env.ADMIN_USERNAME || 'castprintz',
+            admin_password: settings.admin_password || process.env.ADMIN_PASSWORD || 'saree2024',
+            admin_recovery_pin: settings.admin_recovery_pin || process.env.ADMIN_RECOVERY_PIN || '1234'
+        };
+    } catch (err) {
+        console.error('Error in getAdminSettings:', err);
+        return {
+            admin_username: process.env.ADMIN_USERNAME || 'castprintz',
+            admin_password: process.env.ADMIN_PASSWORD || 'saree2024',
+            admin_recovery_pin: process.env.ADMIN_RECOVERY_PIN || '1234'
+        };
+    }
+}
+
 export async function getGatewaySettings() {
     try {
         const { data, error } = await supabase
