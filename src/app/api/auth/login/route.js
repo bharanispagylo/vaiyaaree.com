@@ -18,13 +18,19 @@ export async function POST(req) {
             .eq('is_active', true)
             .maybeSingle();
 
-        if (user && user.password === password) {
-            // Update last login
-            await supabase.from('admin_users').update({ last_login: new Date().toISOString() }).eq('username', username);
-            return NextResponse.json({ success: true, role: user.role || 'admin', source: 'db_users' });
+        if (user) {
+            // User FOUND in table. Trust THIS result ONLY.
+            if (user.password === password) {
+                // Update last login
+                await supabase.from('admin_users').update({ last_login: new Date().toISOString() }).eq('username', username);
+                return NextResponse.json({ success: true, role: user.role || 'admin', source: 'db_users' });
+            } else {
+                // Wrong password for the DB user
+                return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+            }
         }
 
-        // 2. Fallback to settings mechanism (Old mechanism)
+        // 2. Fallback to settings mechanism (Only if user NOT found in admin_users table)
         const { admin_username, admin_password } = await getAdminSettings();
 
         if (username === admin_username && password === admin_password) {

@@ -4,7 +4,7 @@ import { getAdminSettings } from '@/lib/settings';
 
 export async function POST(req) {
     try {
-        const { pin, newPassword } = await req.json();
+        const { username, pin, newPassword } = await req.json();
         const { admin_recovery_pin } = await getAdminSettings();
 
         if (!pin || pin !== admin_recovery_pin) {
@@ -15,8 +15,21 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 });
         }
 
-        // Update admin_password in app_settings table
-        const { error } = await supabase
+        // 1. Update specific user in admin_users table
+        if (username) {
+            const { error: userError } = await supabase
+                .from('admin_users')
+                .update({ 
+                    password: newPassword,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('username', username);
+            
+            if (userError) throw userError;
+        }
+
+        // 2. Also keep the fallback in app_settings updated for backwards compatibility
+        const { error: settingsError } = await supabase
             .from('app_settings')
             .upsert({
                 key: 'admin_password',
@@ -24,9 +37,9 @@ export async function POST(req) {
                 updated_at: new Date().toISOString()
             });
 
-        if (error) throw error;
+        if (settingsError) throw settingsError;
 
-        return NextResponse.json({ success: true, message: 'Password updated successfully!' });
+        return NextResponse.json({ success: true, message: 'Password updated successfully across all systems!' });
     } catch (err) {
         console.error('Reset error:', err);
         return NextResponse.json({ error: 'Failed to update password. Try again.' }, { status: 500 });

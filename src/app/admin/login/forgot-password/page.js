@@ -6,6 +6,7 @@ import { ArrowLeft, Key, Loader2, Eye, EyeOff } from 'lucide-react';
 export default function ForgotPasswordPage() {
     const router = useRouter();
     
+    const [username, setUsername] = useState('');
     const [recoveryPin, setRecoveryPin] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -36,6 +37,7 @@ export default function ForgotPasswordPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
+                    username: username,
                     pin: recoveryPin, 
                     newPassword: newPassword 
                 })
@@ -89,12 +91,30 @@ export default function ForgotPasswordPage() {
                         </div>
                         <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 0.5rem' }}>Reset Password</h1>
                         <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
-                            Enter your recovery PIN and new password
+                            Enter your credentials to reset password
                         </p>
                     </div>
                 </div>
 
                 <form onSubmit={handleResetPassword}>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: 'hsl(var(--text-muted))' }}>
+                            Username to Reset
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="Enter username"
+                            value={username}
+                            onChange={e => setUsername(e.target.value)}
+                            required
+                            style={{
+                                width: '100%', padding: '1rem',
+                                borderRadius: '0.9rem', border: '1px solid hsl(var(--border-subtle))',
+                                background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', boxSizing: 'border-box',
+                                fontSize: '0.95rem', outline: 'none', fontFamily: 'var(--font-body)'
+                            }}
+                        />
+                    </div>
                     <div style={{ marginBottom: '1.5rem' }}>
                         <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: 'hsl(var(--text-muted))' }}>
                             Recovery PIN
