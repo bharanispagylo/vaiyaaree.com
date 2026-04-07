@@ -1530,7 +1530,7 @@ export default function ProductsPage() {
 
             {
                 showMediaPicker && (
-                    <MediaPicker
+                    <MediaPicker catalogId={currentProduct?.product_catalog_image_id}
                         currentImage={activeImageField?.type === 'product' ? (productImageUrl ? productImageUrl.split(',')[0] : '') : variants[activeImageField?.index]?.image_url}
                         onSelect={async (url) => {
                             try {
@@ -1543,6 +1543,9 @@ export default function ProductsPage() {
                                 const formData = new FormData();
                                 formData.append('file', file);
                                 formData.append('requireClean', 'true');
+                                if (currentProduct?.product_catalog_image_id) {
+                                    formData.append('catalogId', currentProduct.product_catalog_image_id);
+                                }
 
                                 const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
                                 const data = await uploadRes.json();

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient'; // still needed for getPublicUrl
 
-export default function MediaPicker({ onSelect, onClose, currentImage }) {
+export default function MediaPicker({ onSelect, onClose, currentImage, catalogId }) {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
@@ -59,6 +59,9 @@ export default function MediaPicker({ onSelect, onClose, currentImage }) {
         try {
             const formData = new FormData();
             formData.append('file', file);
+            if (catalogId) {
+                formData.append('catalogId', catalogId);
+            }
 
             const res = await fetch('/api/admin/upload', {
                 method: 'POST',
