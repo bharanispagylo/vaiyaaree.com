@@ -7,7 +7,6 @@ import {
     Star, Layout, Droplets, Sparkles, ZoomIn
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
-import { stampProductCode, uploadWatermarkedImage } from '@/lib/imageStamp';
 
 export default function MediaLibraryPage() {
     const [files, setFiles] = useState([]);

@@ -29,7 +29,7 @@ export async function processOcr(base64Image, imageUrl) {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formData.toString()
         });
-        
+
         if (!res.ok) throw new Error(`OCR.space returned ${res.status}`);
         return res.json();
     };
@@ -37,7 +37,7 @@ export async function processOcr(base64Image, imageUrl) {
     try {
         let ocrJson = await callOcr('2');
         let detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
-        
+
         if (!detectedText.trim() || ocrJson.IsErroredOnProcessing) {
             console.log(`[OCR-LIB] Engine 2 failed, trying Engine 1...`);
             ocrJson = await callOcr('1');
@@ -45,7 +45,7 @@ export async function processOcr(base64Image, imageUrl) {
         }
 
         const patterns = [
-            { regex: /(?:CAT|GAT|CRT|OAT|CAI|LAT|CHT)[-\s]?([A-Z0-9]{3,10})/i, prefix: 'CAT-' },
+            { regex: /(?:CAT|GAT|CRT|OAT|CAI|LAT|CHT|C4T|C[-\s]?AT)[-\s]?([A-Z0-9]{3,10})/i, prefix: 'CAT-' },
             { regex: /ASR[-\s]?([A-Z0-9]{3,10})/i, prefix: 'ASR-' },
             { regex: /CP[-\s]?([A-Z0-9]{3,10})/i, prefix: 'CP-' },
             { regex: /([A-Z]{2,4})[-\s]([A-Z0-9]{3,10})/i, prefix: '' }
@@ -61,7 +61,7 @@ export async function processOcr(base64Image, imageUrl) {
                 } else {
                     codePart = (match[1] + '-' + match[2]).trim().toUpperCase();
                 }
-                
+
                 if (codePart.length >= 3) {
                     catalogId = pattern.prefix ? (pattern.prefix + codePart) : codePart;
                     break;

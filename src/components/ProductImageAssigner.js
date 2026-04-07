@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Upload, Check, Loader2, Image as ImageIcon, X, Grid } from 'lucide-react';
-import { stampProductCode, uploadWatermarkedImage } from '@/lib/imageStamp';
 import { supabase } from '@/lib/supabaseClient';
 
 /**
@@ -396,11 +395,6 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                     </div>
                 </div>
             )}
-
-
-
-
-
         </div>
     );
 }

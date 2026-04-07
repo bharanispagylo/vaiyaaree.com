@@ -1,12 +1,5 @@
-import { Roboto } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
-
-const roboto = Roboto({
-  subsets: ['latin'],
-  weight: ['100', '300', '400', '500', '700', '900'],
-  display: 'swap',
-});
 
 export const metadata = {
     title: "Cast Printz | Premium Saree Collection",
@@ -20,8 +13,8 @@ import WhatsAppWidget from '@/components/WhatsAppWidget';
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={roboto.className}>
-      <body className={roboto.className}>
+    <html lang="en">
+      <body>
         <Providers>
           {children}
           <WhatsAppWidget />

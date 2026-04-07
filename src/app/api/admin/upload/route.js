@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { detectWatermark, applyWatermark } from '@/lib/imageService';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -108,7 +109,6 @@ export async function GET() {
 export async function POST(request) {
     try {
         console.log('[UPLOAD] Starting high-performance upload process...');
-        const { detectWatermark, applyWatermark } = await import('@/lib/imageProcessor');
 
         const formData = await request.formData();
         const file = formData.get('file');
@@ -142,20 +142,11 @@ export async function POST(request) {
         // 2. Requirement Handling
         const requireClean = formData.get('requireClean') === 'true';
         if (detection.hasWatermark && !skipDetection && requireClean) {
-            console.warn(`[UPLOAD] Watermark already present in ${file.name} (Clean required)`);
-            return NextResponse.json({ 
-                error: 'Watermark already present', 
-                catalogId: detection.catalogId,
-                status: 'REJECTED'
-            }, { status: 400 });
-        }
-
-        // 3. Execution Phase
-        if (detection.hasWatermark && !skipDetection) {
-            // Already has watermark - Use detected ID to keep metadata consistent
+            // Already has watermark - RE-UPLOAD AS IS (but label as watermarked)
             const finalId = detection.catalogId || catalogId;
             const path = `with_watermark/${finalId}.${fileExt}`;
-            console.log(`[UPLOAD] Saving existing watermarked image (${finalId}) up to: ${path}`);
+            
+            console.warn(`[UPLOAD] Watermark detection for "${file.name}": FOUND ${finalId}. Re-saving as exists.`);
             
             const { error: uploadErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(path, buffer, {
                 contentType: file.type,
@@ -165,24 +156,6 @@ export async function POST(request) {
 
             const publicUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl;
             
-            // SYNC: Categorize as watermarked
-            try {
-                const { data: wmSettings } = await supabaseAdmin
-                    .from('app_settings')
-                    .select('value')
-                    .eq('key', 'watermark_images')
-                    .single();
-                
-                const currentWm = JSON.parse(wmSettings?.value || '[]');
-                if (!currentWm.includes(publicUrl)) {
-                    await supabaseAdmin.from('app_settings').upsert({
-                        key: 'watermark_images',
-                        value: JSON.stringify([...currentWm, publicUrl]),
-                        updated_at: new Date()
-                    });
-                }
-            } catch (err) { console.error('Existing WM sync error:', err); }
-
             return NextResponse.json({ 
                 success: true,
                 hasWatermark: true,
@@ -193,10 +166,27 @@ export async function POST(request) {
             });
         }
 
-        // 3.5 GALLERY MODE HANDLING (No Watermark Generation)
-        if (mode === 'gallery') {
-            console.log('[UPLOAD] Gallery mode: Storing without watermarking');
-            const path = `without_watermark/${catalogId}.${fileExt}`;
+        // 3. Execution Phase: Standard Gallery/Product Management
+        if (mode === 'gallery' || (detection.hasWatermark && !skipDetection)) {
+            const isWatermarked = !!detection.hasWatermark;
+            const folder = (mode === 'gallery' && !isWatermarked) ? 'without_watermark' : 'with_watermark';
+            
+            // Logic: Use detected CAT code if present, otherwise use original filename for gallery or gen random for product
+            let finalId;
+            if (isWatermarked) {
+                finalId = detection.catalogId || catalogId;
+            } else if (mode === 'gallery') {
+                // Normalize and sanitize original filename
+                const originalName = file.name.split('.')[0].replace(/[^a-zA-Z0-9-]/g, '_');
+                finalId = `${originalName}_${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+            } else {
+                finalId = catalogId;
+            }
+
+            const path = `${folder}/${finalId}.${fileExt}`;
+            
+            console.log(`[UPLOAD] Mode: ${mode}, Folder: ${folder}, ID: ${finalId}`);
+            
             const { error: uploadErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(path, buffer, {
                 contentType: file.type,
                 upsert: true
@@ -205,100 +195,66 @@ export async function POST(request) {
 
             const publicUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl;
             
-            // SYNC: Categorize as clean
+            // Sync to settings
             try {
-                const { data: noWmSettings } = await supabaseAdmin
-                    .from('app_settings')
-                    .select('value')
-                    .eq('key', 'no_watermark_images')
-                    .single();
-                
-                const currentNoWm = JSON.parse(noWmSettings?.value || '[]');
-                if (!currentNoWm.includes(publicUrl)) {
+                const key = folder === 'with_watermark' ? 'watermark_images' : 'no_watermark_images';
+                const { data: settings } = await supabaseAdmin.from('app_settings').select('value').eq('key', key).single();
+                const list = JSON.parse(settings?.value || '[]');
+                if (!list.includes(publicUrl)) {
                     await supabaseAdmin.from('app_settings').upsert({
-                        key: 'no_watermark_images',
-                        value: JSON.stringify([...currentNoWm, publicUrl]),
-                        updated_at: new Date()
+                        key, value: JSON.stringify([...list, publicUrl]), updated_at: new Date()
                     });
                 }
-            } catch (err) { console.error('Gallery sync error:', err); }
+            } catch (err) { console.error('Sync error:', err); }
 
-            return NextResponse.json({
+            return NextResponse.json({ 
                 success: true,
-                hasWatermark: false,
-                folder: 'without_watermark',
-                catalogId: catalogId,
+                hasWatermark: folder === 'with_watermark',
+                folder: folder,
+                catalogId: finalId,
                 url: publicUrl,
-                originalUrl: publicUrl
+                watermarkedUrl: folder === 'with_watermark' ? publicUrl : null,
+                originalUrl: folder === 'without_watermark' ? publicUrl : null
             });
         }
 
-        // 4. Generation Phase: Create TWO versions (for new clean images)
-        // A. Original (without_watermark)
+        // 4. Generation Phase: Create TWO versions (for new clean images in product mode)
         const originalPath = `without_watermark/${catalogId}.${fileExt}`;
-        console.log(`[UPLOAD] Saving original: ${originalPath}`);
+        console.log(`[UPLOAD] Generating clean and watermarked versions for: ${catalogId}`);
         
-        const { error: originalErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(originalPath, buffer, {
-            contentType: file.type,
-            upsert: true
+        await supabaseAdmin.storage.from(BUCKET_NAME).upload(originalPath, buffer, {
+            contentType: file.type, upsert: true
         });
-
-        if (originalErr) throw originalErr;
         const originalUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(originalPath).data.publicUrl;
 
-        // B. Watermarked (with_watermark)
-        console.log(`[UPLOAD] Generating watermarked version for: ${catalogId}`);
         const watermarkedBuffer = await applyWatermark(buffer, catalogId);
         const watermarkedPath = `with_watermark/${catalogId}.${fileExt}`;
         
-        const { error: wmErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(watermarkedPath, watermarkedBuffer, {
-            contentType: 'image/jpeg',
-            upsert: true
+        await supabaseAdmin.storage.from(BUCKET_NAME).upload(watermarkedPath, watermarkedBuffer, {
+            contentType: 'image/jpeg', upsert: true
         });
-
-        if (wmErr) throw wmErr;
         const watermarkedUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(watermarkedPath).data.publicUrl;
 
-        // SYNC: Add to Media Library settings for tabs
+        // SYNC: Add to Media Library settings
         try {
-            const { data: settings } = await supabaseAdmin
-                .from('app_settings')
-                .select('key, value')
-                .in('key', ['watermark_images', 'no_watermark_images']);
-            
+            const { data: settings } = await supabaseAdmin.from('app_settings').select('key, value').in('key', ['watermark_images', 'no_watermark_images']);
             const currentWm = JSON.parse(settings?.find(s => s.key === 'watermark_images')?.value || '[]');
             const currentNoWm = JSON.parse(settings?.find(s => s.key === 'no_watermark_images')?.value || '[]');
 
-            // 1. Handle watermarked image (always created in product mode, or detected)
-            if (!currentWm.includes(watermarkedUrl)) {
-                await supabaseAdmin.from('app_settings').upsert({
-                    key: 'watermark_images',
-                    value: JSON.stringify([...currentWm, watermarkedUrl]),
-                    updated_at: new Date()
-                });
-            }
-
-            // 2. Handle original image
-            if (!currentNoWm.includes(originalUrl)) {
-                await supabaseAdmin.from('app_settings').upsert({
-                    key: 'no_watermark_images',
-                    value: JSON.stringify([...currentNoWm, originalUrl]),
-                    updated_at: new Date()
-                });
-            }
-        } catch (syncErr) {
-            console.error('[UPLOAD] App settings sync error:', syncErr);
-        }
+            if (!currentWm.includes(watermarkedUrl)) await supabaseAdmin.from('app_settings').upsert({ key: 'watermark_images', value: JSON.stringify([...currentWm, watermarkedUrl]), updated_at: new Date() });
+            if (!currentNoWm.includes(originalUrl)) await supabaseAdmin.from('app_settings').upsert({ key: 'no_watermark_images', value: JSON.stringify([...currentNoWm, originalUrl]), updated_at: new Date() });
+        } catch (syncErr) { console.error('[UPLOAD] App settings sync error:', syncErr); }
 
         return NextResponse.json({ 
             success: true,
-            hasWatermark: true, // The returned URL is watermarked
+            hasWatermark: true,
             catalogId: catalogId,
             url: watermarkedUrl,
             originalUrl: originalUrl,
             watermarkedUrl: watermarkedUrl,
             folder: 'with_watermark'
         });
+
 
     } catch (err) {
         console.error('[UPLOAD] Core failure:', err);
