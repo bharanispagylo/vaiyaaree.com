@@ -17,12 +17,12 @@ const BUCKET_NAME = 'media';
 export async function GET() {
     try {
         console.log('[GET] Starting to list media files...');
-        
+
         // List files from root and subfolders with error handling
         let rootFiles = [];
         let wmFiles = [];
         let noWmFiles = [];
-        
+
         try {
             const result = await supabaseAdmin.storage.from(BUCKET_NAME).list('', {
                 limit: 500,
@@ -55,7 +55,7 @@ export async function GET() {
 
         // Combine all files and add folder information
         const allFiles = [];
-        
+
         // Process root files (filter out temp files)
         rootFiles.filter(f => f.id !== null && !f.name.startsWith('temp-check-') && !f.name.startsWith('ocr-temp-')).forEach(file => {
             try {
@@ -92,12 +92,26 @@ export async function GET() {
             }
         });
 
-        // Sort all files by created_at descending
-        allFiles.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // Deduplicate by publicUrl to avoid showing the same file multiple times if it exists in multiple folders
+        const uniqueFiles = new Map();
+        allFiles.forEach(file => {
+            // If the file already exists, only replace if the new one is in a category/folder
+            // This is a simple heuristic where we prefer files that are clearly categorized
+            if (!uniqueFiles.has(file.url)) {
+                uniqueFiles.set(file.url, file);
+            } else if (file.folder !== 'root') {
+                uniqueFiles.set(file.url, file);
+            }
+        });
 
-        console.log(`[GET] Successfully listed ${allFiles.length} files`);
-        return NextResponse.json({ files: allFiles });
-        
+        const deduplicatedFiles = Array.from(uniqueFiles.values());
+
+        // Sort deduplicated files by created_at descending
+        deduplicatedFiles.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        console.log(`[GET] Successfully listed ${deduplicatedFiles.length} unique files`);
+        return NextResponse.json({ files: deduplicatedFiles });
+
     } catch (err) {
         console.error('GET Error:', err);
         // Return empty files array instead of error to prevent frontend crashes
@@ -126,9 +140,9 @@ export async function POST(request) {
         if (formData.get('checkOnly') === 'true') {
             console.log('[UPLOAD] Check-only mode requested');
             const detection = await detectWatermark(buffer, file.name);
-            return NextResponse.json({ 
-                hasWatermark: detection.hasWatermark, 
-                catalogId: detection.catalogId 
+            return NextResponse.json({
+                hasWatermark: detection.hasWatermark,
+                catalogId: detection.catalogId
             });
         }
 
@@ -145,9 +159,9 @@ export async function POST(request) {
             // Already has watermark - RE-UPLOAD AS IS (but label as watermarked)
             const finalId = detection.catalogId || catalogId;
             const path = `with_watermark/${finalId}.${fileExt}`;
-            
+
             console.warn(`[UPLOAD] Watermark detection for "${file.name}": FOUND ${finalId}. Re-saving as exists.`);
-            
+
             const { error: uploadErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(path, buffer, {
                 contentType: file.type,
                 upsert: true
@@ -155,8 +169,8 @@ export async function POST(request) {
             if (uploadErr) throw uploadErr;
 
             const publicUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl;
-            
-            return NextResponse.json({ 
+
+            return NextResponse.json({
                 success: true,
                 hasWatermark: true,
                 folder: 'with_watermark',
@@ -170,7 +184,7 @@ export async function POST(request) {
         if (mode === 'gallery' || (detection.hasWatermark && !skipDetection)) {
             const isWatermarked = !!detection.hasWatermark;
             const folder = (mode === 'gallery' && !isWatermarked) ? 'without_watermark' : 'with_watermark';
-            
+
             // Logic: Use detected CAT code if present, otherwise use original filename for gallery or gen random for product
             let finalId;
             if (isWatermarked) {
@@ -184,9 +198,9 @@ export async function POST(request) {
             }
 
             const path = `${folder}/${finalId}.${fileExt}`;
-            
+
             console.log(`[UPLOAD] Mode: ${mode}, Folder: ${folder}, ID: ${finalId}`);
-            
+
             const { error: uploadErr } = await supabaseAdmin.storage.from(BUCKET_NAME).upload(path, buffer, {
                 contentType: file.type,
                 upsert: true
@@ -194,7 +208,7 @@ export async function POST(request) {
             if (uploadErr) throw uploadErr;
 
             const publicUrl = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(path).data.publicUrl;
-            
+
             // Sync to settings
             try {
                 const key = folder === 'with_watermark' ? 'watermark_images' : 'no_watermark_images';
@@ -207,7 +221,7 @@ export async function POST(request) {
                 }
             } catch (err) { console.error('Sync error:', err); }
 
-            return NextResponse.json({ 
+            return NextResponse.json({
                 success: true,
                 hasWatermark: folder === 'with_watermark',
                 folder: folder,
@@ -221,7 +235,7 @@ export async function POST(request) {
         // 4. Generation Phase: Create TWO versions (for new clean images in product mode)
         const originalPath = `without_watermark/${catalogId}.${fileExt}`;
         console.log(`[UPLOAD] Generating clean and watermarked versions for: ${catalogId}`);
-        
+
         await supabaseAdmin.storage.from(BUCKET_NAME).upload(originalPath, buffer, {
             contentType: file.type, upsert: true
         });
@@ -229,7 +243,7 @@ export async function POST(request) {
 
         const watermarkedBuffer = await applyWatermark(buffer, catalogId);
         const watermarkedPath = `with_watermark/${catalogId}.${fileExt}`;
-        
+
         await supabaseAdmin.storage.from(BUCKET_NAME).upload(watermarkedPath, watermarkedBuffer, {
             contentType: 'image/jpeg', upsert: true
         });
@@ -245,7 +259,7 @@ export async function POST(request) {
             if (!currentNoWm.includes(originalUrl)) await supabaseAdmin.from('app_settings').upsert({ key: 'no_watermark_images', value: JSON.stringify([...currentNoWm, originalUrl]), updated_at: new Date() });
         } catch (syncErr) { console.error('[UPLOAD] App settings sync error:', syncErr); }
 
-        return NextResponse.json({ 
+        return NextResponse.json({
             success: true,
             hasWatermark: true,
             catalogId: catalogId,
@@ -284,17 +298,17 @@ export async function DELETE(request) {
                 .from('app_settings')
                 .select('key, value')
                 .in('key', ['watermark_images', 'no_watermark_images']);
-            
+
             for (const setting of (settings || [])) {
                 let list = [];
-                try { list = JSON.parse(setting.value); } catch(e) {}
-                
+                try { list = JSON.parse(setting.value); } catch (e) { }
+
                 if (list.includes(publicUrl)) {
                     const newList = list.filter(u => u !== publicUrl);
                     await supabaseAdmin
                         .from('app_settings')
-                        .upsert({ 
-                            key: setting.key, 
+                        .upsert({
+                            key: setting.key,
                             value: JSON.stringify(newList),
                             updated_at: new Date()
                         });

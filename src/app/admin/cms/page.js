@@ -533,7 +533,7 @@ export default function CMSPage() {
                                             </select>
 
                                             <label style={labelStyle}>Navigation Order (Low to High)</label>
-                                            <input type="number" name="menu_order" defaultValue={currentPage?.menu_order || 0} style={inputStyle} />
+                                            <input type="number" name="menu_order" min="0" defaultValue={currentPage?.menu_order || 0} style={inputStyle} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                         </div>
                                     </div>
                                 </div>

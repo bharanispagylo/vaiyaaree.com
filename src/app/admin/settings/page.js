@@ -90,7 +90,7 @@ export default function SettingsPage() {
                                     </div>
                                     <div>
                                         <label className="label">Default Tax Rate (%)</label>
-                                        <input className="input-field" type="number" defaultValue="5" />
+                                        <input className="input-field" type="number" defaultValue="5" min="0" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                     </div>
                                 </div>
                                 <div>
@@ -111,11 +111,11 @@ export default function SettingsPage() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                     <div>
                                         <label className="label">Standard Shipping (₹)</label>
-                                        <input className="input-field" type="number" defaultValue="100" />
+                                        <input className="input-field" type="number" defaultValue="100" min="0" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                     </div>
                                     <div>
                                         <label className="label">Free Shipping Above (₹)</label>
-                                        <input className="input-field" type="number" defaultValue="5000" />
+                                        <input className="input-field" type="number" defaultValue="5000" min="0" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                     </div>
                                 </div>
                                 <div>

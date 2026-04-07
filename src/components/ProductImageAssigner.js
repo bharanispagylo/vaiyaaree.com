@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Upload, Check, Loader2, Image as ImageIcon, X, Grid } from 'lucide-react';
+import { Upload, Check, Loader2, Image as ImageIcon, X, Grid, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import ImageZoom from './ImageZoom';
+import MediaPicker from './MediaPicker';
 
 /**
  * ProductImageAssigner
@@ -27,71 +29,91 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
             catalogId: p.product_catalog_image_id || null,
         }))
     );
-    const [mediaFiles, setMediaFiles] = useState([]);
-    const [loadingMedia, setLoadingMedia] = useState(true);
     const [activePickerIndex, setActivePickerIndex] = useState(null); // which row is open in picker
     const [ocrLoading, setOcrLoading] = useState(false);
+    const [watermarkModal, setWatermarkModal] = useState(null);
+    const [zoomedImage, setZoomedImage] = useState(null);
     const fileRefs = useRef([]);
-
-    // Load existing media library
-    useEffect(() => {
-        fetch('/api/admin/upload')
-            .then(r => r.json())
-            .then(d => setMediaFiles(d.files || []))
-            .catch(() => { })
-            .finally(() => setLoadingMedia(false));
-    }, []);
 
     // Assign an image URL to a product row, stamp it, upload, save
     const assignImage = async (index, rawImageUrl) => {
         const item = items[index];
-        setItems(prev => prev.map((it, i) => i === index ? { ...it, status: 'stamping', previewUrl: rawImageUrl } : it));
+        setOcrLoading(true);
 
         try {
-            const catalogId = item.catalogId || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-            const res = await fetch(rawImageUrl);
-            const blob = await res.blob();
-            const fileToUpload = new File([blob], `assign-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            // 1. Detection Phase (Check Only)
+            const response = await fetch(rawImageUrl);
+            const blob = await response.blob();
+            const fileCheck = new File([blob], `check-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-            const formData = new FormData();
-            formData.append('file', fileToUpload);
-            formData.append('catalogId', catalogId);
-            formData.append('requireClean', 'true');
+            const checkFormData = new FormData();
+            checkFormData.append('file', fileCheck);
+            checkFormData.append('checkOnly', 'true');
+            const detRes = await fetch('/api/admin/upload', { method: 'POST', body: checkFormData });
+            const detData = await detRes.json();
 
-            const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-            const data = await uploadRes.json();
-            
-            if (!uploadRes.ok) {
-                if (data.error === 'Watermark already present') {
-                    setErrorModal({ title: 'Watermark Blocked', message: 'This image already has a CAT code.' });
-                } else throw new Error(data.error || 'Upload failed');
-                setItems(prev => prev.map((it, i) => i === index ? { ...it, status: 'idle' } : it));
-                return;
-            }
+            const onProceedWithUpload = async (catId) => {
+                setOcrLoading(true);
+                setItems(prev => prev.map((it, i) => i === index ? { ...it, status: 'stamping', previewUrl: rawImageUrl } : it));
 
-            const finalUrl = data.watermarkedUrl || data.url;
-            const dbData = {
-                name: item.name, description: item.description, price: item.price, stock: item.stock,
-                category: item.category, type: 'simple', is_active: true,
-                image_url: finalUrl, product_catalog_image_id: catalogId
+                const uploadFormData = new FormData();
+                uploadFormData.append('file', fileCheck);
+                uploadFormData.append('catalogId', catId);
+                uploadFormData.append('requireClean', 'true');
+                uploadFormData.append('mode', 'product');
+
+                const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: uploadFormData });
+                const data = await uploadRes.json();
+
+                if (!uploadRes.ok) throw new Error(data.error || 'Upload failed');
+
+                const finalUrl = data.watermarkedUrl || data.url;
+                const dbData = {
+                    name: item.name, description: item.description, price: item.price, stock: item.stock,
+                    category: item.category, type: 'simple', is_active: true,
+                    image_url: finalUrl, product_catalog_image_id: data.catalogId
+                };
+
+                let savedProduct = null;
+                if (item.isNew) {
+                    dbData.total_added = item.stock || 0;
+                    const { data: insData, error } = await supabase.from('products').insert([dbData]).select();
+                    if (error) throw error;
+                    savedProduct = insData?.[0];
+                } else {
+                    const { data: updData, error } = await supabase.from('products').update(dbData).eq('id', item.id).select();
+                    if (error) throw error;
+                    savedProduct = updData?.[0];
+                }
+
+                setItems(prev => prev.map((it, i) => i === index ? { ...it, ...savedProduct, status: 'done', previewUrl: finalUrl, catalogId: data.catalogId } : it));
+                setWatermarkModal(null);
+                setOcrLoading(false);
             };
 
-            let savedProduct = null;
-            if (item.isNew) {
-                dbData.total_added = item.stock || 0;
-                const { data: insData, error } = await supabase.from('products').insert([dbData]).select();
-                if (error) throw error;
-                savedProduct = insData?.[0];
+            // Show confirmation modal like main product page
+            if (detData.hasWatermark) {
+                setWatermarkModal({
+                    type: 'existing',
+                    detectedCode: detData.catalogId || 'CAT-CODE',
+                    url: rawImageUrl,
+                    onProceed: () => onProceedWithUpload(detData.catalogId)
+                });
             } else {
-                const { data: updData, error } = await supabase.from('products').update(dbData).eq('id', item.id).select();
-                if (error) throw error;
-                savedProduct = updData?.[0];
+                const newCatId = item.catalogId || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                setWatermarkModal({
+                    type: 'new',
+                    detectedCode: newCatId,
+                    url: rawImageUrl,
+                    onProceed: () => onProceedWithUpload(newCatId)
+                });
             }
 
-            setItems(prev => prev.map((it, i) => i === index ? { ...it, ...savedProduct, status: 'done', previewUrl: finalUrl, catalogId } : it));
         } catch (err) {
-            setErrorModal({ title: 'Error', message: err.message });
+            setErrorModal({ title: 'Detection Error', message: err.message });
             setItems(prev => prev.map((it, i) => i === index ? { ...it, status: 'error' } : it));
+        } finally {
+            setOcrLoading(false);
         }
     };
 
@@ -108,10 +130,10 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
 
     return (
         <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)',
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
             backdropFilter: 'blur(12px)', zIndex: 2000, overflowY: 'auto',
-            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            padding: '2rem 1rem'
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem'
         }}>
             <div className="card shadow-premium" style={{
                 width: '100%', maxWidth: '860px', borderRadius: '24px',
@@ -127,7 +149,7 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                         <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800 }}>
                             📸 Assign Product Images
                         </h2>
-                        <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>
+                        <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
                             {doneCount}/{items.length} done • Each image gets a unique catalog ID (CAT-XXXXX) and is stored in media library
                         </p>
                     </div>
@@ -159,7 +181,7 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                 {/* Product List */}
                 <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     {items.map((item, i) => (
-                        <div key={item.id} style={{
+                        <div key={item.id ? `prod-${item.id}` : `idx-${i}`} style={{
                             display: 'flex', gap: '1rem', alignItems: 'center',
                             padding: '1rem 1.25rem', borderRadius: '16px',
                             background: item.status === 'done'
@@ -177,7 +199,7 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                                 background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))'
                             }}>
                                 {item.previewUrl ? (
-                                    <img src={item.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <img src={item.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setZoomedImage(item.previewUrl)} />
                                 ) : (
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                                         <ImageIcon size={24} style={{ color: 'hsl(var(--text-muted))' }} />
@@ -268,7 +290,7 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     background: 'hsl(var(--bg-app) / 0.3)'
                 }}>
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'hsl(var(--text-muted))' }}>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>
                         💡 Images are stored in media library with unique catalog IDs for easy tracking
                     </p>
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -284,67 +306,16 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                 </div>
             </div>
 
-            {/* Mini Media Picker overlay */}
+            {/* Unified Media Picker Overlay */}
             {activePickerIndex !== null && (
-                <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-                    zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '2rem'
-                }}>
-                    <div className="card" style={{
-                        width: '100%', maxWidth: '700px', maxHeight: '80vh',
-                        borderRadius: '20px', overflow: 'hidden', display: 'flex',
-                        flexDirection: 'column', background: 'hsl(var(--bg-panel))'
-                    }}>
-                        <div style={{
-                            padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                        }}>
-                            <h3 style={{ margin: 0, fontSize: '1rem' }}>
-                                Choose from Media Library — {items[activePickerIndex]?.name}
-                            </h3>
-                            <button
-                                onClick={() => setActivePickerIndex(null)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))' }}
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
-                            {loadingMedia ? (
-                                <div style={{ textAlign: 'center', padding: '3rem' }}>
-                                    <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
-                                </div>
-                            ) : mediaFiles.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '3rem', color: 'hsl(var(--text-muted))' }}>
-                                    No images in library yet. Upload some first.
-                                </div>
-                            ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem' }}>
-                                    {mediaFiles.map(file => (
-                                        <div
-                                            key={file.id}
-                                            onClick={async () => {
-                                                const url = file.url;
-                                                assignImage(activePickerIndex, url);
-                                                setActivePickerIndex(null);
-                                            }}
-                                            style={{
-                                                aspectRatio: '1/1', borderRadius: '12px', overflow: 'hidden',
-                                                cursor: 'pointer', border: '2px solid transparent',
-                                                transition: 'all 0.2s'
-                                            }}
-                                            onMouseEnter={e => e.currentTarget.style.borderColor = 'hsl(var(--primary))'}
-                                            onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
-                                        >
-                                            <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                <MediaPicker
+                    onSelect={(url) => {
+                        assignImage(activePickerIndex, url);
+                        setActivePickerIndex(null);
+                    }}
+                    onClose={() => setActivePickerIndex(null)}
+                    currentImage={items[activePickerIndex]?.previewUrl}
+                />
             )}
 
             {/* OCR Loading Overlay */}
@@ -364,28 +335,107 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
             `}</style>
 
+            {/* Watermark Modal */}
+            {watermarkModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+                    backdropFilter: 'blur(8px)', zIndex: 6000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                }}>
+                    {watermarkModal.type === 'existing' ? (
+                        /* NEW ERROR STYLE MODAL */
+                        <div className="animate-enter" style={{
+                            maxWidth: '400px', width: '100%', background: '#ffffff', 
+                            borderRadius: '16px', overflow: 'hidden', textAlign: 'center',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                        }}>
+                            <div style={{ padding: '2.5rem 2rem' }}>
+                                <div style={{
+                                    width: '64px', height: '64px', borderRadius: '50%',
+                                    background: '#fee2e2', color: '#ef4444',
+                                    display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem'
+                                }}>
+                                    <AlertTriangle size={32} />
+                                </div>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#111827' }}>
+                                    Watermark present
+                                </h3>
+                                <p style={{ color: '#6b7280', lineHeight: '1.6', fontSize: '0.95rem' }}>
+                                    This image already contains a watermark and cannot be processed again.
+                                </p>
+                            </div>
+                            <div style={{ background: '#fef2f2', padding: '1rem' }}>
+                                <button
+                                    onClick={() => { setWatermarkModal(null); setOcrLoading(false); }}
+                                    style={{
+                                        width: '100%', background: '#ef4444', color: '#ffffff',
+                                        border: 'none', padding: '0.75rem', borderRadius: '8px',
+                                        fontWeight: 700, fontSize: '1rem', cursor: 'pointer'
+                                    }}
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        /* NEW CLEAN MODAL */
+                        <div className="card shadow-premium animate-enter" style={{
+                            maxWidth: '450px', width: '90%', padding: '2.5rem', textAlign: 'center',
+                            background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0',
+                            boxShadow: '0 25px 60px rgba(0,0,0,0.4)'
+                        }} onClick={e => e.stopPropagation()}>
+                            <div style={{
+                                width: '64px', height: '64px', borderRadius: '50%',
+                                background: 'hsl(var(--success) / 0.1)',
+                                color: 'hsl(var(--success))',
+                                display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem'
+                            }}>
+                                <ImageIcon size={28} />
+                            </div>
+                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.75rem' }}>
+                                New Image Ready
+                            </h3>
+                            <p style={{ color: 'hsl(var(--text-muted))', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                                This is a clean image. We'll generate a unique ID and watermark it for you.
+                            </p>
+                            <div style={{
+                                width: '100%', height: '220px', borderRadius: '16px',
+                                overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))',
+                                marginBottom: '2rem', background: 'hsl(var(--bg-app))', cursor: 'zoom-in'
+                            }} onClick={() => setZoomedImage(watermarkModal.url)}>
+                                <img src={watermarkModal.url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                <button onClick={() => { setWatermarkModal(null); setOcrLoading(false); }} className="btn btn-secondary" style={{ flex: 1, padding: '0.8rem' }}>Cancel</button>
+                                <button onClick={watermarkModal.onProceed} className="btn btn-primary" style={{ flex: 1.5, background: 'hsl(var(--text-main))', padding: '0.8rem', color: 'white' }}>Apply & Use</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Error Modal */}
             {errorModal && (
                 <div style={{
                     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                    backdropFilter: 'blur(4px)', zIndex: 9000, 
+                    backdropFilter: 'blur(4px)', zIndex: 9000,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
                 }}>
                     <div className='card shadow-premium' style={{
                         maxWidth: '400px', width: '100%', padding: '2rem',
                         textAlign: 'center', borderRadius: '24px'
                     }}>
-                        <div style={{ 
-                            width: '64px', height: '64px', borderRadius: '20px', 
+                        <div style={{
+                            width: '64px', height: '64px', borderRadius: '20px',
                             background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             margin: '0 auto 1.5rem'
                         }}>
-                             <X size={32} />
+                            <X size={32} />
                         </div>
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>{errorModal.title}</h3>
                         <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>{errorModal.message}</p>
-                        <button 
+                        <button
                             onClick={() => setErrorModal(null)}
                             className='admin-button-primary'
                             style={{ width: '100%' }}
@@ -394,6 +444,9 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                         </button>
                     </div>
                 </div>
+            )}
+            {zoomedImage && (
+                <ImageZoom url={zoomedImage} onClose={() => setZoomedImage(null)} />
             )}
         </div>
     );

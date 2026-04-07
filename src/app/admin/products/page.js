@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingCart,
-    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import MediaPicker from '@/components/MediaPicker';
 import ProductImageAssigner from '@/components/ProductImageAssigner';
+import ImageZoom from '@/components/ImageZoom';
 
 // Consolidated image services used via API route
 
@@ -30,6 +31,7 @@ export default function ProductsPage() {
     const [categoryFilter, setCategoryFilter] = useState('ALL');
     const [sortBy, setSortBy] = useState('newest');
     const [groupFilter, setGroupFilter] = useState('ALL');
+    const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
     const [viewMode, setViewMode] = useState('table'); // 'table', 'card', or 'analytics'
     const [analyticsData, setAnalyticsData] = useState({
         topSellers: [],
@@ -46,6 +48,7 @@ export default function ProductsPage() {
     const [fbProcessing, setFbProcessing] = useState(false);
     const [fbConfig, setFbConfig] = useState(null);
     const [importModal, setImportModal] = useState(false);
+    const [zoomedImage, setZoomedImage] = useState(null);
     const [importing, setImporting] = useState(false);
     const [syncWithMeta, setSyncWithMeta] = useState(false);
     const [resultModal, setResultModal] = useState(null); // { title, message, type, onClose }
@@ -434,7 +437,7 @@ export default function ProductsPage() {
             // Priority: currentProduct state (updated by upload/library pick) > existing product data
             const existingCatalogId = currentProduct?.product_catalog_image_id || '';
             productData.product_catalog_image_id = existingCatalogId;
-            
+
             // Generate a random one ONLY if we have an image but NO id yet (edge case)
             if (productData.image_url && !productData.product_catalog_image_id) {
                 productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -672,13 +675,17 @@ export default function ProductsPage() {
     const groups = ['ALL', ...new Set(products.map(p => p.product_group).filter(Boolean))];
     let filtered = products.filter(p => {
         const term = searchTerm.toLowerCase();
-        return (
+        const matchesSearch = (
             (p.name || '').toLowerCase().includes(term) ||
             (p.category || '').toLowerCase().includes(term) ||
             (p.product_group || '').toLowerCase().includes(term) ||
             (p.product_catalog_image_id || '').toLowerCase().includes(term)
-        ) && (categoryFilter === 'ALL' || p.category === categoryFilter)
-            && (groupFilter === 'ALL' || p.product_group === groupFilter);
+        );
+        const matchesCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
+        const matchesGroup = groupFilter === 'ALL' || p.product_group === groupFilter;
+        const matchesStatus = statusFilter === 'ALL' ||
+            (statusFilter === 'ACTIVE' ? p.is_active !== false : p.is_active === false);
+        return matchesSearch && matchesCategory && matchesGroup && matchesStatus;
     });
     filtered.sort((a, b) => {
         if (sortBy === 'low_stock') return (a.stock || 0) - (b.stock || 0);
@@ -751,6 +758,30 @@ export default function ProductsPage() {
                                     border: categoryFilter === cat ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
                                 }}>
                                     {cat === 'ALL' ? 'All Collections' : cat}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Active / Inactive Status Tabs */}
+                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', padding: '4px', background: 'hsl(var(--bg-card))', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
+                            {[
+                                { key: 'ALL', label: 'All Products', count: products.length },
+                                { key: 'ACTIVE', label: '✅ Active', count: products.filter(p => p.is_active !== false).length },
+                                { key: 'INACTIVE', label: '🔴 Inactive', count: products.filter(p => p.is_active === false).length },
+                            ].map(tab => (
+                                <button key={tab.key} onClick={() => { setStatusFilter(tab.key); setProductsPage(1); }} style={{
+                                    padding: '0.45rem 1.1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                    background: statusFilter === tab.key ? 'hsl(var(--primary))' : 'transparent',
+                                    color: statusFilter === tab.key ? 'white' : 'hsl(var(--text-muted))',
+                                }}>
+                                    {tab.label}
+                                    <span style={{
+                                        background: statusFilter === tab.key ? 'rgba(255,255,255,0.25)' : 'hsl(var(--bg-app))',
+                                        color: statusFilter === tab.key ? 'white' : 'hsl(var(--text-muted))',
+                                        padding: '0 6px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 800,
+                                        minWidth: '20px', textAlign: 'center'
+                                    }}>{tab.count}</span>
                                 </button>
                             ))}
                         </div>
@@ -964,6 +995,7 @@ export default function ProductsPage() {
                                                                     {product.image_url ? (
                                                                         <>
                                                                             <img src={product.image_url?.split(',')[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                                onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
                                                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
                                                                             {product.product_catalog_image_id && (
                                                                                 <div style={{
@@ -1091,6 +1123,7 @@ export default function ProductsPage() {
                                                         <>
                                                             <img src={product.image_url?.split(',')[0]} alt={product.name}
                                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
                                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
                                                             {/* Catalog ID Badge */}
                                                             {product.product_catalog_image_id && (
@@ -1240,11 +1273,11 @@ export default function ProductsPage() {
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Price (₹) *</label>
-                                                <input type="number" name="price" defaultValue={currentProduct?.price} required placeholder="e.g. 12500" className="admin-input" />
+                                                <input type="number" name="price" defaultValue={currentProduct?.price} required min="0" placeholder="e.g. 12500" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Stock Qty *</label>
-                                                <input type="number" name="stock" defaultValue={currentProduct?.stock} required placeholder="e.g. 10" className="admin-input" />
+                                                <input type="number" name="stock" defaultValue={currentProduct?.stock} required min="0" placeholder="e.g. 10" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
                                         <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
@@ -1254,7 +1287,7 @@ export default function ProductsPage() {
                                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                                                         {productImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
                                                             <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
-                                                                <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                                <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }} onClick={() => setZoomedImage(imgUrl)} title="Click to zoom" />
                                                                 <button type="button" onClick={() => {
                                                                     const urls = productImageUrl.split(',').filter(Boolean);
                                                                     urls.splice(idx, 1);
@@ -1298,12 +1331,12 @@ export default function ProductsPage() {
                                                                                     uploadData.append('requireClean', 'true');
                                                                                     const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
                                                                                     const data = await res.json();
-                                                                                    
+
                                                                                     const finalUrl = data.watermarkedUrl || data.url;
                                                                                     const existingArray = productImageUrl ? productImageUrl.split(',').filter(Boolean) : [];
                                                                                     setProductImageUrl([finalUrl, ...existingArray].join(','));
                                                                                     setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
-                                                                                    
+
                                                                                     setWatermarkModal(null);
                                                                                     resolve();
                                                                                 };
@@ -1345,7 +1378,7 @@ export default function ProductsPage() {
                                             </div>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Threshold</label>
-                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} className="admin-input" />
+                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} min="0" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
                                     </div>
@@ -1366,68 +1399,68 @@ export default function ProductsPage() {
                                                 {variants.map((v, i) => (
                                                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'center' }}>
                                                         <input placeholder="Color" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                        <input type="number" placeholder="Price" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                        <input type="number" placeholder="Stock" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
+                                                        <input type="number" placeholder="Price" value={v.price} min="0" onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                        <input type="number" placeholder="Stock" value={v.stock} min="0" onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                             {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />}
                                                             <button type="button" onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem' }}>Library</button>
                                                             <label className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem', cursor: 'pointer', textAlign: 'center' }}>
                                                                 Upload
                                                                 <input type="file" style={{ display: 'none' }} onChange={async (e) => {
-                                                                     const file = e.target.files?.[0];
-                                                                     if (!file) return;
-                                                                     try {
-                                                                         setOcrLoading(true);
-                                                                         const reader = new FileReader();
-                                                                         reader.onload = async (re) => {
-                                                                             try {
-                                                                                 const base64 = re.target.result;
+                                                                    const file = e.target.files?.[0];
+                                                                    if (!file) return;
+                                                                    try {
+                                                                        setOcrLoading(true);
+                                                                        const reader = new FileReader();
+                                                                        reader.onload = async (re) => {
+                                                                            try {
+                                                                                const base64 = re.target.result;
 
-                                                                                 // 1. Send for detection
-                                                                                 const formData = new FormData();
-                                                                                 formData.append('file', file);
-                                                                                 formData.append('checkOnly', 'true');
-                                                                                 const detRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-                                                                                 const detData = await detRes.json();
+                                                                                // 1. Send for detection
+                                                                                const formData = new FormData();
+                                                                                formData.append('file', file);
+                                                                                formData.append('checkOnly', 'true');
+                                                                                const detRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                                const detData = await detRes.json();
 
-                                                                                 const onProceedWithVariantUpload = async (catId) => {
-                                                                                     setOcrLoading(true);
-                                                                                     const uploadData = new FormData();
-                                                                                     uploadData.append('file', file);
-                                                                                     uploadData.append('catalogId', catId);
-                                                                                     uploadData.append('requireClean', 'true');
-                                                                                     const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
-                                                                                     const data = await res.json();
-                                                                                     if (!res.ok) throw new Error(data.error || 'Upload failed');
-                                                                                     
-                                                                                     updateVariant(i, 'image_url', data.watermarkedUrl || data.url);
-                                                                                     setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
-                                                                                     setWatermarkModal(null);
-                                                                                 };
+                                                                                const onProceedWithVariantUpload = async (catId) => {
+                                                                                    setOcrLoading(true);
+                                                                                    const uploadData = new FormData();
+                                                                                    uploadData.append('file', file);
+                                                                                    uploadData.append('catalogId', catId);
+                                                                                    uploadData.append('requireClean', 'true');
+                                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
+                                                                                    const data = await res.json();
+                                                                                    if (!res.ok) throw new Error(data.error || 'Upload failed');
 
-                                                                                 if (detData.hasWatermark) {
-                                                                                     setWatermarkModal({
-                                                                                         type: 'existing',
-                                                                                         detectedCode: detData.catalogId || 'CAT-CODE',
-                                                                                         url: base64,
-                                                                                         onProceed: () => onProceedWithVariantUpload(detData.catalogId)
-                                                                                     });
-                                                                                 } else {
-                                                                                     const newCatId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                                                                                     setWatermarkModal({
-                                                                                         type: 'new',
-                                                                                         detectedCode: newCatId,
-                                                                                         url: base64,
-                                                                                         onProceed: () => onProceedWithVariantUpload(newCatId)
-                                                                                     });
-                                                                                 }
-                                                                             } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
-                                                                             finally { setOcrLoading(false); }
-                                                                         };
-                                                                         reader.readAsDataURL(file);
-                                                                     } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
-                                                                     finally { setOcrLoading(false); }
-                                                                 }} />
+                                                                                    updateVariant(i, 'image_url', data.watermarkedUrl || data.url);
+                                                                                    setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
+                                                                                    setWatermarkModal(null);
+                                                                                };
+
+                                                                                if (detData.hasWatermark) {
+                                                                                    setWatermarkModal({
+                                                                                        type: 'existing',
+                                                                                        detectedCode: detData.catalogId || 'CAT-CODE',
+                                                                                        url: base64,
+                                                                                        onProceed: () => onProceedWithVariantUpload(detData.catalogId)
+                                                                                    });
+                                                                                } else {
+                                                                                    const newCatId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                                                                                    setWatermarkModal({
+                                                                                        type: 'new',
+                                                                                        detectedCode: newCatId,
+                                                                                        url: base64,
+                                                                                        onProceed: () => onProceedWithVariantUpload(newCatId)
+                                                                                    });
+                                                                                }
+                                                                            } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
+                                                                            finally { setOcrLoading(false); }
+                                                                        };
+                                                                        reader.readAsDataURL(file);
+                                                                    } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
+                                                                    finally { setOcrLoading(false); }
+                                                                }} />
                                                             </label>
                                                         </div>
                                                         <button type="button" onClick={() => removeVariant(i)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', border: 'none', color: 'hsl(var(--danger))', cursor: 'pointer' }}><Trash2 size={16} /></button>
@@ -1436,7 +1469,7 @@ export default function ProductsPage() {
                                             </div>
                                             <div style={{ marginTop: '1rem' }}>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold (Overall)</label>
-                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} className="admin-input" />
+                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} min="0" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
                                     </div>
@@ -1869,75 +1902,96 @@ export default function ProductsPage() {
                 {
                     watermarkModal && (
                         <div style={{
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
-                            zIndex: 8000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+                            zIndex: 8000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
                         }}>
-                            <div className="card shadow-premium animate-enter" style={{
-                                maxWidth: '450px', width: '90%', padding: '2.5rem', textAlign: 'center',
-                                background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0',
-                                boxShadow: '0 25px 60px rgba(0,0,0,0.4)'
-                            }} onClick={e => e.stopPropagation()}>
-                                <div style={{ 
-                                    width: '64px', height: '64px', borderRadius: '50%', 
-                                    background: watermarkModal.type === 'existing' ? 'hsl(var(--accent) / 0.1)' : 'hsl(var(--primary) / 0.1)',
-                                    color: watermarkModal.type === 'existing' ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
-                                    display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem'
+                            {watermarkModal.type === 'existing' ? (
+                                /* NEW ERROR STYLE MODAL */
+                                <div className="animate-enter" style={{
+                                    maxWidth: '400px', width: '100%', background: '#ffffff', 
+                                    borderRadius: '16px', overflow: 'hidden', textAlign: 'center',
+                                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                                 }}>
-                                    <ImageIcon size={32} />
+                                    <div style={{ padding: '2.5rem 2rem' }}>
+                                        <div style={{
+                                            width: '64px', height: '64px', borderRadius: '50%',
+                                            background: '#fee2e2', color: '#ef4444',
+                                            display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem'
+                                        }}>
+                                            <AlertTriangle size={32} />
+                                        </div>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#111827' }}>
+                                            Watermark already present
+                                        </h3>
+                                        <p style={{ color: '#6b7280', lineHeight: '1.6', fontSize: '0.95rem' }}>
+                                            This image already contains a watermark and cannot be processed again.
+                                        </p>
+                                    </div>
+                                    <div style={{ background: '#fef2f2', padding: '1rem' }}>
+                                        <button
+                                            onClick={() => setWatermarkModal(null)}
+                                            style={{
+                                                width: '100%', background: '#ef4444', color: '#ffffff',
+                                                border: 'none', padding: '0.75rem', borderRadius: '8px',
+                                                fontWeight: 700, fontSize: '1rem', cursor: 'pointer'
+                                            }}
+                                        >
+                                            Dismiss
+                                        </button>
+                                    </div>
                                 </div>
+                            ) : (
+                                /* ORIGINAL NEW WATERMARK MODAL */
+                                <div className="card shadow-premium animate-enter" style={{
+                                    maxWidth: '450px', width: '90%', padding: '2.5rem', textAlign: 'center',
+                                    background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0',
+                                    boxShadow: '0 25px 60px rgba(0,0,0,0.4)'
+                                }} onClick={e => e.stopPropagation()}>
+                                    <div style={{
+                                        width: '64px', height: '64px', borderRadius: '50%',
+                                        background: 'hsl(var(--primary) / 0.1)',
+                                        color: 'hsl(var(--primary))',
+                                        display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem'
+                                    }}>
+                                        <ImageIcon size={32} />
+                                    </div>
 
-                                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.75rem' }}>
-                                    {watermarkModal.type === 'existing' ? 'Watermark already present' : 'Apply Watermark?'}
-                                </h3>
-                                
-                                <p style={{ color: 'hsl(var(--text-muted))', lineHeight: '1.6', marginBottom: watermarkModal.type === 'existing' ? '2.5rem' : '1.5rem' }}>
-                                    {watermarkModal.type === 'existing' 
-                                        ? `This image already contains a watermark and cannot be processed again.`
-                                        : `This is a clean image. We will generate code ${watermarkModal.detectedCode} and apply the watermark for you.`
-                                    }
-                                </p>
+                                    <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.75rem' }}>
+                                        Apply Watermark?
+                                    </h3>
 
-                                {watermarkModal.type === 'new' && (
+                                    <p style={{ color: 'hsl(var(--text-muted))', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+                                        This is a clean image. We will generate code {watermarkModal.detectedCode} and apply the watermark for you.
+                                    </p>
+
                                     <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', marginBottom: '2rem', border: '1px solid #f1f5f9' }}>
-                                        <img src={watermarkModal.url} style={{ width: '100%', height: '140px', objectFit: 'contain', borderRadius: '12px' }} />
-                                        <div style={{ 
-                                            marginTop: '0.75rem', fontWeight: 800, fontFamily: 'monospace', 
-                                            color: 'hsl(var(--primary))', fontSize: '1.1rem' 
+                                        <img src={watermarkModal.url} style={{ width: '100%', height: '140px', objectFit: 'contain', borderRadius: '12px', cursor: 'pointer' }} onClick={() => setZoomedImage(watermarkModal.url)} title="Click to zoom" />
+                                        <div style={{
+                                            marginTop: '0.75rem', fontWeight: 800, fontFamily: 'monospace',
+                                            color: 'hsl(var(--primary))', fontSize: '1.1rem'
                                         }}>
                                             {watermarkModal.detectedCode}
                                         </div>
                                     </div>
-                                )}
 
-                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                                    {watermarkModal.type === 'existing' ? (
-                                        <button 
-                                            onClick={() => setWatermarkModal(null)} 
-                                            className="btn btn-primary" 
-                                            style={{ minWidth: '160px', background: 'hsl(var(--text-main))', padding: '0.875rem' }}
+                                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                        <button
+                                            onClick={() => setWatermarkModal(null)}
+                                            className="btn btn-secondary"
+                                            style={{ flex: 1, padding: '0.8rem' }}
                                         >
-                                            OK
+                                            Cancel
                                         </button>
-                                    ) : (
-                                        <>
-                                            <button 
-                                                onClick={() => setWatermarkModal(null)} 
-                                                className="btn btn-secondary" 
-                                                style={{ flex: 1, padding: '0.8rem' }}
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button 
-                                                onClick={watermarkModal.onProceed} 
-                                                className="btn btn-primary" 
-                                                style={{ flex: 1.5, background: 'hsl(var(--text-main))', padding: '0.8rem' }}
-                                            >
-                                                Apply & Use
-                                            </button>
-                                        </>
-                                    )}
+                                        <button
+                                            onClick={watermarkModal.onProceed}
+                                            className="btn btn-primary"
+                                            style={{ flex: 1.5, background: 'hsl(var(--text-main))', padding: '0.8rem' }}
+                                        >
+                                            Apply & Use
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     )
                 }
@@ -2060,6 +2114,10 @@ export default function ProductsPage() {
                             </button>
                         </div>
                     </div>
+                )}
+                {/* Image Zoom Modal */}
+                {zoomedImage && (
+                    <ImageZoom url={zoomedImage} onClose={() => setZoomedImage(null)} />
                 )}
             </div>
         </>

@@ -609,12 +609,14 @@ function CustomersPage() {
                                                             <div className="admin-grid-2" style={{ gap: '1rem' }}>
                                                                 <div>
                                                                     <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.25rem' }}>TOTAL AMOUNT (₹)</label>
-                                                                    <input
-                                                                        type="number"
-                                                                        value={editedOrderData.total_amount}
-                                                                        onChange={(e) => setEditedOrderData({ ...editedOrderData, total_amount: e.target.value })}
-                                                                        style={{ width: '100%', padding: '0.5rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'hsl(var(--text-main))' }}
-                                                                    />
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={editedOrderData.total_amount}
+                                                                            onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
+                                                                            onChange={(e) => setEditedOrderData({ ...editedOrderData, total_amount: e.target.value })}
+                                                                            style={{ width: '100%', padding: '0.5rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'hsl(var(--text-main))' }}
+                                                                        />
                                                                 </div>
                                                                 <div>
                                                                     <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.25rem' }}>PAYMENT METHOD</label>

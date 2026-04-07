@@ -240,8 +240,10 @@ export default function ShippingAdminPage() {
                                         <IndianRupee size={14} />
                                         <input
                                             type="number"
+                                            min="0"
                                             value={selectedZone.rate}
                                             onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
+                                            onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                         />
                                     </div>
                                 </div>
@@ -251,8 +253,10 @@ export default function ShippingAdminPage() {
                                         <IndianRupee size={14} />
                                         <input
                                             type="number"
+                                            min="0"
                                             value={selectedZone.free_threshold}
                                             onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
+                                            onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                         />
                                     </div>
                                 </div>
@@ -318,9 +322,11 @@ export default function ShippingAdminPage() {
                                                 <IndianRupee size={14} />
                                                 <input
                                                     type="number"
+                                                    min="0"
                                                     value={selectedZone.rate}
                                                     onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
                                                     placeholder="e.g. 1500"
+                                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
                                             </div>
                                         </div>
@@ -330,9 +336,11 @@ export default function ShippingAdminPage() {
                                                 <IndianRupee size={14} />
                                                 <input
                                                     type="number"
+                                                    min="0"
                                                     value={selectedZone.free_threshold}
                                                     onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
                                                     placeholder="e.g. 10000"
+                                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
                                             </div>
                                         </div>

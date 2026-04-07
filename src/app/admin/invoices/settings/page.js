@@ -150,7 +150,7 @@ export default function InvoiceSettingsPage() {
                             </div>
                             <div>
                                 <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>WhatsApp Contact</label>
-                                <input type="text" value={settings.business_phone} onChange={e => setSettings({ ...settings, business_phone: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
+                                <input type="tel" value={settings.business_phone} onChange={e => setSettings({ ...settings, business_phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} pattern="[0-9]{10}" maxLength="10" minLength="10" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
                             </div>
                         </div>
 

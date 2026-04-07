@@ -245,7 +245,9 @@ export default function ShopPage() {
                                             <span>₹</span>
                                             <input
                                                 type="number"
+                                                min="0"
                                                 value={tempPriceRange.min}
+                                                onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 onChange={e => setTempPriceRange({ ...tempPriceRange, min: parseInt(e.target.value) || 0 })}
                                             />
                                         </div>
@@ -254,7 +256,9 @@ export default function ShopPage() {
                                             <span>₹</span>
                                             <input
                                                 type="number"
+                                                min="0"
                                                 value={tempPriceRange.max}
+                                                onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 onChange={e => setTempPriceRange({ ...tempPriceRange, max: parseInt(e.target.value) || 0 })}
                                             />
                                         </div>
