@@ -61,9 +61,9 @@ async function callOcrApi(buffer, fileName) {
 }
 
 /**
- * Apply Watermark to Image (Vercel-compatible)
- * This version uses @napi-rs/canvas if available, but falls back to SVG + Sharp
- * if the native bindings are missing (common in local Windows dev or sparse environments).
+ * Apply Watermark to Image (Vercel & Turbopack compatible)
+ * This version uses SVG + Sharp for maximum portability and to avoid native module build errors.
+ * It uses a monospace font stack to ensure predictable character rendering on Vercel/Linux.
  */
 export async function applyWatermark(buffer, code) {
     try {
@@ -77,86 +77,42 @@ export async function applyWatermark(buffer, code) {
         const fontSize = Math.max(22, Math.round(width * 0.04));
         const paddingX = Math.round(fontSize * 0.8);
         const paddingY = Math.round(fontSize * 0.4);
-        
         const margin = 20;
 
-        // Try using @napi-rs/canvas if native binding is available
-        let badgeBuffer;
-        let badgeW, badgeH;
-        let x, y;
+        /**
+         * FONT STABILITY ON VERCEL:
+         * Monospace fonts (Courier, Liberation Mono, etc.) are the most reliably present 
+         * fonts across Linux distributions. They also have a predictable width (approx 0.6 * fontSize),
+         * allowing us to calculate the badge width accurately without local font metrics.
+         */
+        const charWidthFactor = 0.6;
+        const badgeW = Math.round((text.length * fontSize * charWidthFactor) + (paddingX * 2));
+        const badgeH = Math.round(fontSize + (paddingY * 2));
 
-        try {
-            const { createCanvas } = await import('@napi-rs/canvas');
-            
-            // Success: Use Canvas
-            const canvas = createCanvas(1, 1);
-            const ctx = canvas.getContext('2d');
-            ctx.font = `bold ${fontSize}px DejaVu Sans, Arial, Helvetica, Liberation Sans, sans-serif, monospace`;
-            const metrics = ctx.measureText(text);
-            
-            badgeW = Math.round(metrics.width + (paddingX * 2));
-            badgeH = Math.round(fontSize + (paddingY * 2));
-            
-            x = width - badgeW - margin;
-            y = height - badgeH - margin;
+        const x = width - badgeW - margin;
+        const y = height - badgeH - margin;
 
-            const badgeCanvas = createCanvas(badgeW, badgeH);
-            const bCtx = badgeCanvas.getContext('2d');
-
-            bCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-            const r = 12;
-            bCtx.beginPath();
-            bCtx.moveTo(r, 0); bCtx.lineTo(badgeW - r, 0); bCtx.quadraticCurveTo(badgeW, 0, badgeW, r);
-            bCtx.lineTo(badgeW, badgeH - r); bCtx.quadraticCurveTo(badgeW, badgeH, badgeW - r, badgeH);
-            bCtx.lineTo(r, badgeH); bCtx.quadraticCurveTo(0, badgeH, 0, badgeH - r);
-            bCtx.lineTo(0, r); bCtx.quadraticCurveTo(0, 0, r, 0);
-            bCtx.closePath();
-            bCtx.fill();
-
-            bCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            bCtx.lineWidth = 2;
-            bCtx.stroke();
-
-            bCtx.fillStyle = 'white';
-            bCtx.font = `bold ${fontSize}px DejaVu Sans, Arial, Helvetica, Liberation Sans, sans-serif, monospace`;
-            bCtx.textAlign = 'center';
-            bCtx.textBaseline = 'middle';
-            bCtx.fillText(text, badgeW / 2, badgeH / 2 + (fontSize * 0.05));
-
-            badgeBuffer = await badgeCanvas.toBuffer('image/png');
-
-        } catch (e) {
-            console.warn('[PROCESSOR] @napi-rs/canvas failed (likely missing native binding), falling back to SVG');
-            
-            // Fallback: Use SVG
-            // Estimate badge dimensions
-            const estTextWidth = Math.round(text.length * fontSize * 0.65);
-            badgeW = estTextWidth + (paddingX * 2);
-            badgeH = fontSize + (paddingY * 2);
-            
-            x = width - badgeW - margin;
-            y = height - badgeH - margin;
-
-            const svgBadge = `
-                <svg width="${badgeW}" height="${badgeH}" viewBox="0 0 ${badgeW} ${badgeH}">
-                    <rect x="0" y="0" width="${badgeW}" height="${badgeH}" rx="12" 
-                        fill="rgba(0, 0, 0, 0.75)" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2" />
-                    <text x="${badgeW / 2}" y="${badgeH / 2 + (fontSize * 0.35)}" 
-                        text-anchor="middle" 
-                        font-family="monospace, DejaVu Sans, Arial, sans-serif" 
-                        font-size="${fontSize}" 
-                        font-weight="bold" 
-                        fill="white">${text}</text>
-                </svg>
-            `;
-            badgeBuffer = Buffer.from(svgBadge);
-        }
+        // Create a robust SVG overlay
+        const svgBadge = `
+            <svg width="${badgeW}" height="${badgeH}" viewBox="0 0 ${badgeW} ${badgeH}">
+                <rect x="1" y="1" width="${badgeW - 2}" height="${badgeH - 2}" rx="12" 
+                    fill="rgba(0, 0, 0, 0.75)" 
+                    stroke="rgba(255, 255, 255, 0.3)" 
+                    stroke-width="2" />
+                <text x="${badgeW / 2}" y="${badgeH / 2 + (fontSize * 0.35)}" 
+                    text-anchor="middle" 
+                    font-family="monospace, DejaVu Sans Mono, Liberation Mono, Courier New, Courier" 
+                    font-size="${fontSize}" 
+                    font-weight="bold" 
+                    fill="white">${text}</text>
+            </svg>
+        `;
 
         return await image
             .composite([{
-                input: badgeBuffer,
-                top: Math.max(0, y),
-                left: Math.max(0, x)
+                input: Buffer.from(svgBadge),
+                top: Math.max(0, Math.floor(y)),
+                left: Math.max(0, Math.floor(x))
             }])
             .jpeg({ quality: 90 })
             .toBuffer();
