@@ -18,9 +18,10 @@ import {
 } from 'recharts';
 import { Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee } from 'lucide-react';
 import ImageZoom from '@/components/ImageZoom';
+import ModalPortal from '@/components/ModalPortal';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
-const STATUS_OPTIONS = ['PLACED', 'AWAITING_PAYMENT', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
+const STATUS_OPTIONS = ['PLACED', 'AWAITING_PAYMENT', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED', 'EXCHANGED', 'RETURNED'];
 const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP'];
 
 // Helper: parse Supabase UTC timestamps reliably (adds 'Z' if missing so JS treats it as UTC → converts to IST)
@@ -117,7 +118,8 @@ export default function OrdersPage() {
         same_as_billing: true,
         payment_method: 'UPI',
         send_notifications: 'both',
-        items: [] // {product_id, product_name, quantity, price}
+        items: [], // {product_id, product_name, quantity, price}
+        is_replacement: false,
     });
     const [allProducts, setAllProducts] = useState([]);
     const [productSearch, setProductSearch] = useState('');
@@ -1243,7 +1245,7 @@ export default function OrdersPage() {
                                                         </div>
                                                         <div>
                                                             <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '4px' }}>Tracking Number</div>
-                                                            <div style={{ fontWeight: 700, fontFamily: 'monospace', letterSpacing: '1px' }}>{selectedOrder.tracking_number}</div>
+                                                            <div style={{ fontWeight: 700, fontFamily: 'inherit', letterSpacing: '1px' }}>{selectedOrder.tracking_number}</div>
                                                         </div>
                                                     </div>
                                                     {selectedOrder.tracking_url && (
@@ -1577,94 +1579,126 @@ export default function OrdersPage() {
 
                                                     {/* Status Confirmation Modal */}
                                                     {statusConfirmModal && (
-                                                        <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <AlertCircle size={14} /> {statusConfirmModal.title}
+                                                        <ModalPortal>
+                                                            <div className="modal-overlay" onClick={() => setStatusConfirmModal(null)}>
+                                                                <div className="modal-box modal-success" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+                                                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0fbff', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: 'inset 0 0 0 2px hsl(var(--primary) / 0.1)' }}>
+                                                                        <AlertCircle size={40} />
+                                                                    </div>
+                                                                    <h3 className="modal-title">{statusConfirmModal.title}</h3>
+                                                                    <p className="modal-message">
+                                                                        {statusConfirmModal.message}
+                                                                    </p>
+                                                                    <div className="modal-actions" style={{ marginTop: '2rem' }}>
+                                                                        <button onClick={() => setStatusConfirmModal(null)} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                updateOrderStatus(selectedOrder.id, statusConfirmModal.status);
+                                                                                setStatusConfirmModal(null);
+                                                                            }}
+                                                                            className="modal-btn modal-btn-primary"
+                                                                            style={{ flex: 1.5 }}
+                                                                        >Confirm Change</button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
-                                                                {statusConfirmModal.message}
-                                                            </p>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                                <button onClick={() => setStatusConfirmModal(null)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        updateOrderStatus(selectedOrder.id, statusConfirmModal.status);
-                                                                        setStatusConfirmModal(null);
-                                                                    }}
-                                                                    className="btn btn-primary"
-                                                                    style={{ fontSize: '0.8rem' }}
-                                                                >Confirm</button>
-                                                            </div>
-                                                        </div>
+                                                        </ModalPortal>
                                                     )}
                                                     {showShippingForm && (
-                                                        <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#f1f5f9', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <Truck size={14} /> Shipping Details
+                                                        <ModalPortal>
+                                                            <div className="modal-overlay" onClick={() => setShowShippingForm(false)}>
+                                                                <div className="modal-box" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+                                                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: 'inset 0 0 0 2px hsl(var(--primary) / 0.1)' }}>
+                                                                        <Truck size={40} />
+                                                                    </div>
+                                                                    <h3 className="modal-title">Shipping Details</h3>
+                                                                    <p className="modal-message">Enter the tracking information for Order #{selectedOrder.id}</p>
+                                                                    
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                                                                        <div className="form-group">
+                                                                            <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Courier Partner</label>
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder="e.g. Delhivery, BlueDart"
+                                                                                value={shippingForm.courier_name}
+                                                                                onChange={e => setShippingForm({ ...shippingForm, courier_name: e.target.value })}
+                                                                                style={{ width: '100%', padding: '0.85rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '1rem', fontWeight: 600 }}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="form-group">
+                                                                            <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Tracking / AWB Number</label>
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder="AWB123456789"
+                                                                                value={shippingForm.tracking_number}
+                                                                                onChange={e => setShippingForm({ ...shippingForm, tracking_number: e.target.value })}
+                                                                                style={{ width: '100%', padding: '0.85rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '1rem', fontWeight: 600 }}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="form-group">
+                                                                            <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '8px', display: 'block' }}>Tracking Link (Optional)</label>
+                                                                            <input
+                                                                                type="url"
+                                                                                placeholder="https://track.it/..."
+                                                                                value={shippingForm.tracking_url}
+                                                                                onChange={e => setShippingForm({ ...shippingForm, tracking_url: e.target.value })}
+                                                                                style={{ width: '100%', padding: '0.85rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="modal-actions">
+                                                                        <button onClick={() => { setShowShippingForm(false); setShippingForm({ courier_name: '', tracking_number: '', tracking_url: '' }); }} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                updateOrderStatus(selectedOrder.id, 'SHIPPED', {
+                                                                                    courierName: shippingForm.courier_name,
+                                                                                    trackingNumber: shippingForm.tracking_number,
+                                                                                    trackingUrl: shippingForm.tracking_url
+                                                                                });
+                                                                                setShowShippingForm(false);
+                                                                                setShippingForm({ courier_name: '', tracking_number: '', tracking_url: '' });
+                                                                            }}
+                                                                            disabled={!shippingForm.courier_name || !shippingForm.tracking_number}
+                                                                            className="modal-btn modal-btn-primary"
+                                                                            style={{ flex: 1.5 }}
+                                                                        >Confirm Ship</button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Courier (e.g. Delhivery)"
-                                                                value={shippingForm.courier_name}
-                                                                onChange={e => setShippingForm({ ...shippingForm, courier_name: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Tracking / AWB Number"
-                                                                value={shippingForm.tracking_number}
-                                                                onChange={e => setShippingForm({ ...shippingForm, tracking_number: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
-                                                            />
-                                                            <input
-                                                                type="url"
-                                                                placeholder="Tracking URL (optional)"
-                                                                value={shippingForm.tracking_url}
-                                                                onChange={e => setShippingForm({ ...shippingForm, tracking_url: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}
-                                                            />
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                                <button onClick={() => { setShowShippingForm(false); setShippingForm({ courier_name: '', tracking_number: '', tracking_url: '' }); }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                                <button
-                                                                    onClick={() => {
-                                                                        updateOrderStatus(selectedOrder.id, 'SHIPPED', {
-                                                                            courierName: shippingForm.courier_name,
-                                                                            trackingNumber: shippingForm.tracking_number,
-                                                                            trackingUrl: shippingForm.tracking_url
-                                                                        });
-                                                                        setShowShippingForm(false);
-                                                                        setShippingForm({ courier_name: '', tracking_number: '', tracking_url: '' });
-                                                                    }}
-                                                                    disabled={!shippingForm.courier_name || !shippingForm.tracking_number}
-                                                                    className="btn btn-primary"
-                                                                    style={{ fontSize: '0.8rem' }}
-                                                                >Confirm Ship</button>
-                                                            </div>
-                                                        </div>
+                                                        </ModalPortal>
                                                     )}
 
                                                     {/* Cancel Order Modal */}
                                                     {showCancelModal && (
-                                                        <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#fef2f2', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <XCircle size={14} /> Cancel Order
+                                                        <ModalPortal>
+                                                            <div className="modal-overlay" onClick={() => { setShowCancelModal(false); setCancelReason(''); }}>
+                                                                <div className="modal-box modal-error" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+                                                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: 'inset 0 0 0 2px #ffe4e6' }}>
+                                                                        <XCircle size={40} />
+                                                                    </div>
+                                                                    <h3 className="modal-title">Cancel Order</h3>
+                                                                    <p className="modal-message">Please provide a reason for cancelling Order #{selectedOrder.id}. This action cannot be undone.</p>
+                                                                    
+                                                                    <textarea
+                                                                        placeholder="Enter reason (e.g. Out of stock, Customer request)..."
+                                                                        value={cancelReason}
+                                                                        onChange={e => setCancelReason(e.target.value)}
+                                                                        style={{ width: '100%', padding: '1rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '16px', color: 'hsl(var(--text-main))', fontSize: '1rem', minHeight: '120px', marginBottom: '2rem', resize: 'none' }}
+                                                                    />
+
+                                                                    <div className="modal-actions">
+                                                                        <button onClick={() => { setShowCancelModal(false); setCancelReason(''); }} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>No, Keep Order</button>
+                                                                        <button
+                                                                            onClick={handleCancelOrder}
+                                                                            disabled={!cancelReason.trim()}
+                                                                            className="modal-btn modal-btn-primary"
+                                                                            style={{ flex: 1.5, background: '#ef4444' }}
+                                                                        >Confirm Cancel</button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <textarea
-                                                                placeholder="Enter cancellation reason..."
-                                                                value={cancelReason}
-                                                                onChange={e => setCancelReason(e.target.value)}
-                                                                style={{ width: '100%', padding: '0.65rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', minHeight: '80px' }}
-                                                            />
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                                <button onClick={() => { setShowCancelModal(false); setCancelReason(''); }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                                <button
-                                                                    onClick={handleCancelOrder}
-                                                                    disabled={!cancelReason.trim()}
-                                                                    className="btn btn-primary"
-                                                                    style={{ fontSize: '0.8rem', background: '#ef4444' }}
-                                                                >Confirm Cancel</button>
-                                                            </div>
-                                                        </div>
+                                                        </ModalPortal>
                                                     )}
 
                                                     {selectedOrder.status === 'PLACED' && (
@@ -1708,22 +1742,26 @@ export default function OrdersPage() {
 
                                                         {/* Resend WhatsApp Modal */}
                                                         {showResendWhatsAppModal && (
-                                                            <div className="animate-enter" style={{ marginBottom: '0.75rem', padding: '1rem', background: '#e8fff3', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <MessageCircle size={14} /> Send WhatsApp
+                                                            <ModalPortal>
+                                                                <div className="modal-overlay" onClick={() => setShowResendWhatsAppModal(false)}>
+                                                                    <div className="modal-box" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+                                                                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#e8fff3', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: 'inset 0 0 0 2px #dcfce7' }}>
+                                                                            <MessageCircle size={40} />
+                                                                        </div>
+                                                                        <h3 className="modal-title">Send WhatsApp</h3>
+                                                                        <p className="modal-message">Send the official order confirmation and status update via WhatsApp to the customer?</p>
+                                                                        
+                                                                        <div className="modal-actions" style={{ marginTop: '2.5rem' }}>
+                                                                            <button onClick={() => setShowResendWhatsAppModal(false)} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+                                                                            <button
+                                                                                onClick={() => handleResendWhatsApp()}
+                                                                                className="modal-btn modal-btn-primary"
+                                                                                style={{ flex: 1.5, background: '#10b981' }}
+                                                                            >Send Message</button>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
-                                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
-                                                                    Send order confirmation via WhatsApp?
-                                                                </p>
-                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                                    <button onClick={() => setShowResendWhatsAppModal(false)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                                    <button
-                                                                        onClick={() => handleResendWhatsApp()}
-                                                                        className="btn"
-                                                                        style={{ fontSize: '0.8rem', background: '#10b981', color: 'white' }}
-                                                                    >Send Message</button>
-                                                                </div>
-                                                            </div>
+                                                            </ModalPortal>
                                                         )}
 
                                                         <button
@@ -1742,22 +1780,26 @@ export default function OrdersPage() {
 
                                                         {/* Resend Email Modal */}
                                                         {showResendEmailModal && (
-                                                            <div className="animate-enter" style={{ marginBottom: '0.75rem', padding: '1rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <Mail size={14} /> Resend Email
+                                                            <ModalPortal>
+                                                                <div className="modal-overlay" onClick={() => setShowResendEmailModal(false)}>
+                                                                    <div className="modal-box" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+                                                                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0f9ff', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: 'inset 0 0 0 2px hsl(var(--primary) / 0.1)' }}>
+                                                                            <Mail size={40} />
+                                                                        </div>
+                                                                        <h3 className="modal-title">Resend Email</h3>
+                                                                        <p className="modal-message">Dispatch a fresh order confirmation email to the customer's registered email address?</p>
+                                                                        
+                                                                        <div className="modal-actions" style={{ marginTop: '2.5rem' }}>
+                                                                            <button onClick={() => setShowResendEmailModal(false)} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+                                                                            <button
+                                                                                onClick={() => handleResendEmail()}
+                                                                                className="modal-btn modal-btn-primary"
+                                                                                style={{ flex: 1.5 }}
+                                                                            >Send Email</button>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
-                                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
-                                                                    Resend order confirmation email to customer?
-                                                                </p>
-                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                                    <button onClick={() => setShowResendEmailModal(false)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                                    <button
-                                                                        onClick={() => handleResendEmail()}
-                                                                        className="btn btn-primary"
-                                                                        style={{ fontSize: '0.8rem' }}
-                                                                    >Send Email</button>
-                                                                </div>
-                                                            </div>
+                                                            </ModalPortal>
                                                         )}
                                                     </div>
 
@@ -1818,7 +1860,7 @@ export default function OrdersPage() {
                                                     {selectedOrder.transaction_id && (
                                                         <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
                                                             <span style={{ color: 'hsl(var(--text-muted))' }}>Transaction ID:</span>
-                                                            <span style={{ fontFamily: 'monospace', marginLeft: '0.5rem' }}>{selectedOrder.transaction_id}</span>
+                                                            <span style={{ fontFamily: 'inherit', marginLeft: '0.5rem' }}>{selectedOrder.transaction_id}</span>
                                                         </div>
                                                     )}
                                                     {selectedOrder.payment_gateway && (
@@ -1864,7 +1906,18 @@ export default function OrdersPage() {
                                         <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                             <Package size={24} color="hsl(var(--primary))" /> Manual Order Creation
                                         </h2>
-                                        <button onClick={() => setIsAddingOrder(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
+                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 1.25rem', background: newOrder.is_replacement ? 'rgba(168, 85, 247, 0.1)' : '#f1f5f9', border: `1px solid ${newOrder.is_replacement ? '#a855f7' : '#e2e8f0'}`, borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 700, color: newOrder.is_replacement ? '#7c3aed' : 'hsl(var(--text-muted))' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={newOrder.is_replacement}
+                                                    onChange={e => setNewOrder({ ...newOrder, is_replacement: e.target.checked })}
+                                                    style={{ width: '16px', height: '16px', accentColor: '#a855f7' }}
+                                                />
+                                                Replacement (Zero Bill)
+                                            </label>
+                                            <button onClick={() => setIsAddingOrder(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
+                                        </div>
                                     </div>
 
                                     <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
@@ -2085,6 +2138,7 @@ export default function OrdersPage() {
                                                                         delivery_address: newOrder.same_as_billing
                                                                             ? `${newOrder.billing_address}, ${newOrder.billing_city} - ${newOrder.billing_pincode} (${newOrder.billing_state})`
                                                                             : `${newOrder.shipping_address}, ${newOrder.shipping_city} - ${newOrder.shipping_pincode} (${newOrder.shipping_state})`,
+                                                                        admin_notes: newOrder.is_replacement ? 'ZERO BILL REPLACEMENT ORDER' : null,
                                                                         billing_address: {
                                                                             name: newOrder.customer_name,
                                                                             phone: normalizedPhone,
@@ -2112,15 +2166,15 @@ export default function OrdersPage() {
                                                                             state: newOrder.shipping_state
                                                                         },
                                                                         shipping_state: newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state,
-                                                                        total_amount: total,
-                                                                        tax_amount: tax,
-                                                                        cgst: cgst,
-                                                                        sgst: sgst,
-                                                                        igst: igst,
-                                                                        shipping_cost: shipping,
+                                                                        total_amount: newOrder.is_replacement ? 0 : total,
+                                                                        tax_amount: newOrder.is_replacement ? 0 : tax,
+                                                                        cgst: newOrder.is_replacement ? 0 : cgst,
+                                                                        sgst: newOrder.is_replacement ? 0 : sgst,
+                                                                        igst: newOrder.is_replacement ? 0 : igst,
+                                                                        shipping_cost: newOrder.is_replacement ? 0 : shipping,
                                                                         status: 'PLACED',
                                                                         source: 'ADMIN_MANUAL',
-                                                                        payment_method: newOrder.payment_method
+                                                                        payment_method: newOrder.is_replacement ? 'EXCHANGE' : newOrder.payment_method
                                                                     });
                                                                     if (ordErr) throw ordErr;
                                                                     const { error: itemErr } = await supabase.from('order_items').insert(newOrder.items.map(it => ({
@@ -2136,7 +2190,7 @@ export default function OrdersPage() {
                                                                     await supabase.from('order_status_logs').insert({
                                                                         order_id: orderId,
                                                                         status: 'PLACED',
-                                                                        notes: 'Order placed',
+                                                                        notes: newOrder.is_replacement ? 'Replacement order confirmed' : 'Order placed',
                                                                         created_at: new Date().toISOString()
                                                                     });
 
@@ -2146,7 +2200,6 @@ export default function OrdersPage() {
                                                                         if (prod) {
                                                                             const newStock = Math.max(0, prod.stock - item.quantity);
                                                                             await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
-
                                                                             await supabase.from('product_history').insert({
                                                                                 product_id: item.product_id,
                                                                                 change_type: 'SALE',
@@ -2154,7 +2207,6 @@ export default function OrdersPage() {
                                                                                 new_stock: newStock,
                                                                                 reason: `Admin Manual Order #${orderId}`
                                                                             });
-
                                                                             await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
                                                                         }
                                                                     }
@@ -2202,7 +2254,8 @@ export default function OrdersPage() {
                                                                         same_as_billing: true,
                                                                         payment_method: 'UPI',
                                                                         send_notifications: 'both',
-                                                                        items: []
+                                                                        items: [],
+                                                                        is_replacement: false
                                                                     });
                                                                     fetchOrders();
                                                                 } catch (err) {
@@ -2226,44 +2279,43 @@ export default function OrdersPage() {
                                 </div>
                             </div>
                         )}
-
-
-
                     </>
                 )}
             </div>
 
-            {/* Notification */}
-
+            {/* Premium Notification System */}
             {notification && (
-                <div style={{
-                    position: 'fixed', top: '2rem', right: '2rem', zIndex: 3000,
-                    padding: '1rem 1.5rem', borderRadius: 'var(--radius)',
-                    background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))',
-                    color: 'white', fontWeight: 600, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                    animation: 'slideDown 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
-                }}>
-                    {notification.message}
+                <div className="toast-container">
+                    <div className={`toast ${notification.type}`}>
+                        {notification.type === 'success' ? <CheckCircle2 size={20} color="#10b981" /> : <AlertCircle size={20} color="#ef4444" />}
+                        <div style={{ fontWeight: 600 }}>{notification.message}</div>
+                    </div>
                 </div>
             )}
 
-            {/* Delete Confirmation Modal */}
+            {/* Premium Delete Confirmation Modal */}
             {confirmDelete && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, animation: 'fadeIn 0.2s ease' }}>
-                    <div className="card shadow-premium" style={{ maxWidth: '400px', width: '90%', padding: '2.5rem 2rem', textAlign: 'center', animation: 'scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', background: '#fff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px' }}>
-                        <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: '0 10px 20px rgba(239,68,68,0.1)' }}>
-                            <Trash2 size={36} />
+                <ModalPortal>
+                <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
+                    <div className="modal-box modal-error" onClick={e => e.stopPropagation()}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', fontSize: '2.5rem', boxShadow: 'inset 0 0 0 2px #fee2e2' }}>
+                            <Trash2 size={40} strokeWidth={2.5} />
                         </div>
-                        <h3 style={{ marginBottom: '0.75rem', fontWeight: 800, fontSize: '1.5rem', color: 'hsl(var(--text-main))' }}>Confirm Delete?</h3>
-                        <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '2.5rem', lineHeight: 1.6, fontSize: '0.95rem' }}>
+                        <h3 className="modal-title">Confirm Delete?</h3>
+                        <p className="modal-message">
                             This action will permanently remove {confirmDelete.ids.length > 1 ? `${confirmDelete.ids.length} order records` : 'the order record'} and restore any associated stock. This cannot be undone.
                         </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <button onClick={() => setConfirmDelete(null)} className="btn btn-secondary" style={{ padding: '0.75rem', borderRadius: '12px' }}>Keep Order</button>
-                            <button onClick={handleDeleteOrderConfirmed} className="btn" style={{ background: '#ef4444', color: 'white', padding: '0.75rem', borderRadius: '12px', fontWeight: 700 }}>Delete Now</button>
+                        <div className="modal-actions">
+                            <button onClick={() => setConfirmDelete(null)} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>
+                                No, Keep Order
+                            </button>
+                            <button onClick={handleDeleteOrderConfirmed} className="modal-btn modal-btn-primary" style={{ flex: 1.2, background: '#ef4444' }}>
+                                Yes, Delete
+                            </button>
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
 
             {/* Bulk Action Bar */}
@@ -2322,7 +2374,6 @@ export default function OrdersPage() {
                 </div>
             )}
 
-
             <style jsx>{`
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 @keyframes expand { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 2000px; } }
@@ -2354,11 +2405,15 @@ export default function OrdersPage() {
                     table { min-width: 800px; }
                 }
             `}</style>
+
             {zoomedImage && (
+                <ModalPortal>
                 <ImageZoom url={zoomedImage} onClose={() => setZoomedImage(null)} />
+                </ModalPortal>
             )}
-            {/* ─── NOTIFICATION STATUS PICKER MODAL ─── */}
+
             {notifyStatusPicker && (
+                <ModalPortal>
                 <div style={{
                     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
                     zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
@@ -2386,26 +2441,6 @@ export default function OrdersPage() {
                                 </div>
                             </div>
                         </div>
-                        {/* Targets Preview */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.25rem' }}>
-                            {(notifyStatusPicker.targets || []).map((t, i) => (
-                                <span key={i} style={{
-                                    padding: '3px 10px', borderRadius: '20px', fontSize: '0.73rem', fontWeight: 700,
-                                    background: notifyStatusPicker.channel === 'whatsapp' ? '#e8fff3' : '#f0f9ff',
-                                    color: notifyStatusPicker.channel === 'whatsapp' ? '#10b981' : 'hsl(var(--primary))',
-                                    border: `1px solid ${notifyStatusPicker.channel === 'whatsapp' ? 'rgba(16,185,129,0.3)' : 'hsl(var(--primary)/0.3)'}`,
-                                    display: 'flex', alignItems: 'center', gap: '4px'
-                                }}>
-                                    {notifyStatusPicker.channel === 'whatsapp' ? <MessageCircle size={10} /> : <Mail size={10} />}
-                                    {t}
-                                </span>
-                            ))}
-                        </div>
-
-                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>
-                            Choose Notification Type
-                        </div>
-
                         {/* Action Buttons */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {[
@@ -2425,8 +2460,6 @@ export default function OrdersPage() {
                                         padding: '0.85rem 1rem', borderRadius: '12px', border: `1px solid ${color}30`,
                                         background: bg, cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left',
                                     }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(4px)'; e.currentTarget.style.boxShadow = `0 4px 12px ${color}25`; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.boxShadow = 'none'; }}
                                 >
                                     <div>
                                         <div style={{ fontWeight: 700, fontSize: '0.88rem', color }}>{label}</div>
@@ -2438,7 +2471,6 @@ export default function OrdersPage() {
                                 </button>
                             ))}
                         </div>
-
                         <button onClick={() => setNotifyStatusPicker(null)} style={{
                             width: '100%', marginTop: '1rem', padding: '0.7rem',
                             background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))',
@@ -2448,8 +2480,8 @@ export default function OrdersPage() {
                         </button>
                     </div>
                 </div>
+                </ModalPortal>
             )}
         </>
     );
 }
-

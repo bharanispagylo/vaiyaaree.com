@@ -7,6 +7,7 @@ import {
     Facebook, ChevronDown
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import ModalPortal from '@/components/ModalPortal';
 
 export default function SchedulePostPage() {
     const [products, setProducts] = useState([]);
@@ -406,6 +407,7 @@ export default function SchedulePostPage() {
 
             {/* ═══ SCHEDULE POST MODAL ═══ */}
             {showForm && (
+                <ModalPortal>
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
                     onClick={() => setShowForm(false)}>
                     <div onClick={e => e.stopPropagation()} className="card" style={{ width: '700px', maxHeight: '90vh', overflowY: 'auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
@@ -516,6 +518,7 @@ export default function SchedulePostPage() {
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
         </div>
         <style jsx>{`
@@ -539,6 +542,7 @@ export default function SchedulePostPage() {
 
             {/* Confirm Action Modal */}
             {confirmAction && (
+                <ModalPortal>
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }} onClick={() => setConfirmAction(null)}>
                     <div className="card shadow-premium animate-enter" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center', borderRadius: '24px', background: 'hsl(var(--bg-card))', border: `1px solid ${confirmAction.type === 'delete' ? 'hsl(var(--danger) / 0.3)' : 'hsl(var(--primary) / 0.3)'}` }} onClick={e => e.stopPropagation()}>
                         <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: confirmAction.type === 'delete' ? 'hsl(var(--danger) / 0.1)' : 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: confirmAction.type === 'delete' ? 'hsl(var(--danger))' : 'hsl(var(--primary))' }}>
@@ -564,6 +568,7 @@ export default function SchedulePostPage() {
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
         </>
     );

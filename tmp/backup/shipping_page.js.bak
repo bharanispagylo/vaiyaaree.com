@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import ModalPortal from '@/components/ModalPortal';
 import {
     Truck, Save, Plus, Trash2, Globe, MapPin,
     AlertCircle, CheckCircle2, Loader2, Info,
@@ -472,7 +471,6 @@ export default function ShippingAdminPage() {
             `}</style>
             {/* Confirm Modal */}
             {confirmAction && (
-                <ModalPortal>
                 <div style={{
                     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
                     zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
@@ -507,7 +505,6 @@ export default function ShippingAdminPage() {
                         </div>
                     </div>
                 </div>
-                </ModalPortal>
             )}
 
             <style jsx>{`

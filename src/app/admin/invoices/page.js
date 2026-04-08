@@ -279,7 +279,7 @@ export default function InvoicesPage() {
                         <div id="printable-invoice" style={{
                             background: 'white', borderRadius: '1rem', width: '210mm', minHeight: '297mm',
                             margin: '0 auto', boxShadow: '0 20px 50px rgba(0,0,0,0.1)', overflow: 'hidden',
-                            color: 'black', fontFamily: 'Roboto, sans-serif'
+                            color: 'black', fontFamily: 'var(--font-roboto)'
                         }}>
                             {/* Invoice Header */}
                             <div style={{ padding: '3rem', borderBottom: '3px solid hsl(var(--primary))', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

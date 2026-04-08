@@ -194,15 +194,15 @@ function PaymentPageInner({ orderId }) {
 
     // ── Success Screen ──
     if (paymentStatus === 'success') return (
-        <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: 'var(--font-body)' }}>
             <div style={{ background: 'white', border: '1px solid hsl(var(--border-subtle))', borderRadius: 24, padding: '3rem 2.5rem', maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-card)' }}>
                 <div style={{ width: 80, height: 80, background: 'hsl(var(--success) / 0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', border: '2px solid hsl(var(--success) / 0.4)' }}>
                     <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="hsl(var(--success))" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h1 style={{ color: 'hsl(var(--text-main))', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.5rem' }}>Payment Successful! 🎉</h1>
-                <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>Order <span style={{ color: 'hsl(var(--primary))', fontWeight: 700, fontFamily: 'monospace' }}>#{orderId}</span> has been confirmed.</p>
+                <h1 style={{ color: 'hsl(var(--text-main))', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.5rem', fontFamily: 'var(--font-heading)' }}>Payment Successful! 🎉</h1>
+                <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>Order <span style={{ color: 'hsl(var(--primary))', fontWeight: 700, fontFamily: 'var(--font-body)' }}>#{orderId}</span> has been confirmed.</p>
 
                 <div style={{ background: 'hsl(var(--bg-app))', borderRadius: 16, padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'left', border: '1px solid hsl(var(--border-subtle))' }}>
                     <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem', fontWeight: 700 }}>Order Summary</p>
@@ -240,7 +240,7 @@ function PaymentPageInner({ orderId }) {
         <>
             <Script src="https://checkout.razorpay.com/v1/checkout.js" onLoad={() => setSdkReady(true)} strategy="afterInteractive" />
 
-            <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', padding: '2rem 1rem', fontFamily: 'Inter, sans-serif' }}>
+            <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', padding: '2rem 1rem', fontFamily: 'var(--font-body)' }}>
                 <div style={{ maxWidth: 480, margin: '0 auto' }}>
 
                     {/* Header */}

@@ -24,16 +24,20 @@ export default function AdminDashboard() {
                     pendingRes,
                     shippedRes,
                     deliveredRes,
+                    refundedRes,
+                    cancelledRes,
                     todayRes,
                     productsRes,
                     itemsRes,
                     customerRes
                 ] = await Promise.all([
                     supabase.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'DRAFT'),
-                    supabase.from('orders').select('total_amount').neq('status', 'DRAFT').neq('status', 'CANCELLED'),
+                    supabase.from('orders').select('total_amount').neq('status', 'DRAFT').not('status', 'in', '("CANCELLED","REFUNDED")'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'PLACED', 'AWAITING_PAYMENT', 'AWAITING PAYMENT', 'awaiting_payment']),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'SHIPPED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'DELIVERED'),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'REFUNDED'),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'CANCELLED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today),
                     supabase.from('products').select('id, name, stock, image_url, price').order('stock', { ascending: true }).limit(20),
                     supabase.from('order_items').select('product_name, quantity, price_at_time').limit(2000),
@@ -162,6 +166,7 @@ export default function AdminDashboard() {
                         icon: IndianRupee,
                         gradient: 'linear-gradient(135deg, hsl(var(--success)), hsl(152 76% 25%))',
                         color: 'hsl(152 76% 95%)',
+                        sub: `Excl. Cancelled/Refunded`,
                         glow: 'hsl(var(--success) / 0.3)'
                     },
                     {
@@ -301,50 +306,7 @@ export default function AdminDashboard() {
                 {/* Right Column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
-                    {/* Low Stock */}
-                    <div className="card" style={{ padding: 0 }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <AlertTriangle size={18} color="hsl(var(--warning))" />
-                            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Low Stock Alert</h3>
-                        </div>
-                        <div style={{ padding: '0 1.5rem' }}>
-                            {lowStockProducts.length === 0 ? (
-                                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.875rem' }}>All products are well stocked</div>
-                            ) : (
-                                lowStockProducts.map((p, index) => (
-                                    <div key={p.id} style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        padding: '1rem 0',
-                                        borderBottom: index < lowStockProducts.length - 1 ? '1px solid hsl(var(--border-subtle))' : 'none'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <div style={{
-                                                width: '48px', height: '48px', borderRadius: 'var(--radius-sm)',
-                                                overflow: 'hidden', background: '#f1f5f9',
-                                                border: '1px solid hsl(var(--border-subtle))'
-                                            }}>
-                                                {p.image_url ?
-                                                    <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Package size={20} color="hsl(var(--text-muted))" />
-                                                    </div>
-                                                }
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>{p.name}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--danger))', fontWeight: 600 }}>Only {p.stock} left</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                        <div style={{ padding: '1rem', textAlign: 'center' }}>
-                            <Link href="/admin/products" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'hsl(var(--primary))' }}>
-                                Restock Inventory
-                            </Link>
-                        </div>
-                    </div>
+
 
                     {/* Top Products */}
                     <div className="card" style={{ padding: 0 }}>

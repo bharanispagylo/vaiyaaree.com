@@ -1526,6 +1526,93 @@ export async function processRefundOrder(to, orderId) {
     return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.`);
 }
 
+export async function handleReturnExchangeOrder(to) {
+    const normalizedPhone = normalizePhoneNumber(to);
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91')) phoneVariations.push(normalizedPhone.substring(2));
+    if (to.length === 10) phoneVariations.push('91' + to);
+    
+    let orders = [];
+    for (const phone of phoneVariations) {
+        const { data } = await supabase.from('orders')
+            .select('id, status, total_amount, created_at')
+            .eq('customer_phone', phone)
+            .eq('status', 'DELIVERED')
+            .order('created_at', { ascending: false })
+            .limit(5);
+        if (data?.length) { orders = data; break; }
+    }
+    
+    if (!orders?.length) {
+        return sendButtons(to, "❌ No delivered orders found. Only delivered orders can be returned or exchanged.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
+    }
+    
+    let msg = "🔄 *Return or Exchange*\n\nYour delivered orders:\n";
+    orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
+    msg += "\n📋 *Please reply with the Order ID* you want to return/exchange\n\n_Example: ORD-123456_";
+    return sendText(to, msg);
+}
+
+export async function processReturnExchangeOrder(to, orderId) {
+    const upperOrderId = orderId.toUpperCase();
+    const normalizedPhone = normalizePhoneNumber(to);
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91')) phoneVariations.push(normalizedPhone.substring(2));
+    
+    let order = null;
+    for (const phone of phoneVariations) {
+        const { data } = await supabase.from('orders')
+            .select('*, order_items(*)')
+            .eq('id', upperOrderId)
+            .eq('customer_phone', phone)
+            .single();
+        if (data) { order = data; break; }
+    }
+    
+    if (!order || order.status !== 'DELIVERED') {
+        return sendButtons(to, `❌ Order *${orderId}* not found or is not DELIVERED.\n\nOnly delivered orders can be returned or exchanged.`, [{ id: "menu_main", title: "🏠 Main Menu" }]);
+    }
+    
+    // Store state: WAITING_RETURN_TYPE:ORDER_ID
+    await supabase.from('customers').update({ admin_notes: `WAITING_RETURN_TYPE:${upperOrderId}` }).eq('phone', to);
+    
+    return sendButtons(to, `Order *${upperOrderId}* selected.\n\nWhat would you like to do?`, [
+        { id: `rectype_return_${upperOrderId}`, title: "🔄 Return & Refund" },
+        { id: `rectype_exchange_${upperOrderId}`, title: "👕 Exchange Item" }
+    ]);
+}
+
+export async function handleReturnExchangeTypeSelection(to, type, orderId) {
+    // type is 'RETURN' or 'EXCHANGE'
+    await supabase.from('customers').update({ admin_notes: `WAITING_RETURN_REASON:${type}:${orderId}` }).eq('phone', to);
+    
+    return sendText(to, `You selected *${type}* for Order *${orderId}*.\n\nPlease reply with the *reason* for your request and which item(s) you wish to ${type.toLowerCase()}.`);
+}
+
+export async function submitReturnExchangeRequest(to, type, orderId, reason) {
+    const { data: order } = await supabase.from('orders').select('*, order_items(*)').eq('id', orderId).single();
+    if (!order) return sendText(to, "❌ Order not found.");
+
+    // Create return request entries for all items (simplified for bot)
+    for (const item of order.order_items) {
+        await supabase.from('return_requests').insert({
+            order_id: orderId,
+            product_id: item.product_id,
+            request_type: type,
+            reason: reason,
+            status: 'PENDING',
+            created_at: new Date().toISOString()
+        });
+    }
+
+    await supabase.from('customers').update({ admin_notes: null }).eq('phone', to);
+
+    return sendButtons(to, `✅ *Request Submitted*\n\nYour ${type.toLowerCase()} request for Order *#${orderId}* has been received.\n\nOur team will review it and notify you via WhatsApp.`, [
+        { id: "menu_main", title: "🏠 Main Menu" }
+    ]);
+}
+
+
 export async function confirmRefundOrder(to, orderId, reason) {
     const { data: order } = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
     
@@ -1602,7 +1689,7 @@ export async function handleTrackOrder(to) {
 }
 
 export async function handleContact(to) {
-    const contactMsg = await getConfig('wa_contact_message', "📞 *Contact Support*\n\nFor assistance, please call us at:\n+91 75581 89732\n\nOr email:\ncastprintzofficial@gmail.com");
+    const contactMsg = await getConfig('wa_contact_message', `📞 *Contact Support*\n\nFor assistance, please call us at:\n+${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '91 75581 89732'}\n\nOr email:\ncastprintzofficial@gmail.com`);
     await sendText(to, contactMsg);
 }
 
@@ -1828,24 +1915,30 @@ export async function processIncomingMessage(body) {
             if (['stop', 'cancel'].includes(text)) return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
 
             // Text commands for menu items (typed by user)
-            if (['track order', 'my orders', 'my order', 'orders', 'order status'].includes(text)) return await handleTrackOrder(from);
-            if (['cancel order', 'cancel my order'].includes(text)) return await handleCancelOrder(from);
-            if (['refund', 'return', 'refund order', 'return order'].includes(text)) return await handleRefundOrder(from);
+            if (['track order', 'my orders', 'my order', 'orders', 'order status', 'track'].includes(text)) return await handleTrackOrder(from);
+            if (['cancel order', 'cancel my order', 'cancellation'].includes(text)) return await handleCancelOrder(from);
+            if (['refund', 'return', 'exchange', 'refund order', 'return order', 'exchange order'].includes(text)) return await handleReturnExchangeOrder(from);
             if (['view catalogue', 'view catalog', 'browse catalogue', 'browse catalog', 'show catalogue', 'show products'].includes(text)) return await sendCatalogueCategories(from);
             if (['view cart', 'my cart', 'show cart', 'cart'].includes(text)) return await handleViewCart(from);
 
-            // Check if customer is waiting to provide a refund reason
+            // Check if customer is waiting to provide a reason
             if (customer?.admin_notes?.startsWith('WAITING_REFUND_REASON:')) {
-                const orderId = customer.admin_notes.split(':')[1];
-                return await confirmRefundOrder(from, orderId, message.text.body);
+                const parts = customer.admin_notes.split(':');
+                if (parts.length === 3) {
+                    // WAITING_REFUND_REASON:TYPE:ORDER_ID
+                    return await submitReturnExchangeRequest(from, parts[1], parts[2], message.text.body);
+                } else {
+                    const orderId = parts[1];
+                    return await confirmRefundOrder(from, orderId, message.text.body);
+                }
             }
 
-            // Handle Order ID pattern for cancellation or refund
+            // Handle Order ID pattern for cancellation or refund/return
             const orderIdPattern = /^(ORD|WEB)-[A-Z0-9]+$/i;
             if (orderIdPattern.test(message.text.body.trim())) {
                 const oId = message.text.body.trim().toUpperCase();
                 const { data: o } = await supabase.from('orders').select('status').eq('id', oId).single();
-                if (o?.status === 'DELIVERED') return await processRefundOrder(from, oId);
+                if (o?.status === 'DELIVERED') return await processReturnExchangeOrder(from, oId);
                 return await processCancelOrder(from, oId);
             }
 
@@ -2181,6 +2274,15 @@ export async function processIncomingMessage(body) {
                 const orderId = id.replace('paid_confirm_', '');
                 return await handlePaymentConfirmed(from, orderId);
             }
+
+            // Return/Exchange Handlers
+            if (id.startsWith('rectype_')) {
+                const parts = id.split('_'); // rectype_return_ORD-123
+                const type = parts[1].toUpperCase();
+                const orderId = parts.slice(2).join('_');
+                return await handleReturnExchangeTypeSelection(from, type, orderId);
+            }
+
         }
 
     } catch (e) {

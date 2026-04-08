@@ -1,12 +1,14 @@
 'use client';
 
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
+import { useCompare } from '@/context/CompareContext';
 import styles from './ProductCard.module.css';
 
 export default function ProductCard({ product, gridView = true }) {
     const { addToCart } = useShop();
+    const { compareItems, toggleCompare } = useCompare();
     const firstImage = product.image_url?.split(',')[0] || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
 
     if (!gridView) {
@@ -23,7 +25,10 @@ export default function ProductCard({ product, gridView = true }) {
                             style={{ position: 'relative', zIndex: 1 }}
                         />
                     </Link>
+
                     {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
+
+
                 </div>
                 <div className={styles.productInfo}>
                     <div className={styles.productCategory}>{product.category}</div>
@@ -57,8 +62,11 @@ export default function ProductCard({ product, gridView = true }) {
                         style={{ position: 'relative', zIndex: 1 }}
                     />
                 </Link>
+
                 {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
                 {product.type === 'variant' && <div className={styles.variantBadge}>✨ Variants Available</div>}
+
+
 
                 {product.stock > 0 && (
                     <div

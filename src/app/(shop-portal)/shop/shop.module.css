@@ -428,7 +428,7 @@
     width: 100%;
     padding: 0.6rem;
     background: hsl(var(--primary));
-    color: hsl(var(--text-muted));
+    color: #fff;
     border: none;
     border-radius: 8px;
     font-weight: 700;
@@ -490,7 +490,7 @@
 .doneBtn {
     padding: 0.8rem 2.5rem;
     background: hsl(var(--primary));
-    color: hsl(var(--text-main));
+    color: #fff;
     border: none;
     border-radius: 12px;
     font-weight: 700;

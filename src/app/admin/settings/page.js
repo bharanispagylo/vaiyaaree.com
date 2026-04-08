@@ -139,7 +139,7 @@ export default function SettingsPage() {
                             <div style={{ display: 'grid', gap: '1.75rem', maxWidth: '600px' }}>
                                 <div>
                                     <label className="label">Support WhatsApp Number</label>
-                                    <input className="input-field" defaultValue="+91 75581 89732" />
+                                    <input className="input-field" defaultValue={process.env.NEXT_PUBLIC_BUSINESS_PHONE || "+91 75581 89732"} />
                                 </div>
                                 <div>
                                     <label className="label">Support Email</label>

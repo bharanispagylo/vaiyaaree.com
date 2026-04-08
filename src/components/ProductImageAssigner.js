@@ -129,148 +129,148 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
     const doneCount = items.filter(it => it.status === 'done').length;
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(12px)', zIndex: 2000, overflowY: 'auto',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '1rem'
-        }}>
-            <div className="card shadow-premium" style={{
-                width: '100%', maxWidth: '860px', borderRadius: '24px',
-                background: 'hsl(var(--bg-panel))', overflow: 'hidden'
-            }}>
+        <div className="modal-overlay" onClick={onClose} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="modal-box shadow-premium" style={{
+                width: '95%', maxWidth: '1000px', padding: 0,
+                borderRadius: '40px', background: '#ffffff',
+                overflow: 'hidden', height: '90vh', maxHeight: '90vh',
+                display: 'flex', flexDirection: 'column',
+                position: 'relative',
+                animation: 'modalSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+            }} onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div style={{
-                    padding: '1.5rem 2rem', borderBottom: '1px solid hsl(var(--border-subtle))',
+                    padding: '2rem 3rem', borderBottom: '1px solid #f1f5f9',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    background: 'hsl(var(--bg-app) / 0.5)'
+                    background: '#ffffff'
                 }}>
                     <div>
-                        <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800 }}>
-                            📸 Assign Product Images
+                        <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: 'hsl(var(--text-main))', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <ImageIcon size={32} className="text-primary" /> Assign Product Images
                         </h2>
-                        <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
-                            {doneCount}/{items.length} done • Each image gets a unique catalog ID (CAT-XXXXX) and is stored in media library
+                        <p style={{ margin: '6px 0 0', fontSize: '0.9rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>
+                            {doneCount} of {items.length} products assigned • Automatic CAT-Code watermarking enabled
                         </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <div style={{
-                            background: 'hsl(var(--primary) / 0.15)', color: 'hsl(var(--primary))',
-                            padding: '0.4rem 1rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700
+                            background: doneCount === items.length ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--primary) / 0.05)',
+                            color: doneCount === items.length ? 'hsl(var(--success))' : 'hsl(var(--primary))',
+                            padding: '0.5rem 1.25rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 800,
+                            border: `1px solid ${doneCount === items.length ? 'hsl(var(--success) / 0.2)' : 'hsl(var(--primary) / 0.1)'}`
                         }}>
-                            {doneCount}/{items.length} ✓
+                            {doneCount === items.length ? 'COMPLETED' : `${doneCount} / ${items.length} SAVED`}
                         </div>
                         <button
                             onClick={onClose}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))' }}
+                            className="btn-icon danger"
+                            style={{ width: '40px', height: '40px' }}
                         >
-                            <X size={22} />
+                            <X size={20} />
                         </button>
                     </div>
                 </div>
 
                 {/* Progress bar */}
-                <div style={{ height: '4px', background: 'hsl(var(--bg-app))' }}>
+                <div style={{ height: '6px', background: '#eef2f6' }}>
                     <div style={{
-                        height: '100%', transition: 'width 0.4s',
+                        height: '100%', transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
                         width: `${(doneCount / items.length) * 100}%`,
-                        background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--success)))'
+                        background: '#0f172a'
                     }} />
                 </div>
 
                 {/* Product List */}
-                <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ flex: 1, padding: '2rem 3rem', overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {items.map((item, i) => (
                         <div key={item.id ? `prod-${item.id}` : `idx-${i}`} style={{
-                            display: 'flex', gap: '1rem', alignItems: 'center',
-                            padding: '1rem 1.25rem', borderRadius: '16px',
-                            background: item.status === 'done'
-                                ? 'hsl(var(--success) / 0.08)'
-                                : 'hsl(var(--bg-app))',
-                            border: `1px solid ${item.status === 'done'
-                                ? 'hsl(var(--success) / 0.3)'
-                                : 'hsl(var(--border-subtle))'}`,
-                            transition: 'all 0.3s'
+                            display: 'flex', gap: '1.5rem', alignItems: 'center',
+                            padding: '1.5rem', borderRadius: '24px',
+                            background: '#ffffff',
+                            border: `1px solid ${item.status === 'done' ? 'hsl(var(--success) / 0.2)' : '#eef2f6'}`,
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                         }}>
                             {/* Image Preview */}
                             <div style={{
-                                width: '68px', height: '68px', borderRadius: '12px',
+                                width: '100px', height: '100px', borderRadius: '20px',
                                 overflow: 'hidden', flexShrink: 0, position: 'relative',
-                                background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle))'
+                                background: '#f1f5f9', border: '1px solid #eef2f6',
+                                boxShadow: 'inset 0 0 10px rgba(0,0,0,0.02)'
                             }}>
                                 {item.previewUrl ? (
                                     <img src={item.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setZoomedImage(item.previewUrl)} />
                                 ) : (
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                                        <ImageIcon size={24} style={{ color: 'hsl(var(--text-muted))' }} />
+                                        <ImageIcon size={32} style={{ color: '#94a3b8', opacity: 0.5 }} />
                                     </div>
                                 )}
                                 {item.status === 'stamping' && (
                                     <div style={{
-                                        position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)',
+                                        position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)',
+                                        backdropFilter: 'blur(4px)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
-                                        <Loader2 size={20} style={{ color: 'white', animation: 'spin 1s linear infinite' }} />
+                                        <Loader2 size={24} className="animate-spin text-primary" />
                                     </div>
                                 )}
                                 {item.status === 'done' && (
                                     <div style={{
-                                        position: 'absolute', bottom: 4, right: 4,
-                                        background: 'hsl(var(--success))', borderRadius: '50%', padding: '2px'
+                                        position: 'absolute', top: 8, right: 8,
+                                        background: 'hsl(var(--success))', borderRadius: '50%', width: '24px', height: '24px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
                                     }}>
-                                        <Check size={10} color="white" strokeWidth={3} />
+                                        <Check size={14} color="white" strokeWidth={4} />
                                     </div>
                                 )}
                             </div>
 
                             {/* Product Info */}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 700, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontWeight: 900, fontSize: '1.15rem', color: '#0f172a', marginBottom: '8px' }}>
                                     {item.name}
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '4px', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.72rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '1rem', color: 'hsl(var(--primary))', fontWeight: 800 }}>
                                         ₹{(item.price || 0).toLocaleString()}
                                     </span>
                                     {item.catalogId && (
                                         <span style={{
-                                            fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em',
-                                            background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))',
-                                            padding: '2px 8px', borderRadius: '6px', fontFamily: 'monospace'
+                                            fontSize: '0.75rem', fontWeight: 900, letterSpacing: '0.05em',
+                                            background: '#f1f5f9', color: '#64748b',
+                                            padding: '4px 12px', borderRadius: '10px', fontFamily: 'var(--font-roboto)',
+                                            border: '1px solid #e2e8f0'
                                         }}>
                                             {item.catalogId}
                                         </span>
                                     )}
                                     {item.status === 'done' && (
-                                        <span style={{ fontSize: '0.68rem', color: 'hsl(var(--success))', fontWeight: 700 }}>
-                                            ✓ Watermarked & Saved
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'hsl(var(--success))', fontSize: '0.85rem', fontWeight: 700 }}>
+                                            <Check size={16} /> Finalized & Uploaded
+                                        </div>
                                     )}
                                 </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-                                {/* Pick from media library */}
+                            <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0 }}>
                                 <button
                                     disabled={item.status === 'stamping'}
                                     onClick={() => setActivePickerIndex(i)}
                                     className="btn btn-secondary"
-                                    style={{ padding: '0.5rem 0.85rem', fontSize: '0.78rem', gap: '6px' }}
-                                    title="From Media Library"
+                                    style={{ padding: '0.75rem 1.5rem', borderRadius: '14px', fontSize: '0.85rem', height: '48px', gap: '8px' }}
                                 >
-                                    <Grid size={14} /> Library
+                                    <Grid size={18} /> Library
                                 </button>
 
-                                {/* Upload from device */}
                                 <button
                                     disabled={item.status === 'stamping'}
                                     onClick={() => fileRefs.current[i]?.click()}
                                     className="btn btn-primary"
-                                    style={{ padding: '0.5rem 0.85rem', fontSize: '0.78rem', gap: '6px' }}
-                                    title="Upload from device"
+                                    style={{ padding: '0.75rem 1.5rem', borderRadius: '14px', fontSize: '0.85rem', height: '48px', gap: '8px' }}
                                 >
-                                    <Upload size={14} /> Upload
+                                    <Upload size={18} /> Upload
                                 </button>
                                 <input
                                     type="file"
@@ -286,21 +286,25 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
 
                 {/* Footer */}
                 <div style={{
-                    padding: '1.25rem 2rem', borderTop: '1px solid hsl(var(--border-subtle))',
+                    padding: '2.5rem 3rem', borderTop: '1px solid #f1f5f9',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    background: 'hsl(var(--bg-app) / 0.3)'
+                    background: '#ffffff'
                 }}>
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)' }}>
-                        💡 Images are stored in media library with unique catalog IDs for easy tracking
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button onClick={onClose} className="btn btn-secondary">Skip for now</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#64748b', fontSize: '0.85rem', fontWeight: 500 }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            💡
+                        </div>
+                        <span>Unique Catalog IDs (CAT-XXXXX) are automatically generated for batch tracking.</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <button onClick={onClose} className="modal-btn modal-btn-secondary" style={{ padding: '0.75rem 1.75rem' }}>Skip for now</button>
                         <button
                             onClick={() => { onDone?.(); onClose(); }}
-                            className="btn btn-primary"
+                            className="modal-btn modal-btn-primary"
                             disabled={doneCount === 0}
+                            style={{ padding: '0.75rem 2.5rem', background: 'hsl(var(--text-main))' }}
                         >
-                            ✅ Done ({doneCount} saved)
+                            ✅ Complete Import ({doneCount})
                         </button>
                     </div>
                 </div>
@@ -320,94 +324,59 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
 
             {/* OCR Loading Overlay */}
             {ocrLoading && (
-                <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-                    zIndex: 5000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem'
-                }}>
-                    <Loader2 size={42} style={{ color: 'white', animation: 'spin 1s linear infinite' }} />
-                    <div style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '0.05em', background: 'rgba(0,0,0,0.3)', padding: '0.5rem 1.5rem', borderRadius: '12px' }}>
-                        Searching for WaterMark...
+                <div className="modal-overlay" style={{ zIndex: 5000 }}>
+                    <div className="modal-box" style={{ maxWidth: '360px', textAlign: 'center', padding: '3rem' }}>
+                        <Loader2 size={48} className="animate-spin text-primary" style={{ margin: '0 auto 1.5rem' }} />
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '0.5rem' }}>Digital Scanning</h3>
+                        <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.9rem' }}>Searching for existing watermarks...</p>
                     </div>
                 </div>
             )}
 
-            <style jsx>{`
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-            `}</style>
-
-            {/* Watermark Modal */}
+            {/* Watermark Confirmation Modal */}
             {watermarkModal && (
-                <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-                    backdropFilter: 'blur(8px)', zIndex: 6000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-                }}>
+                <div className="modal-overlay" style={{ zIndex: 6000 }}>
                     {watermarkModal.type === 'existing' ? (
-                        /* NEW ERROR STYLE MODAL */
-                        <div className="animate-enter" style={{
-                            maxWidth: '400px', width: '100%', background: '#ffffff', 
-                            borderRadius: '16px', overflow: 'hidden', textAlign: 'center',
-                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                        }}>
-                            <div style={{ padding: '2.5rem 2rem' }}>
-                                <div style={{
-                                    width: '64px', height: '64px', borderRadius: '50%',
-                                    background: '#fee2e2', color: '#ef4444',
-                                    display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem'
-                                }}>
-                                    <AlertTriangle size={32} />
-                                </div>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#111827' }}>
-                                    Watermark present
-                                </h3>
-                                <p style={{ color: '#6b7280', lineHeight: '1.6', fontSize: '0.95rem' }}>
-                                    This image already contains a watermark and cannot be processed again.
-                                </p>
+                        <div className="modal-box modal-error" style={{ maxWidth: '440px', textAlign: 'center' }}>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', boxShadow: '0 0 0 1px #fee2e2' }}>
+                                <AlertTriangle size={40} />
                             </div>
-                            <div style={{ background: '#fef2f2', padding: '1rem' }}>
+                            <h3 className="modal-title">Conflict Detected</h3>
+                            <p className="modal-message">
+                                This image already contains a watermark (<strong>{watermarkModal.detectedCode}</strong>). Please use a clean original image for new products.
+                            </p>
+                            <div className="modal-actions">
                                 <button
                                     onClick={() => { setWatermarkModal(null); setOcrLoading(false); }}
-                                    style={{
-                                        width: '100%', background: '#ef4444', color: '#ffffff',
-                                        border: 'none', padding: '0.75rem', borderRadius: '8px',
-                                        fontWeight: 700, fontSize: '1rem', cursor: 'pointer'
-                                    }}
+                                    className="modal-btn modal-btn-primary"
+                                    style={{ background: '#ef4444', width: '100%' }}
                                 >
                                     Dismiss
                                 </button>
                             </div>
                         </div>
                     ) : (
-                        /* NEW CLEAN MODAL */
-                        <div className="card shadow-premium animate-enter" style={{
-                            maxWidth: '450px', width: '90%', padding: '2.5rem', textAlign: 'center',
-                            background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0',
-                            boxShadow: '0 25px 60px rgba(0,0,0,0.4)'
-                        }} onClick={e => e.stopPropagation()}>
-                            <div style={{
-                                width: '64px', height: '64px', borderRadius: '50%',
-                                background: 'hsl(var(--success) / 0.1)',
-                                color: 'hsl(var(--success))',
-                                display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem'
-                            }}>
-                                <ImageIcon size={28} />
+                        <div className="modal-box" style={{ maxWidth: '480px', textAlign: 'center' }}>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', boxShadow: 'inset 0 0 0 2px hsl(var(--primary) / 0.1)' }}>
+                                <ImageIcon size={40} />
                             </div>
-                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.75rem' }}>
-                                New Image Ready
-                            </h3>
-                            <p style={{ color: 'hsl(var(--text-muted))', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-                                This is a clean image. We'll generate a unique ID and watermark it for you.
+                            <h3 className="modal-title">New Image Ready</h3>
+                            <p className="modal-message">
+                                Detected <strong>clean asset</strong>. We will generate ID <strong>{watermarkModal.detectedCode}</strong> and apply branding automatically.
                             </p>
                             <div style={{
-                                width: '100%', height: '220px', borderRadius: '16px',
-                                overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))',
-                                marginBottom: '2rem', background: 'hsl(var(--bg-app))', cursor: 'zoom-in'
-                            }} onClick={() => setZoomedImage(watermarkModal.url)}>
+                                width: '100%', height: '240px', borderRadius: '24px',
+                                overflow: 'hidden', border: '1px solid #f1f5f9',
+                                marginBottom: '2.5rem', background: '#f8fafc', position: 'relative'
+                            }}>
                                 <img src={watermarkModal.url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', color: 'white', padding: '0.4rem 1rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                    PREVIEW
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                                <button onClick={() => { setWatermarkModal(null); setOcrLoading(false); }} className="btn btn-secondary" style={{ flex: 1, padding: '0.8rem' }}>Cancel</button>
-                                <button onClick={watermarkModal.onProceed} className="btn btn-primary" style={{ flex: 1.5, background: 'hsl(var(--text-main))', padding: '0.8rem', color: 'white' }}>Apply & Use</button>
+                            <div className="modal-actions">
+                                <button onClick={() => { setWatermarkModal(null); setOcrLoading(false); }} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+                                <button onClick={watermarkModal.onProceed} className="modal-btn modal-btn-primary" style={{ flex: 1.5 }}>Generate & Apple</button>
                             </div>
                         </div>
                     )}
@@ -416,35 +385,18 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
 
             {/* Error Modal */}
             {errorModal && (
-                <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                    backdropFilter: 'blur(4px)', zIndex: 9000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-                }}>
-                    <div className='card shadow-premium' style={{
-                        maxWidth: '400px', width: '100%', padding: '2rem',
-                        textAlign: 'center', borderRadius: '24px'
-                    }}>
-                        <div style={{
-                            width: '64px', height: '64px', borderRadius: '20px',
-                            background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            margin: '0 auto 1.5rem'
-                        }}>
-                            <X size={32} />
+                <div className="modal-overlay" style={{ zIndex: 9000 }}>
+                    <div className="modal-box modal-error" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem' }}>
+                            <X size={40} />
                         </div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>{errorModal.title}</h3>
-                        <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>{errorModal.message}</p>
-                        <button
-                            onClick={() => setErrorModal(null)}
-                            className='admin-button-primary'
-                            style={{ width: '100%' }}
-                        >
-                            Got it
-                        </button>
+                        <h3 className="modal-title">{errorModal.title}</h3>
+                        <p className="modal-message">{errorModal.message}</p>
+                        <button onClick={() => setErrorModal(null)} className="modal-btn modal-btn-primary" style={{ background: '#ef4444', width: '100%' }}>Got it</button>
                     </div>
                 </div>
             )}
+
             {zoomedImage && (
                 <ImageZoom url={zoomedImage} onClose={() => setZoomedImage(null)} />
             )}

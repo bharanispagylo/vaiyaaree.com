@@ -15,12 +15,15 @@ export default function MyOrdersPage() {
     const [generatingId, setGeneratingId] = useState(null);
     const [cancellingId, setCancellingId] = useState(null);
     const [showCancelModal, setShowCancelModal] = useState(false);
+    const [showReturnModal, setShowReturnModal] = useState(false);
+    const [returnForm, setReturnForm] = useState({ type: 'RETURN', reason: '', productId: '' });
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [otpSent, setOtpSent] = useState(false);
     const [otp, setOtp] = useState('');
     const [generatedOtp, setGeneratedOtp] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [alertModal, setAlertModal] = useState({ show: false, title: '', message: '' });
+    const [returnRequests, setReturnRequests] = useState([]);
 
     useEffect(() => {
         if (user?.phone) {
@@ -45,7 +48,15 @@ export default function MyOrdersPage() {
                 .in('customer_phone', phoneVariations)
                 .order('created_at', { ascending: false });
 
-            if (data) setOrders(data);
+            if (data) {
+                setOrders(data);
+                const orderIds = data.map(o => o.id);
+                const { data: reqs } = await supabase
+                    .from('return_requests')
+                    .select('*')
+                    .in('order_id', orderIds);
+                setReturnRequests(reqs || []);
+            }
         } catch (err) {
             console.error('Fetch Orders Error:', err);
         } finally {
@@ -200,6 +211,53 @@ export default function MyOrdersPage() {
         }
     }
 
+    async function handleReturnSubmit() {
+        if (!selectedOrder || !returnForm.productId || !returnForm.reason || !returnForm.reason.trim()) {
+            setAlertModal({ 
+                show: true, 
+                title: 'Required Fields Missing', 
+                message: 'Please fill in all required fields before submitting.' 
+            });
+            return;
+        }
+
+        try {
+            // Check for existing request again (safety)
+            const exists = returnRequests.find(r => r.order_id === selectedOrder.id && r.product_id === returnForm.productId && r.status !== 'REJECTED');
+            if (exists) {
+                setAlertModal({ 
+                    show: true, 
+                    title: 'Already Requested', 
+                    message: 'A return or exchange request for this item is already in progress.' 
+                });
+                return;
+            }
+
+            const { error } = await supabase.from('return_requests').insert({
+                order_id: selectedOrder.id,
+                product_id: returnForm.productId,
+                customer_id: user.id || null, 
+                request_type: returnForm.type,
+                reason: returnForm.reason,
+                status: 'PENDING'
+            });
+
+            if (error) throw error;
+
+            // Update local state to prevent duplicate without re-fetching
+            setReturnRequests(prev => [...prev, { order_id: selectedOrder.id, product_id: returnForm.productId, status: 'PENDING' }]);
+
+            setAlertModal({ show: true, title: 'Request Submitted', message: `Your ${returnForm.type.toLowerCase()} request has been submitted successfully.` });
+        } catch (err) {
+            console.error('Return Request Error:', err);
+            setAlertModal({ show: true, title: 'Submission Failed', message: 'Failed to submit request. Please try again.' });
+        } finally {
+            setShowReturnModal(false);
+            setReturnForm({ type: 'RETURN', reason: '', productId: '' });
+            setSelectedOrder(null);
+        }
+    }
+
     const filteredOrders = orders.filter(o => 
         o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.status.toLowerCase().includes(searchTerm.toLowerCase())
@@ -215,6 +273,7 @@ export default function MyOrdersPage() {
     };
 
     const canCancel = (status) => ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(status);
+    const canReturn = (status) => ['DELIVERED'].includes(status);
 
     if (!user) {
         return (
@@ -251,29 +310,7 @@ export default function MyOrdersPage() {
                 </div>
             </div>
 
-            {/* Global Alert Modal */}
-            {alertModal.show && (
-                <div className={styles.modalOverlay} style={{ zIndex: 9999 }}>
-                    <div className={styles.modal} style={{ maxWidth: '400px', textAlign: 'center' }}>
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <div style={{ background: '#fee2e2', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
-                                <AlertTriangle size={30} color="#dc2626" />
-                            </div>
-                            <h3 style={{ fontSize: '1.25rem', color: '#111827', marginBottom: '0.5rem', fontWeight: 700 }}>{alertModal.title}</h3>
-                            <p style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: 1.5 }}>
-                                {alertModal.message}
-                            </p>
-                        </div>
-                        <button 
-                            onClick={() => setAlertModal({ show: false, title: '', message: '' })} 
-                            className={styles.btnPrimary} 
-                            style={{ width: '100%', padding: '0.875rem' }}
-                        >
-                            Okay, Got it
-                        </button>
-                    </div>
-                </div>
-            )}
+
 
             {/* Cancel Confirmation Modal */}
             {showCancelModal && selectedOrder && (
@@ -358,6 +395,83 @@ export default function MyOrdersPage() {
                                 disabled={!otpSent || otp.length !== 6}
                             >
                                 Yes, Cancel Order
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Return/Exchange Modal */}
+            {showReturnModal && selectedOrder && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal}>
+                        <div className={styles.modalHeader}>
+                            <Package size={24} color="#3b82f6" />
+                            <h3>Request Return/Exchange</h3>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <p>Order <strong>#{selectedOrder.id}</strong></p>
+                            
+                            <div style={{ marginTop: '1.5rem', textAlign: 'left' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Select Product <span style={{ color: '#ef4444' }}>*</span></label>
+                                <select 
+                                    className={styles.formSelect}
+                                    value={returnForm.productId}
+                                    onChange={(e) => setReturnForm({ ...returnForm, productId: e.target.value })}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '1rem' }}
+                                >
+                                    <option value="" disabled>Select an item</option>
+                                    {selectedOrder.order_items?.filter(item => {
+                                        // Hide products that already have a request (unless it was Rejected)
+                                        const hasRequest = returnRequests.some(r => 
+                                            r.order_id === selectedOrder.id && 
+                                            r.product_id === item.product_id &&
+                                            r.status !== 'REJECTED'
+                                        );
+                                        return !hasRequest;
+                                    }).map((item, idx) => (
+                                        <option key={idx} value={item.product_id}>{item.product_name}</option>
+                                    ))}
+                                    {selectedOrder.order_items?.length > 1 && (
+                                        <option value="ALL_ORDER">-- Return Entire Order --</option>
+                                    )}
+                                </select>
+
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Request Type</label>
+                                <select 
+                                    className={styles.formSelect}
+                                    value={returnForm.type}
+                                    onChange={(e) => setReturnForm({ ...returnForm, type: e.target.value })}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '1rem' }}
+                                >
+                                    <option value="RETURN">Return (Refund)</option>
+                                    <option value="EXCHANGE">Exchange (Replacement)</option>
+                                </select>
+
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Reason <span style={{ color: '#ef4444' }}>*</span></label>
+                                <textarea 
+                                    className={styles.formTextarea}
+                                    value={returnForm.reason}
+                                    onChange={(e) => setReturnForm({ ...returnForm, reason: e.target.value })}
+                                    placeholder="Please explain why you want to return or exchange this item..."
+                                    rows={4}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc', fontFamily: 'inherit' }}
+                                />
+                            </div>
+                        </div>
+                        <div className={styles.modalActions}>
+                            <button onClick={() => {
+                                setShowReturnModal(false);
+                                setReturnForm({ type: 'RETURN', reason: '', productId: '' });
+                                setSelectedOrder(null);
+                            }} className={styles.btnSecondary}>
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleReturnSubmit} 
+                                className={styles.btnPrimary}
+                            >
+                                Submit Request
                             </button>
                         </div>
                     </div>
@@ -466,12 +580,50 @@ export default function MyOrdersPage() {
                                                     )}
                                                 </button>
                                             )}
+                                            
+                                            {canReturn(order.status) && (
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedOrder(order);
+                                                        setShowReturnModal(true);
+                                                    }}
+                                                    className={`${styles.actionBtn}`}
+                                                    style={{ color: '#3b82f6' }}
+                                                    title="Return or Exchange"
+                                                >
+                                                    <Package size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* Global Alert Modal at the bottom to ensure high z-index stacking */}
+            {alertModal.show && (
+                <div className={styles.modalOverlay} style={{ zIndex: 99999 }}>
+                    <div className={styles.modal} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <div style={{ background: '#fee2e2', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
+                                <AlertTriangle size={30} color="#dc2626" />
+                            </div>
+                            <h3 style={{ fontSize: '1.25rem', color: '#111827', marginBottom: '0.5rem', fontWeight: 700 }}>{alertModal.title}</h3>
+                            <p style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: 1.5 }}>
+                                {alertModal.message}
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => setAlertModal({ show: false, title: '', message: '' })} 
+                            className={styles.btnPrimary} 
+                            style={{ width: '100%', padding: '0.875rem' }}
+                        >
+                            Okay, Got it
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw, ChevronDown, CornerDownLeft, BellRing } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useState, useEffect } from 'react';
 
@@ -28,6 +28,7 @@ const menuItems = [
         ]
     },
     { name: 'Refunds', href: '/admin/refunds', icon: RefreshCcw },
+    { name: 'Returns', href: '/admin/returns', icon: CornerDownLeft },
     { name: 'Shipping', href: '/admin/shipping', icon: Truck },
     { 
         name: 'Social Media', 

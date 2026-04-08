@@ -179,6 +179,8 @@ export function ShopProvider({ children }) {
         }
     }
 
+
+
     async function handleLogout() {
         localStorage.clear();
         setUser(null);

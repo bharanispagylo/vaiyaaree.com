@@ -139,8 +139,9 @@
 
 .orderId {
     color: hsl(var(--primary));
-    font-family: monospace;
+    font-family: var(--font-body);
     font-size: 0.9rem;
+    font-weight: 700;
 }
 
 .dateCell {

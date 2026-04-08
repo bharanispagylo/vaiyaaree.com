@@ -22,6 +22,7 @@ export default function HomePage() {
     const [loading, setLoading] = useState(true);
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [exploreProducts, setExploreProducts] = useState([]);
+    const [allCategories, setAllCategories] = useState([]);
     const [heroSliderImages, setHeroSliderImages] = useState([
         '/images/hero-saree.png',
         'https://images.unsplash.com/photo-1583391733958-d25974644ed1?q=80&w=2000&auto=format&fit=crop',
@@ -76,6 +77,22 @@ export default function HomePage() {
                         .eq('is_active', true)
                         .order('created_at', { ascending: false });
                     setExploreProducts(expProds || []);
+
+                    const { data: catData } = await supabase
+                        .from('products')
+                        .select('category, image_url')
+                        .eq('is_active', true);
+                    if (catData) {
+                        const uniqueCats = [];
+                        const catMap = new Map();
+                        for (const p of catData) {
+                            if (p.category && !catMap.has(p.category)) {
+                                catMap.set(p.category, p.image_url ? p.image_url.split(',')[0] : 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80');
+                                uniqueCats.push({ name: p.category, image: catMap.get(p.category) });
+                            }
+                        }
+                        setAllCategories(uniqueCats.slice(0, 6)); // Top 6 categories
+                    }
 
                     const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
                     if (heroData?.value) {
@@ -251,6 +268,42 @@ export default function HomePage() {
                 </div>
             )}
 
+            {/* Shop by Category - New Section */}
+            {allCategories.length > 0 && (
+                <div style={{ padding: '6rem 2rem', background: '#fcfcfc', borderTop: '1px solid #f0f0f0' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
+                        <h2 style={{ fontSize: '3rem', fontWeight: 400, fontFamily: 'var(--font-body)', position: 'relative', width: 'fit-content', margin: '0 auto', paddingBottom: '15px' }}>
+                            Shop by Category
+                            <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '60px', height: '1px', background: '#5d0821' }}></div>
+                        </h2>
+                    </div>
+                    <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
+                        {allCategories.map((cat, idx) => (
+                            <Link key={cat.name} href={`/shop?category=${encodeURIComponent(cat.name)}`} style={{ textDecoration: 'none' }}>
+                                <div style={{ 
+                                    position: 'relative', height: '300px', borderRadius: '12px', overflow: 'hidden', 
+                                    boxShadow: '0 10px 40px rgba(0,0,0,0.08)', cursor: 'pointer', background: '#000',
+                                    transition: 'transform 0.4s'
+                                }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-10px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                    <div style={{ 
+                                        position: 'absolute', inset: 0, 
+                                        background: `url(${cat.image}) center/cover`, 
+                                        filter: 'blur(2px) grayscale(20%)', opacity: 0.6,
+                                        transition: 'all 0.5s'
+                                    }}></div>
+                                    <div style={{ 
+                                        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+                                    }}>
+                                        <h3 style={{ color: '#fff', fontSize: '2rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>{cat.name}</h3>
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Mudhra Collection - Original Styles */}
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', minHeight: '500px', background: '#fff', borderTop: '1px solid #f0f0f0' }}>
                 <div style={{ padding: '4rem 8%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -291,12 +344,12 @@ export default function HomePage() {
                     
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
                         <div style={{ background: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: 'none', textAlign: 'center', width: '100%', maxWidth: '280px' }}>
-                           <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://wa.me/15551678232" style={{ width: '140px', marginBottom: '1rem' }} alt="QR" />
-                           <div style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.2rem' }}>+1 (555) 167-8232</div>
+                           <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} style={{ width: '140px', margin: '0 auto 1rem', display: 'block' }} alt="QR" />
+                           <div style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.2rem' }}>+{process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}</div>
                         </div>
                         
                         <Link 
-                            href="https://wa.me/15551678232" 
+                            href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} 
                             target="_blank"
                             style={{ 
                                 display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 2rem', background: '#fff', color: '#5d0821', borderRadius: '4px', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', width: '100%', maxWidth: '280px', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', transition: 'transform 0.3s'

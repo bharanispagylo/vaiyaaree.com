@@ -18,6 +18,7 @@ export default function InvoiceReportPage() {
     const [customEndDate, setCustomEndDate] = useState('');
     const [selectedLocation, setSelectedLocation] = useState('ALL');
     const [selectedCategory, setSelectedCategory] = useState('ALL');
+    const [reportStatusFilter, setReportStatusFilter] = useState('ALL');
     const [searchTerm, setSearchTerm] = useState('');
     const [viewInvoice, setViewInvoice] = useState(null);
     const [notification, setNotification] = useState(null); // { message, type }
@@ -162,12 +163,16 @@ export default function InvoiceReportPage() {
         }
     };
 
-    const filteredOrders = orders.filter(o =>
-        (o.status !== 'CANCELLED') &&
-        (o.id.toString().includes(searchTerm) ||
-        o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.customer_phone?.includes(searchTerm))
-    );
+    const filteredOrders = orders.filter(o => {
+        const matchesStatusFilter = reportStatusFilter === 'ALL' ? true : o.status === reportStatusFilter;
+        return (
+            (!['CANCELLED', 'REFUNDED'].includes(o.status)) &&
+            matchesStatusFilter &&
+            (o.id.toString().includes(searchTerm) ||
+            o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            o.customer_phone?.includes(searchTerm))
+        );
+    });
 
     const metrics = {
         totalRevenue: filteredOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
@@ -328,6 +333,23 @@ export default function InvoiceReportPage() {
                     </div>
 
                     <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>ORDER STATUS</label>
+                        <select
+                            value={reportStatusFilter}
+                            onChange={(e) => setReportStatusFilter(e.target.value)}
+                            className="admin-input-select"
+                            style={{ width: '100%' }}
+                        >
+                            <option value="ALL">All Valid Orders</option>
+                            <option value="DELIVERED">Delivered Only</option>
+                            <option value="PAID">Paid Only</option>
+                            <option value="SHIPPED">Shipped Only</option>
+                            <option value="PLACED">Placed Only</option>
+                        </select>
+                    </div>
+                </div>
+                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1.5rem' }}>
+                    <div style={{ flex: 1 }}>
                         <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.5rem' }}>QUICK SEARCH</label>
                         <div style={{ position: 'relative' }}>
                             <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
@@ -335,7 +357,7 @@ export default function InvoiceReportPage() {
                                 type="text"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Invoice ID, Name..."
+                                placeholder="Invoice ID, Name, Phone..."
                                 className="admin-input"
                                 style={{ paddingLeft: '2.5rem' }}
                             />
