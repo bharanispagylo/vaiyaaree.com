@@ -202,26 +202,35 @@ function TrackContent() {
         }
 
         try {
-            const { error } = await supabase.from('return_requests').insert({
-                order_id: order.id,
-                product_id: returnForm.productId,
-                customer_id: user?.id || null, 
-                request_type: returnForm.type,
-                reason: returnForm.reason,
-                status: 'PENDING'
+            const response = await fetch('/api/returns/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: order.id,
+                    productId: returnForm.productId,
+                    customerId: user?.id || null, 
+                    type: returnForm.type,
+                    reason: returnForm.reason,
+                    requestedFrom: 'website'
+                })
             });
 
-            if (error) throw error;
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to submit request');
+            }
 
             setReturnRequests(prev => [...prev, { order_id: order.id, product_id: returnForm.productId, status: 'PENDING' }]);
-            showToast(`Your ${returnForm.type.toLowerCase()} request has been submitted. Our team will review your request and it will be processed shortly.`, 'success');
+            showToast(`Your ${returnForm.type.toLowerCase()} request has been submitted successfully. Our team will review it and notify you.`, 'success');
             setShowReturnModal(false);
             setReturnForm({ type: 'RETURN', reason: '', productId: '' });
         } catch (err) {
             console.error('Return Request Error:', err);
-            showToast('Failed to submit request', 'error');
+            showToast(err.message || 'Failed to submit request', 'error');
         }
     }
+
 
     const getStatusIndex = (status) => {
         const stages = ['PLACED', 'CONFIRMED', 'SHIPPED', 'DELIVERED'];

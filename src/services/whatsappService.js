@@ -1,12 +1,19 @@
 //  Cast Printz — WHATSAPP BUSINESS BOT (Premium Edition)
 
 import { createClient } from '@supabase/supabase-js';
+import { processReturnRequest } from './returnService';
 
 // ─── 1. CONFIGURATION & CLIENTS ───────────────────────────────────────────────
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+// Admin client for bypass RLS on customers and orders
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
@@ -18,13 +25,34 @@ const truncate = (str, limit) => (str && str.length > limit) ? str.substring(0, 
 
 // Normalize phone number to E.164 format (with country code)
 
-async function updateCustomerAdminNotes(to, notes) {
-    const normalizedPhone = normalizePhoneNumber(to);
-    const phoneVariations = [normalizedPhone];
-    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-        phoneVariations.push(normalizedPhone.substring(2));
+async function updateCustomerAdminNotes(toOrId, notes) {
+    let query;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toOrId);
+    
+    if (isUuid) {
+        console.log(`[WA-UPDATE] Updating notes by ID: ${toOrId}`);
+        query = supabaseAdmin.from('customers').update({ admin_notes: notes }).eq('id', toOrId);
+    } else {
+        const normalizedPhone = normalizePhoneNumber(toOrId);
+        const phoneVariations = [normalizedPhone];
+        if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+            phoneVariations.push(normalizedPhone.substring(2));
+        }
+        console.log(`[WA-UPDATE] Updating notes by Phone variations:`, phoneVariations);
+        query = supabaseAdmin.from('customers').update({ admin_notes: notes }).in('phone', phoneVariations);
     }
-    return await supabase.from('customers').update({ admin_notes: notes }).in('phone', phoneVariations);
+
+    const { data, error } = await query.select();
+    
+    if (error) {
+        console.error(`[WA-UPDATE-ERROR] Failed to update notes:`, error);
+    } else if (data && data.length > 0) {
+        console.log(`[WA-UPDATE-SUCCESS] Notes set to: "${notes}" for ${data.length} record(s)`);
+    } else {
+        console.warn(`[WA-UPDATE-WARNING] No records found to update for: ${toOrId}`);
+    }
+    
+    return { data, error };
 }
 
 function normalizePhoneNumber(phone) {
@@ -1295,13 +1323,13 @@ export async function handlePaymentConfirmed(to, orderId) {
         created_at: new Date().toISOString()
     });
     
-    await clearCart(to);
+    await clearCart(customerId || to);
     await deductStock(orderId);
 
     // Unify logic by calling notifyOrderSuccess
     return await notifyOrderSuccess(orderId, true);
 }
-export async function handleCancelOrder(to) {
+export async function handleCancelOrder(to, customerId) {
     // Normalize phone number to handle both formats (with/without country code)
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
@@ -1600,14 +1628,17 @@ export async function processRefundOrder(to, orderId) {
     }
     
     // Store that this user is now in "Waiting for Refund Reason" state for this order
-    await updateCustomerAdminNotes(to, `WAITING_REFUND_REASON:${upperOrderId}`);
+    await updateCustomerAdminNotes(customerId || to, `WAITING_REFUND_REASON:${upperOrderId}`);
     
     return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.`);
 }
 
-export async function handleReturnExchangeOrder(to) {
+export async function handleReturnExchangeOrder(customerId, to) {
     console.log('\n🔄 === HANDLE RETURN/EXCHANGE ORDER ===');
-    console.log('Phone:', to);
+    console.log('ID:', customerId, 'Phone:', to);
+    
+    // Clear any previous state
+    await updateCustomerAdminNotes(customerId || to, null);
     
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
@@ -1619,7 +1650,7 @@ export async function handleReturnExchangeOrder(to) {
     let allDelivered = [];
     for (const phone of phoneVariations) {
         console.log(`📋 Checking orders for phone: ${phone}`);
-        const { data, error } = await supabase.from('orders')
+        const { data, error } = await supabaseAdmin.from('orders')
             .select('id, status, total_amount, created_at')
             .eq('customer_phone', phone)
             .eq('status', 'DELIVERED')
@@ -1649,11 +1680,11 @@ export async function handleReturnExchangeOrder(to) {
 
     const orderIds = allDelivered.map(o => o.id);
     const [ { data: logs }, { data: existingRequests } ] = await Promise.all([
-        supabase.from('order_status_logs')
+        supabaseAdmin.from('order_status_logs')
             .select('order_id, created_at')
             .in('order_id', orderIds)
             .eq('status', 'DELIVERED'),
-        supabase.from('return_requests')
+        supabaseAdmin.from('return_requests')
             .select('order_id')
             .in('order_id', orderIds)
     ]);
@@ -1677,7 +1708,7 @@ export async function handleReturnExchangeOrder(to) {
     return sendText(to, msg);
 }
 
-export async function processReturnExchangeOrder(to, orderId) {
+export async function processReturnExchangeOrder(customerId, orderId, to) {
     const upperOrderId = orderId.toUpperCase();
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
@@ -1685,7 +1716,7 @@ export async function processReturnExchangeOrder(to, orderId) {
     
     let order = null;
     for (const phone of phoneVariations) {
-        const { data } = await supabase.from('orders')
+        const { data } = await supabaseAdmin.from('orders')
             .select('*, order_items(*)')
             .eq('id', upperOrderId)
             .eq('customer_phone', phone)
@@ -1698,7 +1729,7 @@ export async function processReturnExchangeOrder(to, orderId) {
     }
 
     // Verify 10-day deadline
-    const { data: deliveryLog } = await supabase.from('order_status_logs')
+    const { data: deliveryLog } = await supabaseAdmin.from('order_status_logs')
         .select('created_at')
         .eq('order_id', upperOrderId)
         .eq('status', 'DELIVERED')
@@ -1715,7 +1746,7 @@ export async function processReturnExchangeOrder(to, orderId) {
     }
     
     // Store state: WAITING_RETURN_TYPE:ORDER_ID
-    await updateCustomerAdminNotes(to, `WAITING_RETURN_TYPE:${upperOrderId}`);
+    await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_TYPE:${upperOrderId}`);
     
     return sendButtons(to, `Order *${upperOrderId}* selected.\n\nWhat would you like to do?`, [
         { id: `rectype_return_${upperOrderId}`, title: "🔄 Return & Refund" },
@@ -1723,93 +1754,88 @@ export async function processReturnExchangeOrder(to, orderId) {
     ]);
 }
 
-export async function handleReturnExchangeTypeSelection(to, type, orderId) {
+export async function handleReturnExchangeTypeSelection(customerId, type, orderId, to) {
     // type is 'RETURN' or 'EXCHANGE'
-    await updateCustomerAdminNotes(to, `WAITING_RETURN_REASON:${type}:${orderId}`);
+    await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_REASON:${type}:${orderId}`);
     
     return sendText(to, `You selected *${type}* for Order *${orderId}*.\n\nPlease reply with the *reason* for your request and which item(s) you wish to ${type.toLowerCase()}.`);
 }
 
 export async function submitReturnExchangeRequest(to, type, orderId, reason, customerId = null) {
-    console.log('\n💾 === SUBMIT RETURN/EXCHANGE REQUEST ===');
-    console.log('Parameters:');
-    console.log('  - To:', to);
-    console.log('  - Type:', type);
-    console.log('  - Order ID:', orderId);
-    console.log('  - Reason:', reason);
-    console.log('  - Customer ID:', customerId);
+    console.log('\n💾 === SUBMIT RETURN/EXCHANGE REQUEST (INTERNAL) ===');
+    console.log(`[RETURN] Order: ${orderId}, Type: ${type}`);
     
     try {
-        console.log(`[RETURN] Submitting ${type} for Order #${orderId}`);
-        const { data: order, error: fetchErr } = await supabase.from('orders').select('*, order_items(*)').eq('id', orderId).single();
+        // Fetch order items for the service (try exact match first, then uppercase)
+        let { data: order, error: fetchErr } = await supabaseAdmin
+            .from('orders')
+            .select('*, order_items(*)')
+            .eq('id', orderId)
+            .single();
         
-        console.log('📋 Order fetch result:');
-        console.log('  - Order found:', !!order);
-        console.log('  - Fetch error:', fetchErr);
-        console.log('  - Order items count:', order?.order_items?.length || 0);
+        if (!order || fetchErr) {
+            // Try uppercase fallback
+            const retry = await supabaseAdmin
+                .from('orders')
+                .select('*, order_items(*)')
+                .eq('id', orderId.toUpperCase())
+                .single();
+            if (retry.data) {
+                order = retry.data;
+                fetchErr = null;
+            }
+        }
         
         if (fetchErr || !order) {
             console.error(`[RETURN] Order #${orderId} not found:`, fetchErr);
-            return sendText(to, "❌ Order not found or could not be retrieved.");
+            return sendText(to, `❌ Sorry, I couldn't find Order *#${orderId}*. Please check the order ID and try again.`);
         }
 
-        // Use provided customerId or the one from the order
-        const finalCustomerId = customerId || order.customer_id;
-        console.log('Final customer ID:', finalCustomerId);
-
-        // Create return request entries for all items
-        const requests = (order.order_items || []).map(item => ({
-            order_id: orderId,
-            product_id: item.product_id || null, // Allow null for UUID constraint
-            customer_id: finalCustomerId || null, // Allow null for UUID constraint
-            request_type: type,
-            reason: reason,
-            status: 'PENDING',
-            created_at: new Date().toISOString()
+        const items = (order.order_items || []).map(item => ({
+            product_id: item.product_id,
+            product_name: item.product_name
         }));
 
-        if (requests.length === 0) {
-            // Fallback if no items found in order - create a single request for the order
-            console.log('⚠️ No order items found, creating fallback request');
-            requests.push({
-                order_id: orderId,
-                product_id: null, // Must be null for UUID constraint if no valid product
-                customer_id: finalCustomerId || null, // Must be null for UUID constraint if no valid customer
-                request_type: type,
-                reason: reason,
-                status: 'PENDING',
-                created_at: new Date().toISOString()
-            });
+        // Call the service directly (NO FETCH)
+        const result = await processReturnRequest({
+            orderId: orderId,
+            items: items,
+            customerId: customerId || order.customer_id,
+            type: type,
+            reason: reason,
+            requestedFrom: 'whatsapp'
+        });
+
+        console.log('[RETURN] Service Result:', result);
+
+        if (!result.success) {
+            console.error('[RETURN] Service Failure:', result.error);
+            return sendButtons(to, `⚠️ Sorry, I encountered an error while saving your request: ${result.error || 'System error'}. Our team has been notified.`, [
+                { id: "menu_main", title: "🏠 Main Menu" }
+            ]);
         }
 
-        console.log(`[RETURN] Inserting ${requests.length} request(s) for order ${orderId}:`);
-        console.log('Request data:', JSON.stringify(requests, null, 2));
-        
-        const { error: insertErr } = await supabase.from('return_requests').insert(requests);
-        console.log('💾 Database insertion result:');
-        console.log('  - Insert error:', insertErr);
-        
-        if (insertErr) {
-            console.error(`[RETURN] Failed to insert requests for #${orderId}:`, insertErr);
-            console.error('Error details:', insertErr.details);
-            console.error('Error hint:', insertErr.hint);
-            throw insertErr;
-        }
-
-        console.log('✅ Successfully inserted return requests');
         await updateCustomerAdminNotes(to, null);
 
-        return sendButtons(to, `✅ *Request Submitted*\n\nYour ${type.toLowerCase()} request for Order *#${orderId}* has been received.\n\nYour request will be processed shortly. We will notify you via WhatsApp.`, [
+        if (result.alreadyExists) {
+            return sendButtons(to, `ℹ️ A ${type.toLowerCase()} request for Order *#${orderId}* has already been submitted.\n\nOur team is working on it!`, [
+                { id: "menu_main", title: "🏠 Main Menu" }
+            ]);
+        }
+
+        return sendButtons(to, `✅ *Request Submitted*\n\nYour ${type.toLowerCase()} request for Order *#${orderId}* has been received successfully.\n\nOur team will review it and update you shortly. Thank you!`, [
             { id: "menu_main", title: "🏠 Main Menu" }
         ]);
     } catch (err) {
-        console.error(`[RETURN] Error in submitReturnExchangeRequest:`, err);
-        console.error('Stack trace:', err.stack);
-        return sendButtons(to, "❌ Failed to submit your request. Our team has been notified. Please try again later or contact support.", [
+        console.error(`[RETURN] Critical Exception:`, err);
+        return sendButtons(to, `❌ Oops! I had trouble processing your request.\n\nError: ${err.message || 'Internal logic error'}\n\nPlease try again later.`, [
             { id: "menu_main", title: "🏠 Main Menu" }
         ]);
     }
 }
+
+
+
 
 
 export async function confirmRefundOrder(to, orderId, reason) {
@@ -2039,44 +2065,51 @@ export async function processIncomingMessage(body) {
 
         const profileName = value?.contacts?.[0]?.profile?.name || 'WhatsApp Customer';
 
-        // --- 0. CUSTOMER SYNC (Always ensure customer exists) ---
+        // --- 0. CUSTOMER SYNC (Always ensure customer exists via Admin Client) ---
         let customer = null;
         try {
-            // Check both variations
             const normalizedPhone = normalizePhoneNumber(from);
             const phoneVariations = [normalizedPhone];
             if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
                 phoneVariations.push(normalizedPhone.substring(2));
             }
 
-            const { data, error } = await supabase.from('customers')
+            // Use supabaseAdmin to bypass RLS
+            const { data: customers, error: fetchErr } = await supabaseAdmin
+                .from('customers')
                 .select('*')
-                .in('phone', phoneVariations)
-                .limit(1)
-                .single();
+                .in('phone', phoneVariations);
 
-            if (!data) {
-                const { data: newCust, error: insertErr } = await supabase.from('customers').insert({
+            if (fetchErr) {
+                console.error('[WA-STATE] Customer fetch error:', fetchErr);
+            }
+
+            if (!customers || customers.length === 0) {
+                console.log(`[WA-STATE] No customer found for ${from}, creating...`);
+                const { data: newCust, error: insertErr } = await supabaseAdmin.from('customers').insert({
                     phone: normalizedPhone,
                     name: profileName,
                     role: 'user'
                 }).select().single();
 
                 if (insertErr) {
-                    debugLog(`Customer creation failed for ${from}:`, insertErr);
+                    console.error(`[WA-STATE] Customer creation failed for ${from}:`, insertErr);
+                    customer = { phone: normalizedPhone, name: profileName };
                 } else {
-                    debugLog(`New customer created: ${from} (${profileName})`);
                     customer = newCust;
                 }
             } else {
-                customer = data;
-                // Update name if it was generic and we got a real one
+                // If multiple records, find one with admin_notes, otherwise take first
+                customer = customers.find(c => c.admin_notes) || customers[0];
+                console.log(`[WA-STATE] Customer found. ID: ${customer.id}, Notes: "${customer.admin_notes || 'NONE'}"`);
+                
+                // Update name if it's new
                 if ((!customer.name || customer.name === 'WhatsApp Customer') && profileName !== 'WhatsApp Customer') {
-                    await supabase.from('customers').update({ name: profileName }).eq('id', customer.id);
+                    await supabaseAdmin.from('customers').update({ name: profileName }).eq('id', customer.id);
                 }
             }
         } catch (supabaseErr) {
-            debugLog(`Supabase connection error during sync for ${from}:`, supabaseErr);
+            console.error(`[WA-STATE] Critical error for ${from}:`, supabaseErr);
         }
 
         // -------------------------
@@ -2140,7 +2173,7 @@ export async function processIncomingMessage(body) {
                     if (messageText.includes('return') || messageText.includes('refund')) type = 'RETURN';
                     else if (messageText.includes('exchange')) type = 'EXCHANGE';
                     
-                    if (type) return await handleReturnExchangeTypeSelection(from, type, orderId);
+                    if (type) return await handleReturnExchangeTypeSelection(customer.id, type, orderId, from);
                 }
                 
                 if (notes.startsWith('WAITING_RETURN_REASON:') || notes.startsWith('WAITING_REFUND_REASON:')) {
@@ -2149,7 +2182,7 @@ export async function processIncomingMessage(body) {
                         return await submitReturnExchangeRequest(from, parts[1], parts[2], message.text.body, customer.id);
                     } else {
                         const orderId = parts[1];
-                        return await confirmRefundOrder(from, orderId, message.text.body);
+                        return await confirmRefundOrder(from, orderId, message.text.body, customer.id);
                     }
                 }
 
@@ -2175,7 +2208,7 @@ export async function processIncomingMessage(body) {
             if (returnKeywords.includes(messageText)) {
                 console.log('✅ Return/Exchange keyword matched - calling handleReturnExchangeOrder');
                 try {
-                    return await handleReturnExchangeOrder(from);
+                    return await handleReturnExchangeOrder(customer.id, from);
                 } catch (error) {
                     console.error('❌ handleReturnExchangeOrder failed:', error);
                     throw error;
@@ -2205,8 +2238,8 @@ export async function processIncomingMessage(body) {
             
             if (matchedOrderId) {
                 console.log(`[WA] Detected order ID: ${matchedOrderId}`);
-                const { data: o } = await supabase.from('orders').select('status').eq('id', matchedOrderId).single();
-                if (o?.status === 'DELIVERED') return await processReturnExchangeOrder(from, matchedOrderId);
+                const { data: o } = await supabaseAdmin.from('orders').select('status').eq('id', matchedOrderId).single();
+                if (o?.status === 'DELIVERED') return await processReturnExchangeOrder(customer.id, matchedOrderId, from);
                 return await processCancelOrder(from, matchedOrderId);
             }
 
@@ -2548,7 +2581,7 @@ export async function processIncomingMessage(body) {
                 const parts = id.split('_'); // rectype_return_ORD-123
                 const type = parts[1].toUpperCase();
                 const orderId = parts.slice(2).join('_');
-                return await handleReturnExchangeTypeSelection(from, type, orderId);
+                return await handleReturnExchangeTypeSelection(customer.id, type, orderId, from);
             }
 
         }
