@@ -364,12 +364,30 @@ function TrackContent() {
                         <div className={styles.orderItems}>
                             <h3>Order Items</h3>
                             <div className={styles.itemsList}>
-                                {order.order_items?.map(item => (
-                                    <div key={item.id} className={styles.itemRow}>
-                                        <span>{item.product_name} x {item.quantity}</span>
-                                        <span>₹{(item.price_at_time * item.quantity).toLocaleString()}</span>
+                                {order.order_items?.filter(item => (item.returned_quantity || 0) < item.quantity).map(item => (
+                                    <div key={item.id} className={styles.itemRow} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                            <span>{item.product_name} x {item.quantity - (item.returned_quantity || 0)}</span>
+                                            <span>₹{((item.quantity - (item.returned_quantity || 0)) * item.price_at_time).toLocaleString()}</span>
+                                        </div>
+                                        {item.returned_quantity > 0 && (
+                                            <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 600 }}>
+                                                ({item.returned_quantity} units already returned)
+                                            </span>
+                                        )}
                                     </div>
                                 ))}
+                                {order.order_items?.filter(item => (item.returned_quantity || 0) >= item.quantity).length > 0 && (
+                                    <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#fef2f2', borderRadius: '8px', border: '1px dashed #fee2e2' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#991b1b', marginBottom: '4px', textTransform: 'uppercase' }}>Returned Items</div>
+                                        {order.order_items.filter(item => (item.returned_quantity || 0) >= item.quantity).map(item => (
+                                            <div key={item.id} style={{ fontSize: '0.8rem', color: '#991b1b', display: 'flex', justifyContent: 'space-between opacity: 0.6' }}>
+                                                <span>{item.product_name} x {item.quantity}</span>
+                                                <span style={{ fontWeight: 700 }}>RETURNED</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <div className={styles.totalRow}>
                                 <span>Grand Total</span>
