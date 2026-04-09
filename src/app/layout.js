@@ -1,13 +1,10 @@
 import './globals.css';
 import { Providers } from './providers';
-import { Roboto } from 'next/font/google';
-
-const roboto = Roboto({
-  weight: ['100', '300', '400', '500', '700', '900'],
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-roboto-google',
-});
+// Standard system font stack for reliability during build
+const roboto = {
+  className: 'font-sans',
+  variable: '--font-roboto',
+};
 
 export const metadata = {
     title: "Cast Printz | Premium Saree Collection",

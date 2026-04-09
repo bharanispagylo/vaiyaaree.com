@@ -64,204 +64,16 @@ export default function MyOrdersPage() {
         }
     }
 
-    function handleDownloadInvoice(order) {
-        // Direct link is now used in the UI, this function is kept for fallback reference
-        window.open(`/api/invoice/${order.id}`, '_blank');
-    }
-
-    function handleCancelClick(order) {
-        const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
-        if (!cancellableStatuses.includes(order.status)) {
-            setAlertModal({ show: true, title: 'Cannot Cancel', message: 'This order cannot be cancelled. It may already be shipped or delivered.' });
-            return;
-        }
-        setSelectedOrder(order);
-        setShowCancelModal(true);
-        setOtpSent(false);
-        setOtp('');
-        setGeneratedOtp(null);
-    }
-
-    async function sendOtp() {
-        if (!selectedOrder || !user?.phone) return;
-        
-        // Generate 6-digit OTP
-        const otpValue = Math.floor(100000 + Math.random() * 900000).toString();
-        setGeneratedOtp(otpValue);
-        setOtpSent(true);
-        
-        try {
-            // Send OTP via WhatsApp
-            const response = await fetch('/api/whatsapp/send-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    to: user.phone,
-                    otp: otpValue,
-                    orderId: selectedOrder.id
-                })
-            });
-            
-            if (!response.ok) {
-                console.error('Failed to send OTP');
-                setAlertModal({ show: true, title: 'OTP Failed', message: 'Failed to send OTP. Please try again.' });
-            }
-        } catch (err) {
-            console.error('Error sending OTP:', err);
-            // Fallback: just show OTP in console for development
-            console.log(`OTP for ${selectedOrder.id}: ${otpValue}`);
-        }
-    }
-
-    async function confirmCancel() {
-        if (!selectedOrder) return;
-        
-        // Verify OTP
-        if (!otpSent || otp !== generatedOtp) {
-            setAlertModal({ show: true, title: 'Invalid OTP', message: 'Please enter the correct OTP sent to your WhatsApp.' });
-            return;
-        }
-        
-        setCancellingId(selectedOrder.id);
-        setShowCancelModal(false);
-        
-        try {
-            // Restore stock first
-            const { data: items } = await supabase
-                .from('order_items')
-                .select('*')
-                .eq('order_id', selectedOrder.id);
-            
-            if (items) {
-                for (const item of items) {
-                    if (item.variant_id) {
-                        const { data: variant } = await supabase
-                            .from('product_variants')
-                            .select('stock')
-                            .eq('id', item.variant_id)
-                            .single();
-                        if (variant) {
-                            await supabase
-                                .from('product_variants')
-                                .update({ stock: variant.stock + item.quantity })
-                                .eq('id', item.variant_id);
-                        }
-                    } else {
-                        const { data: product } = await supabase
-                            .from('products')
-                            .select('stock')
-                            .eq('id', item.product_id)
-                            .single();
-                        if (product) {
-                            await supabase
-                                .from('products')
-                                .update({ stock: product.stock + item.quantity })
-                                .eq('id', item.product_id);
-                        }
-                    }
-                }
-            }
-            
-            // Update order status
-            await supabase
-                .from('orders')
-                .update({ 
-                    status: 'CANCELLED',
-                    admin_notes: `Order cancelled by customer via website on ${new Date().toLocaleString()}`
-                })
-                .eq('id', selectedOrder.id);
-            
-            // Add status history (both tables for compatibility)
-            await supabase.from('order_status_history').insert({
-                order_id: selectedOrder.id,
-                status_from: selectedOrder.status,
-                status_to: 'CANCELLED',
-                changed_by: 'customer',
-                notes: 'Order cancelled by customer via website'
-            });
-            
-            // Also add to order_status_logs which is what the admin panel reads
-            await supabase.from('order_status_logs').insert({
-                order_id: selectedOrder.id,
-                status: 'CANCELLED',
-                notes: 'Order cancelled by customer via website',
-                created_at: new Date().toISOString()
-            });
-            
-            // Refresh orders
-            await fetchUserOrders();
-
-            // If order was paid, create a refund request entry
-            if (['PAID', 'AWAITING_PAYMENT'].includes(selectedOrder.status)) {
-                await supabase.from('refunds').insert({
-                    order_id: selectedOrder.id,
-                    amount: selectedOrder.total_amount,
-                    status: 'REQUESTED',
-                    reason: 'Order cancelled by customer via website',
-                    created_at: new Date().toISOString()
-                });
-            }
-
-        } catch (err) {
-            console.error('Cancel Order Error:', err);
-            setAlertModal({ show: true, title: 'Cancellation Failed', message: 'Failed to cancel order. Please try again or contact support.' });
-        } finally {
-            setCancellingId(null);
-            setSelectedOrder(null);
-        }
-    }
-
-    async function handleReturnSubmit() {
-        if (!selectedOrder || !returnForm.productId || !returnForm.reason || !returnForm.reason.trim()) {
-            setAlertModal({ 
-                show: true, 
-                title: 'Required Fields Missing', 
-                message: 'Please fill in all required fields before submitting.' 
-            });
-            return;
-        }
-
-        try {
-            // Check for existing request again (safety)
-            const exists = returnRequests.find(r => r.order_id === selectedOrder.id && r.product_id === returnForm.productId && r.status !== 'REJECTED');
-            if (exists) {
-                setAlertModal({ 
-                    show: true, 
-                    title: 'Already Requested', 
-                    message: 'A return or exchange request for this item is already in progress.' 
-                });
-                return;
-            }
-
-            const { error } = await supabase.from('return_requests').insert({
-                order_id: selectedOrder.id,
-                product_id: returnForm.productId,
-                customer_id: user.id || null, 
-                request_type: returnForm.type,
-                reason: returnForm.reason,
-                status: 'PENDING'
-            });
-
-            if (error) throw error;
-
-            // Update local state to prevent duplicate without re-fetching
-            setReturnRequests(prev => [...prev, { order_id: selectedOrder.id, product_id: returnForm.productId, status: 'PENDING' }]);
-
-            setAlertModal({ show: true, title: 'Request Submitted', message: `Your ${returnForm.type.toLowerCase()} request has been submitted successfully.` });
-        } catch (err) {
-            console.error('Return Request Error:', err);
-            setAlertModal({ show: true, title: 'Submission Failed', message: 'Failed to submit request. Please try again.' });
-        } finally {
-            setShowReturnModal(false);
-            setReturnForm({ type: 'RETURN', reason: '', productId: '' });
-            setSelectedOrder(null);
-        }
-    }
+    const [currentPage, setCurrentPage] = useState(1);
+    const ORDERS_PER_PAGE = 8;
 
     const filteredOrders = orders.filter(o => 
         o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.status.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
+    const paginatedOrders = filteredOrders.slice((currentPage - 1) * ORDERS_PER_PAGE, currentPage * ORDERS_PER_PAGE);
 
     const getStatusIcon = (status) => {
         switch(status) {
@@ -271,9 +83,6 @@ export default function MyOrdersPage() {
             default: return <Clock size={16} className={styles.statusIconPending} />;
         }
     };
-
-    const canCancel = (status) => ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(status);
-    const canReturn = (status) => ['DELIVERED'].includes(status);
 
     if (!user) {
         return (
@@ -304,179 +113,14 @@ export default function MyOrdersPage() {
                             type="text" 
                             placeholder="Search by Order ID or status..." 
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setCurrentPage(1);
+                            }}
                         />
                     </div>
                 </div>
             </div>
-
-
-
-            {/* Cancel Confirmation Modal */}
-            {showCancelModal && selectedOrder && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modal}>
-                        <div className={styles.modalHeader}>
-                            <AlertTriangle size={24} color="#f59e0b" />
-                            <h3>Confirm Cancellation</h3>
-                        </div>
-                        <div className={styles.modalBody}>
-                            <p>Are you sure you want to cancel order <strong>#{selectedOrder.id}</strong>?</p>
-                            <div className={styles.modalDetails}>
-                                <span>Amount: ₹{selectedOrder.total_amount?.toLocaleString()}</span>
-                                <span>Status: {selectedOrder.status}</span>
-                            </div>
-                            <p className={styles.modalWarning}>
-                                This action cannot be undone. Stock will be restored and if you have paid, refund will be processed within 5-7 business days.
-                            </p>
-                            
-                            {!otpSent ? (
-                                <div style={{ marginTop: '1.5rem' }}>
-                                    <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
-                                        For security, please verify your identity with an OTP sent to your WhatsApp.
-                                    </p>
-                                    <button onClick={sendOtp} className={styles.btnPrimary} style={{ width: '100%' }}>
-                                        Send OTP
-                                    </button>
-                                </div>
-                            ) : (
-                                <div style={{ marginTop: '1.5rem' }}>
-                                    <p style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>
-                                        Enter the 6-digit OTP sent to your WhatsApp:
-                                    </p>
-                                    <input
-                                        type="text"
-                                        placeholder="Enter 6-digit OTP"
-                                        value={otp}
-                                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                        style={{
-                                            width: '100%',
-                                            padding: '1rem',
-                                            border: '2px solid #e5e7eb',
-                                            borderRadius: '12px',
-                                            fontSize: '1.25rem',
-                                            textAlign: 'center',
-                                            letterSpacing: '0.3em',
-                                            marginBottom: '1rem',
-                                            fontWeight: '600',
-                                            color: '#1f2937',
-                                            background: '#f9fafb',
-                                            transition: 'all 0.2s',
-                                            outline: 'none'
-                                        }}
-                                        maxLength={6}
-                                        onFocus={(e) => {
-                                            e.target.style.borderColor = '#3b82f6';
-                                            e.target.style.background = 'white';
-                                        }}
-                                        onBlur={(e) => {
-                                            e.target.style.borderColor = '#e5e7eb';
-                                            e.target.style.background = '#f9fafb';
-                                        }}
-                                    />
-                                    <button onClick={sendOtp} className={styles.btnSecondary} style={{ fontSize: '0.85rem' }}>
-                                        Resend OTP
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        <div className={styles.modalActions}>
-                            <button onClick={() => {
-                                setShowCancelModal(false);
-                                setOtpSent(false);
-                                setOtp('');
-                                setGeneratedOtp(null);
-                            }} className={styles.btnSecondary}>
-                                No, Keep Order
-                            </button>
-                            <button 
-                                onClick={confirmCancel} 
-                                className={styles.btnDanger}
-                                disabled={!otpSent || otp.length !== 6}
-                            >
-                                Yes, Cancel Order
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Return/Exchange Modal */}
-            {showReturnModal && selectedOrder && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modal}>
-                        <div className={styles.modalHeader}>
-                            <Package size={24} color="#3b82f6" />
-                            <h3>Request Return/Exchange</h3>
-                        </div>
-                        <div className={styles.modalBody}>
-                            <p>Order <strong>#{selectedOrder.id}</strong></p>
-                            
-                            <div style={{ marginTop: '1.5rem', textAlign: 'left' }}>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Select Product <span style={{ color: '#ef4444' }}>*</span></label>
-                                <select 
-                                    className={styles.formSelect}
-                                    value={returnForm.productId}
-                                    onChange={(e) => setReturnForm({ ...returnForm, productId: e.target.value })}
-                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '1rem' }}
-                                >
-                                    <option value="" disabled>Select an item</option>
-                                    {selectedOrder.order_items?.filter(item => {
-                                        // Hide products that already have a request (unless it was Rejected)
-                                        const hasRequest = returnRequests.some(r => 
-                                            r.order_id === selectedOrder.id && 
-                                            r.product_id === item.product_id &&
-                                            r.status !== 'REJECTED'
-                                        );
-                                        return !hasRequest;
-                                    }).map((item, idx) => (
-                                        <option key={idx} value={item.product_id}>{item.product_name}</option>
-                                    ))}
-                                    {selectedOrder.order_items?.length > 1 && (
-                                        <option value="ALL_ORDER">-- Return Entire Order --</option>
-                                    )}
-                                </select>
-
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Request Type</label>
-                                <select 
-                                    className={styles.formSelect}
-                                    value={returnForm.type}
-                                    onChange={(e) => setReturnForm({ ...returnForm, type: e.target.value })}
-                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '1rem' }}
-                                >
-                                    <option value="RETURN">Return (Refund)</option>
-                                    <option value="EXCHANGE">Exchange (Replacement)</option>
-                                </select>
-
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Reason <span style={{ color: '#ef4444' }}>*</span></label>
-                                <textarea 
-                                    className={styles.formTextarea}
-                                    value={returnForm.reason}
-                                    onChange={(e) => setReturnForm({ ...returnForm, reason: e.target.value })}
-                                    placeholder="Please explain why you want to return or exchange this item..."
-                                    rows={4}
-                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccc', fontFamily: 'inherit' }}
-                                />
-                            </div>
-                        </div>
-                        <div className={styles.modalActions}>
-                            <button onClick={() => {
-                                setShowReturnModal(false);
-                                setReturnForm({ type: 'RETURN', reason: '', productId: '' });
-                                setSelectedOrder(null);
-                            }} className={styles.btnSecondary}>
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={handleReturnSubmit} 
-                                className={styles.btnPrimary}
-                            >
-                                Submit Request
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {loading ? (
                 <div className={styles.loadingState}>
@@ -491,116 +135,137 @@ export default function MyOrdersPage() {
                     <Link href="/shop" className={styles.btnPrimary}>Start Shopping</Link>
                 </div>
             ) : (
-                <div className={styles.ordersTableContainer}>
-                    <table className={styles.ordersTable}>
-                        <thead>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>Date</th>
-                                <th>Items</th>
-                                <th>Total</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredOrders.map(order => (
-                                <tr 
-                                    key={order.id} 
-                                    className={`${order.status === 'CANCELLED' ? styles.cancelledRow : ''} ${styles.clickableRow}`}
-                                    onClick={() => router.push(`/track-order?id=${order.id}`)}
-                                >
-                                    <td className={styles.orderIdCell}>
-                                        <span className={styles.orderId}>#{order.id}</span>
-                                        <div style={{ 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            gap: '4px', 
-                                            fontSize: '0.65rem', 
-                                            fontWeight: 700, 
-                                            marginTop: '4px',
-                                            textTransform: 'uppercase',
-                                            color: order.source === 'WEBSITE' ? '#6366f1' : '#22c55e'
-                                        }}>
-                                            {order.source === 'WEBSITE' ? <Globe size={10} /> : <MessageCircle size={10} />}
-                                            {order.source === 'WEBSITE' ? 'WEB ORDER' : 'WHATSAPP'}
-                                        </div>
-                                    </td>
-                                    <td className={styles.dateCell}>
-                                        {new Date(order.created_at).toLocaleDateString('en-IN', {
-                                            day: 'numeric',
-                                            month: 'short',
-                                            year: 'numeric'
-                                        })}
-                                    </td>
-                                    <td className={styles.itemsCell}>
-                                        {order.order_items?.length || 0} item(s)
-                                        <div className={styles.itemPreview}>
-                                            {order.order_items?.slice(0, 2).map((item, i) => (
-                                                <span key={i} className={styles.itemName}>
-                                                    {item.product_name}{item.variant_name && ` (${item.variant_name})`}
-                                                    {i < (order.order_items.length > 2 ? 1 : order.order_items.length - 1) && ', '}
-                                                </span>
-                                            ))}
-                                            {order.order_items?.length > 2 && '...'}
-                                        </div>
-                                    </td>
-                                    <td className={styles.totalCell}>
-                                        ₹{order.total_amount?.toLocaleString()}
-                                    </td>
-                                    <td className={styles.statusCell}>
-                                        <span className={`${styles.statusBadge} ${styles[`status${order.status}`]}`}>
-                                            {getStatusIcon(order.status)}
-                                            {order.status}
-                                        </span>
-                                    </td>
-                                    <td className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
-                                        <div className={styles.actionButtons}>
-                                            <a
-                                                href={`/api/invoice/${order.id}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className={`${styles.actionBtn}`}
-                                                title="Download Invoice"
-                                            >
-                                                <Download size={16} />
-                                            </a>
-                                            
-                                            {canCancel(order.status) && (
-                                                <button
-                                                    onClick={() => handleCancelClick(order)}
-                                                    className={`${styles.actionBtn} ${styles.cancelBtn}`}
-                                                    disabled={cancellingId === order.id}
-                                                    title="Cancel Order"
-                                                >
-                                                    {cancellingId === order.id ? (
-                                                        <Clock size={16} className={styles.spin} />
-                                                    ) : (
-                                                        <XCircle size={16} />
-                                                    )}
-                                                </button>
-                                            )}
-                                            
-                                            {canReturn(order.status) && (
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedOrder(order);
-                                                        setShowReturnModal(true);
-                                                    }}
-                                                    className={`${styles.actionBtn}`}
-                                                    style={{ color: '#3b82f6' }}
-                                                    title="Return or Exchange"
-                                                >
-                                                    <Package size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
+                <>
+                    <div className={styles.ordersTableContainer}>
+                        <table className={styles.ordersTable}>
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                {paginatedOrders.map(order => (
+                                    <tr 
+                                        key={order.id} 
+                                        className={`${order.status === 'CANCELLED' ? styles.cancelledRow : ''} ${styles.clickableRow}`}
+                                        onClick={() => router.push(`/track-order?id=${order.id}`)}
+                                    >
+                                        <td className={styles.orderIdCell}>
+                                            <span className={styles.orderId}>#{order.id}</span>
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: '4px', 
+                                                fontSize: '0.65rem', 
+                                                fontWeight: 700, 
+                                                marginTop: '4px',
+                                                textTransform: 'uppercase',
+                                                color: order.source === 'WEBSITE' ? '#6366f1' : '#22c55e'
+                                            }}>
+                                                {order.source === 'WEBSITE' ? <Globe size={10} /> : <MessageCircle size={10} />}
+                                                {order.source === 'WEBSITE' ? 'WEB ORDER' : 'WHATSAPP'}
+                                            </div>
+                                        </td>
+                                        <td className={styles.dateCell}>
+                                            {new Date(order.created_at).toLocaleDateString('en-IN', {
+                                                day: 'numeric',
+                                                month: 'short',
+                                                year: 'numeric'
+                                            })}
+                                        </td>
+                                        <td className={styles.itemsCell}>
+                                            {order.order_items?.length || 0} item(s)
+                                            <div className={styles.itemPreview}>
+                                                {order.order_items?.slice(0, 2).map((item, i) => (
+                                                    <span key={i} className={styles.itemName}>
+                                                        {item.product_name}{item.variant_name && ` (${item.variant_name})`}
+                                                        {i < (order.order_items.length > 2 ? 1 : order.order_items.length - 1) && ', '}
+                                                    </span>
+                                                ))}
+                                                {order.order_items?.length > 2 && '...'}
+                                            </div>
+                                        </td>
+                                        <td className={styles.totalCell}>
+                                            ₹{order.total_amount?.toLocaleString()}
+                                        </td>
+                                        <td className={styles.statusCell}>
+                                            <span className={`${styles.statusBadge} ${styles[`status${order.status}`]}`}>
+                                                {getStatusIcon(order.status)}
+                                                {order.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {totalPages > 1 && (
+                        <div className={styles.pagination}>
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className={styles.paginationBtn}
+                            >
+                                <ChevronLeft size={18} />
+                                Previous
+                            </button>
+                            <div className={styles.pageNumbers}>
+                                {(() => {
+                                    const pages = [];
+                                    const range = 1; // Number of pages around current
+                                    
+                                    // Always show page 1
+                                    pages.push(1);
+                                    
+                                    if (currentPage > range + 2) {
+                                        pages.push('...');
+                                    }
+                                    
+                                    // Pages around current page
+                                    for (let i = Math.max(2, currentPage - range); i <= Math.min(totalPages - 1, currentPage + range); i++) {
+                                        pages.push(i);
+                                    }
+                                    
+                                    if (currentPage < totalPages - range - 1) {
+                                        pages.push('...');
+                                    }
+                                    
+                                    // Always show last page
+                                    if (totalPages > 1) {
+                                        pages.push(totalPages);
+                                    }
+                                    
+                                    return pages.map((page, i) => (
+                                        page === '...' ? (
+                                            <span key={`dots-${i}`} className={styles.dots}>...</span>
+                                        ) : (
+                                            <button 
+                                                key={page} 
+                                                onClick={() => setCurrentPage(page)}
+                                                className={`${styles.pageNumber} ${currentPage === page ? styles.activePage : ''}`}
+                                            >
+                                                {page}
+                                            </button>
+                                        )
+                                    ));
+                                })()}
+                            </div>
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className={styles.paginationBtn}
+                            >
+                                Next
+                                <ChevronRight size={18} />
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
 
             {/* Global Alert Modal at the bottom to ensure high z-index stacking */}

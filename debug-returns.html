@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Returns</title>
+</head>
+<body>
+    <h1>Debug Returns Data</h1>
+    <button onclick="testReturns()">Test Returns API</button>
+    <button onclick="testWhatsApp()">Test WhatsApp Flow</button>
+    <div id="result"></div>
+
+    <script>
+        async function testReturns() {
+            try {
+                const response = await fetch('/api/test-returns');
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+
+        async function testWhatsApp() {
+            try {
+                // Test a simple return request
+                const response = await fetch('/api/whatsapp/returns', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        From: 'whatsapp:+919876543210',
+                        Body: 'return order ORD123456 reason: Test reason',
+                        wa_id: '+919876543210'
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

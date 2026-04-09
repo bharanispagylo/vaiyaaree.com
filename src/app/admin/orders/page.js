@@ -7,16 +7,15 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 import {
-    Search, Eye, ChevronDown,
+    Search, Eye, ChevronDown, ChevronLeft, ChevronRight, LayoutGrid, List, Clock, Globe, MapPin,
     Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package,
-    Mail, XCircle, AlertCircle
+    Mail, XCircle, AlertCircle, CheckCircle, Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee
 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
 } from 'recharts';
-import { Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee } from 'lucide-react';
 import ImageZoom from '@/components/ImageZoom';
 import ModalPortal from '@/components/ModalPortal';
 
@@ -821,25 +820,34 @@ export default function OrdersPage() {
                                         )}
                                     </div>
 
-                                    {/* View Switcher Toggle - Now on the right of filters */}
+                                    {/* View Switcher Toggle */}
                                     <div style={{ display: 'flex', gap: '0.25rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
                                         <button
                                             onClick={() => setViewMode('list')}
                                             style={{
-                                                padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                                fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
+                                                padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                                fontSize: '0.8rem', fontWeight: 700, transition: 'all 0.2s',
                                                 background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
                                                 color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))',
-                                                display: 'flex', alignItems: 'center', gap: '8px'
-                                            }}><Eye size={16} /> List View</button>
+                                                display: 'flex', alignItems: 'center', gap: '6px'
+                                            }}><List size={16} /> List</button>
+                                        <button
+                                            onClick={() => setViewMode('card')}
+                                            style={{
+                                                padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                                fontSize: '0.8rem', fontWeight: 700, transition: 'all 0.2s',
+                                                background: viewMode === 'card' ? 'hsl(var(--primary))' : 'transparent',
+                                                color: viewMode === 'card' ? 'white' : 'hsl(var(--text-muted))',
+                                                display: 'flex', alignItems: 'center', gap: '6px'
+                                            }}><LayoutGrid size={16} /> Cards</button>
                                         <button
                                             onClick={() => setViewMode('analytics')}
                                             style={{
-                                                padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                                fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
+                                                padding: '0.6rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                                fontSize: '0.8rem', fontWeight: 700, transition: 'all 0.2s',
                                                 background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
                                                 color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
-                                                display: 'flex', alignItems: 'center', gap: '8px'
+                                                display: 'flex', alignItems: 'center', gap: '6px'
                                             }}><TrendingUp size={16} /> Analysis</button>
                                     </div>
                                 </div>
@@ -946,7 +954,94 @@ export default function OrdersPage() {
                                     </div>
                                 )}
 
+                                {viewMode === 'card' && (
+                                    <div className="animate-enter">
+                                        {loading ? (
+                                            <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+                                                <Loader2 size={24} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> Loading...
+                                            </div>
+                                        ) : filteredOrders.length === 0 ? (
+                                            <div className="card" style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found.</div>
+                                        ) : (
+                                            <>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+                                                    {paginatedOrders.map(order => {
+                                                        const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
+                                                        return (
+                                                            <div key={order.id} className="card shadow-premium" style={{ 
+                                                                padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', cursor: 'pointer', transition: 'all 0.2s', border: selectedOrderIds.includes(order.id) ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))'
+                                                            }} onClick={() => openOrderDetail(order)}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                    <div>
+                                                                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ORDER #{order.id}</div>
+                                                                        <div style={{ fontSize: '1rem', fontWeight: 800, marginTop: '2px' }}>{order.customer_name || 'Guest'}</div>
+                                                                    </div>
+                                                                    <div style={{ textAlign: 'right' }} onClick={(e) => { e.stopPropagation(); toggleSelectItem(order.id); }}>
+                                                                        <input type="checkbox" checked={selectedOrderIds.includes(order.id)} onChange={() => {}} style={{ width: '18px', height: '18px' }} />
+                                                                    </div>
+                                                                </div>
+
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'hsl(var(--bg-app))', borderRadius: '10px' }}>
+                                                                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</div>
+                                                                    <span className={`badge ${getStatusReference(order.status)}`} style={{ fontSize: '0.65rem' }}>{order.status}</span>
+                                                                </div>
+
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <Clock size={12} /> {toIST(order.created_at, { day: '2-digit', month: 'short' })}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                                        {src === 'WEBSITE' ? <Globe size={12} /> : <MessageCircle size={12} />} {src === 'WEBSITE' ? 'Website' : 'WhatsApp'}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <MapPin size={12} /> {order.shipping_state || '—'}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                                        <CreditCard size={12} /> {order.payment_method || 'COD'}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                                                    <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem' }}>View Details</button>
+                                                                    <button onClick={(e) => { e.stopPropagation(); handleBulkDelete([order.id]); }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))' }}><Trash2 size={14} /></button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* ── Pagination ── */}
+                                                {totalOrderPages > 1 && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                                                        <button onClick={() => setOrdersPage(p => Math.max(1, p - 1))} disabled={ordersPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: ordersPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}><ChevronLeft size={16} /> Previous</button>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                            {(() => {
+                                                                const pages = [];
+                                                                const range = 1;
+                                                                pages.push(1);
+                                                                if (ordersPage > range + 2) pages.push('...');
+                                                                for (let i = Math.max(2, ordersPage - range); i <= Math.min(totalOrderPages - 1, ordersPage + range); i++) { pages.push(i); }
+                                                                if (ordersPage < totalOrderPages - range - 1) pages.push('...');
+                                                                if (totalOrderPages > 1) pages.push(totalOrderPages);
+                                                                return pages.map((page, i) => (
+                                                                    page === '...' ? (
+                                                                        <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                                                    ) : (
+                                                                        <button key={page} onClick={() => setOrdersPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: ordersPage === page ? 'hsl(var(--primary))' : '#ffffff', color: ordersPage === page ? 'white' : 'hsl(var(--text-main))', border: ordersPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                                                    )
+                                                                ));
+                                                            })()}
+                                                        </div>
+                                                        <button onClick={() => setOrdersPage(p => Math.min(totalOrderPages, p + 1))} disabled={ordersPage === totalOrderPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: ordersPage === totalOrderPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>Next <ChevronRight size={16} /></button>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
                                 {viewMode === 'list' && (
+
                                     <>
 
                                         {/* Search + Table Card */}
@@ -1117,22 +1212,43 @@ export default function OrdersPage() {
 
                                             {/* ── Pagination ── */}
                                             {totalOrderPages > 1 && (
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid hsl(var(--border-subtle))' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
                                                     <button
                                                         onClick={() => setOrdersPage(p => Math.max(1, p - 1))}
                                                         disabled={ordersPage === 1}
                                                         className="btn btn-secondary"
-                                                        style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: ordersPage === 1 ? 0.4 : 1 }}
-                                                    >← Prev</button>
-                                                    <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
-                                                        Page {ordersPage} of {totalOrderPages} &nbsp;·&nbsp; {filteredOrders.length} orders
-                                                    </span>
+                                                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: ordersPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}
+                                                    >
+                                                        <ChevronLeft size={16} /> Previous
+                                                    </button>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                        {(() => {
+                                                            const pages = [];
+                                                            const range = 1;
+                                                            pages.push(1);
+                                                            if (ordersPage > range + 2) pages.push('...');
+                                                            for (let i = Math.max(2, ordersPage - range); i <= Math.min(totalOrderPages - 1, ordersPage + range); i++) {
+                                                                pages.push(i);
+                                                            }
+                                                            if (ordersPage < totalOrderPages - range - 1) pages.push('...');
+                                                            if (totalOrderPages > 1) pages.push(totalOrderPages);
+                                                            return pages.map((page, i) => (
+                                                                page === '...' ? (
+                                                                    <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                                                ) : (
+                                                                    <button key={page} onClick={() => setOrdersPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: ordersPage === page ? 'hsl(var(--primary))' : '#ffffff', color: ordersPage === page ? 'white' : 'hsl(var(--text-main))', border: ordersPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                                                )
+                                                            ));
+                                                        })()}
+                                                    </div>
                                                     <button
                                                         onClick={() => setOrdersPage(p => Math.min(totalOrderPages, p + 1))}
                                                         disabled={ordersPage === totalOrderPages}
                                                         className="btn btn-secondary"
-                                                        style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: ordersPage === totalOrderPages ? 0.4 : 1 }}
-                                                    >Next →</button>
+                                                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: ordersPage === totalOrderPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}
+                                                    >
+                                                        Next <ChevronRight size={16} />
+                                                    </button>
                                                 </div>
                                             )}
 
@@ -2287,7 +2403,7 @@ export default function OrdersPage() {
             {notification && (
                 <div className="toast-container">
                     <div className={`toast ${notification.type}`}>
-                        {notification.type === 'success' ? <CheckCircle2 size={20} color="#10b981" /> : <AlertCircle size={20} color="#ef4444" />}
+                        {notification.type === 'success' ? <span style={{ marginRight: '8px' }}>✅</span> : <AlertCircle size={20} color="#ef4444" />}
                         <div style={{ fontWeight: 600 }}>{notification.message}</div>
                     </div>
                 </div>

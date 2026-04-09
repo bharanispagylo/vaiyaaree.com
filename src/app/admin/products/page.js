@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingCart,
-    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, AlertTriangle, ArrowRight
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, AlertTriangle, ArrowRight, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
@@ -1093,10 +1093,31 @@ export default function ProductsPage() {
 
                                 {/* Table Pagination */}
                                 {totalProductPages > 1 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid hsl(var(--border-subtle))' }}>
-                                        <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === 1 ? 0.4 : 1 }}>← Prev</button>
-                                        <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Page {productsPage} of {totalProductPages} &nbsp;·&nbsp; {filtered.length} products</span>
-                                        <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === totalProductPages ? 0.4 : 1 }}>Next →</button>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                                        <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: productsPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                            <ChevronLeft size={16} /> Previous
+                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            {(() => {
+                                                const pages = [];
+                                                const range = 1;
+                                                pages.push(1);
+                                                if (productsPage > range + 2) pages.push('...');
+                                                for (let i = Math.max(2, productsPage - range); i <= Math.min(totalProductPages - 1, productsPage + range); i++) { pages.push(i); }
+                                                if (productsPage < totalProductPages - range - 1) pages.push('...');
+                                                if (totalProductPages > 1) pages.push(totalProductPages);
+                                                return pages.map((page, i) => (
+                                                    page === '...' ? (
+                                                        <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                                    ) : (
+                                                        <button key={page} onClick={() => setProductsPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: productsPage === page ? 'hsl(var(--primary))' : '#ffffff', color: productsPage === page ? 'white' : 'hsl(var(--text-main))', border: productsPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                                    )
+                                                ));
+                                            })()}
+                                        </div>
+                                        <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: productsPage === totalProductPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                            Next <ChevronRight size={16} />
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1193,10 +1214,31 @@ export default function ProductsPage() {
 
                                 {/* Card Pagination */}
                                 {totalProductPages > 1 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem 0', marginTop: '1rem' }}>
-                                        <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === 1 ? 0.4 : 1 }}>← Prev</button>
-                                        <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Page {productsPage} of {totalProductPages} &nbsp;·&nbsp; {filtered.length} products</span>
-                                        <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === totalProductPages ? 0.4 : 1 }}>Next →</button>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap', marginTop: '1.25rem' }}>
+                                        <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: productsPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                            <ChevronLeft size={16} /> Previous
+                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            {(() => {
+                                                const pages = [];
+                                                const range = 1;
+                                                pages.push(1);
+                                                if (productsPage > range + 2) pages.push('...');
+                                                for (let i = Math.max(2, productsPage - range); i <= Math.min(totalProductPages - 1, productsPage + range); i++) { pages.push(i); }
+                                                if (productsPage < totalProductPages - range - 1) pages.push('...');
+                                                if (totalProductPages > 1) pages.push(totalProductPages);
+                                                return pages.map((page, i) => (
+                                                    page === '...' ? (
+                                                        <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                                    ) : (
+                                                        <button key={page} onClick={() => setProductsPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: productsPage === page ? 'hsl(var(--primary))' : '#ffffff', color: productsPage === page ? 'white' : 'hsl(var(--text-main))', border: productsPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                                    )
+                                                ));
+                                            })()}
+                                        </div>
+                                        <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: productsPage === totalProductPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                            Next <ChevronRight size={16} />
+                                        </button>
                                     </div>
                                 )}
                             </div>

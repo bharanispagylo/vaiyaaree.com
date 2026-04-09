@@ -321,15 +321,236 @@
     gap: 1.5rem;
 }
 
+/* Action Buttons Section */
+.summaryActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-top: 2rem;
+    margin-top: 2rem;
+    border-top: 1px solid hsl(var(--text-main) / 0.05);
+}
+
+.actionBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid hsl(var(--text-main) / 0.1);
+    background: transparent;
+    color: hsl(var(--text-main));
+    text-decoration: none;
+    font-family: inherit;
+}
+
+.actionBtn:hover {
+    background: hsl(var(--text-main) / 0.05);
+    transform: translateY(-2px);
+}
+
+.actionBtnPrimary {
+    background: hsl(var(--primary));
+    color: #fff;
+    border-color: hsl(var(--primary));
+}
+
+.actionBtnPrimary:hover {
+    background: hsl(var(--primary-dark));
+    border-color: hsl(var(--primary-dark));
+}
+
+.actionBtnDanger {
+    color: #ef4444;
+}
+
+.actionBtnDanger:hover {
+    background: #fee2e2;
+    border-color: #fecaca;
+}
+
+/* Modals */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 1rem;
+}
+
+.modal {
+    background: white;
+    border-radius: 20px;
+    border: 2px solid hsl(var(--border-subtle));
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    max-width: 500px;
+    width: 100%;
+    padding: 2.5rem;
+    animation: modalEnter 0.3s ease-out;
+    position: relative;
+    color: #1f2937;
+}
+
+@keyframes modalEnter {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modalHeader h3 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1f2937;
+    margin: 0;
+}
+
+.modalBody {
+    margin-bottom: 2.5rem;
+}
+
+.modalBody p {
+    color: #4b5563;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    font-size: 1rem;
+}
+
+.modalWarning {
+    font-size: 0.9rem;
+    color: #d97706;
+    background: #fef3c7;
+    padding: 1rem;
+    border-radius: 10px;
+    border-left: 4px solid #f59e0b;
+    line-height: 1.5;
+}
+
+.modalActions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.btnPrimary, .btnSecondary, .btnDanger {
+    padding: 0.875rem 1.75rem;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    font-family: inherit;
+}
+
+.btnPrimary {
+    background: #3b82f6;
+    color: white;
+}
+
+.btnSecondary {
+    background: white;
+    border: 2px solid #e5e7eb;
+    color: #6b7280;
+}
+
+.btnDanger {
+    background: #ef4444;
+    color: white;
+}
+
+.otpInput {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 1.5rem;
+    text-align: center;
+    letter-spacing: 0.3em;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    outline: none;
+}
+
+.otpInput:focus {
+    border-color: #3b82f6;
+}
+
+.formSelect, .formTextarea {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    font-family: inherit;
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+    outline: none;
+}
+
+.formSelect:focus, .formTextarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 @media (max-width: 768px) {
     .timeline {
         flex-direction: column;
         align-items: flex-start;
         gap: 3rem;
         padding-left: 20px;
+        margin-bottom: 3rem;
     }
 
     .timelineLine {
         display: none;
+    }
+
+    .shippingGrid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .trackingResult {
+        padding: 2rem 1.5rem;
+    }
+
+    .summaryActions {
+        flex-direction: column;
+    }
+
+    .actionBtn {
+        width: 100%;
+        justify-content: center;
     }
 }

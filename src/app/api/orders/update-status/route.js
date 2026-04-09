@@ -16,7 +16,7 @@ async function sendWhatsAppText(to, text) {
     // Clean number: remove all non-digits
     let cleanedNum = to.replace(/\D/g, '');
     // For India: If starts with 7,8,9 and is 10 digits, add 91
-    if (cleanedNum.length === 10 && /^[789]/.test(cleanedNum)) {
+    if (cleanedNum.length === 10 && /^[6789]/.test(cleanedNum)) {
         cleanedNum = '91' + cleanedNum;
     }
 
@@ -50,8 +50,8 @@ async function sendWhatsAppText(to, text) {
 
 async function getStatusMessage(orderId, status, order, items = []) {
     const totalAmount = order.total_amount || 0;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-    const invoiceUrl = `${appUrl}/shop/invoice?oid=${orderId}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://mathematically-foliaged-palmer.ngrok-free.dev');
+    const invoiceUrl = `${appUrl}/api/invoice/${orderId}`;
     const brand = 'Cast Printz';
 
     switch (status) {
@@ -201,6 +201,14 @@ export async function POST(request) {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
+
+        // --- NEW: Insert into order_status_logs ---
+        await supabase.from('order_status_logs').insert({
+            order_id: orderId,
+            status: status,
+            notes: `Status updated to ${status} via Admin Dashboard`,
+            created_at: new Date().toISOString()
+        });
 
         // Refetch order to get updated shipping info for the message
         const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', orderId).single();

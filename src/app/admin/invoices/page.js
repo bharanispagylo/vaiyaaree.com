@@ -249,10 +249,31 @@ export default function InvoicesPage() {
 
                     {/* Pagination */}
                     {totalInvoicePages > 1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid hsl(var(--border-subtle))' }}>
-                            <button onClick={() => setInvoicePage(p => Math.max(1, p - 1))} disabled={invoicePage === 1} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: invoicePage === 1 ? 0.4 : 1 }}>← Prev</button>
-                            <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Page {invoicePage} of {totalInvoicePages} &nbsp;·&nbsp; {filteredInvoices.length} invoices</span>
-                            <button onClick={() => setInvoicePage(p => Math.min(totalInvoicePages, p + 1))} disabled={invoicePage === totalInvoicePages} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: invoicePage === totalInvoicePages ? 0.4 : 1 }}>Next →</button>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                            <button onClick={() => setInvoicePage(p => Math.max(1, p - 1))} disabled={invoicePage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: invoicePage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                <ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} /> Previous
+                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                {(() => {
+                                    const pages = [];
+                                    const range = 1;
+                                    pages.push(1);
+                                    if (invoicePage > range + 2) pages.push('...');
+                                    for (let i = Math.max(2, invoicePage - range); i <= Math.min(totalInvoicePages - 1, invoicePage + range); i++) { pages.push(i); }
+                                    if (invoicePage < totalInvoicePages - range - 1) pages.push('...');
+                                    if (totalInvoicePages > 1) pages.push(totalInvoicePages);
+                                    return pages.map((page, i) => (
+                                        page === '...' ? (
+                                            <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                        ) : (
+                                            <button key={page} onClick={() => setInvoicePage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: invoicePage === page ? 'hsl(var(--primary))' : '#ffffff', color: invoicePage === page ? 'white' : 'hsl(var(--text-main))', border: invoicePage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                        )
+                                    ));
+                                })()}
+                            </div>
+                            <button onClick={() => setInvoicePage(p => Math.min(totalInvoicePages, p + 1))} disabled={invoicePage === totalInvoicePages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: invoicePage === totalInvoicePages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                Next <ChevronRight size={16} />
+                            </button>
                         </div>
                     )}
                 </div>
