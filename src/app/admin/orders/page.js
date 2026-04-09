@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 import {
-    Search, Eye, ChevronDown,
+    Search, Eye, ChevronDown, rotateCcw,
     Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package,
     Mail, XCircle, AlertCircle
 } from 'lucide-react';
@@ -97,6 +97,8 @@ export default function OrdersPage() {
     const [showResendEmailModal, setShowResendEmailModal] = useState(false);
     const [showResendWhatsAppModal, setShowResendWhatsAppModal] = useState(false);
     const [statusConfirmModal, setStatusConfirmModal] = useState(null);
+    const [returningItem, setReturningItem] = useState(null);
+    const [returnQty, setReturnQty] = useState(1);
 
     const [newOrder, setNewOrder] = useState({
         customer_name: '',
@@ -445,6 +447,98 @@ export default function OrdersPage() {
 
     const handleDeleteOrder = (orderId) => {
         setConfirmDelete({ ids: [orderId] });
+    };
+
+    const handleReturnItem = async () => {
+        if (!returningItem || returnQty < 1) return;
+        
+        const alreadyReturned = returningItem.returned_quantity || 0;
+        const maxReturnable = returningItem.quantity - alreadyReturned;
+        
+        if (returnQty > maxReturnable) {
+            setNotification({ message: `Cannot return more than ${maxReturnable} items.`, type: 'error' });
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Update item returned quantity - Match based on order_id and product/variant
+            const matchCriteria = { order_id: selectedOrder.id, product_id: returningItem.product_id };
+            if (returningItem.variant_id) matchCriteria.variant_id = returningItem.variant_id;
+
+            const { error: itemError } = await supabase
+                .from('order_items')
+                .update({ returned_quantity: alreadyReturned + returnQty })
+                .match(matchCriteria);
+            
+            if (itemError) throw itemError;
+
+            // Restore stock
+            if (returningItem.variant_id) {
+                const { data: variant } = await supabase
+                    .from('product_variants')
+                    .select('stock')
+                    .eq('id', returningItem.variant_id)
+                    .single();
+                if (variant) {
+                    await supabase
+                        .from('product_variants')
+                        .update({ stock: variant.stock + returnQty })
+                        .eq('id', returningItem.variant_id);
+                }
+            } else {
+                const { data: product } = await supabase
+                    .from('products')
+                    .select('stock')
+                    .eq('id', returningItem.product_id)
+                    .single();
+                if (product) {
+                    await supabase
+                        .from('products')
+                        .update({ stock: product.stock + returnQty })
+                        .eq('id', returningItem.product_id);
+                }
+            }
+
+            // Sync product history
+            await supabase.from('product_history').insert({
+                product_id: returningItem.product_id,
+                change_type: 'STOCK_IN',
+                quantity_change: returnQty,
+                reason: `Item Returned from Order #${selectedOrder.id}`
+            });
+
+            // Activity Log
+            await supabase.from('order_status_logs').insert({
+                order_id: selectedOrder.id,
+                status: 'PARTIAL_RETURN',
+                notes: `Returned ${returnQty}x ${returningItem.product_name}`,
+                created_at: new Date().toISOString()
+            });
+
+            // Refund Record
+            await supabase.from('refunds').insert({
+                order_id: selectedOrder.id,
+                amount: (returningItem.price_at_time || 0) * returnQty,
+                reason: `Product Return: ${returningItem.product_name} (x${returnQty})`,
+                status: 'REQUESTED'
+            });
+
+            setNotification({ message: 'Item return processed successfully.', type: 'success' });
+            setReturningItem(null);
+            setReturnQty(1);
+            
+            // Refresh
+            openOrderDetail(selectedOrder);
+            fetchOrders();
+
+        } catch (err) {
+            console.error('Return Error:', err);
+            setNotification({ message: 'Failed to process return', type: 'error' });
+        } finally {
+            setLoading(false);
+            setTimeout(() => setNotification(null), 3000);
+        }
     };
 
     const handleCancelOrder = async () => {
@@ -1201,7 +1295,7 @@ export default function OrdersPage() {
                                     <div>
                                         <h3 style={{ fontSize: '0.9rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>Order Items</h3>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                            {orderItems.map((item, idx) => (
+                                            {orderItems.filter(item => (item.returned_quantity || 0) < item.quantity).map((item, idx) => (
                                                 <div key={idx} style={{ display: 'flex', gap: '1.5rem', background: '#ffffff', padding: '1rem', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
                                                     <div style={{ width: '100px', height: '130px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))' }}>
                                                         <img src={item.products?.image_url || 'https://via.placeholder.com/100x130?text=Saree'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1230,13 +1324,39 @@ export default function OrdersPage() {
                                                             </div>
                                                         ) : (
                                                             <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))' }}>{item.quantity} x ₹{(item.price_at_time || 0).toLocaleString()}</div>
-                                                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'hsl(var(--success))' }}>₹{((item.quantity * item.price_at_time) || 0).toLocaleString()}</div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                    <div style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))' }}>{item.quantity} x ₹{(item.price_at_time || 0).toLocaleString()}</div>
+                                                                    {item.returned_quantity > 0 && (
+                                                                        <div style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600 }}>({item.returned_quantity} already returned)</div>
+                                                                    )}
+                                                                </div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                                    <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'hsl(var(--success))' }}>₹{(((item.quantity - (item.returned_quantity || 0)) * item.price_at_time) || 0).toLocaleString()}</div>
+                                                                    {['PAID', 'PACKING', 'SHIPPED', 'DELIVERED'].includes(selectedOrder.status) && (
+                                                                        <button 
+                                                                            onClick={() => { setReturningItem(item); setReturnQty(1); }} 
+                                                                            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700 }}
+                                                                        >
+                                                                            <RefreshCw size={12} /> Return
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
                                             ))}
+                                            {orderItems.filter(item => (item.returned_quantity || 0) >= item.quantity).length > 0 && (
+                                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                                                    <h4 style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Successfully Returned Items</h4>
+                                                    {orderItems.filter(item => (item.returned_quantity || 0) >= item.quantity).map((item, idx) => (
+                                                        <div key={idx} style={{ fontSize: '0.85rem', color: '#64748b', display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                                            <span>{item.product_name} x {item.quantity}</span>
+                                                            <span style={{ fontWeight: 700 }}>FULL RETURN</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {selectedOrder.tracking_number && (
@@ -2310,6 +2430,39 @@ export default function OrdersPage() {
                                 }}>
                                     Cancel
                                 </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Item Return Modal */}
+                    {returningItem && (
+                        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                            <div className="card shadow-premium" style={{ maxWidth: '400px', width: '90%', padding: '2rem', background: '#fff', borderRadius: '24px' }}>
+                                <h3 style={{ marginBottom: '1rem', fontWeight: 800 }}>Return Item</h3>
+                                <p style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>
+                                    How many units of <strong>{returningItem.product_name}</strong> are being returned?
+                                </p>
+                                <div style={{ marginBottom: '2rem' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Return Quantity</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                                        <button 
+                                            onClick={() => setReturnQty(q => Math.max(1, q - 1))}
+                                            style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #ddd', background: '#f9fafb', fontSize: '1.25rem', cursor: 'pointer' }}
+                                        >-</button>
+                                        <div style={{ fontSize: '1.25rem', fontWeight: 700, flex: 1, textAlign: 'center' }}>{returnQty}</div>
+                                        <button 
+                                            onClick={() => setReturnQty(q => Math.min(returningItem.quantity - (returningItem.returned_quantity || 0), q + 1))}
+                                            style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #ddd', background: '#f9fafb', fontSize: '1.25rem', cursor: 'pointer' }}
+                                        >+</button>
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', textAlign: 'center', marginTop: '0.5rem', color: 'hsl(var(--text-muted))' }}>
+                                        Max returnable: {returningItem.quantity - (returningItem.returned_quantity || 0)}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <button onClick={() => setReturningItem(null)} className="btn btn-secondary" style={{ borderRadius: '12px' }}>Cancel</button>
+                                    <button onClick={handleReturnItem} className="btn" style={{ background: '#ef4444', color: 'white', fontWeight: 700, borderRadius: '12px' }}>Confirm Return</button>
+                                </div>
                             </div>
                         </div>
                     )}
