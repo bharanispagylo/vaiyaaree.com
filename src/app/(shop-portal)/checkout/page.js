@@ -278,8 +278,12 @@ export default function CheckoutPage() {
                             <input 
                                 type="tel" 
                                 value={checkoutForm.billingPhone || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingPhone: e.target.value }))} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingPhone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
                                 placeholder="10-digit phone number" 
+                                pattern="[0-9]{10}"
+                                maxLength="10"
+                                minLength="10"
+                                required
                             />
                         </div>
                     </div>
@@ -290,8 +294,12 @@ export default function CheckoutPage() {
                             <input 
                                 type="tel" 
                                 value={checkoutForm.billingWhatsApp || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingWhatsApp: e.target.value }))} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingWhatsApp: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
                                 placeholder="WhatsApp number for order updates" 
+                                pattern="[0-9]{10}"
+                                maxLength="10"
+                                minLength="10"
+                                required
                             />
                         </div>
                         <div className={styles.formGroup}>
@@ -398,10 +406,14 @@ export default function CheckoutPage() {
                                 <input 
                                     type="tel" 
                                     value={checkoutForm.shippingPhone || ''} 
-                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingPhone: e.target.value }))} 
+                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingPhone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
                                     placeholder="10-digit phone number"
                                     disabled={checkoutForm.sameAsBilling}
                                     className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                    pattern="[0-9]{10}"
+                                    maxLength="10"
+                                    minLength="10"
+                                    required
                                 />
                             </div>
                         </div>

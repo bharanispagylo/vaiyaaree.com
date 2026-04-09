@@ -10,6 +10,7 @@ export default function AdminDashboard() {
     const [recentOrders, setRecentOrders] = useState([]);
     const [lowStockProducts, setLowStockProducts] = useState([]);
     const [topProducts, setTopProducts] = useState([]);
+    const [topProductsFallback, setTopProductsFallback] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -17,33 +18,36 @@ export default function AdminDashboard() {
             const today = new Date().toISOString().split('T')[0];
             setLoading(true);
             try {
-                // Efficient Supabase counts for dashboard stats
                 const [
                     totalRes,
                     activeRes,
                     pendingRes,
                     shippedRes,
                     deliveredRes,
+                    refundedRes,
+                    cancelledRes,
                     todayRes,
                     productsRes,
                     itemsRes,
                     customerRes
                 ] = await Promise.all([
                     supabase.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'DRAFT'),
-                    supabase.from('orders').select('total_amount').neq('status', 'DRAFT').neq('status', 'CANCELLED'),
+                    supabase.from('orders').select('total_amount').neq('status', 'DRAFT').not('status', 'in', '("CANCELLED","REFUNDED")'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'PLACED', 'AWAITING_PAYMENT', 'AWAITING PAYMENT', 'awaiting_payment']),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'SHIPPED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'DELIVERED'),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'REFUNDED'),
+                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'CANCELLED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today),
-                    supabase.from('products').select('id, name, stock, image_url').order('stock', { ascending: true }).limit(10),
-                    supabase.from('order_items').select('product_name, quantity, price_at_time').order('created_at', { ascending: false }).limit(1000),
+                    supabase.from('products').select('id, name, stock, image_url, price').order('stock', { ascending: true }).limit(20),
+                    supabase.from('order_items').select('product_name, quantity, price_at_time').limit(2000),
                     supabase.from('orders').select('customer_phone', { count: 'exact', head: true })
                 ]);
 
-                // Calculate Revenue from the active orders summary
+                // Calculate Revenue
                 const totalRevenue = (activeRes.data || []).reduce((s, o) => s + (o.total_amount || 0), 0);
-                
-                // Fetch recent orders separately for the table
+
+                // Recent orders
                 const recentOrdersRes = await supabase.from('orders')
                     .select('id, status, total_amount, customer_phone, customer_name, created_at')
                     .neq('status', 'DRAFT')
@@ -52,30 +56,53 @@ export default function AdminDashboard() {
 
                 const lowStock = (productsRes.data || []).filter(p => p.stock < 5).slice(0, 5);
 
-                const productSales = {};
-                (itemsRes.data || []).forEach(item => {
-                    if (!productSales[item.product_name]) {
-                        productSales[item.product_name] = { name: item.product_name, sold: 0, revenue: 0 };
-                    }
-                    productSales[item.product_name].sold += item.quantity;
-                    productSales[item.product_name].revenue += (item.price_at_time || 0) * item.quantity;
-                });
-                const topSelling = Object.values(productSales).sort((a, b) => b.sold - a.sold).slice(0, 5);
+                // Build top selling from order_items
+                const orderItemsData = itemsRes.data || [];
+                let topSelling = [];
+                let isFallback = false;
 
-                const newStats = { 
-                    revenue: totalRevenue, 
-                    orders: totalRes.count || 0, 
-                    customers: customerRes.count || 0, 
-                    pending: pendingRes.count || 0, 
-                    shipped: shippedRes.count || 0, 
-                    delivered: deliveredRes.count || 0, 
-                    todayOrders: todayRes.count || 0 
+                if (orderItemsData.length > 0) {
+                    const productSales = {};
+                    orderItemsData.forEach(item => {
+                        const key = item.product_name;
+                        if (!key) return;
+                        if (!productSales[key]) {
+                            productSales[key] = { name: key, sold: 0, revenue: 0 };
+                        }
+                        productSales[key].sold += (item.quantity || 1);
+                        productSales[key].revenue += ((item.price_at_time || 0) * (item.quantity || 1));
+                    });
+                    topSelling = Object.values(productSales)
+                        .sort((a, b) => b.sold - a.sold)
+                        .slice(0, 5);
+                }
+
+                // Fallback: no order data → show top 5 products by price
+                if (topSelling.length === 0) {
+                    isFallback = true;
+                    const allProducts = (productsRes.data || []);
+                    topSelling = allProducts
+                        .filter(p => p.name)
+                        .sort((a, b) => (b.price || 0) - (a.price || 0))
+                        .slice(0, 5)
+                        .map(p => ({ name: p.name, sold: 0, revenue: p.price || 0 }));
+                }
+
+                const newStats = {
+                    revenue: totalRevenue,
+                    orders: totalRes.count || 0,
+                    customers: customerRes.count || 0,
+                    pending: pendingRes.count || 0,
+                    shipped: shippedRes.count || 0,
+                    delivered: deliveredRes.count || 0,
+                    todayOrders: todayRes.count || 0
                 };
 
                 setStats(newStats);
                 setRecentOrders(recentOrdersRes.data || []);
                 setLowStockProducts(lowStock);
                 setTopProducts(topSelling);
+                setTopProductsFallback(isFallback);
             } catch (error) {
                 console.error('Dashboard error:', error);
             } finally {
@@ -85,7 +112,6 @@ export default function AdminDashboard() {
 
         fetchDashboardData();
 
-        // Real-time: only refresh on new orders (force bypass cache)
         const channel = supabase
             .channel('dashboard_orders')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
@@ -140,6 +166,7 @@ export default function AdminDashboard() {
                         icon: IndianRupee,
                         gradient: 'linear-gradient(135deg, hsl(var(--success)), hsl(152 76% 25%))',
                         color: 'hsl(152 76% 95%)',
+                        sub: `Excl. Cancelled/Refunded`,
                         glow: 'hsl(var(--success) / 0.3)'
                     },
                     {
@@ -173,7 +200,6 @@ export default function AdminDashboard() {
                         padding: '1.5rem',
                         transition: 'transform 0.3s ease'
                     }}>
-                        {/* Ambient Glow */}
                         <div style={{
                             position: 'absolute', top: '-40px', right: '-40px',
                             width: '140px', height: '140px', borderRadius: '50%',
@@ -280,60 +306,24 @@ export default function AdminDashboard() {
                 {/* Right Column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
-                    {/* Low Stock */}
-                    <div className="card" style={{ padding: 0 }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <AlertTriangle size={18} color="hsl(var(--warning))" />
-                            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Low Stock Alert</h3>
-                        </div>
-                        <div style={{ padding: '0 1.5rem' }}>
-                            {lowStockProducts.length === 0 ? (
-                                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.875rem' }}>All products are well stocked</div>
-                            ) : (
-                                lowStockProducts.map((p, index) => (
-                                    <div key={p.id} style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        padding: '1rem 0',
-                                        borderBottom: index < lowStockProducts.length - 1 ? '1px solid hsl(var(--border-subtle))' : 'none'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <div style={{
-                                                width: '48px', height: '48px', borderRadius: 'var(--radius-sm)',
-                                                overflow: 'hidden', background: '#f1f5f9',
-                                                border: '1px solid hsl(var(--border-subtle))'
-                                            }}>
-                                                {p.image_url ?
-                                                    <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Package size={20} color="hsl(var(--text-muted))" />
-                                                    </div>
-                                                }
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>{p.name}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--danger))', fontWeight: 600 }}>Only {p.stock} left</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                        <div style={{ padding: '1rem', textAlign: 'center' }}>
-                            <Link href="/admin/products" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'hsl(var(--primary))' }}>
-                                Restock Inventory
-                            </Link>
-                        </div>
-                    </div>
+
 
                     {/* Top Products */}
                     <div className="card" style={{ padding: 0 }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <Trophy size={18} color="hsl(var(--primary))" />
-                            <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Top Selling</h3>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <Trophy size={18} color="hsl(var(--primary))" />
+                                <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Top Selling</h3>
+                            </div>
+                            {topProductsFallback && (
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', background: 'hsl(var(--bg-app))', padding: '0.2rem 0.6rem', borderRadius: '4px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                    FEATURED PRODUCTS
+                                </span>
+                            )}
                         </div>
                         <div style={{ padding: '0 1.5rem 1.5rem' }}>
                             {topProducts.length === 0 ? (
-                                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.875rem' }}>Sales data pending...</div>
+                                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.875rem' }}>No products found</div>
                             ) : (
                                 topProducts.map((p, i) => (
                                     <div key={i} style={{
@@ -343,18 +333,21 @@ export default function AdminDashboard() {
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                             <div style={{
-                                                width: '24px', height: '24px', borderRadius: '50%',
-                                                background: i === 0 ? 'hsl(var(--primary))' : '#f1f5f9',
+                                                width: '28px', height: '28px', borderRadius: '50%',
+                                                background: i === 0 ? 'hsl(var(--primary))' : i === 1 ? 'hsl(var(--secondary))' : '#f1f5f9',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: '0.75rem', fontWeight: 700,
-                                                color: i === 0 ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-                                                border: i === 0 ? 'none' : '1px solid hsl(var(--border-subtle))'
+                                                fontSize: '0.75rem', fontWeight: 800,
+                                                color: i < 2 ? 'white' : 'hsl(var(--text-muted))',
+                                                border: i < 2 ? 'none' : '1px solid hsl(var(--border-subtle))',
+                                                flexShrink: 0
                                             }}>#{i + 1}</div>
-                                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>{p.name}</div>
+                                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))', lineHeight: 1.3 }}>{p.name}</div>
                                         </div>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{p.revenue.toLocaleString()}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{p.sold} sold</div>
+                                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '1rem' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{(p.revenue || 0).toLocaleString()}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
+                                                {topProductsFallback ? 'base price' : `${p.sold} sold`}
+                                            </div>
                                         </div>
                                     </div>
                                 ))

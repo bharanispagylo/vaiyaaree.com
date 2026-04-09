@@ -73,7 +73,7 @@ export default function WhatsAppWidget() {
 
             {/* Main Button */}
             <a 
-                href="https://wa.me/15551678232" 
+                href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{

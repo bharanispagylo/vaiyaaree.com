@@ -2,7 +2,10 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Search, Package, MapPin, Truck, CheckCircle, Clock, ChevronLeft } from 'lucide-react';
+import { 
+    Search, Package, MapPin, Truck, CheckCircle, Clock, ChevronLeft, 
+    Download, XCircle, AlertTriangle, RefreshCw, MessageCircle 
+} from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import styles from './track.module.css';
 
@@ -11,13 +14,27 @@ function TrackContent() {
     const router = useRouter();
     const orderIdParam = searchParams.get('id') || '';
 
-    const { supabase, showToast } = useShop();
+    const { supabase, showToast, user } = useShop();
     const [orderId, setOrderId] = useState(orderIdParam);
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [showRefundForm, setShowRefundForm] = useState(false);
-    const [refundReason, setRefundReason] = useState('');
-    const [requestingRefund, setRequestingRefund] = useState(false);
+    
+    // Cancellation States
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancellingId, setCancellingId] = useState(null);
+    const [otpSent, setOtpSent] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [generatedOtp, setGeneratedOtp] = useState(null);
+    
+    // Return/Exchange States
+    const [showReturnModal, setShowReturnModal] = useState(false);
+    const [returnForm, setReturnForm] = useState({ type: 'RETURN', reason: '', productId: '' });
+    const [returnRequests, setReturnRequests] = useState([]);
+    const [isEligibleForReturn, setIsEligibleForReturn] = useState(false);
+    const [deliveryDate, setDeliveryDate] = useState(null);
+
+    // Global Alert State
+    const [alertModal, setAlertModal] = useState({ show: false, title: '', message: '' });
 
     useEffect(() => {
         if (orderIdParam) {
@@ -37,8 +54,35 @@ function TrackContent() {
                 .eq('id', id)
                 .single();
 
-            if (data) setOrder(data);
-            else showToast('Order not found', 'error');
+            if (data) {
+                setOrder(data);
+                // Fetch existing return requests for this order
+                const { data: reqs } = await supabase
+                    .from('return_requests')
+                    .select('*')
+                    .eq('order_id', data.id);
+                setReturnRequests(reqs || []);
+
+                // Check 10-day eligibility for delivered orders
+                if (data.status === 'DELIVERED') {
+                    const { data: log } = await supabase
+                        .from('order_status_logs')
+                        .select('created_at')
+                        .eq('order_id', data.id)
+                        .eq('status', 'DELIVERED')
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .single();
+                    
+                    const dDate = log ? new Date(log.created_at) : new Date(data.created_at);
+                    setDeliveryDate(dDate);
+                    const tenDaysAgo = new Date();
+                    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+                    setIsEligibleForReturn(dDate >= tenDaysAgo);
+                }
+            } else {
+                showToast('Order not found', 'error');
+            }
         } catch (err) {
             console.error('Tracking Error:', err);
             showToast('Failed to track order', 'error');
@@ -47,34 +91,135 @@ function TrackContent() {
         }
     }
 
-    async function handleRequestRefund() {
-        if (!refundReason.trim()) {
-            showToast('Please provide a reason for the refund.', 'error');
+    // --- Cancellation Logic ---
+    async function handleCancelClick() {
+        if (!order) return;
+        const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
+        if (!cancellableStatuses.includes(order.status)) {
+            setAlertModal({ 
+                show: true, 
+                title: 'Cannot Cancel', 
+                message: 'This order cannot be cancelled. It may already be shipped or delivered.' 
+            });
+            return;
+        }
+        
+        const customerPhone = order.customer_phone || (user?.phone);
+        if (!customerPhone) {
+            setAlertModal({ show: true, title: 'Phone Missing', message: 'No phone number associated with this order to send OTP.' });
             return;
         }
 
-        setRequestingRefund(true);
+        setShowCancelModal(true);
+        setOtpSent(false);
+        setOtp('');
+        setGeneratedOtp(null);
+    }
+
+    async function sendOtp() {
+        const phone = order.customer_phone || user?.phone;
+        if (!phone) return;
+        
+        const otpValue = Math.floor(100000 + Math.random() * 900000).toString();
+        setGeneratedOtp(otpValue);
+        setOtpSent(true);
+        
         try {
-            const { error } = await supabase
-                .from('orders')
-                .update({ 
-                    status: 'REFUND_REQUESTED',
-                    refund_reason: refundReason,
-                    refund_status: 'PENDING' 
-                })
-                .eq('id', order.id);
+            await fetch('/api/whatsapp/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: phone, otp: otpValue, orderId: order.id })
+            });
+            showToast('Verification code sent to WhatsApp', 'info');
+        } catch (err) {
+            console.error('Error sending OTP:', err);
+            showToast('Failed to send WhatsApp code', 'error');
+        }
+    }
+
+    async function confirmCancel() {
+        if (!order || otp !== generatedOtp) {
+            showToast('Invalid verification code', 'error');
+            return;
+        }
+        
+        setCancellingId(order.id);
+        setShowCancelModal(false);
+        
+        try {
+            // Restore stock
+            if (order.order_items) {
+                for (const item of order.order_items) {
+                    const table = item.variant_id ? 'product_variants' : 'products';
+                    const id = item.variant_id || item.product_id;
+                    const { data: current } = await supabase.from(table).select('stock').eq('id', id).single();
+                    if (current) {
+                        await supabase.from(table).update({ stock: current.stock + item.quantity }).eq('id', id);
+                    }
+                }
+            }
+            
+            // Update status
+            await supabase.from('orders').update({ 
+                status: 'CANCELLED',
+                admin_notes: `Order cancelled by customer via website on ${new Date().toLocaleString()}`
+            }).eq('id', order.id);
+            
+            // Logs
+            const logNote = 'Order cancelled by customer via website';
+            await supabase.from('order_status_logs').insert({ 
+                order_id: order.id, 
+                status: 'CANCELLED', 
+                notes: logNote, 
+                created_at: new Date().toISOString() 
+            });
+            
+            // Refund entry
+            if (['PAID', 'AWAITING_PAYMENT'].includes(order.status)) {
+                await supabase.from('refunds').insert({
+                    order_id: order.id,
+                    amount: order.total_amount,
+                    status: 'REQUESTED',
+                    reason: logNote
+                });
+            }
+            
+            showToast('Order cancelled successfully', 'success');
+            fetchTrackingOrder(order.id);
+        } catch (err) {
+            console.error('Cancel Order Error:', err);
+            showToast('Failed to cancel order', 'error');
+        } finally {
+            setCancellingId(null);
+        }
+    }
+
+    // --- Return/Exchange Logic ---
+    async function handleReturnSubmit() {
+        if (!order || !returnForm.productId || !returnForm.reason.trim()) {
+            showToast('Please provide a reason and select a product', 'error');
+            return;
+        }
+
+        try {
+            const { error } = await supabase.from('return_requests').insert({
+                order_id: order.id,
+                product_id: returnForm.productId,
+                customer_id: user?.id || null, 
+                request_type: returnForm.type,
+                reason: returnForm.reason,
+                status: 'PENDING'
+            });
 
             if (error) throw error;
 
-            showToast('Refund request submitted successfully.', 'success');
-            setShowRefundForm(false);
-            setRefundReason('');
-            fetchTrackingOrder(order.id);
+            setReturnRequests(prev => [...prev, { order_id: order.id, product_id: returnForm.productId, status: 'PENDING' }]);
+            showToast(`Your ${returnForm.type.toLowerCase()} request has been submitted. Our team will review your request and it will be processed shortly.`, 'success');
+            setShowReturnModal(false);
+            setReturnForm({ type: 'RETURN', reason: '', productId: '' });
         } catch (err) {
-            console.error('Refund Request Error:', err);
-            showToast('Failed to submit refund request.', 'error');
-        } finally {
-            setRequestingRefund(false);
+            console.error('Return Request Error:', err);
+            showToast('Failed to submit request', 'error');
         }
     }
 
@@ -141,8 +286,53 @@ function TrackContent() {
                             ))}
                         </div>
 
+                        {/* Order Actions - EXCLUSIVELY ON THIS PAGE NOW */}
+                        <div className={styles.summaryActions}>
+                            <a href={`/api/invoice/${order.id}`} target="_blank" rel="noopener noreferrer" className={styles.actionBtn}>
+                                <Download size={18} /> Download Invoice
+                            </a>
+                            
+                            {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(order.status) && (
+                                <button 
+                                    onClick={handleCancelClick} 
+                                    className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
+                                    disabled={cancellingId === order.id}
+                                >
+                                    <XCircle size={18} /> {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
+                                </button>
+                            )}
+
+                            {order.status === 'DELIVERED' && (() => {
+                                const allItemsReturned = order.order_items?.every(item => 
+                                    returnRequests.some(r => r.product_id === item.product_id && r.status !== 'REJECTED')
+                                );
+                                
+                                if (allItemsReturned) {
+                                    return (
+                                        <button className={styles.actionBtn} disabled style={{ opacity: 0.5 }}>
+                                            <RefreshCw size={18} /> Request Submitted
+                                        </button>
+                                    );
+                                }
+
+                                return (
+                                    <button 
+                                        onClick={() => isEligibleForReturn ? setShowReturnModal(true) : setAlertModal({
+                                            show: true,
+                                            title: 'Deadline Passed',
+                                            message: `This order was delivered on ${deliveryDate?.toLocaleDateString()} and is beyond the 10-day return window.`
+                                        })} 
+                                        className={`${styles.actionBtn} ${isEligibleForReturn ? styles.actionBtnPrimary : ''}`}
+                                        style={!isEligibleForReturn ? { opacity: 0.5 } : {}}
+                                    >
+                                        <RefreshCw size={18} /> {isEligibleForReturn ? 'Return or Exchange' : 'Return Window Closed'}
+                                    </button>
+                                );
+                            })()}
+                        </div>
+
                         {order.tracking_number && (
-                            <div className={styles.shippingSection}>
+                            <div className={styles.shippingSection} style={{ marginTop: '3rem' }}>
                                 <h3>Shipping Information</h3>
                                 <div className={styles.shippingGrid}>
                                     <div className={styles.shipInfoItem}>
@@ -159,42 +349,6 @@ function TrackContent() {
                                         Track on Carrier Website
                                     </a>
                                 )}
-                            </div>
-                        )}
-
-                        {order.status === 'DELIVERED' && !order.refund_status && (
-                            <div className={styles.refundSection}>
-                                {!showRefundForm ? (
-                                    <button onClick={() => setShowRefundForm(true)} className={styles.refundBtn}>
-                                        Request Refund
-                                    </button>
-                                ) : (
-                                    <div className={styles.refundForm}>
-                                        <h3>Request a Refund</h3>
-                                        <p>Please tell us why you are requesting a refund for this order.</p>
-                                        <textarea 
-                                            placeholder="Reason for refund..." 
-                                            value={refundReason} 
-                                            onChange={(e) => setRefundReason(e.target.value)}
-                                            className={styles.refundTextArea}
-                                        />
-                                        <div className={styles.refundActions}>
-                                            <button onClick={() => setShowRefundForm(false)} className={styles.cancelBtn}>Cancel</button>
-                                            <button onClick={handleRequestRefund} disabled={requestingRefund} className={styles.submitRefundBtn}>
-                                                {requestingRefund ? 'Submitting...' : 'Submit Request'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {order.status === 'REFUND_REQUESTED' && (
-                            <div className={styles.refundSection}>
-                                <div className={styles.refundInfo}>
-                                    <strong>Refund Status: Requested</strong>
-                                    <p>Your refund request is being reviewed by our team.</p>
-                                </div>
                             </div>
                         )}
 
@@ -237,6 +391,97 @@ function TrackContent() {
                 <div className={styles.noOrderPlaceholder}>
                     <Package size={48} />
                     <p>Order not found. Please double-check your Order ID.</p>
+                </div>
+            )}
+
+            {/* Modals from my-orders integrated here */}
+            {showCancelModal && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal}>
+                        <div className={styles.modalHeader}>
+                            <AlertTriangle size={24} color="#f59e0b" />
+                            <h3>Confirm Cancellation</h3>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <p>Verify identity to cancel order <strong>#{order.id}</strong></p>
+                            {!otpSent ? (
+                                <button onClick={sendOtp} className={styles.btnPrimary} style={{ width: '100%' }}>Send Verification Code</button>
+                            ) : (
+                                <>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter 6-digit OTP"
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                        className={styles.otpInput}
+                                        maxLength={6}
+                                    />
+                                    <button onClick={sendOtp} className={styles.btnSecondary} style={{ width: '100%', marginBottom: '1rem' }}>Resend Code</button>
+                                </>
+                            )}
+                        </div>
+                        <div className={styles.modalActions}>
+                            <button onClick={() => setShowCancelModal(false)} className={styles.btnSecondary}>Keep Order</button>
+                            <button onClick={confirmCancel} disabled={!otpSent || otp.length !== 6} className={styles.btnDanger}>Confirm Cancellation</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showReturnModal && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal}>
+                        <div className={styles.modalHeader}>
+                            <RefreshCw size={24} color="#3b82f6" />
+                            <h3>Return or Exchange</h3>
+                        </div>
+                        <div className={styles.modalBody}>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>Select Product</label>
+                            <select 
+                                className={styles.formSelect}
+                                value={returnForm.productId}
+                                onChange={(e) => setReturnForm({ ...returnForm, productId: e.target.value })}
+                            >
+                                <option value="" disabled>Select an item</option>
+                                {order.order_items?.filter(item => {
+                                    return !returnRequests.some(r => r.product_id === item.product_id && r.status !== 'REJECTED');
+                                }).map((item, idx) => (
+                                    <option key={idx} value={item.product_id}>{item.product_name}</option>
+                                ))}
+                                {order.order_items?.length > 1 && <option value="ALL_ORDER">Return All Items</option>}
+                            </select>
+
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>Request Type</label>
+                            <select className={styles.formSelect} value={returnForm.type} onChange={(e) => setReturnForm({ ...returnForm, type: e.target.value })}>
+                                <option value="RETURN">Return (Refund)</option>
+                                <option value="EXCHANGE">Exchange (Replacement)</option>
+                            </select>
+
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>Reason</label>
+                            <textarea 
+                                className={styles.formTextarea}
+                                value={returnForm.reason}
+                                onChange={(e) => setReturnForm({ ...returnForm, reason: e.target.value })}
+                                placeholder="Explain your reason..."
+                                rows={4}
+                            />
+                        </div>
+                        <div className={styles.modalActions}>
+                            <button onClick={() => setShowReturnModal(false)} className={styles.btnSecondary}>Cancel</button>
+                            <button onClick={handleReturnSubmit} className={styles.btnPrimary}>Submit Request</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {alertModal.show && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <AlertTriangle size={48} color="#ef4444" style={{ margin: '0 auto 1.5rem' }} />
+                        <h3 style={{ marginBottom: '1rem' }}>{alertModal.title}</h3>
+                        <p style={{ marginBottom: '2rem' }}>{alertModal.message}</p>
+                        <button onClick={() => setAlertModal({ show: false, title: '', message: '' })} className={styles.btnPrimary} style={{ width: '100%' }}>Understood</button>
+                    </div>
                 </div>
             )}
         </div>

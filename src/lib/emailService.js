@@ -52,7 +52,8 @@ export async function sendOrderConfirmationEmail(order) {
         to: order.customer_email || order.customer_phone,
         subject: `Order Confirmation - ${order.id}`,
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
+            <div style="font-family: 'Roboto', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
+                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
                     ${shopLogo ? `<img src="${shopLogo}" alt="Cast Printz" style="max-height: 80px; margin-bottom: 20px;">` : ''}
                     <h2 style="color: #333; margin-bottom: 20px;">Thank you for your order!</h2>
@@ -177,7 +178,8 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
         to: toEmails,
         subject: `${config.title} - ${order.id}`,
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
+            <div style="font-family: 'Roboto', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
+                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
                     ${shopLogo ? `<img src="${shopLogo}" alt="Cast Printz" style="max-height: 80px; margin-bottom: 20px;">` : ''}
                     <h2 style="color: #333; margin-bottom: 15px;">${config.title}</h2>

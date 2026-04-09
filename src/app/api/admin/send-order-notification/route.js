@@ -1,11 +1,132 @@
 import { sendText } from '@/services/whatsappService';
-import { sendOrderConfirmationEmail } from '@/lib/emailService';
+import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '@/lib/emailService';
 import { supabase } from '@/lib/supabaseClient';
+
+// Build the correct WhatsApp message for a given status (mirrors update-status route logic)
+function buildStatusMessage(order, status, orderId) {
+    const totalAmount = order.total_amount || 0;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const invoiceUrl = `${appUrl}/shop/invoice?oid=${orderId}`;
+    const brand = 'Cast Printz';
+    const items = order.order_items || [];
+
+    switch (status) {
+        case 'PLACED':
+            return [
+                `ORDER CONFIRMED`,
+                ``,
+                `Your order #${orderId} has been confirmed!`,
+                `Amount: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `We are preparing your saree for shipping.`,
+                `— ${brand}`
+            ].join('\n');
+
+        case 'AWAITING_PAYMENT':
+            return [
+                `PAYMENT PENDING`,
+                ``,
+                `Your order #${orderId} is awaiting payment.`,
+                `Amount Due: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `Please complete your payment to confirm your order.`,
+                `View Invoice: ${invoiceUrl}`,
+                ``,
+                `— ${brand}`
+            ].join('\n');
+
+        case 'PAID': {
+            const itemList = items.map(i => `• ${i.product_name} (x${i.quantity}) - ₹${((i.price_at_time || 0) * i.quantity).toLocaleString()}`).join('\n');
+            return [
+                `INVOICE: ${orderId}`,
+                `--------------------------`,
+                `Payment Received!`,
+                ``,
+                `Items:`,
+                itemList || '• (see invoice)',
+                `--------------------------`,
+                `Total Paid: ₹${totalAmount.toLocaleString()}`,
+                `Method: ${order.payment_method || 'UPI/Online'}`,
+                ``,
+                `View Full Bill: ${invoiceUrl}`,
+                ``,
+                `Your order is being processed. Thank you!`,
+                `— ${brand}`
+            ].join('\n');
+        }
+
+        case 'PACKING':
+            return [
+                `ORDER PACKING`,
+                ``,
+                `Hi! We are currently packing your order #${orderId}.`,
+                `Amount: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `It will be shipped shortly. Thank you!`,
+                `— ${brand}`
+            ].join('\n');
+
+        case 'SHIPPED':
+            return [
+                `ORDER SHIPPED!`,
+                ``,
+                `Order #${orderId} is on its way!`,
+                `Amount: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `Shipping Details:`,
+                `Carrier: ${order.courier_name || 'N/A'}`,
+                `Tracking: ${order.tracking_number || 'N/A'}`,
+                ``,
+                order.tracking_url ? `Track Here: ${order.tracking_url}` : `View Details: ${invoiceUrl}`,
+                ``,
+                `Thank you for shopping with us!`,
+                `— ${brand}`
+            ].join('\n');
+
+        case 'DELIVERED':
+            return [
+                `ORDER DELIVERED!`,
+                ``,
+                `Order #${orderId} has been delivered successfully!`,
+                `Total: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `Hope you love your new saree!`,
+                `Type Hi to shop again anytime.`,
+                ``,
+                `— ${brand}`
+            ].join('\n');
+
+        case 'CANCELLED':
+            return [
+                `ORDER CANCELLED`,
+                ``,
+                `Order #${orderId} has been cancelled.`,
+                `Amount: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `If you did not request this cancellation, please contact us!`,
+                ``,
+                `— ${brand}`
+            ].join('\n');
+
+        default:
+            // Default order confirmation
+            return (
+                `✅ *Order Confirmed — ${brand}* 🎉\n\n` +
+                `Dear ${order.customer_name},\n\n` +
+                `Your order #${orderId} has been placed successfully.\n\n` +
+                `📦 *Order Details:*\n` +
+                `• Total Amount: ₹${totalAmount.toLocaleString()}\n` +
+                `• Payment Method: ${order.payment_method || 'N/A'}\n` +
+                `• Items: ${items.length || 0} product(s)\n\n` +
+                `Thank you for shopping with ${brand}! 💖`
+            );
+    }
+}
 
 export async function POST(request) {
     try {
-        const { orderId, sendWhatsApp, sendEmail, targetPhone, targetEmail } = await request.json();
-        
+        const { orderId, sendWhatsApp, sendEmail, targetPhone, targetEmail, statusOverride } = await request.json();
+
         if (!orderId) {
             return new Response(JSON.stringify({ error: 'Order ID is required' }), {
                 status: 400,
@@ -33,30 +154,37 @@ export async function POST(request) {
         const finalPhone = targetPhone || order.billing_phone || order.customer_phone;
         if (sendWhatsApp && finalPhone) {
             try {
-                await sendText(finalPhone, 
-                    `✅ *Order Confirmed — Cast Printz* 🎉\n\n` +
-                    `Dear ${order.customer_name},\n\n` +
-                    `Your order #${orderId} has been placed successfully.\n\n` +
-                    `📦 *Order Details:*\n` +
-                    `• Total Amount: ₹${order.total_amount?.toLocaleString() || '0'}\n` +
-                    `• Payment Method: ${order.payment_method || 'N/A'}\n` +
-                    `• Items: ${order.order_items?.length || 0} product(s)\n\n` +
-                    `Thank you for shopping with Cast Printz! 💖`
-                );
+                const message = statusOverride
+                    ? buildStatusMessage(order, statusOverride, orderId)
+                    : (
+                        `✅ *Order Confirmed — Cast Printz* 🎉\n\n` +
+                        `Dear ${order.customer_name},\n\n` +
+                        `Your order #${orderId} has been placed successfully.\n\n` +
+                        `📦 *Order Details:*\n` +
+                        `• Total Amount: ₹${order.total_amount?.toLocaleString() || '0'}\n` +
+                        `• Payment Method: ${order.payment_method || 'N/A'}\n` +
+                        `• Items: ${order.order_items?.length || 0} product(s)\n\n` +
+                        `Thank you for shopping with Cast Printz! 💖`
+                    );
+                await sendText(finalPhone, message);
                 notifications.push(`WhatsApp (${finalPhone})`);
             } catch (whatsappErr) {
                 console.error('Failed to send WhatsApp notification:', whatsappErr);
                 notifications.push('WhatsApp (failed)');
             }
         }
-        
+
         // Send Email notification
         const finalEmail = targetEmail || order.billing_email || order.customer_email;
         if (sendEmail && finalEmail) {
             try {
-                // Ensure the order object has the correct target email for the service
                 const orderWithTarget = { ...order, customer_email: finalEmail };
-                await sendOrderConfirmationEmail(orderWithTarget);
+                if (statusOverride) {
+                    // Use status-specific email if available
+                    await sendOrderStatusEmail(orderWithTarget, statusOverride);
+                } else {
+                    await sendOrderConfirmationEmail(orderWithTarget);
+                }
                 notifications.push(`Email (${finalEmail})`);
             } catch (emailErr) {
                 console.error('Failed to send email notification:', emailErr);
@@ -64,10 +192,10 @@ export async function POST(request) {
             }
         }
 
-        return new Response(JSON.stringify({ 
-            success: true, 
+        return new Response(JSON.stringify({
+            success: true,
             message: `Notifications sent: ${notifications.join(', ')}`,
-            notifications 
+            notifications
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }

@@ -140,6 +140,28 @@
     color: #000;
 }
 
+.searchForm {
+    display: flex;
+    align-items: center;
+}
+
+.searchInput {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    border: 1px solid rgba(0,0,0,0.1);
+    outline: none;
+    font-size: 0.85rem;
+    width: 200px;
+    background: #f9f9f9;
+    transition: all 0.3s;
+}
+
+.searchInput:focus {
+    border-color: hsl(var(--primary) / 0.5);
+    background: #fff;
+    width: 240px;
+}
+
 .headerActions {
     display: flex;
     align-items: center;

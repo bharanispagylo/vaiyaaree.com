@@ -1,81 +1,48 @@
-
-// @/app/api/whatsapp/webhook/route.js
-/*
-  BACKEND API ROUTE: WHATSAPP WEBHOOK
-  Receives all webhook events from Meta (WhatsApp).
-  Supports Verification (GET) and Event Handling (POST).
-*/
-
 import { processIncomingMessage } from '@/services/whatsappService';
 
-// 1. VERIFICATION (Required by Meta)
 export async function GET(request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const mode = searchParams.get('hub.mode');
-        const token = searchParams.get('hub.verify_token');
-        const challenge = searchParams.get('hub.challenge');
-
-        console.log('--- Webhook Verification Request ---');
-        console.log(`Mode: ${mode}`);
-        console.log(`Token: ${token}`);
-        console.log(`Challenge: ${challenge}`);
-
-        // Verify token matches your config
-        const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'castprintz_secret';
-
-        if (mode === 'subscribe' && token === verifyToken) {
-            console.log('✅ Webhook Verified Successfully!');
-            return new Response(challenge, {
-                status: 200,
-                headers: { 'Content-Type': 'text/plain' }
-            });
-        }
-
-        console.warn('❌ Webhook Verification Failed: Token mismatch or wrong mode.');
-        return new Response('Forbidden', { status: 403 });
-
-    } catch (error) {
-        console.error('SERVER ERROR during verification:', error);
-        return new Response('Internal Server Error', { status: 500 });
-    }
+    const { searchParams } = new URL(request.url);
+    const challenge = searchParams.get('hub.challenge');
+    return new Response(challenge || 'VERIFIED', { status: 200 });
 }
 
-// 2. MESSAGE HANDLING
 export async function POST(request) {
-    console.log('[WA-WEBHOOK] Webhook hit received.');
+    console.log('>>> WHATSAPP WEBHOOK HIT! <<<');
+    console.log('Timestamp:', new Date().toISOString());
+    
     try {
         const body = await request.json();
-        console.log('[WA-WEBHOOK] Payload Received:', JSON.stringify(body, null, 2));
+        console.log('=== WEBHOOK PAYLOAD START ===');
+        console.log('Full payload:', JSON.stringify(body, null, 2));
+        console.log('=== WEBHOOK PAYLOAD END ===');
 
-        if (!process.env.WHATSAPP_ACCESS_TOKEN) {
-            console.error('[WA-WEBHOOK] CRITICAL: WHATSAPP_ACCESS_TOKEN is missing in environment!');
-        }
+        // Simplified check
+        const value = body?.entry?.[0]?.changes?.[0]?.value;
+        const messages = value?.messages;
+        
+        console.log('Extracted value:', value);
+        console.log('Extracted messages:', messages);
 
-        // Check if this is a WhatsApp message
-        if (body.object === 'whatsapp_business_account') {
-            const value = body.entry?.[0]?.changes?.[0]?.value;
-            const messages = value?.messages;
-
-            // 1. If it's a status update (sent, delivered, read), just acknowledge and exit
-            if (value?.statuses) {
-                return new Response('STATUS_ACKNOWLEDGED', { status: 200 });
-            }
-
-            // 2. If it's a message, process it
-            if (messages && messages.length > 0) {
-                // We MUST await here on Vercel to ensure the bot has time to reply
-                await processIncomingMessage(body);
-                return new Response('MESSAGE_PROCESSED', { status: 200 });
-            }
+        if (messages && messages.length > 0) {
+            console.log('MESSAGE RECEIVED:', messages[0].text?.body);
+            console.log('MESSAGE TYPE:', messages[0].type);
+            console.log('MESSAGE FROM:', messages[0].from);
             
-            return new Response('EVENT_ACKNOWLEDGED', { status: 200 });
+            try {
+                await processIncomingMessage(body);
+                console.log('✅ processIncomingMessage completed successfully');
+            } catch (processError) {
+                console.error('❌ processIncomingMessage failed:', processError);
+                console.error('Stack trace:', processError.stack);
+            }
         } else {
-            return new Response('Not Found', { status: 404 });
+            console.log('⚠️ No messages found in webhook payload');
         }
 
-    } catch (error) {
-        console.error('Webhook Error:', error);
-        return new Response('Internal Server Error', { status: 500 });
+        return new Response('OK', { status: 200 });
+    } catch (err) {
+        console.error('❌ WEBHOOK ERROR:', err);
+        console.error('Stack trace:', err.stack);
+        return new Response('OK', { status: 200 });
     }
 }

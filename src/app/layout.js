@@ -1,5 +1,10 @@
 import './globals.css';
 import { Providers } from './providers';
+// Standard system font stack for reliability during build
+const roboto = {
+  className: 'font-sans',
+  variable: '--font-roboto',
+};
 
 export const metadata = {
     title: "Cast Printz | Premium Saree Collection",
@@ -13,8 +18,8 @@ import WhatsAppWidget from '@/components/WhatsAppWidget';
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className={roboto.variable}>
+      <body className={roboto.className}>
         <Providers>
           {children}
           <WhatsAppWidget />

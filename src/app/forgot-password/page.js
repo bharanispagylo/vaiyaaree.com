@@ -84,6 +84,7 @@ export default function ForgotPasswordPage() {
                                     type="number"
                                     placeholder="Enter your 4-digit PIN"
                                     value={pin}
+                                    onKeyDown={(e) => { if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault(); }}
                                     onChange={e => setPin(e.target.value)}
                                     required
                                 />

@@ -32,7 +32,7 @@ export default function AdminLayout({ children }) {
     }
 
     return (
-        <div className="admin-layout">
+        <div className="admin-layout" style={{ fontFamily: 'var(--font-roboto)' }}>
             <AdminSidebar isOpen={isSidebarOpen} />
 
             {/* Mobile Overlay */}
@@ -46,9 +46,9 @@ export default function AdminLayout({ children }) {
                 />
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
                 <AdminTopBar onMenuClick={() => setSidebarOpen(true)} />
-                <main className="main-content" style={{ overflowY: 'auto' }}>
+                <main className="main-content" style={{ overflow: 'visible' }}>
                     {children}
                 </main>
             </div>

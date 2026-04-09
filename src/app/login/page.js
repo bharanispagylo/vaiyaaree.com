@@ -102,7 +102,10 @@ export default function CustomerLoginPage() {
                                         type="tel"
                                         placeholder="Enter mobile number"
                                         value={phone}
-                                        onChange={e => setPhone(e.target.value)}
+                                        onChange={e => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                                        pattern="[0-9]{10}"
+                                        maxLength="10"
+                                        minLength="10"
                                         required
                                         style={{
                                             width: '100%', padding: '1rem 1rem 1rem 3.5rem',

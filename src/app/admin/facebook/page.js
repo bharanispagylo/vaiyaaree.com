@@ -198,7 +198,7 @@ function MetaConnectContent() {
                                     value={config.accessToken}
                                     readOnly
                                     rows={3}
-                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-muted))', resize: 'none', fontSize: '0.7rem', fontFamily: 'monospace' }}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-muted))', resize: 'none', fontSize: '0.7rem', fontFamily: 'var(--font-roboto)' }}
                                 />
                             </div>
                         </div>

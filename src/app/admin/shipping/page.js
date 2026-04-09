@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import ModalPortal from '@/components/ModalPortal';
 import {
     Truck, Save, Plus, Trash2, Globe, MapPin,
     AlertCircle, CheckCircle2, Loader2, Info,
@@ -240,8 +241,10 @@ export default function ShippingAdminPage() {
                                         <IndianRupee size={14} />
                                         <input
                                             type="number"
+                                            min="0"
                                             value={selectedZone.rate}
                                             onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
+                                            onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                         />
                                     </div>
                                 </div>
@@ -251,8 +254,10 @@ export default function ShippingAdminPage() {
                                         <IndianRupee size={14} />
                                         <input
                                             type="number"
+                                            min="0"
                                             value={selectedZone.free_threshold}
                                             onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
+                                            onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                         />
                                     </div>
                                 </div>
@@ -318,9 +323,11 @@ export default function ShippingAdminPage() {
                                                 <IndianRupee size={14} />
                                                 <input
                                                     type="number"
+                                                    min="0"
                                                     value={selectedZone.rate}
                                                     onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
                                                     placeholder="e.g. 1500"
+                                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
                                             </div>
                                         </div>
@@ -330,9 +337,11 @@ export default function ShippingAdminPage() {
                                                 <IndianRupee size={14} />
                                                 <input
                                                     type="number"
+                                                    min="0"
                                                     value={selectedZone.free_threshold}
                                                     onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
                                                     placeholder="e.g. 10000"
+                                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
                                             </div>
                                         </div>
@@ -463,6 +472,7 @@ export default function ShippingAdminPage() {
             `}</style>
             {/* Confirm Modal */}
             {confirmAction && (
+                <ModalPortal>
                 <div style={{
                     position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
                     zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
@@ -497,6 +507,7 @@ export default function ShippingAdminPage() {
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
 
             <style jsx>{`

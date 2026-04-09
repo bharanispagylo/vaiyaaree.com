@@ -52,7 +52,7 @@ async function generateInvoicePDF(order) {
         // Fetch branding from settings
         let settings = {
             shop_name: 'Cast Printz',
-            shop_phone: '+91 75581 89732',
+            shop_phone: `+${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '91 75581 89732'}`,
             shop_email: 'castprintzofficial@gmail.com',
             shop_address: 'Chennai, Tamil Nadu',
             shop_logo: null,

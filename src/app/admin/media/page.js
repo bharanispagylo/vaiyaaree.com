@@ -135,40 +135,40 @@ export default function MediaLibraryPage() {
                 setAnalyzing(true);
                 setNotification({ message: 'Analyzing all images for watermarks...', type: 'success' });
 
-        const newWatermarkList = [];
-        const newNoWatermarkList = [];
-        let analyzed = 0;
+                const newWatermarkList = [];
+                const newNoWatermarkList = [];
+                let analyzed = 0;
 
-        for (const file of files) {
-            try {
-                const res = await fetch('/api/admin/watermark-detect', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageUrl: file.url })
-                });
+                for (const file of files) {
+                    try {
+                        const res = await fetch('/api/admin/watermark-detect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imageUrl: file.url })
+                        });
 
-                const data = await res.json();
+                        const data = await res.json();
 
-                if (data.hasWatermark) {
-                    newWatermarkList.push(file.url);
-                } else {
-                    newNoWatermarkList.push(file.url);
+                        if (data.hasWatermark) {
+                            newWatermarkList.push(file.url);
+                        } else {
+                            newNoWatermarkList.push(file.url);
+                        }
+
+                        analyzed++;
+                    } catch (err) {
+                        console.error('Failed to analyze:', file.name, err);
+                        newNoWatermarkList.push(file.url);
+                    }
                 }
 
-                analyzed++;
-            } catch (err) {
-                console.error('Failed to analyze:', file.name, err);
-                newNoWatermarkList.push(file.url);
-            }
-        }
+                setWatermarkImages(newWatermarkList);
+                setNoWatermarkImages(newNoWatermarkList);
 
-        setWatermarkImages(newWatermarkList);
-        setNoWatermarkImages(newNoWatermarkList);
+                await updateSetting('watermark_images', newWatermarkList);
+                await updateSetting('no_watermark_images', newNoWatermarkList);
 
-        await updateSetting('watermark_images', newWatermarkList);
-        await updateSetting('no_watermark_images', newNoWatermarkList);
-
-        setAnalyzing(false);
+                setAnalyzing(false);
                 setNotification({
                     message: `Re-analyzed ${analyzed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
                     type: 'success'
@@ -187,42 +187,42 @@ export default function MediaLibraryPage() {
                 setAnalyzing(true);
                 setNotification({ message: `Analyzing ${files.length} images...`, type: 'success' });
 
-        const newWatermarkList = [];
-        const newNoWatermarkList = [];
-        let processed = 0;
+                const newWatermarkList = [];
+                const newNoWatermarkList = [];
+                let processed = 0;
 
-        for (const file of files) {
-            try {
-                const res = await fetch('/api/admin/watermark-detect', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageUrl: file.url })
-                });
+                for (const file of files) {
+                    try {
+                        const res = await fetch('/api/admin/watermark-detect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imageUrl: file.url })
+                        });
 
-                const data = await res.json();
+                        const data = await res.json();
 
-                if (data.hasWatermark) {
-                    newWatermarkList.push(file.url);
-                } else {
-                    newNoWatermarkList.push(file.url);
+                        if (data.hasWatermark) {
+                            newWatermarkList.push(file.url);
+                        } else {
+                            newNoWatermarkList.push(file.url);
+                        }
+
+                        processed++;
+                    } catch (err) {
+                        console.error('Failed to analyze:', file.name, err);
+                        newNoWatermarkList.push(file.url);
+                    }
                 }
 
-                processed++;
-            } catch (err) {
-                console.error('Failed to analyze:', file.name, err);
-                newNoWatermarkList.push(file.url);
-            }
-        }
+                // Update state
+                setWatermarkImages(newWatermarkList);
+                setNoWatermarkImages(newNoWatermarkList);
 
-        // Update state
-        setWatermarkImages(newWatermarkList);
-        setNoWatermarkImages(newNoWatermarkList);
+                // Save to database
+                await updateSetting('watermark_images', newWatermarkList);
+                await updateSetting('no_watermark_images', newNoWatermarkList);
 
-        // Save to database
-        await updateSetting('watermark_images', newWatermarkList);
-        await updateSetting('no_watermark_images', newNoWatermarkList);
-
-        setAnalyzing(false);
+                setAnalyzing(false);
                 setNotification({
                     message: `Categorized ${processed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
                     type: 'success'
@@ -312,7 +312,7 @@ export default function MediaLibraryPage() {
             // Use watermark detection result from upload API
             const hasWatermark = data.hasWatermark || false;
             const folder = data.folder || 'without_watermark';
-            
+
             if (hasWatermark && folder === 'with_watermark') {
                 // Image has watermark - store in watermark collection
                 const newWatermark = [...watermarkImages, data.url];
@@ -358,8 +358,8 @@ export default function MediaLibraryPage() {
 
                     // Get the URL from the files array using the full path
                     const fileToDelete = files.find(f => {
-                        const filePath = f.folder && f.folder !== 'root' 
-                            ? `${f.folder}/${f.name}` 
+                        const filePath = f.folder && f.folder !== 'root'
+                            ? `${f.folder}/${f.name}`
                             : f.name;
                         return filePath === fullPath;
                     });
@@ -434,350 +434,350 @@ export default function MediaLibraryPage() {
     return (
         <>
             <div className="animate-enter" style={{ padding: '0.5rem' }}>
-            {/* Header */}
-            <div className="admin-header-row" style={{ marginBottom: '2rem' }}>
-                <div>
-                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <ImageIcon size={28} className="text-primary" />
-                        Media Library
-                    </h1>
-                    <p style={{ marginTop: '0.25rem' }}>Manage and upload your product images</p>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="btn btn-primary"
-                        disabled={uploading}
-                    >
-                        {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                        {uploading ? 'Uploading...' : 'Upload Image'}
-                    </button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleUpload}
-                        style={{ display: 'none' }}
-                        accept="image/*"
-                    />
-                </div>
-            </div>
-
-            {/* Notification */}
-            {notification && (
-                <div style={{
-                    position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
-                    padding: '1rem 1.5rem', borderRadius: '12px',
-                    background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))',
-                    color: 'white', fontWeight: 600, boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                    display: 'flex', alignItems: 'center', gap: '0.75rem',
-                    animation: 'slideInRight 0.3s ease-out'
-                }}>
-                    {notification.type === 'success' ? <Check size={18} /> : <X size={18} />}
-                    {notification.message}
-                </div>
-            )}
-
-            {/* Toolbar with Group Tabs */}
-            <div className="card" style={{ padding: '1rem', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                    <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
-                        <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                        <input
-                            type="text"
-                            placeholder="Search images by name..."
-                            className="admin-input"
-                            style={{ paddingLeft: '3rem' }}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '0.4rem', borderRadius: '10px' }}>
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            style={{
-                                padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                background: viewMode === 'grid' ? 'hsl(var(--primary))' : 'transparent',
-                                color: viewMode === 'grid' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
-                            }}
-                        >
-                            <Grid size={18} />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            style={{
-                                padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
-                                color: viewMode === 'list' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
-                            }}
-                        >
-                            <ListIcon size={18} />
-                        </button>
-                        <button
-                            onClick={fetchFiles}
-                            style={{
-                                padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                background: 'transparent', color: 'hsl(var(--text-muted))'
-                            }}
-                            title="Refresh"
-                        >
-                            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Group Filter Tabs */}
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button
-                        onClick={() => setActiveGroup('all')}
-                        style={{
-                            padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                            background: activeGroup === 'all' ? 'hsl(var(--primary))' : 'transparent',
-                            color: activeGroup === 'all' ? 'white' : 'hsl(var(--text-muted))',
-                            fontWeight: activeGroup === 'all' ? 600 : 400,
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        All Images ({files.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveGroup('watermark')}
-                        style={{
-                            padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                            background: activeGroup === 'watermark' ? 'hsl(var(--info))' : 'transparent',
-                            color: activeGroup === 'watermark' ? 'white' : 'hsl(var(--text-muted))',
-                            fontWeight: activeGroup === 'watermark' ? 600 : 400,
-                            transition: 'all 0.2s',
-                            display: 'flex', alignItems: 'center', gap: '0.4rem'
-                        }}
-                    >
-                        <Droplets size={14} /> With Watermark ({actualWatermarkCount})
-                    </button>
-                    <button
-                        onClick={() => setActiveGroup('no-watermark')}
-                        style={{
-                            padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                            background: activeGroup === 'no-watermark' ? 'hsl(var(--success))' : 'transparent',
-                            color: activeGroup === 'no-watermark' ? 'white' : 'hsl(var(--text-muted))',
-                            fontWeight: activeGroup === 'no-watermark' ? 600 : 400,
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        Without Watermark ({actualNoWatermarkCount})
-                    </button>
-                    {analyzing && (
-                        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--text-muted))' }}>
-                            <Loader2 size={14} className="animate-spin" /> Analyzing...
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            {/* Content */}
-            {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem', gap: '1rem' }}>
-                    <Loader2 className="animate-spin text-primary" size={40} />
-                    <p className="text-muted">Loading your media library...</p>
-                </div>
-            ) : filteredFiles.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '5rem', background: '#ffffff', borderRadius: '20px', border: '2px dashed hsl(var(--border-subtle))' }}>
-                    <ImageIcon size={48} className="text-muted" style={{ marginBottom: '1rem' }} />
-                    <h3 style={{ margin: 0 }}>No images found</h3>
-                    <p className="text-muted">Upload your first image to get started</p>
-                    <button onClick={() => fileInputRef.current?.click()} className="btn btn-primary" style={{ marginTop: '1.5rem' }}>
-                        <Plus size={18} /> Upload Now
-                    </button>
-                </div>
-            ) : viewMode === 'grid' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                    {filteredFiles.map((file) => (
-                        <div
-                            key={file.id}
-                            className="card"
-                            style={{
-                                padding: '0.75rem', borderRadius: '16px', position: 'relative', overflow: 'hidden',
-                                border: selectedFile?.name === file.name ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
-                                cursor: 'pointer'
-                            }}
-                            onClick={() => setSelectedFile(file)}
-                        >
-                            <div
-                                onClick={(e) => { e.stopPropagation(); setZoomedImage(file); }}
-                                style={{
-                                    aspectRatio: '1/1', background: '#f5f5f5', borderRadius: '12px', overflow: 'hidden',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem',
-                                    cursor: 'zoom-in', position: 'relative'
-                                }}
-                                title="Click to zoom"
-                            >
-                                <img
-                                    src={file.url}
-                                    alt={file.name}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
-                                <div style={{
-                                    position: 'absolute', bottom: '0.5rem', right: '0.5rem',
-                                    background: 'rgba(255,255,255,0.8)', borderRadius: '50%',
-                                    padding: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                }}>
-                                    <ZoomIn size={16} color="#333" />
-                                </div>
-                            </div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}
-                            </div>
-                            <div style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>
-                                {(file.metadata.size / 1024).toFixed(1)} KB • {new Date(file.created_at).toLocaleDateString()}
-                            </div>
-
-                            {/* Actions Overlay */}
-                            <div style={{
-                                position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', gap: '0.4rem',
-                                zIndex: 10
-                            }}>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }}
-                                    style={{
-                                        padding: '0.4rem', borderRadius: '6px', border: 'none',
-                                        background: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'rgba(255,255,255,0.9)',
-                                        color: heroImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))',
-                                        cursor: 'pointer', transition: '0.2s'
-                                    }}
-                                    title={heroImages.includes(file.url) ? "Remove from Hero" : "Add to Hero"}
-                                >
-                                    <Star size={14} fill={heroImages.includes(file.url) ? "currentColor" : "none"} />
-                                </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }}
-                                    style={{
-                                        padding: '0.4rem', borderRadius: '6px', border: 'none',
-                                        background: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)',
-                                        color: galleryImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))',
-                                        cursor: 'pointer', transition: '0.2s'
-                                    }}
-                                    title={galleryImages.includes(file.url) ? "Remove from Gallery" : "Add to Gallery"}
-                                >
-                                    <Layout size={14} />
-                                </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }}
-                                    style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--primary))', cursor: 'pointer' }}
-                                    title="Copy Link"
-                                >
-                                    <Copy size={14} />
-                                </button>
-                                <button
-                                    onClick={(e) => { 
-                                        e.stopPropagation(); 
-                                        // Use full path for files in folders, or just name for root files
-                                        const fullPath = file.folder && file.folder !== 'root' 
-                                            ? `${file.folder}/${file.name}` 
-                                            : file.name;
-                                        handleDelete(fullPath); 
-                                    }}
-                                    style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--danger))', cursor: 'pointer' }}
-                                    title="Delete"
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <table className="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Preview</th>
-                                <th>Name</th>
-                                <th>Size</th>
-                                <th>Usage</th>
-                                <th style={{ textAlign: 'right' }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredFiles.map((file) => (
-                                <tr key={file.id}>
-                                    <td>
-                                        <div
-                                            onClick={() => setZoomedImage(file)}
-                                            style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in' }}
-                                            title="Click to zoom"
-                                        >
-                                            <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        </div>
-                                    </td>
-                                    <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>{file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</td>
-                                    <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{(file.metadata.size / 1024).toFixed(1)} KB</td>
-                                    <td>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button
-                                                onClick={() => toggleHero(file.url)}
-                                                style={{
-                                                    padding: '0.3rem', borderRadius: '4px', border: 'none',
-                                                    background: heroImages.includes(file.url) ? 'hsl(var(--warning)/.2)' : 'transparent',
-                                                    color: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'hsl(var(--text-muted))',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                <Star size={16} fill={heroImages.includes(file.url) ? "currentColor" : "none"} />
-                                            </button>
-                                            <button
-                                                onClick={() => toggleGallery(file.url)}
-                                                style={{
-                                                    padding: '0.3rem', borderRadius: '4px', border: 'none',
-                                                    background: galleryImages.includes(file.url) ? 'hsl(var(--primary)/.2)' : 'transparent',
-                                                    color: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                <Layout size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                            <button onClick={() => copyToClipboard(file.url)} className="btn btn-secondary" style={{ padding: '0.4rem' }}>
-                                                <Copy size={14} />
-                                            </button>
-                                            <button onClick={() => {
-                                            const fullPath = file.folder && file.folder !== 'root' 
-                                                ? `${file.folder}/${file.name}` 
-                                                : file.name;
-                                            handleDelete(fullPath);
-                                        }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))' }}>
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {/* Selection Info Footer (Optional) */}
-            {selectedFile && (
-                <div style={{
-                    position: 'fixed', bottom: 0, left: 0, right: 0,
-                    background: 'white', borderTop: '1px solid hsl(var(--border-subtle))',
-                    padding: '1rem 2rem', zIndex: 100, display: 'flex', justifyContent: 'space-between',
-                    alignItems: 'center', boxShadow: '0 -10px 30px rgba(0,0,0,0.05)'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <img src={selectedFile.url} style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
-                        <div>
-                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{selectedFile.url}</div>
-                        </div>
+                {/* Header */}
+                <div className="admin-header-row" style={{ marginBottom: '2rem' }}>
+                    <div>
+                        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <ImageIcon size={28} className="text-primary" />
+                            Media Library
+                        </h1>
+                        <p style={{ marginTop: '0.25rem' }}>Manage and upload your product images</p>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button onClick={() => setSelectedFile(null)} className="btn btn-secondary">Deselect</button>
-                        <button onClick={() => copyToClipboard(selectedFile.url)} className="btn btn-primary">Copy URL</button>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="btn btn-primary"
+                            disabled={uploading}
+                        >
+                            {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                            {uploading ? 'Uploading...' : 'Upload Image'}
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleUpload}
+                            style={{ display: 'none' }}
+                            accept="image/*"
+                        />
                     </div>
                 </div>
-            )}
+
+                {/* Notification */}
+                {notification && (
+                    <div style={{
+                        position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
+                        padding: '1rem 1.5rem', borderRadius: '12px',
+                        background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))',
+                        color: 'white', fontWeight: 600, boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        animation: 'slideInRight 0.3s ease-out'
+                    }}>
+                        {notification.type === 'success' ? <Check size={18} /> : <X size={18} />}
+                        {notification.message}
+                    </div>
+                )}
+
+                {/* Toolbar with Group Tabs */}
+                <div className="card" style={{ padding: '1rem', marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                        <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
+                            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                            <input
+                                type="text"
+                                placeholder="Search images by name..."
+                                className="admin-input"
+                                style={{ paddingLeft: '3rem' }}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '0.4rem', borderRadius: '10px' }}>
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                style={{
+                                    padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    background: viewMode === 'grid' ? 'hsl(var(--primary))' : 'transparent',
+                                    color: viewMode === 'grid' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
+                                }}
+                            >
+                                <Grid size={18} />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                style={{
+                                    padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
+                                    color: viewMode === 'list' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
+                                }}
+                            >
+                                <ListIcon size={18} />
+                            </button>
+                            <button
+                                onClick={fetchFiles}
+                                style={{
+                                    padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    background: 'transparent', color: 'hsl(var(--text-muted))'
+                                }}
+                                title="Refresh"
+                            >
+                                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Group Filter Tabs */}
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button
+                            onClick={() => setActiveGroup('all')}
+                            style={{
+                                padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: activeGroup === 'all' ? 'hsl(var(--primary))' : 'transparent',
+                                color: activeGroup === 'all' ? 'white' : 'hsl(var(--text-muted))',
+                                fontWeight: activeGroup === 'all' ? 600 : 400,
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            All Images ({files.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveGroup('watermark')}
+                            style={{
+                                padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: activeGroup === 'watermark' ? 'hsl(var(--info))' : 'transparent',
+                                color: activeGroup === 'watermark' ? 'white' : 'hsl(var(--text-muted))',
+                                fontWeight: activeGroup === 'watermark' ? 600 : 400,
+                                transition: 'all 0.2s',
+                                display: 'flex', alignItems: 'center', gap: '0.4rem'
+                            }}
+                        >
+                            <Droplets size={14} /> With Watermark ({actualWatermarkCount})
+                        </button>
+                        <button
+                            onClick={() => setActiveGroup('no-watermark')}
+                            style={{
+                                padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: activeGroup === 'no-watermark' ? 'hsl(var(--success))' : 'transparent',
+                                color: activeGroup === 'no-watermark' ? 'white' : 'hsl(var(--text-muted))',
+                                fontWeight: activeGroup === 'no-watermark' ? 600 : 400,
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Without Watermark ({actualNoWatermarkCount})
+                        </button>
+                        {analyzing && (
+                            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--text-muted))' }}>
+                                <Loader2 size={14} className="animate-spin" /> Analyzing...
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Content */}
+                {loading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem', gap: '1rem' }}>
+                        <Loader2 className="animate-spin text-primary" size={40} />
+                        <p className="text-muted">Loading your media library...</p>
+                    </div>
+                ) : filteredFiles.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '5rem', background: '#ffffff', borderRadius: '20px', border: '2px dashed hsl(var(--border-subtle))' }}>
+                        <ImageIcon size={48} className="text-muted" style={{ marginBottom: '1rem' }} />
+                        <h3 style={{ margin: 0 }}>No images found</h3>
+                        <p className="text-muted">Upload your first image to get started</p>
+                        <button onClick={() => fileInputRef.current?.click()} className="btn btn-primary" style={{ marginTop: '1.5rem' }}>
+                            <Plus size={18} /> Upload Now
+                        </button>
+                    </div>
+                ) : viewMode === 'grid' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                        {filteredFiles.map((file) => (
+                            <div
+                                key={file.id}
+                                className="card"
+                                style={{
+                                    padding: '0.75rem', borderRadius: '16px', position: 'relative', overflow: 'hidden',
+                                    border: selectedFile?.name === file.name ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
+                                    cursor: 'pointer'
+                                }}
+                                onClick={() => setSelectedFile(file)}
+                            >
+                                <div
+                                    onClick={(e) => { e.stopPropagation(); setZoomedImage(file); }}
+                                    style={{
+                                        aspectRatio: '1/1', background: '#f5f5f5', borderRadius: '12px', overflow: 'hidden',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem',
+                                        cursor: 'zoom-in', position: 'relative'
+                                    }}
+                                    title="Click to zoom"
+                                >
+                                    <img
+                                        src={file.url}
+                                        alt={file.name}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                    <div style={{
+                                        position: 'absolute', bottom: '0.5rem', right: '0.5rem',
+                                        background: 'rgba(255,255,255,0.8)', borderRadius: '50%',
+                                        padding: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}>
+                                        <ZoomIn size={16} color="#333" />
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}
+                                </div>
+                                <div style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>
+                                    {(file.metadata.size / 1024).toFixed(1)} KB • {new Date(file.created_at).toLocaleDateString()}
+                                </div>
+
+                                {/* Actions Overlay */}
+                                <div style={{
+                                    position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', gap: '0.4rem',
+                                    zIndex: 10
+                                }}>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }}
+                                        style={{
+                                            padding: '0.4rem', borderRadius: '6px', border: 'none',
+                                            background: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'rgba(255,255,255,0.9)',
+                                            color: heroImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))',
+                                            cursor: 'pointer', transition: '0.2s'
+                                        }}
+                                        title={heroImages.includes(file.url) ? "Remove from Hero" : "Add to Hero"}
+                                    >
+                                        <Star size={14} fill={heroImages.includes(file.url) ? "currentColor" : "none"} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }}
+                                        style={{
+                                            padding: '0.4rem', borderRadius: '6px', border: 'none',
+                                            background: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)',
+                                            color: galleryImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))',
+                                            cursor: 'pointer', transition: '0.2s'
+                                        }}
+                                        title={galleryImages.includes(file.url) ? "Remove from Gallery" : "Add to Gallery"}
+                                    >
+                                        <Layout size={14} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }}
+                                        style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--primary))', cursor: 'pointer' }}
+                                        title="Copy Link"
+                                    >
+                                        <Copy size={14} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Use full path for files in folders, or just name for root files
+                                            const fullPath = file.folder && file.folder !== 'root'
+                                                ? `${file.folder}/${file.name}`
+                                                : file.name;
+                                            handleDelete(fullPath);
+                                        }}
+                                        style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--danger))', cursor: 'pointer' }}
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <table className="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Preview</th>
+                                    <th>Name</th>
+                                    <th>Size</th>
+                                    <th>Usage</th>
+                                    <th style={{ textAlign: 'right' }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredFiles.map((file) => (
+                                    <tr key={file.id}>
+                                        <td>
+                                            <div
+                                                onClick={() => setZoomedImage(file)}
+                                                style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in' }}
+                                                title="Click to zoom"
+                                            >
+                                                <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            </div>
+                                        </td>
+                                        <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>{file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</td>
+                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{(file.metadata.size / 1024).toFixed(1)} KB</td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button
+                                                    onClick={() => toggleHero(file.url)}
+                                                    style={{
+                                                        padding: '0.3rem', borderRadius: '4px', border: 'none',
+                                                        background: heroImages.includes(file.url) ? 'hsl(var(--warning)/.2)' : 'transparent',
+                                                        color: heroImages.includes(file.url) ? 'hsl(var(--warning))' : 'hsl(var(--text-muted))',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <Star size={16} fill={heroImages.includes(file.url) ? "currentColor" : "none"} />
+                                                </button>
+                                                <button
+                                                    onClick={() => toggleGallery(file.url)}
+                                                    style={{
+                                                        padding: '0.3rem', borderRadius: '4px', border: 'none',
+                                                        background: galleryImages.includes(file.url) ? 'hsl(var(--primary)/.2)' : 'transparent',
+                                                        color: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <Layout size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                <button onClick={() => copyToClipboard(file.url)} className="btn btn-secondary" style={{ padding: '0.4rem' }}>
+                                                    <Copy size={14} />
+                                                </button>
+                                                <button onClick={() => {
+                                                    const fullPath = file.folder && file.folder !== 'root'
+                                                        ? `${file.folder}/${file.name}`
+                                                        : file.name;
+                                                    handleDelete(fullPath);
+                                                }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))' }}>
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {/* Selection Info Footer (Optional) */}
+                {selectedFile && (
+                    <div style={{
+                        position: 'fixed', bottom: 0, left: 0, right: 0,
+                        background: 'white', borderTop: '1px solid hsl(var(--border-subtle))',
+                        padding: '1rem 2rem', zIndex: 100, display: 'flex', justifyContent: 'space-between',
+                        alignItems: 'center', boxShadow: '0 -10px 30px rgba(0,0,0,0.05)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <img src={selectedFile.url} style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{selectedFile.url}</div>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={() => setSelectedFile(null)} className="btn btn-secondary">Deselect</button>
+                            <button onClick={() => copyToClipboard(selectedFile.url)} className="btn btn-primary">Copy URL</button>
+                        </div>
+                    </div>
+                )}
 
             </div>
 

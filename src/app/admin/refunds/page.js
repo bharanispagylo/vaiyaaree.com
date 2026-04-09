@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useShop } from '@/context/ShopContext';
 import { useRouter } from 'next/navigation';
+import ModalPortal from '@/components/ModalPortal';
 import { 
     ArrowLeft, RefreshCcw, Clock, CheckCircle, XCircle, AlertCircle, 
     DollarSign, Package, User, Phone, Calendar, Search, Filter,
@@ -390,6 +391,7 @@ export default function RefundsPage() {
 
             {/* Detail Modal */}
             {showDetailModal && selectedRefund && (
+                <ModalPortal>
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     background: 'rgba(0,0,0,0.7)', zIndex: 9999,
@@ -536,10 +538,12 @@ export default function RefundsPage() {
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
 
             {/* Process Modal */}
             {showProcessModal && (
+                <ModalPortal>
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     background: 'rgba(0,0,0,0.7)', zIndex: 10000,
@@ -595,6 +599,7 @@ export default function RefundsPage() {
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
         </div>
     );

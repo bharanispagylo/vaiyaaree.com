@@ -8,6 +8,7 @@ import {
     ChevronRight, Save, Copy, Monitor, Smartphone, Tablet, Upload
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import ModalPortal from '@/components/ModalPortal';
 import { useRouter } from 'next/navigation';
 import MediaPicker from '@/components/MediaPicker';
 
@@ -533,7 +534,7 @@ export default function CMSPage() {
                                             </select>
 
                                             <label style={labelStyle}>Navigation Order (Low to High)</label>
-                                            <input type="number" name="menu_order" defaultValue={currentPage?.menu_order || 0} style={inputStyle} />
+                                            <input type="number" name="menu_order" min="0" defaultValue={currentPage?.menu_order || 0} style={inputStyle} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                         </div>
                                     </div>
                                 </div>
@@ -542,13 +543,13 @@ export default function CMSPage() {
                                     <div style={{ display: 'grid', gap: '2rem' }}>
                                         <div className="card" style={{ padding: '2.5rem', background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
                                             <label style={{ ...labelStyle, color: '#1e293b' }}><ImageIcon size={14} /> Global Style Override (CSS)</label>
-                                            <textarea name="custom_css" rows={8} defaultValue={currentPage?.custom_css} style={{ ...inputStyle, background: '#f8fafc', border: '1px solid #cbd5e1', color: '#0f172a', fontFamily: 'monospace', fontWeight: 500 }} placeholder=".hero { background: pink; }" />
+                                            <textarea name="custom_css" rows={8} defaultValue={currentPage?.custom_css} style={{ ...inputStyle, background: '#f8fafc', border: '1px solid #cbd5e1', color: '#0f172a', fontFamily: 'var(--font-roboto)', fontWeight: 500 }} placeholder=".hero { background: pink; }" />
                                             <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>Inject custom CSS scoping only for this specific page.</p>
                                         </div>
 
                                         <div className="card" style={{ padding: '2.5rem', background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
                                             <label style={{ ...labelStyle, color: '#1e293b' }}><Settings size={14} /> Logic Runtime Script (JS)</label>
-                                            <textarea name="custom_js" rows={8} defaultValue={currentPage?.custom_js} style={{ ...inputStyle, background: '#f8fafc', border: '1px solid #cbd5e1', color: '#0f172a', fontFamily: 'monospace', fontWeight: 500 }} placeholder="console.log('Page loaded');" />
+                                            <textarea name="custom_js" rows={8} defaultValue={currentPage?.custom_js} style={{ ...inputStyle, background: '#f8fafc', border: '1px solid #cbd5e1', color: '#0f172a', fontFamily: 'var(--font-roboto)', fontWeight: 500 }} placeholder="console.log('Page loaded');" />
                                             <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>Run custom JavaScript functionality when this page is visited.</p>
                                         </div>
                                     </div>
@@ -567,7 +568,7 @@ export default function CMSPage() {
                             <div style={{ fontWeight: 800, color: '#1e293b' }}>Desktop Preview</div>
                             <button onClick={() => setShowPreview(false)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Close Preview</button>
                         </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '3rem', color: '#334155', fontFamily: 'Inter, sans-serif' }}>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '3rem', color: '#334155', fontFamily: 'var(--font-roboto)' }}>
                             <h1 style={{ fontSize: '2.5rem', marginBottom: '2rem', color: '#0f172a' }}>{document.querySelector('input[name="title"]')?.value}</h1>
                             <div dangerouslySetInnerHTML={{ __html: document.querySelector('textarea[name="content"]')?.value }} />
                         </div>
@@ -620,40 +621,48 @@ export default function CMSPage() {
 
             {/* Confirm Modal */}
             {confirmAction && (
-                <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-                    zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
-                }} onClick={() => setConfirmAction(null)}>
-                    <div className="card shadow-premium animate-enter" style={{
-                        width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center',
-                        borderRadius: '24px', background: 'white',
-                        border: '1px solid hsl(var(--danger) / 0.3)'
-                    }} onClick={e => e.stopPropagation()}>
+                <ModalPortal>
+                <div className="modal-overlay" onClick={() => setConfirmAction(null)}>
+                    <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: '3.5rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                         <div style={{
-                            width: '80px', height: '80px', borderRadius: '50%',
-                            background: 'hsl(var(--danger) / 0.1)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem',
-                            color: 'hsl(var(--danger))'
+                            width: '88px', height: '88px', borderRadius: '30px',
+                            background: '#fef2f2',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2.5rem',
+                            color: '#ef4444', transform: 'rotate(-5deg)',
+                            boxShadow: '0 10px 25px -5px rgba(239, 68, 68, 0.1)'
                         }}>
-                            <Trash2 size={40} />
+                           <div style={{ transform: 'rotate(5deg)' }}>
+                                <Trash2 size={40} strokeWidth={2} />
+                           </div>
                         </div>
-                        <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900 }}>{confirmAction.title}</h3>
-                        <p style={{ margin: '0 0 2rem', color: '#64748b', lineHeight: 1.6 }}>{confirmAction.message}</p>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button onClick={() => setConfirmAction(null)} className="btn btn-secondary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 700 }}>Cancel</button>
+                        <h3 style={{ fontSize: '1.8rem', fontWeight: 900, marginBottom: '0.75rem', color: '#1a1a1a', letterSpacing: '-0.02em' }}>
+                            {confirmAction.title}
+                        </h3>
+                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2.5rem' }}>
+                            {confirmAction.message}
+                        </p>
+                        <div className="modal-actions" style={{ gap: '0.75rem' }}>
+                            <button 
+                                onClick={() => setConfirmAction(null)} 
+                                className="modal-btn modal-btn-secondary" 
+                                style={{ flex: 1, height: '52px', borderRadius: '16px', fontWeight: 700 }}
+                            >
+                                Cancel
+                            </button>
                             <button
                                 onClick={confirmAction.onConfirm}
-                                className="btn btn-primary"
+                                className="modal-btn modal-btn-primary"
                                 style={{
-                                    flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 800,
-                                    background: '#ef4444', border: 'none', color: 'white'
+                                    flex: 1.5, background: '#ef4444', height: '52px', borderRadius: '16px', fontWeight: 800,
+                                    boxShadow: '0 8px 20px -5px rgba(239, 68, 68, 0.3)'
                                 }}
                             >
-                                Delete Page
+                                {confirmAction.btnText || 'Confirm Action'}
                             </button>
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
         </>
     );

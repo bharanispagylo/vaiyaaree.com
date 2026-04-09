@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Search, Grid, List, Filter, ArrowUpDown, X, Check, ShoppingCart, SlidersHorizontal, ChevronDown, Package, Clock, Tag, MessageCircle, Truck, User, LogOut, MapPin } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
@@ -10,8 +11,11 @@ export default function ShopPage() {
     const { products, loading, addToCart } = useShop();
 
     // ── LOCAL UI STATE ──
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('All');
+    const searchParams = useSearchParams();
+    const initialQuery = searchParams.get('q') || '';
+    const initialCategory = searchParams.get('category') || 'All';
+    const [searchQuery, setSearchQuery] = useState(initialQuery);
+    const [selectedCategory, setSelectedCategory] = useState(initialCategory);
     const [selectedBrand, setSelectedBrand] = useState('All');
     const [selectedType, setSelectedType] = useState('All');
     const [priceRange, setPriceRange] = useState({ min: 0, max: 25000 });
@@ -21,6 +25,13 @@ export default function ShopPage() {
     const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showInStockOnly, setShowInStockOnly] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 12;
+
+    // Reset pagination to page 1 whenever any filter changes
+    useMemo(() => {
+        setCurrentPage(1);
+    }, [selectedCategory, selectedBrand, selectedType, searchQuery, priceRange, showInStockOnly, sortBy]);
 
     // ── OPTIONS ──
     const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);
@@ -71,6 +82,7 @@ export default function ShopPage() {
         setSortBy('default');
         setShowInStockOnly(false);
         setIsFilterPanelOpen(false);
+        setCurrentPage(1);
     };
 
     const applyPriceFilter = () => {
@@ -158,7 +170,7 @@ export default function ShopPage() {
                             <Search size={16} />
                             <input
                                 type="text"
-                                placeholder={`Showing 1–${filteredProducts.length} of ${products.length} results`}
+                                placeholder={`Showing ${Math.min(filteredProducts.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}–${Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of ${filteredProducts.length} results`}
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                             />
@@ -245,7 +257,9 @@ export default function ShopPage() {
                                             <span>₹</span>
                                             <input
                                                 type="number"
+                                                min="0"
                                                 value={tempPriceRange.min}
+                                                onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 onChange={e => setTempPriceRange({ ...tempPriceRange, min: parseInt(e.target.value) || 0 })}
                                             />
                                         </div>
@@ -254,7 +268,9 @@ export default function ShopPage() {
                                             <span>₹</span>
                                             <input
                                                 type="number"
+                                                min="0"
                                                 value={tempPriceRange.max}
+                                                onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 onChange={e => setTempPriceRange({ ...tempPriceRange, max: parseInt(e.target.value) || 0 })}
                                             />
                                         </div>
@@ -334,11 +350,42 @@ export default function ShopPage() {
                         <button onClick={clearAllFilters} className={styles.resetSearchBtn}>Reset All Filters</button>
                     </div>
                 ) : (
-                    <div className={gridView ? styles.productsGrid : styles.productsList}>
-                        {filteredProducts.map(product => (
-                            <ProductCard key={product.id} product={product} gridView={gridView} />
-                        ))}
-                    </div>
+                    <>
+                        <div className={gridView ? styles.productsGrid : styles.productsList}>
+                            {filteredProducts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(product => (
+                                <ProductCard key={product.id} product={product} gridView={gridView} />
+                            ))}
+                        </div>
+                        {filteredProducts.length > ITEMS_PER_PAGE && (
+                            <div className={styles.paginationWrapper} style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '3rem', borderTop: '1px solid #e2e8f0', paddingTop: '2rem' }}>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    style={{ padding: '0.5rem 1rem', background: currentPage === 1 ? '#f1f5f9' : '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#475569' }}
+                                >
+                                    Previous
+                                </button>
+                                
+                                {Array.from({ length: Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) }).map((_, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: currentPage === i + 1 ? '#0f172a' : '#fff', color: currentPage === i + 1 ? '#fff' : '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredProducts.length / ITEMS_PER_PAGE), prev + 1))}
+                                    disabled={currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)}
+                                    style={{ padding: '0.5rem 1rem', background: currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) ? '#f1f5f9' : '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#475569' }}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

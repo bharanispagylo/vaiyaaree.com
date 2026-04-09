@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingCart,
-    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, AlertTriangle, ArrowRight, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
@@ -16,6 +16,8 @@ import {
 } from 'recharts';
 import MediaPicker from '@/components/MediaPicker';
 import ProductImageAssigner from '@/components/ProductImageAssigner';
+import ImageZoom from '@/components/ImageZoom';
+import ModalPortal from '@/components/ModalPortal';
 
 // Consolidated image services used via API route
 
@@ -30,6 +32,7 @@ export default function ProductsPage() {
     const [categoryFilter, setCategoryFilter] = useState('ALL');
     const [sortBy, setSortBy] = useState('newest');
     const [groupFilter, setGroupFilter] = useState('ALL');
+    const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
     const [viewMode, setViewMode] = useState('table'); // 'table', 'card', or 'analytics'
     const [analyticsData, setAnalyticsData] = useState({
         topSellers: [],
@@ -46,6 +49,7 @@ export default function ProductsPage() {
     const [fbProcessing, setFbProcessing] = useState(false);
     const [fbConfig, setFbConfig] = useState(null);
     const [importModal, setImportModal] = useState(false);
+    const [zoomedImage, setZoomedImage] = useState(null);
     const [importing, setImporting] = useState(false);
     const [syncWithMeta, setSyncWithMeta] = useState(false);
     const [resultModal, setResultModal] = useState(null); // { title, message, type, onClose }
@@ -56,7 +60,6 @@ export default function ProductsPage() {
 
     // Stock History States
     const [showHistory, setShowHistory] = useState(false);
-    const [selectedProductForHistory, setSelectedProductForHistory] = useState(null);
     const [historyData, setHistoryData] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -411,13 +414,13 @@ export default function ProductsPage() {
         const productData = {
             name: formData.get('name'),
             category: formData.get('category'),
-            product_group: formData.get('product_group') || null,
+            product_group: formData.get('is_explore') === 'on' ? 'EXPLORE' : (formData.get('product_group') || null),
             description: formData.get('description'),
             type: productType,
             tax_class: formData.get('tax_class') || 'GST_5',
             is_active: formData.get('is_active') === 'on',
             is_featured: formData.get('is_featured') === 'on',
-            product_group: formData.get('is_explore') === 'on' ? 'EXPLORE' : (formData.get('product_group') || null)
+            tags: formData.get('tags_input') ? formData.get('tags_input').split(',').map(t => t.trim()).filter(Boolean) : []
         };
 
         // For simple products, we take price/stock/image from main fields
@@ -434,7 +437,7 @@ export default function ProductsPage() {
             // Priority: currentProduct state (updated by upload/library pick) > existing product data
             const existingCatalogId = currentProduct?.product_catalog_image_id || '';
             productData.product_catalog_image_id = existingCatalogId;
-            
+
             // Generate a random one ONLY if we have an image but NO id yet (edge case)
             if (productData.image_url && !productData.product_catalog_image_id) {
                 productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -672,13 +675,17 @@ export default function ProductsPage() {
     const groups = ['ALL', ...new Set(products.map(p => p.product_group).filter(Boolean))];
     let filtered = products.filter(p => {
         const term = searchTerm.toLowerCase();
-        return (
+        const matchesSearch = (
             (p.name || '').toLowerCase().includes(term) ||
             (p.category || '').toLowerCase().includes(term) ||
             (p.product_group || '').toLowerCase().includes(term) ||
             (p.product_catalog_image_id || '').toLowerCase().includes(term)
-        ) && (categoryFilter === 'ALL' || p.category === categoryFilter)
-            && (groupFilter === 'ALL' || p.product_group === groupFilter);
+        );
+        const matchesCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
+        const matchesGroup = groupFilter === 'ALL' || p.product_group === groupFilter;
+        const matchesStatus = statusFilter === 'ALL' ||
+            (statusFilter === 'ACTIVE' ? p.is_active !== false : p.is_active === false);
+        return matchesSearch && matchesCategory && matchesGroup && matchesStatus;
     });
     filtered.sort((a, b) => {
         if (sortBy === 'low_stock') return (a.stock || 0) - (b.stock || 0);
@@ -751,6 +758,30 @@ export default function ProductsPage() {
                                     border: categoryFilter === cat ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
                                 }}>
                                     {cat === 'ALL' ? 'All Collections' : cat}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Active / Inactive Status Tabs */}
+                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', padding: '4px', background: 'hsl(var(--bg-card))', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
+                            {[
+                                { key: 'ALL', label: 'All Products', count: products.length },
+                                { key: 'ACTIVE', label: '✅ Active', count: products.filter(p => p.is_active !== false).length },
+                                { key: 'INACTIVE', label: '🔴 Inactive', count: products.filter(p => p.is_active === false).length },
+                            ].map(tab => (
+                                <button key={tab.key} onClick={() => { setStatusFilter(tab.key); setProductsPage(1); }} style={{
+                                    padding: '0.45rem 1.1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                    background: statusFilter === tab.key ? 'hsl(var(--primary))' : 'transparent',
+                                    color: statusFilter === tab.key ? 'white' : 'hsl(var(--text-muted))',
+                                }}>
+                                    {tab.label}
+                                    <span style={{
+                                        background: statusFilter === tab.key ? 'rgba(255,255,255,0.25)' : 'hsl(var(--bg-app))',
+                                        color: statusFilter === tab.key ? 'white' : 'hsl(var(--text-muted))',
+                                        padding: '0 6px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 800,
+                                        minWidth: '20px', textAlign: 'center'
+                                    }}>{tab.count}</span>
                                 </button>
                             ))}
                         </div>
@@ -964,13 +995,14 @@ export default function ProductsPage() {
                                                                     {product.image_url ? (
                                                                         <>
                                                                             <img src={product.image_url?.split(',')[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                                onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
                                                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
                                                                             {product.product_catalog_image_id && (
                                                                                 <div style={{
                                                                                     position: 'absolute', bottom: 2, right: 2,
                                                                                     background: 'hsl(var(--accent))', color: 'white',
                                                                                     fontSize: '0.6rem', fontWeight: 700, padding: '2px 4px',
-                                                                                    borderRadius: '4px', fontFamily: 'monospace'
+                                                                                    borderRadius: '4px', fontFamily: 'var(--font-body)'
                                                                                 }}>
                                                                                     {/* {product.product_catalog_image_id} */}
                                                                                 </div>
@@ -985,7 +1017,7 @@ export default function ProductsPage() {
                                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                                     {product.product_catalog_image_id && (
                                                                         <div style={{
-                                                                            fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace',
+                                                                            fontSize: '0.65rem', fontWeight: 800, fontFamily: 'var(--font-roboto)',
                                                                             background: 'hsl(var(--accent) / 0.1)', color: 'hsl(var(--accent))',
                                                                             padding: '1px 5px', borderRadius: '3px', display: 'inline-block', marginBottom: '2px',
                                                                             width: 'fit-content'
@@ -1061,10 +1093,31 @@ export default function ProductsPage() {
 
                                 {/* Table Pagination */}
                                 {totalProductPages > 1 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid hsl(var(--border-subtle))' }}>
-                                        <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === 1 ? 0.4 : 1 }}>← Prev</button>
-                                        <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Page {productsPage} of {totalProductPages} &nbsp;·&nbsp; {filtered.length} products</span>
-                                        <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === totalProductPages ? 0.4 : 1 }}>Next →</button>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                                        <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: productsPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                            <ChevronLeft size={16} /> Previous
+                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            {(() => {
+                                                const pages = [];
+                                                const range = 1;
+                                                pages.push(1);
+                                                if (productsPage > range + 2) pages.push('...');
+                                                for (let i = Math.max(2, productsPage - range); i <= Math.min(totalProductPages - 1, productsPage + range); i++) { pages.push(i); }
+                                                if (productsPage < totalProductPages - range - 1) pages.push('...');
+                                                if (totalProductPages > 1) pages.push(totalProductPages);
+                                                return pages.map((page, i) => (
+                                                    page === '...' ? (
+                                                        <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                                    ) : (
+                                                        <button key={page} onClick={() => setProductsPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: productsPage === page ? 'hsl(var(--primary))' : '#ffffff', color: productsPage === page ? 'white' : 'hsl(var(--text-main))', border: productsPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                                    )
+                                                ));
+                                            })()}
+                                        </div>
+                                        <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: productsPage === totalProductPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                            Next <ChevronRight size={16} />
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1091,6 +1144,7 @@ export default function ProductsPage() {
                                                         <>
                                                             <img src={product.image_url?.split(',')[0]} alt={product.name}
                                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
                                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
                                                             {/* Catalog ID Badge */}
                                                             {product.product_catalog_image_id && (
@@ -1098,7 +1152,7 @@ export default function ProductsPage() {
                                                                     position: 'absolute', bottom: '10px', left: '10px',
                                                                     background: 'hsl(var(--accent))', color: 'white',
                                                                     fontSize: '0.65rem', fontWeight: 700, padding: '4px 8px',
-                                                                    borderRadius: '6px', fontFamily: 'monospace',
+                                                                    borderRadius: '6px', fontFamily: 'var(--font-roboto)',
                                                                     boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
                                                                 }}>
                                                                     {product.product_catalog_image_id}
@@ -1121,7 +1175,7 @@ export default function ProductsPage() {
                                                 <div style={{ padding: '1rem' }}>
                                                     {product.product_catalog_image_id && (
                                                         <div style={{
-                                                            fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace',
+                                                            fontSize: '0.65rem', fontWeight: 800, fontFamily: 'var(--font-roboto)',
                                                             background: 'hsl(var(--accent) / 0.1)', color: 'hsl(var(--accent))',
                                                             padding: '1px 5px', borderRadius: '3px', display: 'inline-block', marginBottom: '6px'
                                                         }}>
@@ -1160,10 +1214,31 @@ export default function ProductsPage() {
 
                                 {/* Card Pagination */}
                                 {totalProductPages > 1 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem 0', marginTop: '1rem' }}>
-                                        <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === 1 ? 0.4 : 1 }}>← Prev</button>
-                                        <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Page {productsPage} of {totalProductPages} &nbsp;·&nbsp; {filtered.length} products</span>
-                                        <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: productsPage === totalProductPages ? 0.4 : 1 }}>Next →</button>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap', marginTop: '1.25rem' }}>
+                                        <button onClick={() => setProductsPage(p => Math.max(1, p - 1))} disabled={productsPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: productsPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                            <ChevronLeft size={16} /> Previous
+                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            {(() => {
+                                                const pages = [];
+                                                const range = 1;
+                                                pages.push(1);
+                                                if (productsPage > range + 2) pages.push('...');
+                                                for (let i = Math.max(2, productsPage - range); i <= Math.min(totalProductPages - 1, productsPage + range); i++) { pages.push(i); }
+                                                if (productsPage < totalProductPages - range - 1) pages.push('...');
+                                                if (totalProductPages > 1) pages.push(totalProductPages);
+                                                return pages.map((page, i) => (
+                                                    page === '...' ? (
+                                                        <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                                    ) : (
+                                                        <button key={page} onClick={() => setProductsPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: productsPage === page ? 'hsl(var(--primary))' : '#ffffff', color: productsPage === page ? 'white' : 'hsl(var(--text-main))', border: productsPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                                    )
+                                                ));
+                                            })()}
+                                        </div>
+                                        <button onClick={() => setProductsPage(p => Math.min(totalProductPages, p + 1))} disabled={productsPage === totalProductPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: productsPage === totalProductPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                            Next <ChevronRight size={16} />
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1240,11 +1315,11 @@ export default function ProductsPage() {
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Price (₹) *</label>
-                                                <input type="number" name="price" defaultValue={currentProduct?.price} required placeholder="e.g. 12500" className="admin-input" />
+                                                <input type="number" name="price" defaultValue={currentProduct?.price} required min="0" placeholder="e.g. 12500" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Stock Qty *</label>
-                                                <input type="number" name="stock" defaultValue={currentProduct?.stock} required placeholder="e.g. 10" className="admin-input" />
+                                                <input type="number" name="stock" defaultValue={currentProduct?.stock} required min="0" placeholder="e.g. 10" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
                                         <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
@@ -1254,7 +1329,7 @@ export default function ProductsPage() {
                                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                                                         {productImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
                                                             <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
-                                                                <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                                <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }} onClick={() => setZoomedImage(imgUrl)} title="Click to zoom" />
                                                                 <button type="button" onClick={() => {
                                                                     const urls = productImageUrl.split(',').filter(Boolean);
                                                                     urls.splice(idx, 1);
@@ -1298,12 +1373,12 @@ export default function ProductsPage() {
                                                                                     uploadData.append('requireClean', 'true');
                                                                                     const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
                                                                                     const data = await res.json();
-                                                                                    
+
                                                                                     const finalUrl = data.watermarkedUrl || data.url;
                                                                                     const existingArray = productImageUrl ? productImageUrl.split(',').filter(Boolean) : [];
                                                                                     setProductImageUrl([finalUrl, ...existingArray].join(','));
                                                                                     setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
-                                                                                    
+
                                                                                     setWatermarkModal(null);
                                                                                     resolve();
                                                                                 };
@@ -1345,7 +1420,7 @@ export default function ProductsPage() {
                                             </div>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Threshold</label>
-                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} className="admin-input" />
+                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} min="0" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
                                     </div>
@@ -1366,68 +1441,68 @@ export default function ProductsPage() {
                                                 {variants.map((v, i) => (
                                                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'center' }}>
                                                         <input placeholder="Color" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                        <input type="number" placeholder="Price" value={v.price} onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                        <input type="number" placeholder="Stock" value={v.stock} onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} />
+                                                        <input type="number" placeholder="Price" value={v.price} min="0" onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                        <input type="number" placeholder="Stock" value={v.stock} min="0" onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                             {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />}
                                                             <button type="button" onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem' }}>Library</button>
                                                             <label className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem', cursor: 'pointer', textAlign: 'center' }}>
                                                                 Upload
                                                                 <input type="file" style={{ display: 'none' }} onChange={async (e) => {
-                                                                     const file = e.target.files?.[0];
-                                                                     if (!file) return;
-                                                                     try {
-                                                                         setOcrLoading(true);
-                                                                         const reader = new FileReader();
-                                                                         reader.onload = async (re) => {
-                                                                             try {
-                                                                                 const base64 = re.target.result;
+                                                                    const file = e.target.files?.[0];
+                                                                    if (!file) return;
+                                                                    try {
+                                                                        setOcrLoading(true);
+                                                                        const reader = new FileReader();
+                                                                        reader.onload = async (re) => {
+                                                                            try {
+                                                                                const base64 = re.target.result;
 
-                                                                                 // 1. Send for detection
-                                                                                 const formData = new FormData();
-                                                                                 formData.append('file', file);
-                                                                                 formData.append('checkOnly', 'true');
-                                                                                 const detRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-                                                                                 const detData = await detRes.json();
+                                                                                // 1. Send for detection
+                                                                                const formData = new FormData();
+                                                                                formData.append('file', file);
+                                                                                formData.append('checkOnly', 'true');
+                                                                                const detRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                                const detData = await detRes.json();
 
-                                                                                 const onProceedWithVariantUpload = async (catId) => {
-                                                                                     setOcrLoading(true);
-                                                                                     const uploadData = new FormData();
-                                                                                     uploadData.append('file', file);
-                                                                                     uploadData.append('catalogId', catId);
-                                                                                     uploadData.append('requireClean', 'true');
-                                                                                     const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
-                                                                                     const data = await res.json();
-                                                                                     if (!res.ok) throw new Error(data.error || 'Upload failed');
-                                                                                     
-                                                                                     updateVariant(i, 'image_url', data.watermarkedUrl || data.url);
-                                                                                     setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
-                                                                                     setWatermarkModal(null);
-                                                                                 };
+                                                                                const onProceedWithVariantUpload = async (catId) => {
+                                                                                    setOcrLoading(true);
+                                                                                    const uploadData = new FormData();
+                                                                                    uploadData.append('file', file);
+                                                                                    uploadData.append('catalogId', catId);
+                                                                                    uploadData.append('requireClean', 'true');
+                                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
+                                                                                    const data = await res.json();
+                                                                                    if (!res.ok) throw new Error(data.error || 'Upload failed');
 
-                                                                                 if (detData.hasWatermark) {
-                                                                                     setWatermarkModal({
-                                                                                         type: 'existing',
-                                                                                         detectedCode: detData.catalogId || 'CAT-CODE',
-                                                                                         url: base64,
-                                                                                         onProceed: () => onProceedWithVariantUpload(detData.catalogId)
-                                                                                     });
-                                                                                 } else {
-                                                                                     const newCatId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-                                                                                     setWatermarkModal({
-                                                                                         type: 'new',
-                                                                                         detectedCode: newCatId,
-                                                                                         url: base64,
-                                                                                         onProceed: () => onProceedWithVariantUpload(newCatId)
-                                                                                     });
-                                                                                 }
-                                                                             } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
-                                                                             finally { setOcrLoading(false); }
-                                                                         };
-                                                                         reader.readAsDataURL(file);
-                                                                     } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
-                                                                     finally { setOcrLoading(false); }
-                                                                 }} />
+                                                                                    updateVariant(i, 'image_url', data.watermarkedUrl || data.url);
+                                                                                    setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
+                                                                                    setWatermarkModal(null);
+                                                                                };
+
+                                                                                if (detData.hasWatermark) {
+                                                                                    setWatermarkModal({
+                                                                                        type: 'existing',
+                                                                                        detectedCode: detData.catalogId || 'CAT-CODE',
+                                                                                        url: base64,
+                                                                                        onProceed: () => onProceedWithVariantUpload(detData.catalogId)
+                                                                                    });
+                                                                                } else {
+                                                                                    const newCatId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                                                                                    setWatermarkModal({
+                                                                                        type: 'new',
+                                                                                        detectedCode: newCatId,
+                                                                                        url: base64,
+                                                                                        onProceed: () => onProceedWithVariantUpload(newCatId)
+                                                                                    });
+                                                                                }
+                                                                            } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
+                                                                            finally { setOcrLoading(false); }
+                                                                        };
+                                                                        reader.readAsDataURL(file);
+                                                                    } catch (err) { setErrorModal({ title: 'Error', message: err.message }); }
+                                                                    finally { setOcrLoading(false); }
+                                                                }} />
                                                             </label>
                                                         </div>
                                                         <button type="button" onClick={() => removeVariant(i)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--danger) / 0.1)', border: 'none', color: 'hsl(var(--danger))', cursor: 'pointer' }}><Trash2 size={16} /></button>
@@ -1436,7 +1511,7 @@ export default function ProductsPage() {
                                             </div>
                                             <div style={{ marginTop: '1rem' }}>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Alert Threshold (Overall)</label>
-                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} className="admin-input" />
+                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} min="0" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
                                     </div>
@@ -1458,8 +1533,12 @@ export default function ProductsPage() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Group / Tag</label>
-                                        <input name="product_group" defaultValue={currentProduct?.product_group || ''} className="admin-input" />
+                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Group</label>
+                                        <input name="product_group" defaultValue={currentProduct?.product_group || ''} className="admin-input" placeholder="e.g. Bestsellers" />
+                                    </div>
+                                    <div style={{ gridColumn: '1 / -1' }}>
+                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Tags (Keywords)</label>
+                                        <input name="tags_input" defaultValue={(currentProduct?.tags || []).join(', ')} className="admin-input" placeholder="e.g. silk, pure, heavy work (comma separated)" />
                                     </div>
                                 </div>
 
@@ -1578,37 +1657,52 @@ export default function ProductsPage() {
                 {/* ─── IMPORT EXCEL PAGE ─── */}
                 {importModal && (
                     <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
-                        <div className="card shadow-premium" style={{ width: '100%', maxWidth: '600px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--border-subtle))', textAlign: 'center', borderRadius: '16px', background: 'hsl(var(--bg-card))' }}>
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <div style={{ width: '60px', height: '60px', borderRadius: '20px', background: 'hsl(var(--primary) / 0.1)', display: 'grid', placeItems: 'center', margin: '0 auto 1rem', color: 'hsl(var(--primary))' }}>
-                                    <Upload size={30} />
-                                </div>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Bulk Import Catalog</h2>
-                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>Upload your inventory spreadsheet to add products in bulk.</p>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <input
-                                    key={`file-import-${Date.now()}`}
-                                    type="file"
-                                    accept=".xlsx, .xls, .csv"
-                                    id="bulk-import-input"
-                                    style={{ display: 'none' }}
-                                    onChange={handleExcelImport}
-                                />
-                                <label htmlFor="bulk-import-input" style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
-                                    padding: '1rem', background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
-                                    borderRadius: '12px', color: 'white', fontWeight: 800, cursor: 'pointer', transition: '0.2s'
+                        <div className="card shadow-premium" style={{ 
+                            maxWidth: '600px', margin: '0 auto', padding: 0, 
+                            borderRadius: '32px', overflow: 'hidden', background: '#ffffff',
+                            border: '1px solid hsl(var(--border-subtle))',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ padding: '4rem' }}>
+                                <div style={{ 
+                                    width: '100px', height: '100px', borderRadius: '50%', 
+                                    background: '#f8fafc', 
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                    margin: '0 auto 2.5rem',
+                                    boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+                                    color: '#0f172a',
+                                    border: '1px solid #f1f5f9'
                                 }}>
-                                    {importing ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : <><FileDown size={18} /> Select Excel File</>}
-                                </label>
-                                <button onClick={() => setImportModal(false)} style={{ background: 'none', border: 'none', color: 'hsl(var(--text-muted))', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>Cancel</button>
+                                    <Upload size={44} strokeWidth={1.5} />
+                                </div>
+                                <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1rem', color: '#0f172a', letterSpacing: '-0.04em' }}>Bulk Catalog Import</h2>
+                                <p style={{ fontSize: '1rem', color: '#64748b', lineHeight: '1.6', marginBottom: '3rem' }}>
+                                    Upload your inventory spreadsheet to synchronize your collection in seconds.
+                                </p>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <input
+                                        key={`file-import-${Date.now()}`}
+                                        type="file"
+                                        accept=".xlsx, .xls, .csv"
+                                        id="bulk-import-input"
+                                        style={{ display: 'none' }}
+                                        onChange={handleExcelImport}
+                                    />
+                                    <label htmlFor="bulk-import-input" style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem',
+                                        height: '64px', background: '#0f172a',
+                                        borderRadius: '16px', color: 'white', fontWeight: 800, cursor: 'pointer', transition: '0.2s',
+                                        boxShadow: '0 20px 40px -10px rgba(15, 23, 42, 0.3)', fontSize: '1.1rem'
+                                    }}>
+                                        {importing ? <><Loader2 size={24} className="animate-spin" /> Processing...</> : <><FileDown size={22} /> Choose Spreadsheet</>}
+                                    </label>
+                                    <button onClick={() => setImportModal(false)} style={{ background: 'none', border: 'none', color: '#64748b', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', marginTop: '1rem' }}>Cancel and Go Back</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                )
-                }
+                )}
 
 
                 {
@@ -1695,21 +1789,27 @@ export default function ProductsPage() {
 
                 {/* OCR Loading Overlay */}
                 {ocrLoading && (
-                    <div style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
-                        zIndex: 7000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem'
-                    }}>
-                        <Loader2 size={42} style={{ color: 'white', animation: 'spin 1s linear infinite' }} />
-                        <div style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', letterSpacing: '0.05em', background: 'rgba(0,0,0,0.5)', padding: '0.5rem 1.5rem', borderRadius: '12px' }}>
-                            Searching for WaterMark...
+                    <ModalPortal>
+                    <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.8)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+                            <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+                                <div style={{ position: 'absolute', inset: 0, border: '4px solid rgba(255,255,255,0.1)', borderRadius: '50%' }}></div>
+                                <div style={{ position: 'absolute', inset: 0, border: '4px solid #fff', borderRadius: '50%', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }}></div>
+                                <Search size={32} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', color: 'white' }} />
+                            </div>
+                            <div style={{ color: 'white', fontWeight: 900, fontSize: '1.5rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                Searching for WaterMark...
+                            </div>
                         </div>
                     </div>
+                    </ModalPortal>
                 )}
 
 
                 {/* PRODUCT IMAGE ASSIGNER (Post-Excel Import) */}
                 {
                     importedProductsForImage && importedProductsForImage.length > 0 && (
+                        <ModalPortal>
                         <ProductImageAssigner
                             products={importedProductsForImage}
                             onClose={() => setImportedProductsForImage(null)}
@@ -1718,287 +1818,253 @@ export default function ProductsPage() {
                                 setImportedProductsForImage(null);
                             }}
                         />
+                        </ModalPortal>
                     )
                 }
 
                 {/* SUCCESS MODAL */}
                 {
                     successModal && (
-                        <div style={{
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-                            zIndex: 4000, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }} onClick={() => setSuccessModal(null)}>
-                            <div style={{
-                                background: 'white', borderRadius: '20px', padding: '2.5rem',
-                                maxWidth: '420px', width: '90%', textAlign: 'center',
-                                boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-                                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                            }} onClick={e => e.stopPropagation()}>
-                                <div style={{
-                                    width: '70px', height: '70px', borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    margin: '0 auto 1.5rem', fontSize: '2rem'
-                                }}>
-                                    ✓
+                        <ModalPortal>
+                        <div className="modal-overlay" onClick={() => setSuccessModal(null)}>
+                            <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ padding: '3rem' }}>
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0fdf4', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #dcfce7' }}>
+                                        <Check size={40} strokeWidth={2} />
+                                    </div>
+                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>Success!</h3>
+                                    <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                                        The operation was completed and synchronized successfully.
+                                    </p>
+                                    <button onClick={() => setSuccessModal(null)} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                                        Continue
+                                    </button>
                                 </div>
-                                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.5rem', color: '#1f2937' }}>
-                                    Product Saved Successfully!
-                                </h3>
-                                <button
-                                    onClick={() => setSuccessModal(null)}
-                                    style={{
-                                        background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                                        color: 'white', border: 'none', padding: '0.875rem 2.5rem',
-                                        borderRadius: '12px', fontWeight: 700, fontSize: '1rem',
-                                        cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'
-                                    }}
-                                    onMouseEnter={e => { e.target.style.transform = 'scale(1.05)'; e.target.style.boxShadow = '0 10px 25px rgba(34, 197, 94, 0.4)'; }}
-                                    onMouseLeave={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
-                                >
-                                    OK
-                                </button>
                             </div>
                         </div>
+                        </ModalPortal>
                     )
                 }
 
                 {/* ERROR MODAL */}
                 {
                     errorModal && (
-                        <div style={{
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-                            zIndex: 6000, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }} onClick={() => setErrorModal(null)}>
-                            <div style={{
-                                background: 'white', borderRadius: '20px', padding: '2.5rem',
-                                maxWidth: '420px', width: '90%', textAlign: 'center',
-                                boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-                                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                            }} onClick={e => e.stopPropagation()}>
-                                <div style={{
-                                    width: '70px', height: '70px', borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    margin: '0 auto 1.5rem', fontSize: '2rem'
-                                }}>
-                                    ✕
+                        <ModalPortal>
+                        <div className="modal-overlay" onClick={() => setErrorModal(null)}>
+                            <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ padding: '3rem' }}>
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #fee2e2' }}>
+                                        <X size={40} strokeWidth={2} />
+                                    </div>
+                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{errorModal.title}</h3>
+                                    <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                                        {errorModal.message}
+                                    </p>
+                                    <button onClick={() => setErrorModal(null)} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                                        Dismiss
+                                    </button>
                                 </div>
-                                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1f2937' }}>
-                                    {errorModal.title}
-                                </h3>
-                                <p style={{ color: '#374151', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-                                    {errorModal.message}
-                                </p>
-                                <button
-                                    onClick={() => setErrorModal(null)}
-                                    style={{
-                                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                        color: 'white', border: 'none', padding: '0.875rem 2.5rem',
-                                        borderRadius: '12px', fontWeight: 700, fontSize: '1rem',
-                                        cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'
-                                    }}
-                                    onMouseEnter={e => { e.target.style.transform = 'scale(1.05)'; e.target.style.boxShadow = '0 10px 25px rgba(239, 68, 68, 0.4)'; }}
-                                    onMouseLeave={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
-                                >
-                                    OK
-                                </button>
                             </div>
                         </div>
+                        </ModalPortal>
                     )
                 }
 
                 {/* RESULT MODAL (Import/Export feedback) */}
                 {
                     resultModal && (
-                        <div style={{
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-                            zIndex: 5500, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }} onClick={() => setResultModal(null)}>
-                            <div style={{
-                                background: 'white', borderRadius: '20px', padding: '2.5rem',
-                                maxWidth: '420px', width: '90%', textAlign: 'center',
-                                boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-                                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                            }} onClick={e => e.stopPropagation()}>
-                                <div style={{
-                                    width: '70px', height: '70px', borderRadius: '50%',
-                                    background: resultModal.type === 'error'
-                                        ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                                        : 'linear-gradient(135deg, #22c55e, #16a34a)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    margin: '0 auto 1.5rem', fontSize: '2rem'
-                                }}>
-                                    {resultModal.type === 'error' ? '✕' : '✓'}
+                        <ModalPortal>
+                        <div className="modal-overlay" onClick={() => setResultModal(null)}>
+                            <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ padding: '3rem' }}>
+                                    <div style={{ 
+                                        width: '80px', height: '80px', borderRadius: '50%', 
+                                        background: resultModal.type === 'error' ? '#fef2f2' : '#f0fdf4', 
+                                        color: resultModal.type === 'error' ? '#ef4444' : '#10b981', 
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                        margin: '0 auto 2rem',
+                                        border: `1px solid ${resultModal.type === 'error' ? '#fee2e2' : '#dcfce7'}`
+                                    }}>
+                                        {resultModal.type === 'error' ? <X size={40} strokeWidth={2} /> : <Check size={40} strokeWidth={2} />}
+                                    </div>
+                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{resultModal.title}</h3>
+                                    <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                                        {resultModal.message}
+                                    </p>
+                                    <button 
+                                        onClick={() => {
+                                            setResultModal(null);
+                                            if (resultModal.onClose) resultModal.onClose();
+                                        }} 
+                                        style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                                    >
+                                        Dismiss
+                                    </button>
                                 </div>
-                                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1f2937' }}>
-                                    {resultModal.title}
-                                </h3>
-                                <p style={{ color: '#374151', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-                                    {resultModal.message}
-                                </p>
-                                <button
-                                    onClick={() => {
-                                        setResultModal(null);
-                                        if (resultModal.onClose) resultModal.onClose();
-                                    }}
-                                    style={{
-                                        background: resultModal.type === 'error'
-                                            ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                                            : 'linear-gradient(135deg, #22c55e, #16a34a)',
-                                        color: 'white', border: 'none', padding: '0.875rem 2.5rem',
-                                        borderRadius: '12px', fontWeight: 700, fontSize: '1rem',
-                                        cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'
-                                    }}
-                                    onMouseEnter={e => {
-                                        e.target.style.transform = 'scale(1.05)';
-                                        e.target.style.boxShadow = resultModal.type === 'error'
-                                            ? '0 10px 25px rgba(239, 68, 68, 0.4)'
-                                            : '0 10px 25px rgba(34, 197, 94, 0.4)';
-                                    }}
-                                    onMouseLeave={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
-                                >
-                                    OK
-                                </button>
                             </div>
                         </div>
+                        </ModalPortal>
                     )
                 }
 
                 {/* WATERMARK CONFIRMATION MODAL */}
                 {
                     watermarkModal && (
-                        <div style={{
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
-                            zIndex: 8000, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <div className="card shadow-premium animate-enter" style={{
-                                maxWidth: '450px', width: '90%', padding: '2.5rem', textAlign: 'center',
-                                background: '#ffffff', borderRadius: '24px', border: '1px solid #e2e8f0',
-                                boxShadow: '0 25px 60px rgba(0,0,0,0.4)'
-                            }} onClick={e => e.stopPropagation()}>
-                                <div style={{ 
-                                    width: '64px', height: '64px', borderRadius: '50%', 
-                                    background: watermarkModal.type === 'existing' ? 'hsl(var(--accent) / 0.1)' : 'hsl(var(--primary) / 0.1)',
-                                    color: watermarkModal.type === 'existing' ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
-                                    display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem'
+                        <ModalPortal>
+                        <div className="modal-overlay">
+                            {watermarkModal.type === 'existing' ? (
+                                <div className="modal-box shadow-premium" style={{ 
+                                    maxWidth: '520px', padding: 0, borderRadius: '32px', 
+                                    overflow: 'hidden', background: '#ffffff',
+                                    boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
+                                    textAlign: 'center'
                                 }}>
-                                    <ImageIcon size={32} />
-                                </div>
-
-                                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.75rem' }}>
-                                    {watermarkModal.type === 'existing' ? 'Watermark already present' : 'Apply Watermark?'}
-                                </h3>
-                                
-                                <p style={{ color: 'hsl(var(--text-muted))', lineHeight: '1.6', marginBottom: watermarkModal.type === 'existing' ? '2.5rem' : '1.5rem' }}>
-                                    {watermarkModal.type === 'existing' 
-                                        ? `This image already contains a watermark and cannot be processed again.`
-                                        : `This is a clean image. We will generate code ${watermarkModal.detectedCode} and apply the watermark for you.`
-                                    }
-                                </p>
-
-                                {watermarkModal.type === 'new' && (
-                                    <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', marginBottom: '2rem', border: '1px solid #f1f5f9' }}>
-                                        <img src={watermarkModal.url} style={{ width: '100%', height: '140px', objectFit: 'contain', borderRadius: '12px' }} />
+                                    <div style={{ padding: '3.5rem' }}>
                                         <div style={{ 
-                                            marginTop: '0.75rem', fontWeight: 800, fontFamily: 'monospace', 
-                                            color: 'hsl(var(--primary))', fontSize: '1.1rem' 
+                                            width: '88px', height: '88px', borderRadius: '50%', 
+                                            background: '#fef2f2', color: '#ef4444', 
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                            margin: '0 auto 2rem',
+                                            border: '1px solid #fee2e2'
                                         }}>
-                                            {watermarkModal.detectedCode}
+                                            <AlertTriangle size={40} strokeWidth={1.5} />
                                         </div>
-                                    </div>
-                                )}
-
-                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                                    {watermarkModal.type === 'existing' ? (
-                                        <button 
-                                            onClick={() => setWatermarkModal(null)} 
-                                            className="btn btn-primary" 
-                                            style={{ minWidth: '160px', background: 'hsl(var(--text-main))', padding: '0.875rem' }}
-                                        >
-                                            OK
-                                        </button>
-                                    ) : (
-                                        <>
+                                        
+                                        <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a', letterSpacing: '-0.025em' }}>
+                                            Watermark Detected
+                                        </h3>
+                                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2.5rem' }}>
+                                            This image already contains a digital identity <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span>. To avoid visual issues, please use an original, clean file.
+                                        </p>
+                                        
+                                        <div className="modal-actions">
                                             <button 
                                                 onClick={() => setWatermarkModal(null)} 
-                                                className="btn btn-secondary" 
-                                                style={{ flex: 1, padding: '0.8rem' }}
+                                                style={{ 
+                                                    width: '100%', background: '#0f172a', height: '56px', 
+                                                    borderRadius: '16px', color: '#fff', fontSize: '1rem',
+                                                    fontWeight: 800, border: 'none', cursor: 'pointer',
+                                                    boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                            >
+                                                Dismiss Alert
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="modal-box shadow-premium" style={{ 
+                                    maxWidth: '520px', padding: 0, borderRadius: '32px', 
+                                    overflow: 'hidden', background: '#ffffff',
+                                    boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)'
+                                }}>
+                                    <div style={{ padding: '3.5rem', textAlign: 'center' }}>
+                                        <div style={{
+                                            width: '88px', height: '88px', borderRadius: '50%',
+                                            background: '#f8fafc',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            margin: '0 auto 2rem',
+                                            border: '1px solid #f1f5f9',
+                                            boxShadow: '0 10px 20px -5px rgba(0,0,0,0.05)'
+                                        }}>
+                                            <ImageIcon size={40} strokeWidth={1.5} style={{ color: '#0f172a' }} />
+                                        </div>
+                                        
+                                        <h3 style={{ 
+                                            fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', 
+                                            color: '#0f172a', letterSpacing: '-0.025em'
+                                        }}>
+                                            Apply Watermark?
+                                        </h3>
+                                        <p style={{ 
+                                            color: '#64748b', lineHeight: '1.6', fontSize: '1rem', 
+                                            marginBottom: '2.5rem'
+                                        }}>
+                                            This is a clean image. We will generate code <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span> and apply the watermark for you.
+                                        </p>
+
+                                        <div style={{ 
+                                            background: '#f8fafc', 
+                                            padding: '1.25rem', borderRadius: '24px', 
+                                            marginBottom: '2.5rem', border: '1px solid #f1f5f9'
+                                        }}>
+                                            <div style={{ borderRadius: '16px', overflow: 'hidden', background: '#fff', border: '1px solid #e2e8f0' }}>
+                                                <img src={watermarkModal.url} style={{ 
+                                                    width: '100%', height: '240px', objectFit: 'contain'
+                                                }} />
+                                            </div>
+                                            <div style={{ 
+                                                marginTop: '1.25rem', fontWeight: 800, color: '#0f172a', 
+                                                fontSize: '1.5rem', letterSpacing: '0.05em'
+                                            }}>
+                                                {watermarkModal.detectedCode}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                            <button 
+                                                onClick={() => setWatermarkModal(null)} 
+                                                style={{ 
+                                                    flex: 1, height: '56px', borderRadius: '16px', 
+                                                    fontSize: '1rem', fontWeight: 700, border: 'none',
+                                                    color: '#64748b', background: '#f1f5f9', cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                                                onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
                                             >
                                                 Cancel
                                             </button>
                                             <button 
                                                 onClick={watermarkModal.onProceed} 
-                                                className="btn btn-primary" 
-                                                style={{ flex: 1.5, background: 'hsl(var(--text-main))', padding: '0.8rem' }}
+                                                style={{ 
+                                                    flex: 1.5, height: '56px', borderRadius: '16px', 
+                                                    fontSize: '1rem', fontWeight: 800, border: 'none',
+                                                    color: '#fff', background: '#0f172a',
+                                                    boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
+                                                    cursor: 'pointer', transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                                             >
-                                                Apply & Use
+                                                Apply & Proceed
                                             </button>
-                                        </>
-                                    )}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
+                        </ModalPortal>
                     )
                 }
 
                 {/* CONFIRM MODAL */}
                 {
                     confirmModal && (
-                        <div style={{
-                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-                            zIndex: 6500, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }} onClick={() => setConfirmModal(null)}>
-                            <div style={{
-                                background: 'white', borderRadius: '20px', padding: '2.5rem',
-                                maxWidth: '420px', width: '90%', textAlign: 'center',
-                                boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-                                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                            }} onClick={e => e.stopPropagation()}>
-                                <div style={{
-                                    width: '70px', height: '70px', borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    margin: '0 auto 1.5rem', fontSize: '2rem'
-                                }}>
-                                    ?
+                        <ModalPortal>
+                        <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
+                            <div className="modal-box modal-warning" onClick={e => e.stopPropagation()}>
+                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fffbeb', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', fontSize: '2.5rem', boxShadow: 'inset 0 0 0 2px #fef3c7' }}>
+                                    <AlertTriangle size={40} strokeWidth={2.5} />
                                 </div>
-                                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem', color: '#1f2937' }}>
-                                    {confirmModal.title}
-                                </h3>
-                                <p style={{ color: '#374151', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                                <h3 className="modal-title">{confirmModal.title}</h3>
+                                <p className="modal-message">
                                     {confirmModal.message}
                                 </p>
-                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                                    <button
-                                        onClick={() => setConfirmModal(null)}
-                                        style={{
-                                            background: '#e5e7eb', color: '#374151', border: 'none',
-                                            padding: '0.875rem 2rem', borderRadius: '12px',
-                                            fontWeight: 700, fontSize: '1rem', cursor: 'pointer'
-                                        }}
-                                    >
-                                        Cancel
+                                <div className="modal-actions">
+                                    <button onClick={() => setConfirmModal(null)} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>
+                                        No, Cancel
                                     </button>
-                                    <button
-                                        onClick={() => {
-                                            confirmModal.onConfirm();
-                                            setConfirmModal(null);
-                                        }}
-                                        style={{
-                                            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                            color: 'white', border: 'none', padding: '0.875rem 2rem',
-                                            borderRadius: '12px', fontWeight: 700, fontSize: '1rem',
-                                            cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'
-                                        }}
-                                        onMouseEnter={e => { e.target.style.transform = 'scale(1.05)'; e.target.style.boxShadow = '0 10px 25px rgba(239, 68, 68, 0.4)'; }}
-                                        onMouseLeave={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
-                                    >
-                                        Confirm
+                                    <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} className="modal-btn modal-btn-primary" style={{ flex: 1.2, background: '#ef4444' }}>
+                                        Yes, Proceed
                                     </button>
                                 </div>
                             </div>
                         </div>
+                        </ModalPortal>
                     )
                 }
 
@@ -2060,6 +2126,10 @@ export default function ProductsPage() {
                             </button>
                         </div>
                     </div>
+                )}
+                {/* Image Zoom Modal */}
+                {zoomedImage && (
+                    <ImageZoom url={zoomedImage} onClose={() => setZoomedImage(null)} />
                 )}
             </div>
         </>

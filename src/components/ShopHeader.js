@@ -3,13 +3,15 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck, Heart, Activity } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
+import { useCompare } from '@/context/CompareContext';
 import styles from './ShopHeader.module.css';
 
 export default function ShopHeader() {
     const pathname = usePathname();
-    const { user, cartCount, handleLogout } = useShop();
+    const { user, cartCount, wishlist, handleLogout } = useShop();
+    const { compareItems } = useCompare();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef(null);
@@ -55,6 +57,22 @@ export default function ShopHeader() {
                             <Link href="/contact" className={`${styles.navLink} ${pathname === '/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact Us</Link>
                         </nav>
 
+                        <form
+                            className={styles.searchForm}
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const q = e.target.search.value;
+                                if (q) window.location.href = `/shop?q=${encodeURIComponent(q)}`;
+                            }}
+                        >
+                            <input 
+                                type="text" 
+                                name="search" 
+                                placeholder="Search products..." 
+                                className={styles.searchInput} 
+                            />
+                        </form>
+
                         <div className={styles.headerActions}>
                             <Link href="/cart" className={styles.cartIconBtn}>
                                 <div className={styles.cartIconWrapper}>
@@ -77,6 +95,7 @@ export default function ShopHeader() {
                                                 </div>
                                                 <div className={styles.divider}></div>
                                                 <Link href="/my-orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>
+
                                                 <Link href="/profile" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account Settings</Link>
                                                 <div className={styles.divider}></div>
                                                 <div className={`${styles.dropdownItem} ${styles.logout}`} onClick={handleLogout}>Logout</div>

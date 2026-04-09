@@ -71,7 +71,7 @@ export default function AnalyticsHub() {
         }
 
         // 1. Summary Stats
-        const validOrders = filteredOrders.filter(o => o.status !== 'CANCELLED');
+        const validOrders = filteredOrders.filter(o => !['CANCELLED', 'REFUNDED'].includes(o.status));
         const totalRevenue = validOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
         const avgOrderValue = validOrders.length ? (totalRevenue / validOrders.length) : 0;
 
@@ -91,7 +91,7 @@ export default function AnalyticsHub() {
         } else if (range === 'MONTHLY' || range === 'QUARTERLY' || range === 'ALL') {
             // Group by month
             orders.forEach(o => {
-                if (o.status === 'CANCELLED') return;
+                if (['CANCELLED', 'REFUNDED'].includes(o.status)) return;
                 const d = new Date(o.created_at);
                 const month = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
                 trendMap[month] = (trendMap[month] || 0) + o.total_amount;
