@@ -74,24 +74,19 @@ export default function RefundsPage() {
     };
 
     const getStatusBadge = (status) => {
-        const styles = {
-            REQUESTED: { bg: '#fef3c7', color: '#d97706', label: 'Requested' },
-            APPROVED: { bg: '#dbeafe', color: '#2563eb', label: 'Approved' },
-            REJECTED: { bg: '#fee2e2', color: '#dc2626', label: 'Rejected' },
-            COMPLETED: { bg: '#d1fae5', color: '#059669', label: 'Completed' }
+        const labels = {
+            REQUESTED: 'Requested',
+            APPROVED: 'Approved',
+            REJECTED: 'Rejected',
+            COMPLETED: 'Completed'
         };
-        const style = styles[status] || styles.REQUESTED;
         return (
             <span style={{
-                padding: '0.35rem 0.75rem', borderRadius: '99px', fontSize: '0.75rem',
-                fontWeight: 700, background: style.bg, color: style.color,
-                display: 'inline-flex', alignItems: 'center', gap: '4px'
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: 'hsl(var(--text-main))'
             }}>
-                {status === 'REQUESTED' && <Clock size={12} />}
-                {status === 'APPROVED' && <CheckCircle size={12} />}
-                {status === 'REJECTED' && <XCircle size={12} />}
-                {status === 'COMPLETED' && <CheckCircle size={12} />}
-                {style.label}
+                {labels[status] || status}
             </span>
         );
     };
@@ -332,7 +327,7 @@ export default function RefundsPage() {
                                             </span>
                                         </div>
                                     </td>
-                                    <td style={{ fontWeight: 700, color: 'hsl(var(--warning))' }}>
+                                    <td style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>
                                         ₹{refund.amount?.toLocaleString()}
                                     </td>
                                     <td>

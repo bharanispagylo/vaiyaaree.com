@@ -449,13 +449,13 @@ function CustomersPage() {
 
     const getTierBadge = (spent) => {
 
-        if (spent >= 20000) return { label: 'VIP', className: 'badge badge-confirmed', style: { background: 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))', color: '#3f2203', border: 'none' } };
+        if (spent >= 20000) return { label: 'VIP', className: 'badge badge-confirmed', style: { background: 'hsl(var(--primary))', color: 'white', border: 'none' } };
 
-        if (spent >= 10000) return { label: 'Gold', className: 'badge', style: { background: 'hsl(48 96% 89%)', color: 'hsl(38 92% 50%)', borderColor: 'hsl(48 96% 70%)' } };
+        if (spent >= 7000) return { label: 'Gold', className: 'badge badge-paid', style: { background: 'hsl(var(--success))', color: 'white', border: 'none' } };
 
-        if (spent >= 5000) return { label: 'Silver', className: 'badge', style: { background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-muted))', borderColor: 'hsl(var(--border-subtle))' } };
+        if (spent >= 2000) return { label: 'Silver', className: 'badge badge-shipped', style: { background: 'hsl(var(--warning))', color: 'white', border: 'none' } };
 
-        return { label: 'Regular', className: 'badge', style: { background: 'transparent', color: 'hsl(var(--text-muted))', border: '1px solid hsl(var(--border-subtle))' } };
+        return { label: 'Regular', className: 'badge badge-new', style: { background: 'hsl(var(--muted))', color: 'white', border: 'none' } };
 
     };
 
@@ -881,15 +881,15 @@ function CustomersPage() {
                                         </div>
 
                                         <table style={{ margin: 0 }}>
-                                            <thead style={{ background: 'hsl(var(--bg-panel) / 0.8)', position: 'sticky', top: 0, zIndex: 10 }}>
+                                            <thead>
                                                 <tr>
-                                                    <th style={{ color: 'white' }}>Customer</th>
-                                                    <th style={{ color: 'white' }}>Phone</th>
-                                                    <th style={{ textAlign: 'center', color: 'white' }}>Orders</th>
-                                                    <th style={{ textAlign: 'right', color: 'white' }}>Total Spent</th>
-                                                    <th style={{ textAlign: 'center', color: 'white' }}>Tier</th>
-                                                    <th style={{ textAlign: 'left', color: 'white' }}>Last Order</th>
-                                                    <th style={{ textAlign: 'right', color: 'white' }}>Actions</th>
+                                                    <th>Customer</th>
+                                                    <th>Phone</th>
+                                                    <th style={{ textAlign: 'center' }}>Orders</th>
+                                                    <th style={{ textAlign: 'right' }}>Total Spent</th>
+                                                    <th style={{ textAlign: 'center' }}>Tier</th>
+                                                    <th style={{ textAlign: 'left' }}>Last Order</th>
+                                                    <th style={{ textAlign: 'right' }}>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -901,18 +901,7 @@ function CustomersPage() {
                                                         return (
                                                             <tr key={customer.phone} onClick={() => openCustomerDetail(customer)}>
                                                                 <td style={{ padding: '1rem 1.5rem' }}>
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                                        <div style={{
-                                                                            width: '40px', height: '40px', borderRadius: '50%',
-                                                                            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
-                                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                            fontWeight: 700, fontSize: '0.9rem', color: 'white',
-                                                                            boxShadow: '0 2px 8px hsl(var(--primary) / 0.3)'
-                                                                        }}>
-                                                                            {customer.name.charAt(0).toUpperCase()}
-                                                                        </div>
-                                                                        <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{customer.name}</div>
-                                                                    </div>
+                                                                    <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{customer.name}</div>
                                                                 </td>
                                                                 <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>{customer.phone}</td>
                                                                 <td style={{ textAlign: 'center', fontWeight: 600 }}>{customer.totalOrders}</td>

@@ -268,8 +268,8 @@ export default function AdminDashboard() {
                     </div>
 
                     <table style={{ margin: 0 }}>
-                        <thead style={{ background: '#f1f5f9' }}>
-                            <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <thead>
+                            <tr>
                                 <th style={{ paddingLeft: '2rem' }}>Order</th>
                                 <th>Customer</th>
                                 <th style={{ textAlign: 'right' }}>Amount</th>

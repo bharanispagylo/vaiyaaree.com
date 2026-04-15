@@ -269,7 +269,7 @@ export default function CMSPage() {
                         ) : (
                             <div style={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', margin: 0, tableLayout: 'fixed' }}>
-                                    <thead style={{ background: '#f1f5f9' }}>
+                                    <thead>
                                         <tr>
                                             <th style={{ textAlign: 'left', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '35%' }}>Structure & Title</th>
                                             <th style={{ textAlign: 'left', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '25%' }}>Endpoint</th>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingCart,
-    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, AlertTriangle, ArrowRight, ChevronLeft, ChevronRight
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Instagram
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
@@ -46,6 +46,7 @@ export default function ProductsPage() {
     const [variants, setVariants] = useState([]);
     const [productType, setProductType] = useState('simple');
     const [postToFacebook, setPostToFacebook] = useState(false);
+    const [postToInstagram, setPostToInstagram] = useState(false);
     const [fbProcessing, setFbProcessing] = useState(false);
     const [fbConfig, setFbConfig] = useState(null);
     const [importModal, setImportModal] = useState(false);
@@ -57,6 +58,7 @@ export default function ProductsPage() {
     const [successModal, setSuccessModal] = useState(null);
     const [errorModal, setErrorModal] = useState(null);
     const [confirmModal, setConfirmModal] = useState(null); // { title: string, message: string, onConfirm: function }
+    const [previewModal, setPreviewModal] = useState(null); // { product, caption }
 
     // Stock History States
     const [showHistory, setShowHistory] = useState(false);
@@ -67,6 +69,7 @@ export default function ProductsPage() {
     const [showMediaPicker, setShowMediaPicker] = useState(false);
     const [activeImageField, setActiveImageField] = useState(null); // { type: 'product' } or { type: 'variant', index: number }
     const [productImageUrl, setProductImageUrl] = useState('');
+    const [galleryImageUrl, setGalleryImageUrl] = useState('');
     const [ocrLoading, setOcrLoading] = useState(false);
     const [watermarkModal, setWatermarkModal] = useState(null); // { type, detectedCode, url, onProceed }
 
@@ -199,6 +202,12 @@ export default function ProductsPage() {
         }
     };
 
+    const generateCaption = (product) => {
+        if (!product) return '';
+        const shopUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+        return `✨ ${product.name}\n\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\n🛍️ Shop now: ${shopUrl}/shop?pid=${product?.id || 'new'}\n\n#CastPrintz #Sarees #IndianFashion #EthnicWear #SareeLove #NewArrivals`;
+    };
+
     useEffect(() => {
         setHasMounted(true);
         fetchProducts();
@@ -263,7 +272,7 @@ export default function ProductsPage() {
                     }
 
                     const id = row.id || row.productid || row.itemid || null;
-                    const name = row.name || row.productname || row.sareename || row.title || row.item || 'Untitled Saree';
+                    const name = row.name || row.productname || row.sareename || row.title || row.item || 'Untitled Product';
                     const priceVal = parseFloat(row.price || row.sellingprice || row.mrp || row.rate || row.amount);
                     const price = isNaN(priceVal) ? 0 : priceVal;
                     const stockVal = parseInt(row.stock || row.quantity || row.qty || row.inventory || row.available);
@@ -386,7 +395,7 @@ export default function ProductsPage() {
             const downloadUrl = URL.createObjectURL(dataBlob);
             const link = document.createElement('a');
             link.href = downloadUrl;
-            link.download = `Sarees_Catalog_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+            link.download = `Products_Catalog_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -420,7 +429,8 @@ export default function ProductsPage() {
             tax_class: formData.get('tax_class') || 'GST_5',
             is_active: formData.get('is_active') === 'on',
             is_featured: formData.get('is_featured') === 'on',
-            tags: formData.get('tags_input') ? formData.get('tags_input').split(',').map(t => t.trim()).filter(Boolean) : []
+            tags: formData.get('tags_input') ? formData.get('tags_input').split(',').map(t => t.trim()).filter(Boolean) : [],
+            gallery_image: galleryImageUrl || ''
         };
 
         // For simple products, we take price/stock/image from main fields
@@ -515,27 +525,44 @@ export default function ProductsPage() {
                 }
             }
 
-            // Handle Facebook Posting
-            if (postToFacebook && savedProduct && canPostToFacebook()) {
-                setFbProcessing(true);
-                try {
-                    await fetch('/api/facebook/post', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            imageUrl: productData.image_url,
-                            name: productData.name,
-                            price: productData.price,
-                            description: productData.description,
-                            pageId: fbConfig.pageId,
-                            accessToken: fbConfig.accessToken
-                        })
-                    });
-                } catch (fbErr) {
-                    console.error('Facebook posting failed:', fbErr);
-                } finally {
-                    setFbProcessing(false);
+            // Handle Facebook/Instagram Posting
+            let postErrors = [];
+
+            if (postToFacebook) {
+                if (!fbConfig?.pageId || !fbConfig?.accessToken) {
+                    postErrors.push('Facebook: Meta not connected. Go to Meta Connect to link your account.');
+                } else if (savedProduct) {
+                    setFbProcessing(true);
+                    try {
+                        await fetch('/api/facebook/post', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                imageUrl: productData.image_url,
+                                name: productData.name,
+                                price: productData.price,
+                                description: productData.description,
+                                pageId: fbConfig.pageId,
+                                accessToken: fbConfig.accessToken
+                            })
+                        });
+                    } catch (fbErr) {
+                        postErrors.push('Facebook: ' + fbErr.message);
+                    } finally {
+                        setFbProcessing(false);
+                    }
                 }
+            }
+
+            if (postToInstagram) {
+                if (!fbConfig?.pageId || !fbConfig?.accessToken) {
+                    postErrors.push('Instagram: Meta not connected. Go to Meta Connect to link your account.');
+                }
+                // Instagram posting via Graph API would go here
+            }
+
+            if (postErrors.length > 0) {
+                setErrorModal({ title: 'Social Post Issues', message: postErrors.join('\n') });
             }
 
             fetchProducts();
@@ -548,6 +575,7 @@ export default function ProductsPage() {
             setProductImageUrl('');
             setVariants([]);
             setPostToFacebook(false);
+            setPostToInstagram(false);
         } catch (error) {
             console.error(error);
             setErrorModal({
@@ -587,8 +615,8 @@ export default function ProductsPage() {
 
     const handleDelete = async (id) => {
         setConfirmModal({
-            title: 'Delete Saree?',
-            message: 'Are you sure you want to delete this saree? This will also remove its stock history and variants.',
+            title: 'Delete Product?',
+            message: 'Are you sure you want to delete this product? This will also remove its stock history and variants.',
             onConfirm: async () => {
                 setLoading(true);
                 try {
@@ -718,7 +746,7 @@ export default function ProductsPage() {
                         <div className="admin-header-row">
                             <div>
                                 <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
-                                <p>Manage your premium saree collection • {filtered.length} items</p>
+                                <p>Manage your premium product collection • {filtered.length} items</p>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button onClick={() => setImportModal(true)} className="btn btn-secondary">
@@ -747,43 +775,50 @@ export default function ProductsPage() {
                             ))}
                         </div>
 
-                        {/* Category Tabs */}
-                        <div className="admin-filter-row">
-                            {categories.map(cat => (
-                                <button key={cat} onClick={() => setCategoryFilter(cat)} style={{
-                                    padding: '0.5rem 1.1rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: 600,
-                                    cursor: 'pointer', transition: 'all 0.2s',
-                                    background: categoryFilter === cat ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
-                                    color: categoryFilter === cat ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-                                    border: categoryFilter === cat ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
-                                }}>
-                                    {cat === 'ALL' ? 'All Collections' : cat}
-                                </button>
-                            ))}
-                        </div>
+                        {/* Filter Row - Combined Category and Status */}
+                        <div className="admin-filter-row" style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', marginBottom: '1.5rem', background: '#ffffff', padding: '1rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Collection:</label>
+                                <select
+                                    value={categoryFilter}
+                                    onChange={(e) => setCategoryFilter(e.target.value)}
+                                    style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                >
+                                    {categories.map(cat => (
+                                        <option key={cat} value={cat}>{cat === 'ALL' ? 'All Collections' : cat}</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                        {/* Active / Inactive Status Tabs */}
-                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', padding: '4px', background: 'hsl(var(--bg-card))', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
-                            {[
-                                { key: 'ALL', label: 'All Products', count: products.length },
-                                { key: 'ACTIVE', label: '✅ Active', count: products.filter(p => p.is_active !== false).length },
-                                { key: 'INACTIVE', label: '🔴 Inactive', count: products.filter(p => p.is_active === false).length },
-                            ].map(tab => (
-                                <button key={tab.key} onClick={() => { setStatusFilter(tab.key); setProductsPage(1); }} style={{
-                                    padding: '0.45rem 1.1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                    fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                    background: statusFilter === tab.key ? 'hsl(var(--primary))' : 'transparent',
-                                    color: statusFilter === tab.key ? 'white' : 'hsl(var(--text-muted))',
-                                }}>
-                                    {tab.label}
-                                    <span style={{
-                                        background: statusFilter === tab.key ? 'rgba(255,255,255,0.25)' : 'hsl(var(--bg-app))',
-                                        color: statusFilter === tab.key ? 'white' : 'hsl(var(--text-muted))',
-                                        padding: '0 6px', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 800,
-                                        minWidth: '20px', textAlign: 'center'
-                                    }}>{tab.count}</span>
-                                </button>
-                            ))}
+                            <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))' }} />
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Status:</label>
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => { setStatusFilter(e.target.value); setProductsPage(1); }}
+                                    style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                >
+                                    <option value="ALL">All Products ({products.length})</option>
+                                    <option value="ACTIVE">Active ({products.filter(p => p.is_active !== false).length})</option>
+                                    <option value="INACTIVE">Inactive ({products.filter(p => p.is_active === false).length})</option>
+                                </select>
+                            </div>
+
+                            <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))' }} />
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Group:</label>
+                                <select
+                                    value={groupFilter}
+                                    onChange={(e) => setGroupFilter(e.target.value)}
+                                    style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                >
+                                    {groups.map(g => (
+                                        <option key={g} value={g}>{g === 'ALL' ? 'All Groups' : g}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {/* Group Tags Filter */}
@@ -953,8 +988,8 @@ export default function ProductsPage() {
                                 ) : (
                                     <div style={{ minWidth: '950px' }}>
                                         <table style={{ margin: 0, width: '100%' }}>
-                                            <thead style={{ background: '#f1f5f9' }}>
-                                                <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            <thead>
+                                                <tr>
                                                     <th>#</th>
                                                     <th style={{ width: '40px', textAlign: 'center' }}>
                                                         <input
@@ -1018,7 +1053,7 @@ export default function ProductsPage() {
                                                                     {product.product_catalog_image_id && (
                                                                         <div style={{
                                                                             fontSize: '0.65rem', fontWeight: 800, fontFamily: 'var(--font-roboto)',
-                                                                            background: 'hsl(var(--accent) / 0.1)', color: 'hsl(var(--accent))',
+                                                                            // background: 'hsl(var(--accent) / 0.1)', color: 'hsl(var(--accent))',
                                                                             padding: '1px 5px', borderRadius: '3px', display: 'inline-block', marginBottom: '2px',
                                                                             width: 'fit-content'
                                                                         }}>
@@ -1033,9 +1068,6 @@ export default function ProductsPage() {
                                                                         {product.is_active === false && (
                                                                             <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>INACTIVE</span>
                                                                         )}
-                                                                    </div>
-                                                                    <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                        {product.description || '—'}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1255,12 +1287,25 @@ export default function ProductsPage() {
                                     <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{currentProduct ? 'Edit Product' : 'Add New Product'}</h2>
                                     <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>Fill in the details for your catalogue.</p>
                                 </div>
-                                <button onClick={() => setIsEditing(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Products</button>
+                                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                    <button type="button" onClick={() => {
+                                        const name = document.querySelector('input[name="name"]')?.value;
+                                        const price = document.querySelector('input[name="price"]')?.value;
+                                        const desc = document.querySelector('textarea[name="description"]')?.value;
+                                        setPreviewModal({
+                                            product: { name, price, image_url: productImageUrl.split(',')[0] },
+                                            caption: generateCaption({ name, price, description: desc, id: currentProduct?.id || 'new' })
+                                        });
+                                    }} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.5rem 1.25rem', color: 'hsl(var(--primary))' }}>
+                                        <Eye size={16} /> View Post Preview
+                                    </button>
+                                    <button onClick={() => setIsEditing(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Products</button>
+                                </div>
                             </div>
                             <form onSubmit={handleSave} style={{ padding: '1.75rem' }}>
                                 {/* Product Type Toggle */}
                                 <div style={{ marginBottom: '1.75rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Saree Type</label>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Product Type</label>
                                     <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                         <button type="button" onClick={() => setProductType('simple')} style={{
                                             flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
@@ -1268,7 +1313,7 @@ export default function ProductsPage() {
                                             color: productType === 'simple' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
                                             fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                                         }}>
-                                            <PackageIcon size={16} /> Simple Saree
+                                            <PackageIcon size={16} /> Simple Product
                                         </button>
                                         <button type="button" onClick={() => setProductType('variant')} style={{
                                             flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
@@ -1276,7 +1321,7 @@ export default function ProductsPage() {
                                             color: productType === 'variant' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
                                             fontWeight: 700, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                                         }}>
-                                            <LayoutGrid size={16} /> Variant Saree
+                                            <LayoutGrid size={16} /> Variant Product
                                         </button>
                                     </div>
                                 </div>
@@ -1288,7 +1333,7 @@ export default function ProductsPage() {
                                     </h3>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                         <div>
-                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Saree Name *</label>
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Name *</label>
                                             <input name="name" type="text" defaultValue={currentProduct?.name} required placeholder="e.g. Royal Kanjivaram Silk" className="admin-input" />
                                         </div>
                                         <div>
@@ -1303,6 +1348,10 @@ export default function ProductsPage() {
                                                 <option>Linen</option>
                                             </select>
                                         </div>
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Description</label>
+                                            <textarea name="description" defaultValue={currentProduct?.description} placeholder="Enter product description..." className="admin-input" rows="3" style={{ width: '100%', padding: '0.75rem', background: 'hsl(var(--bg-card))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontFamily: 'inherit', resize: 'vertical' }}></textarea>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1310,7 +1359,7 @@ export default function ProductsPage() {
                                     <div style={{ marginBottom: '1.5rem' }}>
                                         <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</div>
-                                            Saree Details (Single Item)
+                                            Product Details (Single Item)
                                         </h3>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                             <div>
@@ -1324,7 +1373,7 @@ export default function ProductsPage() {
                                         </div>
                                         <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Saree Image *</label>
+                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Image *</label>
                                                 {productImageUrl && (
                                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                                                         {productImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
@@ -1411,6 +1460,83 @@ export default function ProductsPage() {
                                                                     await filePromptPromise;
                                                                 }
 
+                                                            } catch (err) { setErrorModal({ title: 'Upload Error', message: err.message }); }
+                                                            finally { setOcrLoading(false); }
+                                                            e.target.value = '';
+                                                        }} />
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Gallery Image</label>
+                                                {galleryImageUrl && (
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                                                        {galleryImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
+                                                            <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
+                                                                <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }} onClick={() => setZoomedImage(imgUrl)} title="Click to zoom" />
+                                                                <button type="button" onClick={() => {
+                                                                    const urls = galleryImageUrl.split(',').filter(Boolean);
+                                                                    urls.splice(idx, 1);
+                                                                    setGalleryImageUrl(urls.join(','));
+                                                                }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button type="button" onClick={() => { setActiveImageField({ type: 'gallery' }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, height: '44px' }}>
+                                                        <ImageIcon size={15} /> From Library
+                                                    </button>
+                                                    <label className="btn btn-secondary" style={{ flex: 1, height: '44px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                        <Upload size={15} /> Upload Files
+                                                        <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={async (e) => {
+                                                            const files = Array.from(e.target.files || []);
+                                                            if (!files.length) return;
+                                                            try {
+                                                                setOcrLoading(true);
+                                                                for (const file of files) {
+                                                                    const reader = new FileReader();
+                                                                    const filePromptPromise = new Promise((resolve) => {
+                                                                        reader.onload = async (re) => {
+                                                                            try {
+                                                                                const base64 = re.target.result;
+                                                                                const formData = new FormData();
+                                                                                formData.append('file', file);
+                                                                                formData.append('checkOnly', 'true');
+                                                                                const detRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                                const detData = await detRes.json();
+
+                                                                                const onProceedWithUpload = async (catId) => {
+                                                                                    setOcrLoading(true);
+                                                                                    const uploadData = new FormData();
+                                                                                    uploadData.append('file', file);
+                                                                                    uploadData.append('catalogId', catId);
+                                                                                    uploadData.append('requireClean', 'true');
+                                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
+                                                                                    const data = await res.json();
+
+                                                                                    const finalUrl = data.watermarkedUrl || data.url;
+                                                                                    const existingArray = galleryImageUrl ? galleryImageUrl.split(',').filter(Boolean) : [];
+                                                                                    setGalleryImageUrl([finalUrl, ...existingArray].join(','));
+                                                                                    resolve();
+                                                                                };
+
+                                                                                if (detData.detected) {
+                                                                                    setWatermarkModal({ type: 'detected', detectedCode: detData.detected, url: base64, onProceed: onProceedWithUpload });
+                                                                                } else {
+                                                                                    await onProceedWithUpload(null);
+                                                                                }
+                                                                            } catch (err) {
+                                                                                setErrorModal({ title: 'Error', message: err.message });
+                                                                                resolve();
+                                                                            } finally {
+                                                                                setOcrLoading(false);
+                                                                            }
+                                                                        };
+                                                                        reader.readAsDataURL(file);
+                                                                    });
+                                                                    await filePromptPromise;
+                                                                }
                                                             } catch (err) { setErrorModal({ title: 'Upload Error', message: err.message }); }
                                                             finally { setOcrLoading(false); }
                                                             e.target.value = '';
@@ -1557,21 +1683,76 @@ export default function ProductsPage() {
                                     </div>
                                 </div>
 
-                                {/* Facebook Integration */}
-                                <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f1f5f9', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                                                <Share2 size={16} />
+                                {/* Facebook & Instagram Integration */}
+                                <div style={{ marginTop: '1.5rem', padding: '1.25rem', background: '#f1f5f9', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Social Media Integration</div>
+                                    
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                        {/* Facebook */}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'white', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                                    <Facebook size={16} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Facebook</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Post to page</div>
+                                                </div>
                                             </div>
-                                            <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Facebook Meta Integration</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <button type="button" onClick={() => {
+                                                    const name = document.querySelector('input[name="name"]')?.value;
+                                                    const price = document.querySelector('input[name="price"]')?.value;
+                                                    const desc = document.querySelector('textarea[name="description"]')?.value;
+                                                    setPreviewModal({
+                                                        product: { name, price, image_url: (productImageUrl || '').split(',')[0] },
+                                                        caption: generateCaption({ name, price, description: desc, id: currentProduct?.id || 'new' }),
+                                                        platform: 'facebook'
+                                                    });
+                                                }} className="btn btn-secondary" style={{ padding: '0.3rem 0.5rem' }} title="Preview Facebook Post">
+                                                    <Eye size={14} />
+                                                </button>
+                                                <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
+                                                    <input type="checkbox" checked={postToFacebook} onChange={e => setPostToFacebook(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: postToFacebook ? '#1877F2' : '#ccc', borderRadius: '20px' }}>
+                                                        <span style={{ position: 'absolute', height: '14px', width: '14px', left: postToFacebook ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%' }}></span>
+                                                    </span>
+                                                </label>
+                                            </div>
                                         </div>
-                                        <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
-                                            <input type="checkbox" checked={postToFacebook} onChange={e => setPostToFacebook(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                                            <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: postToFacebook ? '#1877F2' : '#ccc', borderRadius: '20px' }}>
-                                                <span style={{ position: 'absolute', height: '14px', width: '14px', left: postToFacebook ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%' }}></span>
-                                            </span>
-                                        </label>
+
+                                        {/* Instagram */}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'white', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                                    <Instagram size={16} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Instagram</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Post to feed</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <button type="button" onClick={() => {
+                                                    const name = document.querySelector('input[name="name"]')?.value;
+                                                    const price = document.querySelector('input[name="price"]')?.value;
+                                                    const desc = document.querySelector('textarea[name="description"]')?.value;
+                                                    setPreviewModal({
+                                                        product: { name, price, image_url: (productImageUrl || '').split(',')[0] },
+                                                        caption: generateCaption({ name, price, description: desc, id: currentProduct?.id || 'new' }),
+                                                        platform: 'instagram'
+                                                    });
+                                                }} className="btn btn-secondary" style={{ padding: '0.3rem 0.5rem' }} title="Preview Instagram Post">
+                                                    <Eye size={14} />
+                                                </button>
+                                                <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
+                                                    <input type="checkbox" checked={postToInstagram} onChange={e => setPostToInstagram(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: postToInstagram ? '#E1306C' : '#ccc', borderRadius: '20px' }}>
+                                                        <span style={{ position: 'absolute', height: '14px', width: '14px', left: postToInstagram ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%' }}></span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1870,6 +2051,86 @@ export default function ProductsPage() {
                     )
                 }
 
+                {/* POST PREVIEW MODAL */}
+                {
+                    previewModal && (
+                        <ModalPortal>
+                        <div className="modal-overlay" onClick={() => setPreviewModal(null)}>
+                            <div className="modal-box shadow-premium" style={{ maxWidth: '640px', padding: '2rem', borderRadius: '24px', background: '#f8fafc' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                    <div>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Social Media Preview</h3>
+                                        <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>See how your product will look on Meta platforms.</p>
+                                    </div>
+                                    <button onClick={() => setPreviewModal(null)} className="btn btn-secondary" style={{ padding: '0.4rem', borderRadius: '50%' }}><X size={18} /></button>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: previewModal.platform ? '1fr' : '1fr 1fr', gap: '1.5rem', justifyContent: 'center' }}>
+                                    {/* Facebook Mock */}
+                                    {(!previewModal.platform || previewModal.platform === 'facebook') && (
+                                        <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f0f2f5' }}>
+                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Facebook size={16} /></div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Aiswarya Saree</div>
+                                            </div>
+                                            <div style={{ padding: '12px', fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                                {(() => {
+                                                    const parts = previewModal.caption.split('\n\n#');
+                                                    return (
+                                                        <>
+                                                            {parts[0]}
+                                                            {parts[1] && <div style={{ color: '#1877F2', marginTop: '0.5rem', fontWeight: 500 }}>#{parts[1]}</div>}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                            {previewModal.product.image_url && (
+                                                <div style={{ width: '100%', height: '320px', overflow: 'hidden', borderTop: '1px solid #eee' }}>
+                                                    <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            )}
+                                            <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#65676B', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Instagram Mock */}
+                                    {(!previewModal.platform || previewModal.platform === 'instagram') && (
+                                        <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content', margin: '0 auto', width: '100%', maxWidth: '400px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
+                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Instagram size={14} /></div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>aiswaryasaree</div>
+                                            </div>
+                                            {previewModal.product.image_url && (
+                                                <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}>
+                                                    <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            )}
+                                            <div style={{ padding: '12px' }}>
+                                                <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', fontSize: '1rem' }}>❤️ 💬 ↗️</div>
+                                                <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
+                                                    <span style={{ fontWeight: 700 }}>aiswaryasaree</span>{' '}
+                                                    {(() => {
+                                                        const parts = previewModal.caption.split('\n\n#');
+                                                        return (
+                                                            <>
+                                                                <span style={{ whiteSpace: 'pre-wrap' }}>{parts[0]}</span>
+                                                                {parts[1] && <div style={{ color: '#00376b', display: 'inline', marginLeft: '4px' }}>#{parts[1]}</div>}
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <button onClick={() => setPreviewModal(null)} className="btn btn-primary" style={{ width: '100%', marginTop: '2rem', height: '52px', borderRadius: '14px', fontSize: '1rem', fontWeight: 700 }}>Close Preview</button>
+                            </div>
+                        </div>
+                        </ModalPortal>
+                    )
+                }
+
                 {/* RESULT MODAL (Import/Export feedback) */}
                 {
                     resultModal && (
@@ -1959,10 +2220,11 @@ export default function ProductsPage() {
                                 <div className="modal-box shadow-premium" style={{ 
                                     maxWidth: '520px', padding: 0, borderRadius: '32px', 
                                     overflow: 'hidden', background: '#ffffff',
-                                    boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)'
+                                    boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
+                                    maxHeight: '90vh', overflowY: 'auto'
                                 }}>
-                                    <div style={{ padding: '3.5rem', textAlign: 'center' }}>
-                                        <div style={{
+                                    <div style={{ padding: '2rem', textAlign: 'center' }}>
+                                        {/* <div style={{
                                             width: '88px', height: '88px', borderRadius: '50%',
                                             background: '#f8fafc',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1971,7 +2233,7 @@ export default function ProductsPage() {
                                             boxShadow: '0 10px 20px -5px rgba(0,0,0,0.05)'
                                         }}>
                                             <ImageIcon size={40} strokeWidth={1.5} style={{ color: '#0f172a' }} />
-                                        </div>
+                                        </div> */}
                                         
                                         <h3 style={{ 
                                             fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', 
@@ -1981,30 +2243,30 @@ export default function ProductsPage() {
                                         </h3>
                                         <p style={{ 
                                             color: '#64748b', lineHeight: '1.6', fontSize: '1rem', 
-                                            marginBottom: '2.5rem'
+                                            marginBottom: '2rem'
                                         }}>
                                             This is a clean image. We will generate code <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span> and apply the watermark for you.
                                         </p>
 
-                                        <div style={{ 
+                                        {/* <div style={{ 
                                             background: '#f8fafc', 
                                             padding: '1.25rem', borderRadius: '24px', 
                                             marginBottom: '2.5rem', border: '1px solid #f1f5f9'
-                                        }}>
+                                        }}> */}
                                             <div style={{ borderRadius: '16px', overflow: 'hidden', background: '#fff', border: '1px solid #e2e8f0' }}>
                                                 <img src={watermarkModal.url} style={{ 
-                                                    width: '100%', height: '240px', objectFit: 'contain'
+                                                    width: '100%', height: '200px', objectFit: 'contain'
                                                 }} />
                                             </div>
-                                            <div style={{ 
+                                            {/* <div style={{ 
                                                 marginTop: '1.25rem', fontWeight: 800, color: '#0f172a', 
                                                 fontSize: '1.5rem', letterSpacing: '0.05em'
                                             }}>
                                                 {watermarkModal.detectedCode}
-                                            </div>
-                                        </div>
+                                            </div> */}
+                                        {/* </div> */}
 
-                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                        <div style={{ display: 'flex', gap: '1rem',marginTop:"2rem" }}>
                                             <button 
                                                 onClick={() => setWatermarkModal(null)} 
                                                 style={{ 

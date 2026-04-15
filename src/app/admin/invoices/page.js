@@ -200,8 +200,8 @@ export default function InvoicesPage() {
                     </div>
 
                     <table style={{ margin: 0 }}>
-                        <thead style={{ background: '#f1f5f9' }}>
-                            <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <thead>
+                            <tr>
                                 <th>Invoice #</th>
                                 <th>Customer</th>
                                 <th style={{ textAlign: 'right' }}>Amount</th>
@@ -218,10 +218,7 @@ export default function InvoicesPage() {
                                 paginatedInvoices.map(inv => (
                                     <tr key={inv.id}>
                                         <td style={{ padding: '1rem 1.5rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <FileText size={16} style={{ color: 'hsl(var(--primary))' }} />
-                                                <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>INV-{inv.id}</span>
-                                            </div>
+                                            <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>INV-{inv.id}</span>
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{inv.customer_name || 'WhatsApp Customer'}</div>
@@ -237,8 +234,8 @@ export default function InvoicesPage() {
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
                                             <button onClick={() => openInvoice(inv)}
-                                                className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
-                                                <Eye size={14} /> View
+                                                className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Invoice">
+                                                <Eye size={15} />
                                             </button>
                                         </td>
                                     </tr>

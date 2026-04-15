@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Clock, Package, Send, Loader2, Search, Trash2, Edit,
     CheckCircle2, AlertCircle, Calendar, Play, Pause,
-    Facebook, ChevronDown
+    Facebook, Instagram, Eye, ChevronDown, ArrowLeft
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import ModalPortal from '@/components/ModalPortal';
@@ -20,11 +20,15 @@ export default function SchedulePostPage() {
     const [showForm, setShowForm] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [caption, setCaption] = useState('');
+    const [hashtags, setHashtags] = useState('');
+    const [previewPlatform, setPreviewPlatform] = useState('facebook');
     const [scheduleDate, setScheduleDate] = useState('');
     const [scheduleTime, setScheduleTime] = useState('');
     const [productSearch, setProductSearch] = useState('');
     const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [platform, setPlatform] = useState('facebook'); // 'facebook' | 'instagram' | 'both'
+    const [showCreator, setShowCreator] = useState(false);
 
     // Filter
     const [statusFilter, setStatusFilter] = useState('ALL');
@@ -65,16 +69,18 @@ export default function SchedulePostPage() {
 
     // Generate default caption
     const generateCaption = (product) => {
-        if (!product) return '';
+        if (!product) return { caption: '', hashtags: '' };
         const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://castprintz.vercel.app';
-        return `${product.name}\n\nPrice: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\nShop now: ${shopUrl}/shop?pid=${product.id}\n\n#CastPrintz #Sarees #Fashion #IndianWear`;
+        const cap = `✨ ${product.name}\n\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\n🛍️ Shop now: ${shopUrl}/shop?pid=${product.id}`;
+        const tags = `#CastPrintz #Sarees #IndianFashion #EthnicWear #SareeLove #NewArrivals`;
+        return { caption: cap, hashtags: tags };
     };
 
     const selectProduct = (product) => {
         setSelectedProduct(product);
-        if (!caption || caption === generateCaption(selectedProduct)) {
-            setCaption(generateCaption(product));
-        }
+        const { caption: newCap, hashtags: newTags } = generateCaption(product);
+        setCaption(newCap);
+        setHashtags(newTags);
     };
 
     // Get minimum datetime (now + 10 minutes)
@@ -110,8 +116,9 @@ export default function SchedulePostPage() {
                 product_image: selectedProduct.image_url,
                 product_price: selectedProduct.price,
                 caption: caption,
+                hashtags: hashtags,
                 scheduled_at: scheduledAt.toISOString(),
-                platform: 'facebook',
+                platform: platform,
                 status: 'PENDING'
             };
 
@@ -142,6 +149,7 @@ export default function SchedulePostPage() {
         const product = products.find(p => p.id === post.product_id);
         setSelectedProduct(product || { id: post.product_id, name: post.product_name, image_url: post.product_image, price: post.product_price });
         setCaption(post.caption);
+        setHashtags(post.hashtags || '');
         const dt = new Date(post.scheduled_at);
         setScheduleDate(dt.toISOString().split('T')[0]);
         setScheduleTime(`${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`);
@@ -256,16 +264,209 @@ export default function SchedulePostPage() {
     return (
         <>
         <div className="animate-enter">
-            {/* Header */}
-            <div className="admin-header-row">
-                <div>
-                    <h1>Schedule Posts</h1>
-                    <p>Schedule product posts to Facebook at the perfect time</p>
-                </div>
-                <button onClick={() => { setShowForm(true); setEditingId(null); setSelectedProduct(null); setCaption(''); setScheduleDate(''); setScheduleTime(''); }} className="btn btn-primary">
-                    <Clock size={18} /> New Scheduled Post
-                </button>
-            </div>
+            {showCreator ? (
+                /* ═══ SCHEDULE POST CREATOR - SPLIT LAYOUT ═══ */
+                <>
+                    <div className="admin-header-row" style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <button onClick={() => { setShowCreator(false); setSelectedProduct(null); setCaption(''); setScheduleDate(''); setScheduleTime(''); setEditingId(null); }} className="btn btn-secondary" style={{ padding: '0.5rem', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ArrowLeft size={18} />
+                            </button>
+                            <div>
+                                <h1 style={{ marginBottom: '0.25rem' }}>{editingId ? 'Edit Scheduled Post' : 'Schedule New Post'}</h1>
+                                <p style={{ margin: 0, color: 'hsl(var(--text-muted))' }}>Create and preview your social media post</p>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                            <button onClick={() => setPreviewPlatform('facebook')} style={{
+                                display: 'flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', transition: 'all 0.2s',
+                                background: previewPlatform === 'facebook' ? '#1877F2' : 'transparent',
+                                color: previewPlatform === 'facebook' ? 'white' : 'hsl(var(--text-muted))'
+                            }}>
+                                <Facebook size={16} /> Facebook
+                            </button>
+                            <button onClick={() => setPreviewPlatform('instagram')} style={{
+                                display: 'flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', transition: 'all 0.2s',
+                                background: previewPlatform === 'instagram' ? '#E1306C' : 'transparent',
+                                color: previewPlatform === 'instagram' ? 'white' : 'hsl(var(--text-muted))'
+                            }}>
+                                <Instagram size={16} /> Instagram
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+                        {/* ═══ LEFT: FORM ═══ */}
+                        <div className="card" style={{ padding: '1.5rem' }}>
+                            {/* Select Product */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    <Package size={14} /> Select Product
+                                </label>
+                                {selectedProduct ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', background: 'hsl(var(--primary) / 0.08)', borderRadius: '12px', border: '2px solid hsl(var(--primary))' }}>
+                                        <img src={selectedProduct.image_url} alt="" style={{ width: '55px', height: '55px', borderRadius: '10px', objectFit: 'cover' }} onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=100&q=60'; }} />
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{selectedProduct.name}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>₹{(selectedProduct.price || 0).toLocaleString()}</div>
+                                        </div>
+                                        <button onClick={() => setSelectedProduct(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '18px', lineHeight: 1 }}>&times;</button>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                                            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                                            <input type="text" placeholder="Search products..." value={productSearch} onChange={e => setProductSearch(e.target.value)}
+                                                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2rem', borderRadius: '8px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+                                            {filteredProducts.slice(0, 20).map(p => (
+                                                <div key={p.id} onClick={() => selectProduct(p)}
+                                                    style={{ padding: '0.5rem', cursor: 'pointer', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', background: '#f1f5f9', transition: 'all 0.15s' }}>
+                                                    <div style={{ height: '60px', borderRadius: '6px', overflow: 'hidden', marginBottom: '0.25rem' }}>
+                                                        <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=60'; }} />
+                                                    </div>
+                                                    <div style={{ fontWeight: 600, fontSize: '0.68rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                                    <div style={{ fontSize: '0.65rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>₹{(p.price || 0).toLocaleString()}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Post Caption */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Caption
+                                </label>
+                                <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="Write your post content..."
+                                    style={{ ...inputStyle, minHeight: '120px', resize: 'vertical', marginBottom: '1rem' }} />
+
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Hashtags
+                                </label>
+                                <textarea value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="#Tag1 #Tag2..."
+                                    style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} />
+                            </div>
+
+                            {/* Platform Selection */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Platform
+                                </label>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    {[
+                                        { key: 'facebook', label: 'Facebook', icon: <Facebook size={14} />, color: '#1877F2' },
+                                        { key: 'instagram', label: 'Instagram', icon: <Instagram size={14} />, color: '#E1306C' },
+                                        { key: 'both', label: 'Both', icon: <><Facebook size={12} /><Instagram size={12} /></>, color: 'hsl(var(--primary))' }
+                                    ].map(p => (
+                                        <button key={p.key} type="button" onClick={() => setPlatform(p.key)}
+                                            style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: platform === p.key ? `2px solid ${p.color}` : '1px solid hsl(var(--border-subtle))', background: platform === p.key ? `${p.color}15` : '#f1f5f9', color: platform === p.key ? p.color : 'hsl(var(--text-muted))', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}>
+                                            {p.icon} {p.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Date & Time */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    <Calendar size={14} /> Schedule Date & Time
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                    <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} min={getMinDate()}
+                                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer', outline: 'none' }} />
+                                    <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}
+                                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer', outline: 'none' }} />
+                                </div>
+                            </div>
+
+                            {/* Save Button */}
+                            <button onClick={handleSave} disabled={saving || !selectedProduct || !caption || !scheduleDate || !scheduleTime}
+                                className="btn btn-primary" style={{ width: '100%', padding: '0.85rem', opacity: (saving || !selectedProduct || !caption || !scheduleDate || !scheduleTime) ? 0.5 : 1 }}>
+                                {saving ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite', marginRight: '6px' }} /> Saving...</> : <><Clock size={16} style={{ marginRight: '6px' }} /> {editingId ? 'Update Schedule' : 'Schedule Post'}</>}
+                            </button>
+                        </div>
+
+                        {/* ═══ RIGHT: LIVE PREVIEW ═══ */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '2rem' }}>
+                            {/* Facebook Preview */}
+                            {previewPlatform === 'facebook' && (
+                                <div className="card animate-enter" style={{ padding: 0, overflow: 'hidden', border: '2px solid #1877F2' }}>
+                                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f0f7ff' }}>
+                                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Facebook size={14} /></div>
+                                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1877F2' }}>Facebook Preview</span>
+                                    </div>
+                                    <div style={{ padding: '1rem' }}>
+                                        <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '0.8rem' }}>A</div>
+                                                <div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Aiswarya Saree</div>
+                                                    <div style={{ fontSize: '0.7rem', color: '#65676B' }}>{scheduleDate && scheduleTime ? new Date(`${scheduleDate}T${scheduleTime}`).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Scheduled time'}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ padding: '0 12px 8px', fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', color: '#050505' }}>
+                                                {caption || 'Your caption will appear here...'}
+                                                <div style={{ marginTop: '0.5rem', color: '#1877F2', fontWeight: 500 }}>{hashtags}</div>
+                                            </div>
+                                            {selectedProduct?.image_url && (
+                                                <img src={selectedProduct.image_url} alt="" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
+                                            )}
+                                            <div style={{ padding: '8px 12px', fontSize: '0.8rem', fontWeight: 700, color: '#65676B', borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Instagram Preview */}
+                            {previewPlatform === 'instagram' && (
+                                <div className="card animate-enter" style={{ padding: 0, overflow: 'hidden', border: '2px solid #E1306C' }}>
+                                    <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fff0f5' }}>
+                                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><Instagram size={14} /></div>
+                                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#E1306C' }}>Instagram Preview</span>
+                                    </div>
+                                    <div style={{ padding: '1rem', display: 'flex', justifyContent: 'center' }}>
+                                        <div style={{ width: '300px', background: 'white', borderRadius: '4px', border: '1px solid #ddd', overflow: 'hidden' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
+                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '0.7rem' }}>A</div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>aiswaryasaree</div>
+                                            </div>
+                                            {selectedProduct?.image_url ? (
+                                                <img src={selectedProduct.image_url} alt="" style={{ width: '300px', height: '300px', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
+                                            ) : (
+                                                <div style={{ width: '300px', height: '300px', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.85rem' }}>No image</div>
+                                            )}
+                                            <div style={{ padding: '10px 12px' }}>
+                                                <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', fontSize: '1.1rem' }}>❤️ 💬 ↗️</div>
+                                                <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
+                                                    <span style={{ fontWeight: 700 }}>aiswaryasaree</span>{' '}
+                                                    <span style={{ whiteSpace: 'pre-wrap' }}>{caption}</span>
+                                                    <div style={{ color: '#00376b', display: 'block', marginTop: '1rem', fontWeight: 500 }}>{hashtags}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>
+            ) : (
+                /* ═══ SCHEDULE LIST VIEW ═══ */
+                <>
+                    <div className="admin-header-row">
+                        <div>
+                            <h1>Schedule Posts</h1>
+                            <p>Schedule product posts to Facebook & Instagram</p>
+                        </div>
+                        <button onClick={() => { setShowCreator(true); setEditingId(null); setSelectedProduct(null); setCaption(''); setScheduleDate(''); setScheduleTime(''); setPlatform('facebook'); }} className="btn btn-primary">
+                            <Clock size={18} /> New Scheduled Post
+                        </button>
+                    </div>
 
             {/* FB Connection Warning */}
             {!fbConfig.pageId && (
@@ -286,12 +487,12 @@ export default function SchedulePostPage() {
                     { label: 'Posted', value: postedCount, icon: <CheckCircle2 size={18} />, color: 'hsl(var(--success))' },
                     { label: 'Failed', value: failedCount, icon: <AlertCircle size={18} />, color: 'hsl(var(--danger))' },
                 ].map((s, i) => (
-                    <div key={i} className="card" style={{ padding: '1.25rem', borderTop: `3px solid ${s.color}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div key={i} className="card" style={{ padding: '1.25rem', borderTop: '3px solid ' + s.color, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div>
                             <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
                             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: s.color, fontFamily: 'var(--font-heading)' }}>{s.value}</div>
                         </div>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `color-mix(in srgb, ${s.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>{s.icon}</div>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'color-mix(in srgb, ' + s.color + ' 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>{s.icon}</div>
                     </div>
                 ))}
             </div>
@@ -311,14 +512,15 @@ export default function SchedulePostPage() {
                     <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>
                         <Clock size={40} style={{ opacity: 0.3, marginBottom: '1rem' }} />
                         <p style={{ fontSize: '0.9rem' }}>No scheduled posts yet.</p>
-                        <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ marginTop: '0.75rem' }}>Create Your First Post</button>
+                        <button onClick={() => setShowCreator(true)} className="btn btn-primary" style={{ marginTop: '0.75rem' }}>Create Your First Post</button>
                     </div>
                 ) : (
                     <table style={{ margin: 0 }}>
-                        <thead style={{ background: '#f1f5f9' }}>
-                            <tr style={{ color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <thead>
+                            <tr>
                                 <th>Product</th>
                                 <th>Scheduled For</th>
+                                <th>Hashtags</th>
                                 <th>Platform</th>
                                 <th style={{ textAlign: 'center' }}>Status</th>
                                 <th style={{ textAlign: 'right' }}>Actions</th>
@@ -358,9 +560,17 @@ export default function SchedulePostPage() {
                                             </div>
                                         </td>
                                         <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Facebook size={14} color="#1877F2" />
-                                                <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Facebook</span>
+                                            <div style={{ fontSize: '0.72rem', color: '#1877F2', fontWeight: 600, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {post.hashtags || '#NoTags'}
+                                            </div>
+                                        </td>
+                                        <td style={{ cursor: 'pointer' }} onClick={() => handleEdit(post)}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <Facebook size={16} color={post.platform === 'facebook' || post.platform === 'both' ? "#1877F2" : "#ccc"} />
+                                                <Instagram size={16} color={post.platform === 'instagram' || post.platform === 'both' ? "#E1306C" : "#ccc"} />
+                                                <button title="Post Preview" className="btn btn-secondary" style={{ padding: '4px', marginLeft: '4px' }}>
+                                                    <Eye size={14} />
+                                                </button>
                                             </div>
                                         </td>
                                         <td style={{ textAlign: 'center' }}>
@@ -405,120 +615,7 @@ export default function SchedulePostPage() {
                 )}
             </div>
 
-            {/* ═══ SCHEDULE POST MODAL ═══ */}
-            {showForm && (
-                <ModalPortal>
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-                    onClick={() => setShowForm(false)}>
-                    <div onClick={e => e.stopPropagation()} className="card" style={{ width: '700px', maxHeight: '90vh', overflowY: 'auto', padding: 0, border: '1px solid hsl(var(--primary) / 0.3)', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
-
-                        {/* Modal Header */}
-                        <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f1f5f9' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <div style={{ padding: '8px', background: '#1877F2', borderRadius: '10px', color: 'white' }}><Facebook size={18} /></div>
-                                <h2 style={{ fontSize: '1.15rem', margin: 0 }}>{editingId ? 'Edit Scheduled Post' : 'Schedule New Post'}</h2>
-                            </div>
-                            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '24px', lineHeight: 1 }}>&times;</button>
-                        </div>
-
-                        <div style={{ padding: '1.5rem 1.75rem' }}>
-                            {/* Step 1: Select Product */}
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                    <Package size={14} /> Select Product
-                                </label>
-
-                                {selectedProduct ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', background: 'hsl(var(--primary) / 0.08)', borderRadius: '12px', border: '2px solid hsl(var(--primary))' }}>
-                                        <img src={selectedProduct.image_url} alt="" style={{ width: '55px', height: '55px', borderRadius: '10px', objectFit: 'cover' }}
-                                            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=100&q=60'; }} />
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{selectedProduct.name}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>₹{(selectedProduct.price || 0).toLocaleString()}</div>
-                                        </div>
-                                        <button onClick={() => setSelectedProduct(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', fontSize: '18px', lineHeight: 1 }}>&times;</button>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        {/* Search */}
-                                        <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
-                                            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                                            <input type="text" placeholder="Search products..." value={productSearch} onChange={e => setProductSearch(e.target.value)}
-                                                style={{ ...inputStyle, paddingLeft: '2rem', fontSize: '0.82rem' }} />
-                                        </div>
-                                        {/* Product Grid */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.6rem', maxHeight: '220px', overflowY: 'auto' }}>
-                                            {filteredProducts.slice(0, 20).map(p => (
-                                                <div key={p.id} onClick={() => selectProduct(p)}
-                                                    style={{ padding: '0.5rem', cursor: 'pointer', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: '#f1f5f9', transition: 'all 0.15s' }}>
-                                                    <div style={{ height: '70px', borderRadius: '7px', overflow: 'hidden', marginBottom: '0.3rem' }}>
-                                                        <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=60'; }} />
-                                                    </div>
-                                                    <div style={{ fontWeight: 600, fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                                    <div style={{ fontSize: '0.68rem', color: 'hsl(var(--primary))', fontWeight: 700 }}>₹{(p.price || 0).toLocaleString()}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Step 2: Caption */}
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                    <Edit size={14} /> Post Caption
-                                </label>
-                                <textarea value={caption} onChange={e => setCaption(e.target.value)} rows={5}
-                                    placeholder="Write your Facebook post caption..."
-                                    style={{ ...inputStyle, resize: 'vertical', lineHeight: '1.5' }} />
-                                <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>{caption.length} characters</div>
-                            </div>
-
-                            {/* Step 3: Date & Time */}
-                            <div style={{ marginBottom: '1.75rem' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                    <Calendar size={14} /> Schedule Date & Time
-                                </label>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '4px' }}>Date</div>
-                                        <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} min={getMinDate()}
-                                            style={{ ...inputStyle, cursor: 'pointer' }} />
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '4px' }}>Time</div>
-                                        <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}
-                                            style={{ ...inputStyle, cursor: 'pointer' }} />
-                                    </div>
-                                </div>
-                                {scheduleDate && scheduleTime && (
-                                    <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: 'hsl(var(--primary))', fontWeight: 600 }}>
-                                        Will post on {new Date(`${scheduleDate}T${scheduleTime}`).toLocaleString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Actions */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                                <button onClick={() => setShowForm(false)} className="btn btn-secondary">Cancel</button>
-                                <button onClick={handleSave} disabled={saving || !selectedProduct || !caption || !scheduleDate || !scheduleTime}
-                                    className="btn btn-primary"
-                                    style={{
-                                        background: '#1877F2', borderColor: '#1877F2',
-                                        opacity: (saving || !selectedProduct || !caption || !scheduleDate || !scheduleTime) ? 0.5 : 1
-                                    }}>
-                                    {saving ? (
-                                        <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite', marginRight: '6px' }} /> Saving...</>
-                                    ) : (
-                                        <><Clock size={16} style={{ marginRight: '6px' }} /> {editingId ? 'Update Schedule' : 'Schedule Post'}</>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                </ModalPortal>
+                </>
             )}
         </div>
         <style jsx>{`

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
+
 /* Fonts are handled via system stack for build reliability */
 
 :root {
@@ -6,48 +8,55 @@
   --font-heading: 'Roboto', sans-serif;
   --font-body: 'Roboto', sans-serif;
 
-  /* Premium Black & Monochromatic Palette */
-  --bg-app: 0 0% 98%;           /* #f9f9f9 - Ultra-light neutral grey */
-  --bg-panel: 0 0% 5%;           /* #0d0d0d - Deep Matte Black for Sidebar/Header */
-  --bg-card: 0 0% 100%;          /* #ffffff - Pure White for Cards */
-  --bg-input: 0 0% 100%;
+  /* ── Background Surfaces ── */
+  --bg-app: 220 14% 96%;          /* #f1f5f9 - Cool grey app background */
+  --bg-panel: 220 14% 5%;         /* #0d1117 - Deep dark for Sidebar/Header */
+  --bg-card: 0 0% 100%;           /* #ffffff - Pure White for Cards */
+  --bg-input: 0 0% 100%;          /* White inputs */
+  --bg-table-header: 215 28% 95%; /* #eef2f7 - Subtle cool grey for table headers */
 
-  /* Premium Black Accents */
-  --primary: 0 0% 10%;           /* #1a1a1a - Matte Black */
-  --primary-light: 0 0% 25%;     /* Medium-dark charcoal */
-  --primary-dark: 0 0% -5%;      /* Pure deep black */
+  /* ── Brand / Primary ── */
+  --primary: 220 14% 10%;         /* #171b22 - Deep charcoal brand */
+  --primary-light: 220 10% 25%;   /* Medium-dark charcoal */
+  --primary-dark: 220 14% 4%;     /* Near-black */
+  --primary-hover: 220 14% 18%;   /* Slightly lighter for hover */
 
-  --secondary: 210 10% 25%;     /* Dark slate blue/grey */
+  /* ── Secondary & Accent ── */
+  --secondary: 215 16% 47%;       /* #607d8b - Steel blue-grey */
+  --accent: 220 90% 56%;          /* #3b82f6 - Vibrant blue accent */
 
-  /* Text Colors - Professional Monochrome System */
-  --text-main: 0 0% 5%;          /* #0d0d0d - Pure Black/Deepest Grey */
-  --text-muted: 0 0% 35%;        /* #595959 - Mid Grey (Visible on both) */
-  --text-dim: 0 0% 60%;          /* #999999 - Light Grey */
-  --accent: 0 0% 10%;           /* Premium Matte Black (Matching Primary) */
-  --text-on-primary: 0 0% 100%;
+  /* ── Text Colors ── */
+  --text-main: 220 14% 10%;       /* #171b22 - Near-black primary text */
+  --text-muted: 220 9% 46%;       /* #6b7280 - Visible grey for secondary text */
+  --text-dim: 220 9% 60%;         /* #94a3b8 - Light grey for placeholders */
+  --text-on-primary: 0 0% 100%;   /* White text on dark backgrounds */
 
-  /* UI Elements */
-  --border-subtle: 0 0% 92%;     /* Light grey border */
-  --border-bright: 0 0% 88%;
+  /* ── Borders ── */
+  --border-subtle: 220 13% 91%;   /* #e5e7eb - Light border */
+  --border-bright: 220 13% 86%;   /* #d1d5db - Slightly darker border */
 
-  /* Functional Colors (Monochromatic Neutralized) */
-  --success: 0 0% 20%;           /* Dark charcoal for success */
-  --warning: 0 0% 40%;           /* Medium charcoal for warning */
-  --danger: 0 0% 30%;            /* Dark charcoal for danger */
-  --info: 0 0% 40%;              /* Grey for info */
+  /* ── Semantic / Functional Colors ── */
+  --success: 160 84% 39%;         /* #10b981 - Emerald green */
+  --success-light: 160 84% 95%;   /* #ecfdf5 - Light emerald bg */
+  --warning: 38 92% 50%;          /* #f59e0b - Amber */
+  --warning-light: 38 92% 95%;    /* #fffbeb - Light amber bg */
+  --danger: 0 84% 60%;            /* #ef4444 - Red */
+  --danger-light: 0 84% 97%;      /* #fef2f2 - Light red bg */
+  --info: 217 91% 60%;            /* #3b82f6 - Blue */
+  --info-light: 217 91% 96%;      /* #eff6ff - Light blue bg */
 
-  /* Dimensions & Spacing */
+  /* ── Dimensions & Spacing ── */
   --radius-sm: 0.5rem;
   --radius: 0.75rem;
   --radius-lg: 1.25rem;
   --sidebar-width: 20rem;
 
-  /* Premium Effects */
+  /* ── Premium Effects ── */
   --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.05);
   --shadow-card: 0 10px 40px -10px rgb(0 0 0 / 0.08);
   --shadow-glow: 0 0 20px -5px rgb(0 0 0 / 0.1);
 
-  /* Glassmorphism for Light Theme */
+  /* ── Glassmorphism ── */
   --glass-bg: rgba(255, 255, 255, 0.85);
   --glass-border: 1px solid rgba(0, 0, 0, 0.08);
 }
@@ -339,33 +348,26 @@ p {
 table {
   width: 100%;
   border-collapse: collapse;
-  /* Cleaner than separate */
 }
 
 th {
   text-align: left;
   padding: 1.25rem 1.5rem;
-  color: hsl(var(--text-dim));
+  color: hsl(var(--text-muted));
   font-family: var(--font-body);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-weight: 800;
   border-bottom: 1px solid hsl(var(--border-subtle));
-}
-
-/* Fix for table headers on dark background (bg-panel) */
-thead[style*="background: hsl(var(--bg-panel))"] th,
-thead[style*="bg-panel"] th {
-  color: #ffffff !important;
-  opacity: 1;
+  background: hsl(var(--bg-table-header));
 }
 
 td {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid hsl(var(--border-subtle));
   color: hsl(var(--text-main));
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   vertical-align: middle;
 }
 
@@ -377,54 +379,210 @@ tr:hover td {
   background: hsl(var(--text-main) / 0.02);
 }
 
+/* ── Unified Admin Table Card ── */
+.admin-table-card {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid hsl(var(--border-subtle));
+  overflow: hidden;
+}
+
+.admin-table-card .table-search {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid hsl(var(--border-subtle));
+}
+
+.admin-table-card .table-search .search-wrapper {
+  position: relative;
+  max-width: 400px;
+}
+
+.admin-table-card .table-search .search-wrapper svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: hsl(var(--text-muted));
+}
+
+.admin-table-card .table-search input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  background: hsl(var(--bg-app));
+  border: 1px solid hsl(var(--border-subtle));
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border 0.2s;
+  color: hsl(var(--text-main));
+  font-family: inherit;
+}
+
+.admin-table-card .table-search input:focus {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.08);
+}
+
+.admin-table-card .table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* ── Standard Action Buttons for Tables ── */
+.table-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.table-btn-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border-subtle));
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: hsl(var(--text-muted));
+}
+
+.table-btn-icon:hover {
+  border-color: hsl(var(--accent));
+  color: hsl(var(--accent));
+  background: hsl(var(--info-light));
+}
+
+.table-btn-icon.danger:hover {
+  border-color: hsl(var(--danger));
+  color: hsl(var(--danger));
+  background: hsl(var(--danger-light));
+}
+
+/* ── Standard Status Indicators ── */
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.active { color: hsl(var(--success)); }
+.status-dot.active::before { background: hsl(var(--success)); box-shadow: 0 0 0 3px hsl(var(--success) / 0.15); }
+.status-dot.inactive { color: hsl(var(--text-dim)); }
+.status-dot.inactive::before { background: hsl(var(--border-bright)); }
+
+/* ── Table Pagination ── */
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border-top: 1px solid hsl(var(--border-subtle));
+}
+
+.table-pagination span {
+  font-size: 0.85rem;
+  color: hsl(var(--text-muted));
+  font-weight: 600;
+}
+
+/* ── Empty State ── */
+.table-empty {
+  padding: 5rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: hsl(var(--text-muted));
+}
+
+.table-empty h3 {
+  margin: 1rem 0 0;
+  color: hsl(var(--text-main));
+}
+
+.table-empty p {
+  max-width: 400px;
+}
+
 /* ── Badges ── */
 .badge {
   display: inline-flex;
   align-items: center;
+  gap: 0.4rem;
   padding: 0.25rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   line-height: 1;
   white-space: nowrap;
 }
 
 .badge-new {
-  background: hsl(var(--info) / 0.15);
+  background: hsl(var(--info-light));
   color: hsl(var(--info));
-  border: 1px solid hsl(var(--info) / 0.25);
+  border: 1px solid hsl(var(--info) / 0.2);
 }
 
 .badge-placed {
-  background: hsl(var(--warning) / 0.15);
+  background: hsl(var(--warning-light));
   color: hsl(var(--warning));
-  border: 1px solid hsl(var(--warning) / 0.25);
+  border: 1px solid hsl(var(--warning) / 0.2);
 }
 
 .badge-paid {
-  background: hsl(var(--success) / 0.15);
+  background: hsl(var(--success-light));
   color: hsl(var(--success));
-  border: 1px solid hsl(var(--success) / 0.25);
+  border: 1px solid hsl(var(--success) / 0.2);
 }
 
 .badge-shipped {
-  background: hsl(var(--secondary) / 0.15);
-  color: hsl(var(--secondary));
-  border: 1px solid hsl(var(--secondary) / 0.25);
+  background: hsl(var(--info-light));
+  color: hsl(var(--info));
+  border: 1px solid hsl(var(--info) / 0.2);
 }
 
 .badge-delivered {
-  background: hsl(var(--success) / 0.1);
+  background: hsl(var(--success-light));
   color: hsl(var(--success));
   border: 1px solid hsl(var(--success) / 0.2);
 }
 
 .badge-cancelled {
-  background: hsl(var(--danger) / 0.15);
+  background: hsl(var(--danger-light));
   color: hsl(var(--danger));
-  border: 1px solid hsl(var(--danger) / 0.25);
+  border: 1px solid hsl(var(--danger) / 0.2);
+}
+
+/* Role badges */
+.badge-admin {
+  background: hsl(var(--info-light));
+  color: hsl(var(--info));
+}
+
+.badge-super_admin {
+  background: hsl(var(--danger-light));
+  color: hsl(var(--danger));
+}
+
+.badge-manager {
+  background: hsl(var(--success-light));
+  color: hsl(var(--success));
 }
 
 /* ── Animations ── */

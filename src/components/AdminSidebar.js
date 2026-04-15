@@ -8,14 +8,15 @@ import { useState, useEffect } from 'react';
 
 
 const menuItems = [
-    { 
-        name: 'Dashboard', 
-        icon: TrendingUp, 
-        children: [
-            { name: 'Dashboard', href: '/admin' },
-            { name: 'Analytics', href: '/admin/analytics' }
-        ]
-    },
+    // { 
+    //     name: 'Dashboard', 
+    //     icon: TrendingUp, 
+    //     children: [
+    //         { name: 'Dashboard', href: '/admin' },
+    //         { name: 'Analytics', href: '/admin/analytics' }
+    //     ]
+    // },
+    { name: 'Dashboard', href: '/admin', icon: TrendingUp },
     { name: 'Products', href: '/admin/products', icon: ShoppingCart },
     { name: 'Orders', href: '/admin/orders', icon: Package },
     { name: 'Customers', href: '/admin/customers', icon: Users },
@@ -27,9 +28,9 @@ const menuItems = [
             { name: 'Invoice Report', href: '/admin/invoices/report' }
         ]
     },
+    { name: 'Shipping', href: '/admin/shipping', icon: Truck },
     { name: 'Refunds', href: '/admin/refunds', icon: RefreshCcw },
     { name: 'Returns', href: '/admin/returns', icon: CornerDownLeft },
-    { name: 'Shipping', href: '/admin/shipping', icon: Truck },
     { 
         name: 'Social Media', 
         icon: Megaphone, 
@@ -41,10 +42,9 @@ const menuItems = [
         ]
     },
     { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
-    { name: 'Payment Gateway', href: '/admin/payments', icon: CreditCard },
     { name: 'CMS', href: '/admin/cms', icon: Layout },
     { name: 'User Management', href: '/admin/users', icon: Users },
-    { name: 'Shop Settings', href: '/admin/shop-settings', icon: Settings },
+    { name: 'Settings', href: '/admin/shop-settings', icon: Settings },
 ];
 
 export default function AdminSidebar({ isOpen }) {
@@ -121,22 +121,22 @@ export default function AdminSidebar({ isOpen }) {
             </div>
 
             {/* WhatsApp Status */}
-            <div style={{
+            {/* <div style={{
                 margin: '0 0 1.5rem', padding: '0.75rem 1rem',
                 background: 'rgba(255, 255, 255, 0.03)',
                 borderRadius: 'var(--radius)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 display: 'flex', alignItems: 'center', gap: '0.85rem'
-            }}>
-                <div style={{ position: 'relative', display: 'flex' }}>
+            }}> */}
+                {/* <div style={{ position: 'relative', display: 'flex' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--success))' }} />
                     <div style={{ position: 'absolute', inset: -4, borderRadius: '50%', background: 'hsl(var(--success))', opacity: 0.3, animation: 'pulse 2s infinite' }} />
-                </div>
-                <div>
+                </div> */}
+                {/* <div>
                     <span style={{ color: 'white', fontWeight: 700, fontSize: '0.75rem', display: 'block' }}>WhatsApp Active</span>
                     <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.65rem', display: 'block' }}>Bot is online</span>
-                </div>
-            </div>
+                </div> */}
+            {/* </div> */}
 
             {/* Navigation — takes up available space */}
             <nav style={{ flex: 1 }}>
@@ -213,6 +213,16 @@ export default function AdminSidebar({ isOpen }) {
                                 if (isActive) {
                                     window.dispatchEvent(new Event('resetAdminView'));
                                 }
+                            }}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                                padding: '0.8rem 1rem',
+                                color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
+                                fontSize: '0.9rem', fontWeight: isActive ? 700 : 500,
+                                textDecoration: 'none',
+                                transition: 'all 0.2s',
+                                borderRadius: '10px',
+                                fontFamily: 'var(--font-roboto)'
                             }}
                         >
                             <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} />

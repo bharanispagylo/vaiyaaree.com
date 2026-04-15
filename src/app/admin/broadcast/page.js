@@ -35,6 +35,7 @@ export default function BroadcastPage() {
     const [completed, setCompleted] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null); // { title, message, onConfirm }
     const [notification, setNotification] = useState(null);
+    const [activeTab, setActiveTab] = useState('PRODUCTS'); // PRODUCTS, CUSTOMERS, MESSAGE, SUMMARY
 
     useEffect(() => {
         setHasMounted(true);
@@ -74,18 +75,18 @@ export default function BroadcastPage() {
 
     // ─── HELPERS ────────────────────────────────────────────────────
     const getTier = (spent) => {
-        if (spent >= 20000) return 'VIP';
-        if (spent >= 10000) return 'Gold';
-        if (spent >= 5000) return 'Silver';
+        if (spent >= 15000) return 'VIP';
+        if (spent >= 7000) return 'Gold';
+        if (spent >= 2000) return 'Silver';
         return 'Regular';
     };
 
     const getTierStyle = (tier) => {
         switch (tier) {
-            case 'VIP': return { bg: 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))', color: '#3f2203', label: 'VIP' };
-            case 'Gold': return { bg: 'hsl(48 96% 89%)', color: 'hsl(38 92% 50%)', label: 'Gold' };
-            case 'Silver': return { bg: '#f1f5f9', color: 'hsl(var(--text-muted))', label: 'Silver' };
-            default: return { bg: 'transparent', color: 'hsl(var(--text-muted))', label: 'Regular' };
+            case 'VIP': return { bg: 'hsl(var(--primary))', color: 'white', label: 'VIP' };
+            case 'Gold': return { bg: 'hsl(var(--success))', color: 'white', label: 'Gold' };
+            case 'Silver': return { bg: 'hsl(var(--warning))', color: 'white', label: 'Silver' };
+            default: return { bg: '#94a3b8', color: 'white', label: 'Regular' };
         }
     };
 
@@ -265,411 +266,396 @@ export default function BroadcastPage() {
 
     return (
         <>
-            <div className="animate-enter">
-            {/* Header */}
-                <div>
-                    <h1>Broadcast Center</h1>
-                    <p>Group products & customers, then broadcast targeted messages via WhatsApp</p>
+                <div style={{ marginBottom: '2rem' }}>
+                    <h1 style={{ marginBottom: '0.25rem' }}>Broadcast Center</h1>
+                    <p style={{ margin: 0, color: 'hsl(var(--text-muted))' }}>Sequence your campaign: Select Products → Target Customers → Compose Message → Send</p>
                 </div>
 
-            {/* Quick Stats */}
-            <div className="admin-grid-3" style={{ marginBottom: '1.5rem' }}>
+                {/* Quick Stats */}
+            <div className="admin-grid-3" style={{ marginBottom: '2rem' }}>
                 {[
-                    { label: 'Products Selected', value: selectedProducts.size, total: products.length, icon: <Package size={18} />, color: 'hsl(var(--primary))' },
-                    { label: 'Customers Selected', value: selectedCustomers.size, total: customers.length, icon: <Users size={18} />, color: 'hsl(var(--accent))' },
-                    { label: 'Messages to Send', value: selectedCustomers.size * Math.max(selectedProducts.size, 1), icon: <MessageSquare size={18} />, color: 'hsl(var(--success))' },
+                    { label: 'Products', value: selectedProducts.size, total: products.length, icon: <Package size={18} />, color: 'hsl(var(--primary))' },
+                    { label: 'Audience', value: selectedCustomers.size, total: customers.length, icon: <Users size={18} />, color: 'hsl(var(--accent))' },
+                    { label: 'Broadcasts', value: selectedCustomers.size * Math.max(selectedProducts.size, 1), icon: <MessageSquare size={18} />, color: 'hsl(var(--success))' },
                 ].map((s, i) => (
-                    <div key={i} className="card" style={{ padding: '1.25rem', borderTop: `3px solid ${s.color}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div key={i} className="card" style={{ padding: '1.25rem', borderLeft: `4px solid ${s.color}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white' }}>
                         <div>
-                            <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: s.color, fontFamily: 'var(--font-heading)' }}>
-                                {s.value}{s.total ? <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'hsl(var(--text-muted))' }}> / {s.total}</span> : null}
+                            <div style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '0.15rem', color: 'hsl(var(--text-main))' }}>
+                                {s.value}{s.total ? <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'hsl(var(--text-muted))' }}> / {s.total}</span> : null}
                             </div>
                         </div>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `color-mix(in srgb, ${s.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>{s.icon}</div>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `color-mix(in srgb, ${s.color} 10%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>{s.icon}</div>
                     </div>
                 ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '1.5rem' }}>
-                {/* LEFT COLUMN: Product & Customer Selection */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Attached Tab Navigation */}
+                <div style={{ 
+                    display: 'flex', gap: '4px', padding: '6px', background: 'white', 
+                    borderRadius: '20px 20px 0 0', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none',
+                    boxShadow: '0 -4px 6px -1px rgb(0 0 0 / 0.05)'
+                }}>
+                    {[
+                        { id: 'PRODUCTS', label: '1. Products', icon: <Package size={16} /> },
+                        { id: 'CUSTOMERS', label: '2. Audience', icon: <Users size={16} /> },
+                        { id: 'MESSAGE', label: '3. Message', icon: <MessageSquare size={16} /> },
+                        { id: 'SUMMARY', label: '4. Summary', icon: <Send size={16} /> }
+                    ].map((tab) => {
+                        const isActive = activeTab === tab.id;
+                        const isDone = (tab.id === 'PRODUCTS' && selectedProducts.size > 0) || 
+                                       (tab.id === 'CUSTOMERS' && selectedCustomers.size > 0) ||
+                                       (tab.id === 'MESSAGE' && message.trim().length > 0);
 
-                    {/* ═══ STEP 1: SELECT PRODUCTS ═══ */}
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                        {/* Section Header - Collapsible */}
-                        <div
-                            onClick={() => setProductSectionOpen(!productSectionOpen)}
-                            style={{
-                                padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', background: '#f1f5f9', borderBottom: productSectionOpen ? '1px solid hsl(var(--border-subtle))' : 'none'
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <div style={{
-                                    width: '26px', height: '26px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 700,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: selectedProducts.size > 0 ? 'hsl(var(--success))' : 'hsl(var(--accent))',
+                        return (
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                style={{
+                                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                    padding: '0.85rem 1rem', borderRadius: '14px', border: 'none', cursor: 'pointer',
+                                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    background: isActive ? 'hsl(var(--primary))' : 'transparent',
+                                    color: isActive ? 'white' : 'hsl(var(--text-muted))',
+                                    fontWeight: isActive ? 700 : 500,
+                                    fontSize: '0.85rem'
+                                }}>
+                                <div style={{ 
+                                    width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    background: isActive ? 'rgba(255,255,255,0.2)' : (isDone ? 'hsl(var(--success))' : '#cbd5e1'),
                                     color: 'white'
                                 }}>
-                                    {selectedProducts.size > 0 ? <Check size={14} /> : '1'}
+                                    {isDone && !isActive ? <Check size={14} strokeWidth={3} /> : tab.icon}
                                 </div>
-                                <h3 style={{ margin: 0, fontSize: '0.95rem' }}>
-                                    Select Products
-                                    {selectedProducts.size > 0 && <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'hsl(var(--accent))', marginLeft: '0.5rem' }}>({selectedProducts.size} selected)</span>}
-                                </h3>
-                            </div>
-                            {productSectionOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </div>
+                                <span style={{ whiteSpace: 'nowrap' }}>{tab.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
 
-                        {productSectionOpen && (
-                            <div style={{ padding: '1.25rem' }}>
-                                {/* Filters Row */}
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                                    {/* Search */}
-                                    <div style={{ position: 'relative', flex: 1, minWidth: '150px' }}>
-                                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                                        <input type="text" placeholder="Search products..." value={productSearch} onChange={e => setProductSearch(e.target.value)}
-                                            style={{ ...inputStyle, paddingLeft: '2rem', fontSize: '0.8rem' }} />
-                                    </div>
-                                    {/* Select All */}
-                                    <button onClick={selectAllFilteredProducts} style={{
-                                        ...pillStyle(filteredProducts.length > 0 && filteredProducts.every(p => selectedProducts.has(p.id))),
-                                        display: 'flex', alignItems: 'center', gap: '4px'
-                                    }}>
-                                        <Check size={12} /> {filteredProducts.every(p => selectedProducts.has(p.id)) ? 'Deselect All' : 'Select All'}
+            
+
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {/* ═══ TAB CONTENT ═══ */}
+                <div className="animate-enter" key={activeTab}>
+                    {activeTab === 'PRODUCTS' && (
+                        <div className="card" style={{ padding: '1.5rem', borderRadius: '0 0 20px 20px', borderTop: 'none' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Select Products</h2>
+                                    <p style={{ margin: '4px 0 0', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>Choose the items you want to feature in this broadcast.</p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button onClick={selectAllFilteredProducts} className="btn btn-secondary" style={{ fontSize: '0.75rem' }}>
+                                        {filteredProducts.every(p => selectedProducts.has(p.id)) ? 'Deselect All' : 'Select All'}
                                     </button>
                                 </div>
+                            </div>
 
-                                {/* Group / Category Filter Tabs */}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', alignItems: 'center' }}>
-                                    <Tag size={13} style={{ color: 'hsl(var(--text-muted))' }} />
+                            {/* Filters Row */}
+                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                                    <input type="text" placeholder="Search products by name..." value={productSearch} onChange={e => setProductSearch(e.target.value)}
+                                        style={{ ...inputStyle, paddingLeft: '2.5rem' }} />
+                                </div>
+                                {/* <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
                                     <button onClick={() => setProductGroupFilter('ALL')} style={pillStyle(productGroupFilter === 'ALL')}>All</button>
                                     {productGroups.filter(g => g !== 'ALL').map(g => (
-                                        <button key={`g_${g}`} onClick={() => setProductGroupFilter(g)} style={{
-                                            ...pillStyle(productGroupFilter === g),
-                                            background: productGroupFilter === g ? 'hsl(var(--accent))' : pillStyle(false).background,
-                                        }}>{g}</button>
+                                        <button key={`g_${g}`} onClick={() => setProductGroupFilter(g)} style={pillStyle(productGroupFilter === g)}>{g}</button>
                                     ))}
                                     {productCategories.map(c => (
                                         <button key={`c_${c}`} onClick={() => setProductGroupFilter(c)} style={pillStyle(productGroupFilter === c)}>{c}</button>
                                     ))}
-                                </div>
+                                </div> */}
+                            </div>
 
-                                {/* Product Grid */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', maxHeight: '380px', overflowY: 'auto', padding: '0.25rem' }}>
-                                    {filteredProducts.map(p => {
-                                        const isSelected = selectedProducts.has(p.id);
-                                        return (
-                                            <div key={p.id} onClick={() => toggleProduct(p.id)}
-                                                style={{
-                                                    padding: '0.5rem', cursor: 'pointer', borderRadius: '12px', transition: 'all 0.2s',
-                                                    border: isSelected ? '2px solid hsl(var(--accent))' : '1px solid hsl(var(--border-subtle))',
-                                                    background: isSelected ? 'hsl(var(--accent) / 0.08)' : 'hsl(var(--bg-panel))',
-                                                    position: 'relative'
-                                                }}>
-                                                {/* Checkbox */}
-                                                <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 2 }}>
-                                                    <div style={checkboxStyle(isSelected)}>{isSelected && <Check size={12} strokeWidth={3} />}</div>
-                                                </div>
-                                                {/* Image */}
-                                                <div style={{ height: '85px', borderRadius: '8px', overflow: 'hidden', marginBottom: '0.4rem' }}>
-                                                    <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                        onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
-                                                </div>
-                                                {/* Info */}
-                                                <div style={{ 
-                                                    fontWeight: 600, 
-                                                    fontSize: '0.78rem', 
-                                                    whiteSpace: 'nowrap', 
-                                                    overflow: 'hidden', 
-                                                    textOverflow: 'ellipsis',
-                                                    color: isSelected ? 'hsl(var(--text-main))' : '#ffffff'
-                                                }}>
-                                                    {p.name}
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                                    <span style={{ 
-                                                        color: isSelected ? 'hsl(var(--primary))' : '#ffffff', 
-                                                        fontWeight: 700, 
-                                                        fontSize: '0.75rem' 
-                                                    }}>
-                                                        ₹{(p.price || 0).toLocaleString()}
-                                                    </span>
-                                                    {p.product_group && (
-                                                        <span style={{ 
-                                                            padding: '1px 5px', 
-                                                            borderRadius: '9999px', 
-                                                            fontSize: '0.55rem', 
-                                                            fontWeight: 700, 
-                                                            background: isSelected ? 'hsl(var(--accent) / 0.15)' : 'rgba(255,255,255,0.15)',
-                                                            color: isSelected ? 'hsl(var(--accent))' : '#ffffff' 
-                                                        }}>
-                                                            {p.product_group}
-                                                        </span>
-                                                    )}
-                                                </div>
+                            {/* Grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', maxHeight: '500px', overflowY: 'auto', padding: '0.5rem' }}>
+                                {filteredProducts.map(p => {
+                                    const isSelected = selectedProducts.has(p.id);
+                                    return (
+                                        <div key={p.id} onClick={() => toggleProduct(p.id)}
+                                            style={{
+                                                padding: '0.75rem', cursor: 'pointer', borderRadius: '16px', transition: 'all 0.2s',
+                                                border: isSelected ? '2px solid #6366f1' : '1px solid hsl(var(--border-subtle))',
+                                                background: isSelected ? '#6366f108' : 'white',
+                                                position: 'relative',
+                                                boxShadow: isSelected ? '0 10px 15px -3px rgb(99 102 241 / 0.1)' : 'none'
+                                            }}>
+                                            <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 2 }}>
+                                                <div style={checkboxStyle(isSelected)}>{isSelected && <Check size={12} strokeWidth={3} />}</div>
                                             </div>
-                                        );
-                                    })}
-                                    {filteredProducts.length === 0 && (
-                                        <div style={{ gridColumn: '1 / -1', padding: '2rem', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>No products match the filter.</div>
-                                    )}
-                                </div>
+                                            <div style={{ height: '120px', borderRadius: '12px', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                                                <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
+                                            </div>
+                                            <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ color: '#6366f1', fontWeight: 800, fontSize: '0.9rem' }}>₹{p.price.toLocaleString()}</span>
+                                                <span style={{ fontSize: '0.65rem', padding: '2px 6px', background: '#f1f5f9', borderRadius: '4px', fontWeight: 600 }}>{p.product_group || 'Regular'}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        )}
-                    </div>
 
-                    {/* ═══ STEP 2: SELECT CUSTOMERS ═══ */}
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                        {/* Section Header - Collapsible */}
-                        <div
-                            onClick={() => setCustomerSectionOpen(!customerSectionOpen)}
-                            style={{
-                                padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                cursor: 'pointer', background: '#f1f5f9', borderBottom: customerSectionOpen ? '1px solid hsl(var(--border-subtle))' : 'none'
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <div style={{
-                                    width: '26px', height: '26px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 700,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: selectedCustomers.size > 0 ? 'hsl(var(--success))' : 'hsl(var(--accent))',
-                                    color: 'white'
-                                }}>
-                                    {selectedCustomers.size > 0 ? <Check size={14} /> : '2'}
-                                </div>
-                                <h3 style={{ margin: 0, fontSize: '0.95rem' }}>
-                                    Select Customers
-                                    {selectedCustomers.size > 0 && <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'hsl(var(--accent))', marginLeft: '0.5rem' }}>({selectedCustomers.size} selected)</span>}
-                                </h3>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>
+                                <button onClick={() => setActiveTab('CUSTOMERS')} className="btn btn-primary" style={{ padding: '0.8rem 2rem' }}>
+                                    Next: Target Audience <Users size={18} style={{ marginLeft: '8px' }} />
+                                </button>
                             </div>
-                            {customerSectionOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </div>
+                    )}
 
-                        {customerSectionOpen && (
-                            <div style={{ padding: '1.25rem' }}>
-                                {/* Filters Row */}
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                                    {/* Search */}
-                                    <div style={{ position: 'relative', flex: 1, minWidth: '150px' }}>
-                                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                                        <input type="text" placeholder="Search customers..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)}
-                                            style={{ ...inputStyle, paddingLeft: '2rem', fontSize: '0.8rem' }} />
-                                    </div>
-                                    {/* Select All */}
-                                    <button onClick={selectAllFilteredCustomers} style={{
-                                        ...pillStyle(filteredCustomers.length > 0 && filteredCustomers.every(c => selectedCustomers.has(c.phone))),
-                                        display: 'flex', alignItems: 'center', gap: '4px'
-                                    }}>
-                                        <UserCheck size={12} /> {filteredCustomers.every(c => selectedCustomers.has(c.phone)) ? 'Deselect All' : 'Select All'}
+                    {activeTab === 'CUSTOMERS' && (
+                        <div className="card" style={{ padding: '1.5rem', borderRadius: '0 0 20px 20px', borderTop: 'none' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Target Audience</h2>
+                                    <p style={{ margin: '4px 0 0', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>Select the customers who will receive this broadcast.</p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button onClick={selectAllFilteredCustomers} className="btn btn-secondary" style={{ fontSize: '0.75rem' }}>
+                                        {filteredCustomers.every(c => selectedCustomers.has(c.phone)) ? 'Deselect All' : 'Select All'}
                                     </button>
                                 </div>
+                            </div>
 
-                                {/* Tier Filter */}
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', alignItems: 'center' }}>
-                                    <Filter size={13} style={{ color: 'hsl(var(--text-muted))' }} />
+                            {/* Filters Row */}
+                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+                                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                                    <input type="text" placeholder="Search by name or phone..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)}
+                                        style={{ ...inputStyle, paddingLeft: '2.5rem' }} />
+                                </div>
+                                {/* <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
                                     {['ALL', 'VIP', 'Gold', 'Silver', 'Regular'].map(tier => (
                                         <button key={tier} onClick={() => setCustomerTierFilter(tier)} style={{
                                             ...pillStyle(customerTierFilter === tier),
-                                            background: customerTierFilter === tier
-                                                ? tier === 'VIP' ? 'linear-gradient(135deg, hsl(43 96% 64%), hsl(28 92% 54%))' : 'hsl(var(--primary))'
-                                                : pillStyle(false).background,
-                                            color: customerTierFilter === tier ? (tier === 'VIP' ? '#3f2203' : 'hsl(var(--bg-app))') : 'hsl(var(--text-muted))',
+                                            background: customerTierFilter === tier ? 'hsl(var(--primary))' : 'white',
+                                            color: customerTierFilter === tier ? 'white' : 'hsl(var(--text-muted))'
                                         }}>
-                                            {tier === 'ALL' ? 'All Customers' : tier === 'VIP' ? 'VIP (₹20k+)' : tier === 'Gold' ? 'Gold (₹10k+)' : tier === 'Silver' ? 'Silver (₹5k+)' : 'Regular'}
+                                            {tier}
                                         </button>
                                     ))}
-                                </div>
-
-                                {/* Customer List */}
-                                <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid hsl(var(--border-subtle))', borderRadius: '10px' }}>
-                                    {filteredCustomers.length === 0 ? (
-                                        <div style={{ padding: '2rem', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>No customers match the filter.</div>
-                                    ) : filteredCustomers.map((c, idx) => {
-                                        const isSelected = selectedCustomers.has(c.phone);
-                                        const tier = getTier(c.totalSpent);
-                                        const tierStyle = getTierStyle(tier);
-                                        return (
-                                            <div key={c.phone} onClick={() => toggleCustomer(c.phone)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem',
-                                                    cursor: 'pointer', transition: 'all 0.15s',
-                                                    background: isSelected ? 'hsl(var(--primary) / 0.06)' : 'transparent',
-                                                    borderBottom: idx < filteredCustomers.length - 1 ? '1px solid hsl(var(--border-subtle) / 0.5)' : 'none',
-                                                }}>
-                                                {/* Checkbox */}
-                                                <div style={checkboxStyle(isSelected)}>{isSelected && <Check size={12} strokeWidth={3} />}</div>
-                                                {/* Avatar */}
-                                                <div style={{
-                                                    width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
-                                                    background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    fontWeight: 700, fontSize: '0.8rem', color: 'white'
-                                                }}>
-                                                    {c.name.charAt(0).toUpperCase()}
-                                                </div>
-                                                {/* Info */}
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'hsl(var(--text-main))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                                                    <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))' }}>{c.phone} • {c.totalOrders} order{c.totalOrders > 1 ? 's' : ''}</div>
-                                                </div>
-                                                {/* Tier & Spent */}
-                                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                                    <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: 700, background: tierStyle.bg, color: tierStyle.color }}>
-                                                        {tierStyle.label}
-                                                    </span>
-                                                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginTop: '2px' }}>₹{c.totalSpent.toLocaleString()}</div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                </div> */}
                             </div>
-                        )}
-                    </div>
 
-                    {/* ═══ STEP 3: COMPOSE MESSAGE ═══ */}
-                    <div className="card" style={{ padding: '1.25rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                            <div style={{
-                                width: '26px', height: '26px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 700,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: 'hsl(var(--success))', color: 'white'
-                            }}>3</div>
-                            <h3 style={{ margin: 0, fontSize: '0.95rem' }}>Compose Message</h3>
-                        </div>
-                        <textarea
-                            value={message} onChange={(e) => setMessage(e.target.value)}
-                            placeholder="e.g. Don't miss out on this year's most beautiful silk saree! Only a few left in stock."
-                            style={{
-                                width: '100%', padding: '1rem', borderRadius: '10px', background: '#f1f5f9',
-                                border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.9rem',
-                                minHeight: '90px', outline: 'none', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box'
-                            }}
-                        />
-                    </div>
-                </div>
-
-                {/* RIGHT COLUMN: Summary & Send */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div className="card" style={{ padding: '1.5rem', position: 'sticky', top: '1.5rem' }}>
-                        <h3 style={{ marginBottom: '1.25rem', fontSize: '1rem' }}>Campaign Summary</h3>
-
-                        {/* Selected Products Summary */}
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Products ({selectedProducts.size})</div>
-                            {selectedProductsList.length === 0 ? (
-                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted) / 0.6)', padding: '0.5rem', background: '#f1f5f9', borderRadius: '8px', textAlign: 'center' }}>No products selected (text-only broadcast)</div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
-                                    {selectedProductsList.map(p => (
-                                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem', background: 'hsl(var(--bg-panel))', border: '1px solid hsl(var(--border-subtle) / 0.1)', color: 'white', borderRadius: '8px', fontSize: '0.78rem' }}>
-                                            <img src={p.image_url} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }}
-                                                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=50&q=60'; }} />
-                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: 'white' }}>{p.name}</span>
-                                            <button onClick={() => toggleProduct(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: '2px', fontSize: '14px', lineHeight: 1 }}>&times;</button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Selected Customers Summary */}
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Customers ({selectedCustomers.size})</div>
-                            {selectedCustomersList.length === 0 ? (
-                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted) / 0.6)', padding: '0.5rem', background: '#f1f5f9', borderRadius: '8px', textAlign: 'center' }}>No customers selected</div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: '180px', overflowY: 'auto' }}>
-                                    {selectedCustomersList.slice(0, 10).map(c => (
-                                        <div key={c.phone} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.5rem', background: '#f1f5f9', borderRadius: '8px', fontSize: '0.75rem' }}>
-                                            <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.6rem', fontWeight: 700, flexShrink: 0 }}>
-                                                {c.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{c.name}</span>
-                                            <button onClick={() => toggleCustomer(c.phone)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))', padding: '2px', fontSize: '14px', lineHeight: 1 }}>&times;</button>
-                                        </div>
-                                    ))}
-                                    {selectedCustomersList.length > 10 && (
-                                        <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', textAlign: 'center', padding: '0.25rem' }}>
-                                            +{selectedCustomersList.length - 10} more...
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Divider */}
-                        <div style={{ borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1rem', marginBottom: '1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '0.4rem' }}>
-                                <span style={{ color: 'hsl(var(--text-muted))' }}>Total Messages:</span>
-                                <strong>{selectedCustomers.size * Math.max(selectedProducts.size, 1)}</strong>
+                            <div style={{ maxHeight: '450px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '16px' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <thead>
+                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                            <th style={{ padding: '1rem', width: '50px' }}></th>
+                                            <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Customer</th>
+                                            <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Contact</th>
+                                            <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Orders</th>
+                                            <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', textAlign: 'right' }}>Total Spent</th>
+                                            <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', textAlign: 'right' }}>Tier</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredCustomers.map((c, idx) => {
+                                            const isSelected = selectedCustomers.has(c.phone);
+                                            const tier = getTier(c.totalSpent);
+                                            const tierStyle = getTierStyle(tier);
+                                            return (
+                                                <tr key={c.phone} onClick={() => toggleCustomer(c.phone)}
+                                                    style={{
+                                                        cursor: 'pointer', transition: 'all 0.1s',
+                                                        background: isSelected ? 'hsl(var(--primary) / 0.05)' : (idx % 2 === 0 ? 'white' : '#fcfdfe'),
+                                                        borderBottom: '1px solid #f1f5f9'
+                                                    }}
+                                                    onMouseOver={e => e.currentTarget.style.background = isSelected ? 'hsl(var(--primary) / 0.08)' : '#f8fafc'}
+                                                    onMouseOut={e => e.currentTarget.style.background = isSelected ? 'hsl(var(--primary) / 0.05)' : (idx % 2 === 0 ? 'white' : '#fcfdfe')}
+                                                >
+                                                    <td style={{ padding: '1rem' }}>
+                                                        <div style={checkboxStyle(isSelected)}>{isSelected && <Check size={12} strokeWidth={3} />}</div>
+                                                    </td>
+                                                    <td style={{ padding: '1rem' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.8rem' }}>
+                                                                {c.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#64748b' }}>{c.phone}</td>
+                                                    <td style={{ padding: '1rem', fontSize: '0.85rem' }}>{c.totalOrders}</td>
+                                                    <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 800, fontSize: '0.9rem' }}>₹{c.totalSpent.toLocaleString()}</td>
+                                                    <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                                        <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '4px 10px', borderRadius: '9999px', background: tierStyle.bg, color: tierStyle.color, border: `1px solid ${tierStyle.color}30` }}>
+                                                            {tier}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                                <span style={{ color: 'hsl(var(--text-muted))' }}>Delivery:</span>
-                                <strong style={{ color: 'hsl(var(--success))' }}>WhatsApp</strong>
-                            </div>
-                        </div>
 
-                        {/* Send Button */}
-                        {!sending && !completed && (
-                            <button
-                                onClick={startBroadcast}
-                                disabled={selectedCustomers.size === 0 || !message.trim()}
-                                className="btn btn-primary"
-                                style={{
-                                    width: '100%', padding: '0.9rem', justifyContent: 'center', gap: '0.75rem',
-                                    opacity: (selectedCustomers.size === 0 || !message.trim()) ? 0.5 : 1,
-                                    cursor: (selectedCustomers.size === 0 || !message.trim()) ? 'not-allowed' : 'pointer',
-                                }}
-                            >
-                                <Send size={18} /> Send Broadcast Now
-                            </button>
-                        )}
-
-                        {/* Sending Progress */}
-                        {sending && (
-                            <div style={{ textAlign: 'center' }}>
-                                <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'hsl(var(--primary))', marginBottom: '0.75rem' }} />
-                                <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.5rem' }}>Broadcasting...</div>
-                                <div className="badge badge-delivered" style={{ padding: '4px 12px' }}>
-                                    {stats.sent} / {stats.total} Sent
-                                </div>
-                                {stats.failed > 0 && (
-                                    <div style={{ color: 'hsl(var(--danger))', fontSize: '0.8rem', marginTop: '0.5rem' }}>{stats.failed} failed</div>
-                                )}
-                                <div style={{ width: '100%', height: '6px', background: '#ffffff', borderRadius: '3px', marginTop: '0.75rem', overflow: 'hidden' }}>
-                                    <div style={{ width: `${(stats.sent / stats.total) * 100}%`, height: '100%', background: 'hsl(var(--primary))', transition: 'width 0.3s' }} />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Completed */}
-                        {completed && (
-                            <div style={{ textAlign: 'center', background: 'hsl(var(--success) / 0.1)', padding: '1.25rem', borderRadius: '12px', border: '1px solid hsl(var(--success) / 0.3)' }}>
-                                <CheckCircle2 size={36} style={{ color: 'hsl(var(--success))', marginBottom: '0.75rem' }} />
-                                <div style={{ fontWeight: 700, fontSize: '1rem', color: 'hsl(var(--success))' }}>Broadcast Complete!</div>
-                                <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem' }}>
-                                    Sent to {stats.sent} customer{stats.sent > 1 ? 's' : ''}
-                                    {stats.failed > 0 && <span style={{ color: 'hsl(var(--danger))' }}> ({stats.failed} failed)</span>}
-                                </p>
-                                <button
-                                    onClick={() => { setCompleted(false); setSelectedProducts(new Set()); setSelectedCustomers(new Set()); }}
-                                    className="btn btn-secondary"
-                                    style={{ marginTop: '0.5rem', width: '100%' }}
-                                >
-                                    New Campaign
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+                                <button onClick={() => setActiveTab('PRODUCTS')} className="btn btn-secondary" style={{ padding: '0.8rem 2rem' }}>Back</button>
+                                <button onClick={() => setActiveTab('MESSAGE')} className="btn btn-primary" style={{ padding: '0.8rem 2rem' }}>
+                                    Next: Compose Message <MessageSquare size={18} style={{ marginLeft: '8px' }} />
                                 </button>
                             </div>
-                        )}
-
-                        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>
-                            Rapid bulk messaging may result in temporary WhatsApp account limitations. Messages are sent sequentially.
                         </div>
-                    </div>
+                    )}
+
+                    {activeTab === 'MESSAGE' && (
+                        <div className="card" style={{ padding: '1.5rem', borderRadius: '0 0 20px 20px', borderTop: 'none' }}>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Compose Message</h2>
+                                <p style={{ margin: '4px 0 0', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>This message will be sent alongside the selected products. Use {'{{name}}'} to personalize.</p>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '2rem' }}>
+                                <div>
+                                    <textarea
+                                        value={message} onChange={(e) => setMessage(e.target.value)}
+                                        placeholder="Type your broadcast message here..."
+                                        style={{
+                                            width: '100%', height: '280px', padding: '1.5rem', borderRadius: '20px', background: '#f8fafc',
+                                            border: '2px solid #e2e8f0', fontSize: '1rem', lineHeight: '1.6', outline: 'none',
+                                            transition: 'all 0.2s', focus: { borderColor: '#10b981' }
+                                        }}
+                                    />
+                                    <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                                        {['Hello {{name}}!', 'New Arrivals!', 'Special Discount just for you!'].map((suggest) => (
+                                            <button key={suggest} onClick={() => setMessage(suggest + '\n\n' + message)}
+                                                style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '0.75rem', cursor: 'pointer' }}>
+                                                + {suggest}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div style={{ background: '#f1f5f9', borderRadius: '20px', padding: '1.5rem', height: 'fit-content' }}>
+                                    <h4 style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>WhatsApp Preview</h4>
+                                    <div style={{ background: '#e5ddd5', borderRadius: '12px', padding: '10px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
+                                        <div style={{ background: 'white', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', maxWidth: '90%', position: 'relative', boxShadow: '0 1px 1px rgba(0,0,0,0.1)' }}>
+                                            <div style={{ whiteSpace: 'pre-wrap' }}>{message.replace('{{name}}', 'Customer')}</div>
+                                            <div style={{ fontSize: '0.65rem', color: '#999', textAlign: 'right', marginTop: '4px' }}>12:45 PM</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: '#64748b', lineHeight: '1.5' }}>
+                                        <strong>Personalization:</strong><br />
+                                        You are currently targeting <strong>{selectedCustomers.size} customers</strong> with <strong>{selectedProducts.size} products</strong>.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+                                <button onClick={() => setActiveTab('CUSTOMERS')} className="btn btn-secondary" style={{ padding: '0.8rem 2rem' }}>Back</button>
+                                <button onClick={() => setActiveTab('SUMMARY')} className="btn btn-primary" style={{ padding: '0.8rem 2rem', background: '#10b981' }}>
+                                    Next: Summary & Send <CheckCircle2 size={18} style={{ marginLeft: '8px' }} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'SUMMARY' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '2rem', padding: '1.5rem', background: 'white', borderRadius: '0 0 20px 20px', border: '1px solid hsl(var(--border-subtle))', borderTop: 'none' }}>
+                            <div className="card" style={{ padding: '1.5rem' }}>
+                                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.5rem' }}>Final Campaign Review</h2>
+                                
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Featured Products ({selectedProducts.size})</span>
+                                            <button onClick={() => setActiveTab('PRODUCTS')} style={{ fontSize: '0.75rem', color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer' }}>Edit Selection</button>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
+                                            {selectedProductsList.length === 0 ? (
+                                                <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px', width: '100%', textAlign: 'center', fontSize: '0.85rem', border: '1px dashed #cbd5e1' }}>No products selected - sending text-only message.</div>
+                                            ) : selectedProductsList.map(p => (
+                                                <div key={p.id} style={{ flexShrink: 0, width: '100px', textAlign: 'center' }}>
+                                                    <img src={p.image_url} style={{ width: '100%', aspectRatio: '1/1', borderRadius: '12px', objectFit: 'cover', marginBottom: '4px' }} />
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Target Customers ({selectedCustomers.size})</span>
+                                            <button onClick={() => setActiveTab('CUSTOMERS')} style={{ fontSize: '0.75rem', color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer' }}>Edit Audience</button>
+                                        </div>
+                                        <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', maxHeight: '150px', overflowY: 'auto' }}>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                {selectedCustomersList.slice(0, 30).map(c => (
+                                                    <span key={c.phone} style={{ padding: '4px 8px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.7rem' }}>{c.name}</span>
+                                                ))}
+                                                {selectedCustomersList.length > 30 && <span style={{ padding: '4px 8px', fontSize: '0.7rem', color: '#64748b' }}>+{selectedCustomersList.length - 30} more...</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="card" style={{ padding: '1.5rem', height: 'fit-content' }}>
+                                <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem' }}>Ready to Broadcast?</h3>
+                                
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                                        <span style={{ color: '#64748b' }}>Target Audience:</span>
+                                        <strong>{selectedCustomers.size} People</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                                        <span style={{ color: '#64748b' }}>Content:</span>
+                                        <strong>{selectedProducts.size > 0 ? `${selectedProducts.size} Products` : 'Text only'}</strong>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                                        <span style={{ color: '#64748b' }}>Total Messages:</span>
+                                        <strong style={{ color: '#10b981' }}>{selectedCustomers.size * Math.max(selectedProducts.size, 1)}</strong>
+                                    </div>
+                                </div>
+
+                                {/* Send Button */}
+                                {!sending && !completed && (
+                                    <button
+                                        onClick={startBroadcast}
+                                        disabled={selectedCustomers.size === 0 || !message.trim()}
+                                        className="btn btn-primary"
+                                        style={{
+                                            width: '100%', height: '56px', borderRadius: '16px', fontSize: '1.1rem', fontWeight: 800, background: 'hsl(var(--primary))', boxShadow: '0 10px 20px -5px hsl(var(--primary) / 0.3)'
+                                        }}
+                                    >
+                                        <Send size={20} style={{ marginRight: '10px' }} /> Launch Campaign
+                                    </button>
+                                )}
+
+                                {sending && (
+                                    <div style={{ textAlign: 'center' }}>
+                                        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'hsl(var(--primary))', marginBottom: '0.75rem' }} />
+                                        <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>Sending Broadcast...</div>
+                                        <div style={{ fontSize: '0.9rem', color: 'hsl(var(--primary))', margin: '4px 0 1rem' }}>{stats.sent} / {stats.total} Sent</div>
+                                        <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${(stats.sent / stats.total) * 100}%`, height: '100%', background: 'hsl(var(--primary))', transition: 'width 0.3s' }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {completed && (
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#10b98120', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                                            <CheckCircle2 size={32} />
+                                        </div>
+                                        <h3 style={{ margin: '0 0 0.5rem', color: '#10b981' }}>Success!</h3>
+                                        <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Your campaign has been successfully broadcasted.</p>
+                                        <button onClick={() => { setCompleted(false); setActiveTab('PRODUCTS'); setSelectedProducts(new Set()); setSelectedCustomers(new Set()); }}
+                                            className="btn btn-secondary" style={{ width: '100%' }}>Start New Campaign</button>
+                                    </div>
+                                )}
+
+                                <div style={{ marginTop: '1.5rem', padding: '12px', background: '#fff9f1', borderRadius: '12px', fontSize: '0.7rem', color: '#9a6a12', border: '1px solid #ffedc1' }}>
+                                    <Megaphone size={12} style={{ marginRight: '4px' }} /> Note: Messages are sent via your connected WhatsApp instance with randomized delays to avoid spam detection.
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            </div>
             </div>
             <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

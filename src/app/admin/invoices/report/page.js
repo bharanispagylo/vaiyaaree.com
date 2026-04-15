@@ -376,7 +376,7 @@ export default function InvoiceReportPage() {
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                        <thead style={{ background: '#f8fafc' }}>
+                        <thead>
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Invoice</th>
                                 <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Date</th>

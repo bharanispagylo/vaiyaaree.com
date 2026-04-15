@@ -295,10 +295,10 @@ export default function PaymentGatewayPage() {
                                 ) : (
                                     <div style={{ overflowX: 'auto' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                            <thead style={{ background: '#f1f5f9' }}>
+                                            <thead>
                                                 <tr>
                                                     {['Order', 'Customer', 'Amount', 'Status', 'Method', 'Transaction ID', 'Date', 'Actions'].map(h => (
-                                                        <th key={h} style={{ textAlign: 'left', padding: '1rem 1.25rem', fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                                                        <th key={h}>{h}</th>
                                                     ))}
                                                 </tr>
                                             </thead>

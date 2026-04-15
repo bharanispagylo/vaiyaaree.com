@@ -865,64 +865,63 @@ export default function OrdersPage() {
                             </div>
 
                             {/* Unified View Controls & Filters Row */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem', gap: '2rem', flexWrap: 'wrap' }}>
-                                <div>
-                                    {viewMode === 'list' ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                            {/* Status Filters */}
-                                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                                {Object.entries(orderCounts).map(([status, count]) => (
-                                                    <button key={status} onClick={() => setStatusFilter(status)} style={{
-                                                        padding: '0.6rem 1.25rem', borderRadius: '9999px', fontSize: '0.85rem',
-                                                        fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-                                                        background: statusFilter === status ? 'hsl(var(--primary))' : '#ffffff',
-                                                        color: statusFilter === status ? 'white' : 'hsl(var(--text-muted))',
-                                                        border: statusFilter === status ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
-                                                        boxShadow: statusFilter === status ? '0 4px 12px hsl(var(--primary) / 0.3)' : 'none'
-                                                    }}>
-                                                        {status === 'ALL' ? 'All Orders' : status.replace(/_/g, ' ')} <span style={{ opacity: 0.7, marginLeft: '4px' }}>({count})</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            {/* Source Filter */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Channel:</span>
-                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    {SOURCE_FILTERS.map(src => (
-                                                        <button key={src} onClick={() => setSourceFilter(src)} style={{
-                                                            padding: '0.4rem 1.25rem', borderRadius: '9999px', fontSize: '0.8rem',
-                                                            fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
-                                                            background: sourceFilter === src
-                                                                ? src === 'WHATSAPP' ? 'hsl(142 71% 45%)' : 'hsl(195 85% 40%)' 
-                                                                : '#ffffff',
-                                                            color: sourceFilter === src ? '#fff' : 'hsl(var(--text-muted))',
-                                                            border: sourceFilter === src ? '1px solid transparent' : '1px solid hsl(var(--border-subtle))',
-                                                            boxShadow: sourceFilter === src ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
-                                                        }}>
-                                                            {src === 'ALL' ? 'All' : src === 'WEBSITE' ? 'Website' : 'WhatsApp'}
-                                                        </button>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1.5rem', flexWrap: 'wrap', background: '#ffffff', padding: '1.25rem', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    {/* Status Filter */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', letterSpacing: '0.05em' }}>Status:</label>
+                                        <select
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value)}
+                                            style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                        >
+                                            {Object.entries(orderCounts).map(([status, count]) => (
+                                                <option key={status} value={status}>
+                                                    {status === 'ALL' ? 'All Orders' : status.replace(/_/g, ' ')} ({count})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))' }} />
+
+                                    {/* Channel Filter */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))' , letterSpacing: '0.05em' }}>Channel:</label>
+                                        <select
+                                            value={sourceFilter}
+                                            onChange={(e) => setSourceFilter(e.target.value)}
+                                            style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                        >
+                                            {SOURCE_FILTERS.map(src => (
+                                                <option key={src} value={src}>
+                                                    {src === 'ALL' ? 'All' : src === 'WEBSITE' ? 'Website' : 'WhatsApp'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {viewMode === 'analytics' && (
+                                        <>
+                                            <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))' }} />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Range:</label>
+                                                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                    {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
+                                                        <button key={r} onClick={() => setTimeRange(r)} style={{
+                                                            padding: '0.4rem 0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800, transition: 'all 0.2s',
+                                                            background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
+                                                            color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
+                                                        }}>{r}</button>
                                                     ))}
                                                 </div>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                                            <span style={{ fontSize: '0.9rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Analytics Range:</span>
-                                            <div style={{ display: 'flex', gap: '4px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
-                                                    <button key={r} onClick={() => setTimeRange(r)} style={{
-                                                        padding: '0.5rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, transition: 'all 0.2s',
-                                                        background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
-                                                        color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
-                                                    }}>{r}</button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        </>
                                     )}
                                 </div>
 
                                 {/* View Switcher Toggle - Now on the right of filters */}
-                                <div style={{ display: 'flex', gap: '0.25rem', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
+                                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
                                     <button
                                         onClick={() => setViewMode('list')}
                                         style={{
@@ -931,7 +930,7 @@ export default function OrdersPage() {
                                             background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
                                             color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))',
                                             display: 'flex', alignItems: 'center', gap: '8px'
-                                        }}><Eye size={16} /> List View</button>
+                                        }}><ShoppingCart size={16} /> List View</button>
                                     <button
                                         onClick={() => setViewMode('analytics')}
                                         style={{
@@ -1109,8 +1108,8 @@ export default function OrdersPage() {
                                             <div style={{ overflowX: 'auto', width: '100%' }}>
                                                 <table style={{ margin: 0, width: '100%' }}>
 
-                                                    <thead style={{ background: '#f1f5f9' }}>
-                                                        <tr style={{ color: '#475569', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    <thead>
+                                                        <tr>
 
                                                             <th>Order ID</th>
                                                             <th style={{ width: '40px', textAlign: 'center' }}>
@@ -1195,11 +1194,11 @@ export default function OrdersPage() {
                                                                             </td>
                                                                             <td style={{ textAlign: 'right' }}>
                                                                                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                                                    <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                                                                                        <Eye size={14} /> View
+                                                                                    <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Order">
+                                                                                        <Eye size={15} />
                                                                                     </button>
-                                                                                    <button onClick={(e) => { e.stopPropagation(); handleBulkDelete([order.id]); }} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                                        <Trash2 size={14} />
+                                                                                    <button onClick={(e) => { e.stopPropagation(); handleBulkDelete([order.id]); }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }} title="Delete Order">
+                                                                                        <Trash2 size={15} />
                                                                                     </button>
                                                                                 </div>
                                                                             </td>
