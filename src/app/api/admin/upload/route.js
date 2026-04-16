@@ -140,57 +140,84 @@ export async function POST(request) {
             });
         }
 
-        // 3. APPLICATION logic - Draw watermark if needed
-        let folder = hasWatermark ? 'with-watermark' : 'without-watermark';
+        // 3. STORAGE & APPLICATION LOGIC
+        let finalPublicUrl = '';
         let isNowWatermarked = hasWatermark;
+        let finalId = catalogId || detectedCatalogId || Math.random().toString(36).substring(2, 7).toUpperCase();
+        const fileName = `${finalId}.${fileExt}`;
 
-        // If it's a "clean" image but user wants to apply branding/catalogId
         if (!hasWatermark && catalogId && requireClean) {
-            console.log(`[UPLOAD] Applying NEW watermark: ${catalogId}`);
-            buffer = await applyWatermark(buffer, catalogId);
+            // CASE 1: No watermark detected -> Store Clean AND Generate Watermark
+            
+            // A. Save ORIGINAL (Clean) version
+            const cleanPath = `without-watermark/${fileName}`;
+            console.log(`[STORAGE] Saving CLEAN image to: ${cleanPath}`);
+            const { error: cleanErr } = await supabaseAdmin.storage
+                .from(BUCKET_NAME)
+                .upload(cleanPath, buffer, {
+                    contentType: file.type || 'image/jpeg',
+                    upsert: true
+                });
+            if (cleanErr) throw cleanErr;
+
+            // B. Generate Watermarked version
+            console.log(`[PROCESS] Applying NEW watermark: ${finalId}`);
+            const watermarkedBuffer = await applyWatermark(buffer, finalId);
+
+            // C. Save WATERMARKED version
+            const wmPath = `with-watermark/${fileName}`;
+            console.log(`[STORAGE] Saving WATERMARKED image to: ${wmPath}`);
+            const { error: wmErr } = await supabaseAdmin.storage
+                .from(BUCKET_NAME)
+                .upload(wmPath, watermarkedBuffer, {
+                    contentType: file.type || 'image/jpeg',
+                    upsert: true
+                });
+            if (wmErr) throw wmErr;
+
+            const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(wmPath);
+            finalPublicUrl = publicUrl;
             isNowWatermarked = true;
-            folder = 'with-watermark';
+
+        } else {
+            // CASE 2: Already has watermark OR just a normal upload
+            // Store ONLY in the appropriate folder
+            const folder = hasWatermark ? 'with-watermark' : 'without-watermark';
+            const finalPath = `${folder}/${fileName}`;
+            
+            console.log(`[STORAGE] Saving image to ${folder.toUpperCase()}: ${finalPath}`);
+            const { error: uploadError } = await supabaseAdmin.storage
+                .from(BUCKET_NAME)
+                .upload(finalPath, buffer, {
+                    contentType: file.type || 'image/jpeg',
+                    upsert: true
+                });
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(finalPath);
+            finalPublicUrl = publicUrl;
         }
 
-        // Final filename logic
-        const finalId = catalogId || detectedCatalogId || Math.random().toString(36).substring(2, 7).toUpperCase();
-        let fileName = `${finalId}.${fileExt}`;
-        const fullFileName = `${folder}/${fileName}`;
-
-        // 4. UPLOAD to Supabase
-        console.log(`[UPLOAD] Sending to storage: ${fullFileName}`);
-        const { error: uploadError } = await supabaseAdmin.storage
-            .from(BUCKET_NAME)
-            .upload(fullFileName, buffer, {
-                contentType: file.type || 'image/jpeg',
-                upsert: true
-            });
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabaseAdmin.storage
-            .from(BUCKET_NAME)
-            .getPublicUrl(fullFileName);
-
-        // 5. UPDATE SETTINGS
+        // 4. UPDATE SETTINGS (For media library groups)
         try {
             const key = isNowWatermarked ? 'watermark_images' : 'no_watermark_images';
             const { data: settingData } = await supabaseAdmin.from('app_settings').select('value').eq('key', key).single();
             let list = [];
             if (settingData?.value) try { list = JSON.parse(settingData.value); } catch(e) {}
-            if (!list.includes(publicUrl)) {
-                list.push(publicUrl);
+            if (!list.includes(finalPublicUrl)) {
+                list.push(finalPublicUrl);
                 await supabaseAdmin.from('app_settings').upsert({ key, value: JSON.stringify(list), updated_at: new Date() });
             }
         } catch (e) {}
 
         return NextResponse.json({ 
-            url: publicUrl,
-            watermarkedUrl: publicUrl,
+            url: finalPublicUrl,
+            watermarkedUrl: finalPublicUrl, // backward compatibility
             catalogId: finalId,
             hasWatermark: isNowWatermarked,
-            folder: folder
+            processed: true
         });
+
 
     } catch (err) {
         console.error('[UPLOAD] Error:', err);

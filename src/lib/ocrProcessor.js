@@ -3,7 +3,7 @@
  * Handles communication with OCR.space and pattern matching for catalog IDs.
  */
 
-export async function processOcr(base64Image, imageUrl) {
+export async function processOcr(base64Image, imageUrl, preferredEngine = '2') {
     const ocrApiKey = process.env.OCR_SPACE_API_KEY || 'K85953559988957';
 
     const callOcr = async (engine) => {
@@ -11,7 +11,7 @@ export async function processOcr(base64Image, imageUrl) {
         formData.append('apikey', ocrApiKey);
         formData.append('language', 'eng');
         formData.append('isOverlayRequired', 'false');
-        formData.append('detectOrientation', 'true');
+        formData.append('detectOrientation', 'false'); // Faster if disabled
         formData.append('scale', 'true');
         formData.append('OCREngine', engine);
         formData.append('isTable', 'false');
@@ -35,11 +35,13 @@ export async function processOcr(base64Image, imageUrl) {
     };
 
     try {
-        let ocrJson = await callOcr('2');
+        // We only do ONE call now to save time, unless it's explicitly failing.
+        let ocrJson = await callOcr(preferredEngine);
         let detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
 
-        if (!detectedText.trim() || ocrJson.IsErroredOnProcessing) {
-            console.log(`[OCR-LIB] Engine 2 failed, trying Engine 1...`);
+        // Only retry with Engine 1 if Engine 2 returned absolutely nothing and it's not already Engine 1
+        if (!detectedText.trim() && preferredEngine === '2') {
+            console.log(`[OCR-LIB] Engine 2 found nothing, trying Engine 1 as fallback...`);
             ocrJson = await callOcr('1');
             detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
         }
@@ -72,7 +74,8 @@ export async function processOcr(base64Image, imageUrl) {
         return {
             hasWatermark: !!catalogId,
             catalogId,
-            detectedText
+            detectedText,
+            engineUsed: ocrJson?.OCRExitCode === 1 ? (ocrJson?.ParsedResults?.[0]?.Engine || preferredEngine).toString() : preferredEngine
         };
     } catch (err) {
         console.error('[OCR-LIB] Processing failed:', err);

@@ -13,45 +13,47 @@ const supabaseAdmin = createClient(
  */
 export async function detectWatermark(buffer, fileName = '') {
     try {
-        console.log(`[SERVICE] Analyzing ${fileName} for small/light watermarks...`);
+        console.log(`[SERVICE] Optimized Analysis for ${fileName}...`);
         
-        // 1. Primary: Scan Full Image with High Contrast
-        // We grayscale, normalize, and sharpen to make light-colored text pop
-        const highContrastBuffer = await sharp(buffer)
+        const image = sharp(buffer);
+        const metadata = await image.metadata();
+        const { width, height } = metadata;
+
+        // 1. FAST PATH: Scan the bottom 45% where watermarks usually live
+        // We crop and resize to 1000px width for optimal speed/accuracy trade-off
+        const cropHeight = Math.floor(height * 0.45);
+        const cropTop = height - cropHeight;
+        
+        const bottomBuffer = await sharp(buffer)
+            .extract({ left: 0, top: cropTop, width, height: cropHeight })
+            .resize(1000, null, { withoutEnlargement: true }) // Faster processing
             .grayscale()
             .normalize()
             .sharpen()
             .toBuffer();
-            
-        const base64Full = `data:image/jpeg;base64,${highContrastBuffer.toString('base64')}`;
-        const mainOcr = await processOcr(base64Full);
+
+        const base64Bottom = `data:image/jpeg;base64,${bottomBuffer.toString('base64')}`;
+        const bottomOcr = await processOcr(base64Bottom, null, '2'); // Try Engine 2 first
+        
+        if (bottomOcr.hasWatermark) {
+            console.log(`[SERVICE] Found watermark in bottom region: ${bottomOcr.catalogId} (Engine ${bottomOcr.engineUsed})`);
+            return bottomOcr;
+        }
+
+        // 2. FALLBACK PATH: If bottom scan failed, try Engine 1 on a fast full-image scan
+        // Engine 1 is faster for simple text detection on larger areas
+        console.log(`[SERVICE] Bottom scan failed, trying fast full scan...`);
+        const fullFastBuffer = await sharp(buffer)
+            .resize(1000, null, { withoutEnlargement: true })
+            .grayscale()
+            .toBuffer();
+
+        const base64Full = `data:image/jpeg;base64,${fullFastBuffer.toString('base64')}`;
+        const mainOcr = await processOcr(base64Full, null, '1'); // Use Engine 1 for speed
         
         if (mainOcr.hasWatermark) {
             console.log(`[SERVICE] Found watermark on full scan: ${mainOcr.catalogId}`);
             return mainOcr;
-        }
-
-        // 2. Secondary: Scan specifically the bottom 40% (high brightness/contrast boost)
-        const image = sharp(buffer);
-        const metadata = await image.metadata();
-        const { width, height } = metadata;
-        
-        const cropHeight = Math.floor(height * 0.4);
-        const cropTop = height - cropHeight;
-        
-        const enhancedBottomBuffer = await sharp(buffer)
-            .extract({ left: 0, top: cropTop, width, height: cropHeight })
-            .grayscale()
-            .normalize()
-            .linear(1.5, -20) // Boost contrast: factor of 1.5, offset -20
-            .sharpen()
-            .toBuffer();
-
-        const secondaryOcr = await processOcr(`data:image/jpeg;base64,${enhancedBottomBuffer.toString('base64')}`);
-        
-        if (secondaryOcr.hasWatermark) {
-            console.log(`[SERVICE] Found watermark on bottom scan: ${secondaryOcr.catalogId}`);
-            return secondaryOcr;
         }
 
         return { hasWatermark: false };

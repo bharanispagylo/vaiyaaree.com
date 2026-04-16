@@ -18,7 +18,15 @@ const menuItems = [
     // },
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
     { name: 'Products', href: '/admin/products', icon: ShoppingCart },
-    { name: 'Orders', href: '/admin/orders', icon: Package },
+    { 
+        name: 'Orders', 
+        icon: Package, 
+        children: [
+            { name: 'Orders', href: '/admin/orders' },
+            { name: 'Return Requests', href: '/admin/returns' },
+            { name: 'Refund Requests', href: '/admin/refunds' }
+        ]
+    },
     { name: 'Customers', href: '/admin/customers', icon: Users },
     { 
         name: 'Invoices', 
@@ -28,9 +36,13 @@ const menuItems = [
             { name: 'Invoice Report', href: '/admin/invoices/report' }
         ]
     },
-    { name: 'Shipping', href: '/admin/shipping', icon: Truck },
-    { name: 'Refunds', href: '/admin/refunds', icon: RefreshCcw },
-    { name: 'Returns', href: '/admin/returns', icon: CornerDownLeft },
+    { 
+        name: 'Shipping', 
+        icon: Truck, 
+        children: [
+            { name: 'Shipping', href: '/admin/shipping' }
+        ]
+    },
     { 
         name: 'Social Media', 
         icon: Megaphone, 

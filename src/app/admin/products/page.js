@@ -1579,10 +1579,7 @@ export default function ProductsPage() {
                                     </div>
                                 )}
 
-                                <div style={{ marginTop: '1.25rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Description</label>
-                                    <textarea name="description" defaultValue={currentProduct?.description} rows={3} className="admin-input" style={{ resize: 'vertical' }} />
-                                </div>
+
                                 <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Tax Class (GST)</label>
