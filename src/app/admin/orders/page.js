@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 import {
-    Search, Eye, ChevronDown, rotateCcw,
+    Search, Eye, ChevronDown, rotateCcw, ChevronLeft, ChevronRight,
     Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package,
     Mail, XCircle, AlertCircle
 } from 'lucide-react';
@@ -132,6 +132,9 @@ export default function OrdersPage() {
         topProducts: []
     });
     const [timeRange, setTimeRange] = useState('MONTHLY'); // DAILY, MONTHLY, QUARTERLY, ALL
+    
+    // Reset to page 1 on search or filter
+    useEffect(() => { setOrdersPage(1); }, [searchTerm, statusFilter, sourceFilter]);
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [notificationSelection, setNotificationSelection] = useState(null); // { type: 'email' | 'whatsapp', billing: string, shipping: string, orderId: string }
 
@@ -869,7 +872,7 @@ export default function OrdersPage() {
                                 <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                     {/* Status Filter */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', letterSpacing: '0.05em' }}>Status:</label>
+                                        <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))'}}>Status:</label>
                                         <select
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
@@ -1214,24 +1217,33 @@ export default function OrdersPage() {
                                             </div>
                                         )}
 
-                                        {/* ── Pagination ── */}
+                                        {/* ── Table Pagination ── */}
                                         {totalOrderPages > 1 && (
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.25rem', borderTop: '1px solid hsl(var(--border-subtle))' }}>
-                                                <button
-                                                    onClick={() => setOrdersPage(p => Math.max(1, p - 1))}
-                                                    disabled={ordersPage === 1}
-                                                    className="btn btn-secondary"
-                                                    style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: ordersPage === 1 ? 0.4 : 1 }}
-                                                >← Prev</button>
-                                                <span style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
-                                                    Page {ordersPage} of {totalOrderPages} &nbsp;·&nbsp; {filteredOrders.length} orders
-                                                </span>
-                                                <button
-                                                    onClick={() => setOrdersPage(p => Math.min(totalOrderPages, p + 1))}
-                                                    disabled={ordersPage === totalOrderPages}
-                                                    className="btn btn-secondary"
-                                                    style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', opacity: ordersPage === totalOrderPages ? 0.4 : 1 }}
-                                                >Next →</button>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                                                <button onClick={() => setOrdersPage(p => Math.max(1, p - 1))} disabled={ordersPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: ordersPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                                    <ChevronLeft size={16} /> Previous
+                                                </button>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                    {(() => {
+                                                        const pages = [];
+                                                        const range = 1;
+                                                        pages.push(1);
+                                                        if (ordersPage > range + 2) pages.push('...');
+                                                        for (let i = Math.max(2, ordersPage - range); i <= Math.min(totalOrderPages - 1, ordersPage + range); i++) { pages.push(i); }
+                                                        if (ordersPage < totalOrderPages - range - 1) pages.push('...');
+                                                        if (totalOrderPages > 1) pages.push(totalOrderPages);
+                                                        return pages.map((page, i) => (
+                                                            page === '...' ? (
+                                                                <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                                            ) : (
+                                                                <button key={page} onClick={() => setOrdersPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: ordersPage === page ? 'hsl(var(--primary))' : '#ffffff', color: ordersPage === page ? 'white' : 'hsl(var(--text-main))', border: ordersPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                                            )
+                                                        ));
+                                                    })()}
+                                                </div>
+                                                <button onClick={() => setOrdersPage(p => Math.min(totalOrderPages, p + 1))} disabled={ordersPage === totalOrderPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: ordersPage === totalOrderPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                                    Next <ChevronRight size={16} />
+                                                </button>
                                             </div>
                                         )}
 
@@ -2085,7 +2097,10 @@ export default function OrdersPage() {
                                                 />
                                                 {productSearch && (
                                                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid hsl(var(--border-subtle))', borderRadius: '10px', marginTop: '5px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-                                                        {allProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
+                                                        {allProducts.filter(p => 
+                                                            p.name.toLowerCase().includes(productSearch.toLowerCase()) || 
+                                                            (p.product_catalog_image_id && p.product_catalog_image_id.toLowerCase().includes(productSearch.toLowerCase()))
+                                                        ).map(p => (
                                                             <div key={p.id} onClick={() => {
                                                                 const exists = newOrder.items.find(i => i.product_id === p.id);
                                                                 if (exists) {

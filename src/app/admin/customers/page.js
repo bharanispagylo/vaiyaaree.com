@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 
-import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Save, Edit2, Check, X, RefreshCw } from 'lucide-react';
+import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Save, Edit2, Check, X, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, Filter, Users, ShoppingCart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area } from 'recharts';
 
 
@@ -36,6 +36,8 @@ function CustomersPage() {
     const [editingOrderId, setEditingOrderId] = useState(null);
     const [editedOrderData, setEditedOrderData] = useState({ total_amount: 0, payment_method: '', status: '' });
     const [filterMode, setFilterMode] = useState('ALL'); // ALL, ORDERED, UNORDERED
+    const [customersPage, setCustomersPage] = useState(1);
+    const CUSTOMERS_PER_PAGE = 20;
 
 
 
@@ -188,6 +190,9 @@ function CustomersPage() {
         return () => window.removeEventListener('resetAdminView', handleReset);
 
     }, [timeRange]); // Re-fetch on time range change
+    
+    // Reset to page 1 when filters or search change
+    useEffect(() => { setCustomersPage(1); }, [searchTerm, filterMode]);
 
 
 
@@ -444,6 +449,9 @@ function CustomersPage() {
         if (filterMode === 'UNORDERED') return matchesSearch && c.totalOrders === 0;
         return matchesSearch;
     });
+    
+    const totalCustomerPages = Math.ceil(filteredCustomers.length / CUSTOMERS_PER_PAGE);
+    const paginatedCustomers = filteredCustomers.slice((customersPage - 1) * CUSTOMERS_PER_PAGE, customersPage * CUSTOMERS_PER_PAGE);
 
 
 
@@ -686,46 +694,12 @@ function CustomersPage() {
                             <div className="admin-header-row">
 
                                 <div>
-                                    <h1 style={{ marginBottom: '0.5rem' }}>Customers</h1>
-                                    <p>All registered customers from Website & WhatsApp • {customers.length} total</p>
-
-                                    <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
-                                        {['ALL', 'ORDERED', 'UNORDERED'].map(m => (
-                                            <button
-                                                key={m}
-                                                onClick={() => setFilterMode(m)}
-                                                style={{
-                                                    padding: '0.4rem 1rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700,
-                                                    border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: '0.2s',
-                                                    background: filterMode === m ? 'hsl(var(--primary))' : 'hsl(var(--bg-card))',
-                                                    color: filterMode === m ? 'white' : 'hsl(var(--text-muted))'
-                                                }}
-                                            >
-                                                {m} ({m === 'ALL' ? customers.length : (m === 'ORDERED' ? customers.filter(c => c.totalOrders > 0).length : customers.filter(c => c.totalOrders === 0).length)})
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>Customers</h1>
+                                    <p style={{ color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>All registered customers from Website & WhatsApp • {customers.length} total</p>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: 'var(--radius)', padding: '4px' }}>
-                                        <button
-                                            onClick={() => setViewMode('list')}
-                                            style={{
-                                                padding: '0.45rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                                                fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.2s',
-                                                background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
-                                                color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))'
-                                            }}>List View</button>
-                                        <button
-                                            onClick={() => setViewMode('analytics')}
-                                            style={{
-                                                padding: '0.45rem 1rem', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                                                fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.2s',
-                                                background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
-                                                color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))'
-                                            }}><TrendingUp size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Analysis</button>
-                                    </div>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    {/* Toolbar controls moved to the list card header for a more contextual experience */}
                                 </div>
                             </div>
 
@@ -868,15 +842,58 @@ function CustomersPage() {
 
                                     {/* Customer List */}
                                     <div className="card" style={{ padding: 0 }}>
-                                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))' }}>
-                                            <div style={{ position: 'relative', maxWidth: '400px' }}>
+                                        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                            <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
                                                 <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                                                 <input
                                                     type="text" placeholder="Search by name or phone..."
-                                                    value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                                    value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCustomersPage(1); }}
                                                     className="admin-input"
-                                                    style={{ paddingLeft: '2.75rem' }}
+                                                    style={{ paddingLeft: '2.75rem', width: '100%' }}
                                                 />
+                                            </div>
+                                            
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                                {/* Status Filter Dropdown */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap' }}>Status:</span>
+                                                    <div style={{ position: 'relative', minWidth: '180px' }}>
+                                                        <Filter size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))', pointerEvents: 'none' }} />
+                                                        <select
+                                                            value={filterMode}
+                                                            onChange={(e) => { setFilterMode(e.target.value); setCustomersPage(1); }}
+                                                            className="admin-input"
+                                                            style={{ paddingLeft: '2.5rem', paddingRight: '2rem', width: '100%', height: '42px', fontSize: '0.85rem', appearance: 'none', cursor: 'pointer' }}
+                                                        >
+                                                            <option value="ALL">All Customers ({customers.length})</option>
+                                                            <option value="ORDERED">Ordered ({customers.filter(c => c.totalOrders > 0).length})</option>
+                                                            <option value="UNORDERED">Unordered ({customers.filter(c => c.totalOrders === 0).length})</option>
+                                                        </select>
+                                                        <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))', pointerEvents: 'none' }} />
+                                                    </div>
+                                                </div>
+
+                                                {/* View Toggle */}
+                                                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
+                                                    <button
+                                                        onClick={() => setViewMode('list')}
+                                                        style={{
+                                                            padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                                            fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
+                                                            background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
+                                                            color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))',
+                                                            display: 'flex', alignItems: 'center', gap: '8px'
+                                                        }}><ShoppingCart size={16} /> List View</button>
+                                                    <button
+                                                        onClick={() => setViewMode('analytics')}
+                                                        style={{
+                                                            padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                                            fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
+                                                            background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
+                                                            color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
+                                                            display: 'flex', alignItems: 'center', gap: '8px'
+                                                        }}><TrendingUp size={16} /> Analysis</button>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -896,7 +913,7 @@ function CustomersPage() {
                                                 {filteredCustomers.length === 0 ? (
                                                     <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No customers found.</td></tr>
                                                 ) : (
-                                                    filteredCustomers.map((customer, i) => {
+                                                    paginatedCustomers.map((customer, i) => {
                                                         const tier = getTierBadge(customer.totalSpent);
                                                         return (
                                                             <tr key={customer.phone} onClick={() => openCustomerDetail(customer)}>

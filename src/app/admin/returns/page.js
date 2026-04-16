@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Package, RefreshCw, Search, CheckCircle, XCircle, Clock, Link as LinkIcon, User } from 'lucide-react';
+import { Package, RefreshCw, Search, CheckCircle, XCircle, Clock, Link as LinkIcon, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import ModalPortal from '@/components/ModalPortal';
@@ -15,7 +15,7 @@ export default function AdminReturnsPage() {
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const itemsPerPage = 20;
     useEffect(() => {
         fetchRequests();
     }, []);
@@ -107,6 +107,9 @@ export default function AdminReturnsPage() {
             r.customers?.phone?.includes(searchTerm);
         return matchesStatus && matchesSearch;
     });
+
+    // Reset to page 1 on search or filter
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter]);
 
     const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
     const paginatedRequests = filteredRequests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -217,20 +220,33 @@ export default function AdminReturnsPage() {
                             </tbody>
                         </table>
 
-                        {/* Pagination UI */}
+                        {/* ── Table Pagination ── */}
                         {totalPages > 1 && (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
-                                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', opacity: currentPage === 1 ? 0.5 : 1 }}>Previous</button>
-                                <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                    {[...Array(totalPages)].map((_, i) => (
-                                        <button key={i} onClick={() => setCurrentPage(i + 1)} style={{
-                                            width: '36px', height: '36px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                            background: currentPage === i + 1 ? 'hsl(var(--primary))' : 'transparent',
-                                            color: currentPage === i + 1 ? 'white' : '#64748b', fontWeight: 700
-                                        }}>{i + 1}</button>
-                                    ))}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: currentPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                    <ChevronLeft size={16} /> Previous
+                                </button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                    {(() => {
+                                        const pages = [];
+                                        const range = 1;
+                                        pages.push(1);
+                                        if (currentPage > range + 2) pages.push('...');
+                                        for (let i = Math.max(2, currentPage - range); i <= Math.min(totalPages - 1, currentPage + range); i++) { pages.push(i); }
+                                        if (currentPage < totalPages - range - 1) pages.push('...');
+                                        if (totalPages > 1) pages.push(totalPages);
+                                        return pages.map((page, i) => (
+                                            page === '...' ? (
+                                                <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                            ) : (
+                                                <button key={page} onClick={() => setCurrentPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: currentPage === page ? 'hsl(var(--primary))' : '#ffffff', color: currentPage === page ? 'white' : 'hsl(var(--text-main))', border: currentPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                            )
+                                        ));
+                                    })()}
                                 </div>
-                                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', opacity: currentPage === totalPages ? 0.5 : 1 }}>Next</button>
+                                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: currentPage === totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                    Next <ChevronRight size={16} />
+                                </button>
                             </div>
                         )}
                     </div>

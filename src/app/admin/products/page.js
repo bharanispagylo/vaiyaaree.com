@@ -64,13 +64,15 @@ export default function ProductsPage() {
     const [showHistory, setShowHistory] = useState(false);
     const [historyData, setHistoryData] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
+    const [selectedProductForHistory, setSelectedProductForHistory] = useState(null);
 
     // Media Picker States
     const [showMediaPicker, setShowMediaPicker] = useState(false);
     const [activeImageField, setActiveImageField] = useState(null); // { type: 'product' } or { type: 'variant', index: number }
     const [productImageUrl, setProductImageUrl] = useState('');
-    const [galleryImageUrl, setGalleryImageUrl] = useState('');
+    const [galleryImageUrl, setGalleryImageUrl] = useState([]);
     const [ocrLoading, setOcrLoading] = useState(false);
+    const [loadingOverlayText, setLoadingOverlayText] = useState('Searching for WaterMark...');
     const [watermarkModal, setWatermarkModal] = useState(null); // { type, detectedCode, url, onProceed }
 
     // Post-Import Image Assigner State
@@ -219,6 +221,7 @@ export default function ProductsPage() {
             setShowHistory(false);
             setImportModal(false);
             setProductImageUrl('');
+            setGalleryImageUrl([]);
             setVariants([]);
         };
         window.addEventListener('resetAdminView', handleReset);
@@ -430,7 +433,7 @@ export default function ProductsPage() {
             is_active: formData.get('is_active') === 'on',
             is_featured: formData.get('is_featured') === 'on',
             tags: formData.get('tags_input') ? formData.get('tags_input').split(',').map(t => t.trim()).filter(Boolean) : [],
-            gallery_image: galleryImageUrl || ''
+            gallery_image: Array.isArray(galleryImageUrl) ? galleryImageUrl : (galleryImageUrl ? galleryImageUrl.split(',').filter(Boolean) : [])
         };
 
         // For simple products, we take price/stock/image from main fields
@@ -573,6 +576,7 @@ export default function ProductsPage() {
             setIsEditing(false);
             setCurrentProduct(null);
             setProductImageUrl('');
+            setGalleryImageUrl([]);
             setVariants([]);
             setPostToFacebook(false);
             setPostToInstagram(false);
@@ -589,6 +593,9 @@ export default function ProductsPage() {
         setCurrentProduct(product);
         setProductType(product?.type || 'simple');
         setProductImageUrl(product?.image_url || '');
+        let gallery = product?.gallery_image || [];
+        if (typeof gallery === 'string') gallery = gallery.split(',').filter(Boolean);
+        setGalleryImageUrl(gallery);
         if (product?.id) {
             const { data } = await supabase.from('product_variants').select('*').eq('product_id', product.id).order('created_at', { ascending: true });
             setVariants(data || []);
@@ -599,7 +606,7 @@ export default function ProductsPage() {
     };
 
     const addVariant = () => {
-        setVariants([...variants, { name: '', price: currentProduct?.price || 0, stock: 10, image_url: currentProduct?.image_url || '' }]);
+        setVariants([...variants, { name: '', price: currentProduct?.price || 0, stock: 10, image_url: (productImageUrl || '').split(',')[0] || '' }]);
     };
 
     const updateVariant = (index, field, value) => {
@@ -724,17 +731,8 @@ export default function ProductsPage() {
     const totalProductPages = Math.ceil(filtered.length / PRODUCTS_PER_PAGE);
     const paginatedProducts = filtered.slice((productsPage - 1) * PRODUCTS_PER_PAGE, productsPage * PRODUCTS_PER_PAGE);
 
-
-
     const totalStock = filtered.reduce((s, p) => s + (p.stock || 0), 0);
     const totalValue = filtered.reduce((s, p) => s + ((p.price || 0) * (p.stock || 0)), 0);
-
-    const inputStyle = {
-        width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
-        background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))',
-        color: 'hsl(var(--text-main))', fontFamily: 'inherit', fontSize: '0.925rem', outline: 'none', boxSizing: 'border-box',
-        transition: 'border-color 0.2s, box-shadow 0.2s'
-    };
 
     return (
         <>
@@ -755,7 +753,7 @@ export default function ProductsPage() {
                                 <button onClick={handleExportExcel} className="btn btn-secondary">
                                     <FileDown size={18} style={{ transform: 'rotate(180deg)' }} /> Export Excel
                                 </button>
-                                <button onClick={() => { setCurrentProduct(null); setProductType('simple'); setVariants([]); setIsEditing(true); }} className="btn btn-primary">
+                                <button onClick={() => { setCurrentProduct(null); setProductType('simple'); setVariants([]); setProductImageUrl(''); setGalleryImageUrl([]); setIsEditing(true); }} className="btn btn-primary">
                                     <Plus size={18} /> Add Product
                                 </button>
                             </div>
@@ -820,24 +818,6 @@ export default function ProductsPage() {
                                 </select>
                             </div>
                         </div>
-
-                        {/* Group Tags Filter */}
-                        {/* {groups.length > 1 && (
-                <div className="admin-filter-row" style={{ marginTop: '-0.75rem' }}>
-                    <span style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginRight: '0.5rem' }}>Groups:</span>
-                    {groups.map(grp => (
-                        <button key={grp} onClick={() => setGroupFilter(grp)} style={{
-                            padding: '0.35rem 0.9rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600,
-                            cursor: 'pointer', transition: 'all 0.2s',
-                            background: groupFilter === grp ? 'hsl(var(--accent))' : 'hsl(var(--bg-card))',
-                            color: groupFilter === grp ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-                            border: groupFilter === grp ? '1px solid hsl(var(--accent))' : '1px solid hsl(var(--border-subtle))',
-                        }}>
-                            {grp === 'ALL' ? 'All Groups' : grp}
-                        </button>
-                    ))}
-                </div>
-            */}
 
                         {/* Toolbar */}
                         <div className="card" style={{ padding: '0.75rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1001,8 +981,6 @@ export default function ProductsPage() {
                                                     </th>
                                                     <th>Product</th>
                                                     <th>Category</th>
-                                                    {/* <th>Group</th>
-                                    <th>Status</th> */}
                                                     <th style={{ textAlign: 'right' }}>Price</th>
                                                     <th style={{ textAlign: 'center' }}>Stock</th>
                                                     <th style={{ textAlign: 'right' }}>Actions</th>
@@ -1077,25 +1055,6 @@ export default function ProductsPage() {
                                                                 {product.category}
                                                             </span>
                                                         </td>
-                                                        {/* <td>
-                                            {product.product_group ? (
-                                                <span style={{ padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600, background: 'hsl(var(--accent) / 0.15)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.3)' }}>
-                                                    {product.product_group}
-                                                </span>
-                                            ) : (
-                                                <span style={{ fontSize: '0.73rem', color: 'hsl(var(--text-muted) / 0.5)' }}>—</span>
-                                            )}
-                                        </td> */}
-                                                        {/* <td>
-                                            <span style={{
-                                                padding: '0.2rem 0.7rem', borderRadius: '9999px', fontSize: '0.73rem', fontWeight: 600,
-                                                background: product.is_active ? 'hsl(var(--success) / 0.1)' : 'hsl(var(--danger) / 0.1)',
-                                                color: product.is_active ? 'hsl(var(--success))' : 'hsl(var(--danger))',
-                                                border: `1px solid ${product.is_active ? 'hsl(var(--success) / 0.3)' : 'hsl(var(--danger) / 0.3)'}`
-                                            }}>
-                                                {product.is_active ? 'Active' : 'Hidden'}
-                                            </span>
-                                        </td> */}
                                                         <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(product.price || 0).toLocaleString()}</td>
                                                         <td style={{ textAlign: 'center' }}>
                                                             <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'} style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
@@ -1284,21 +1243,21 @@ export default function ProductsPage() {
                         <div className="card shadow-premium" style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: '#ffffff' }}>
                             <div style={{ marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
-                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{currentProduct ? 'Edit Product' : 'Add New Product'}</h2>
+                                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{currentProduct?.id ? 'Edit Product' : 'Add New Product'}</h2>
                                     <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>Fill in the details for your catalogue.</p>
                                 </div>
                                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                    <button type="button" onClick={() => {
+                                    {/* <button type="button" onClick={() => {
                                         const name = document.querySelector('input[name="name"]')?.value;
                                         const price = document.querySelector('input[name="price"]')?.value;
                                         const desc = document.querySelector('textarea[name="description"]')?.value;
                                         setPreviewModal({
-                                            product: { name, price, image_url: productImageUrl.split(',')[0] },
+                                            product: { name, price, image_url: (productImageUrl || '').split(',')[0] },
                                             caption: generateCaption({ name, price, description: desc, id: currentProduct?.id || 'new' })
                                         });
                                     }} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.5rem 1.25rem', color: 'hsl(var(--primary))' }}>
                                         <Eye size={16} /> View Post Preview
-                                    </button>
+                                    </button> */}
                                     <button onClick={() => setIsEditing(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Products</button>
                                 </div>
                             </div>
@@ -1371,9 +1330,9 @@ export default function ProductsPage() {
                                                 <input type="number" name="stock" defaultValue={currentProduct?.stock} required min="0" placeholder="e.g. 10" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
-                                        <div style={{ marginTop: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Image *</label>
+                                        <div style={{ marginTop: '1.25rem', display: 'flex', gap: '1.25rem' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '10px' }}>Product Image *</label>
                                                 {productImageUrl && (
                                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
                                                         {productImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
@@ -1398,7 +1357,7 @@ export default function ProductsPage() {
                                                             const files = Array.from(e.target.files || []);
                                                             if (!files.length) return;
                                                             try {
-                                                                setOcrLoading(true);
+                                                                setLoadingOverlayText("Processing..."); setOcrLoading(true);
 
                                                                 for (const file of files) {
                                                                     const reader = new FileReader();
@@ -1415,18 +1374,21 @@ export default function ProductsPage() {
                                                                                 const detData = await detRes.json();
 
                                                                                 const onProceedWithUpload = async (catId) => {
-                                                                                    setOcrLoading(true);
+                                                                                    setLoadingOverlayText("Processing..."); setOcrLoading(true);
                                                                                     const uploadData = new FormData();
                                                                                     uploadData.append('file', file);
                                                                                     uploadData.append('catalogId', catId);
                                                                                     uploadData.append('requireClean', 'true');
+                                                                                    uploadData.append('skipDetection', 'true');
                                                                                     const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
                                                                                     const data = await res.json();
 
                                                                                     const finalUrl = data.watermarkedUrl || data.url;
                                                                                     const existingArray = productImageUrl ? productImageUrl.split(',').filter(Boolean) : [];
                                                                                     setProductImageUrl([finalUrl, ...existingArray].join(','));
-                                                                                    setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
+                                                                                    if (data.catalogId) {
+                                                                                        setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
+                                                                                    }
 
                                                                                     setWatermarkModal(null);
                                                                                     resolve();
@@ -1467,22 +1429,20 @@ export default function ProductsPage() {
                                                     </label>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Gallery Image</label>
-                                                {galleryImageUrl && (
-                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                                                        {galleryImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
-                                                            <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
-                                                                <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }} onClick={() => setZoomedImage(imgUrl)} title="Click to zoom" />
-                                                                <button type="button" onClick={() => {
-                                                                    const urls = galleryImageUrl.split(',').filter(Boolean);
-                                                                    urls.splice(idx, 1);
-                                                                    setGalleryImageUrl(urls.join(','));
-                                                                }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '10px' }}>Gallery Image</label>
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                    {galleryImageUrl.filter(Boolean).map((imgUrl, idx) => (
+                                                        <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
+                                                            <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }} onClick={() => setZoomedImage(imgUrl)} title="Click to zoom" />
+                                                            <button type="button" onClick={() => {
+                                                                const urls = [...galleryImageUrl];
+                                                                urls.splice(idx, 1);
+                                                                setGalleryImageUrl(urls);
+                                                            }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                     <button type="button" onClick={() => { setActiveImageField({ type: 'gallery' }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, height: '44px' }}>
                                                         <ImageIcon size={15} /> From Library
@@ -1493,61 +1453,33 @@ export default function ProductsPage() {
                                                             const files = Array.from(e.target.files || []);
                                                             if (!files.length) return;
                                                             try {
+                                                                setLoadingOverlayText('Uploading Gallery Assets...');
                                                                 setOcrLoading(true);
+                                                                const uploadedUrls = [];
                                                                 for (const file of files) {
-                                                                    const reader = new FileReader();
-                                                                    const filePromptPromise = new Promise((resolve) => {
-                                                                        reader.onload = async (re) => {
-                                                                            try {
-                                                                                const base64 = re.target.result;
-                                                                                const formData = new FormData();
-                                                                                formData.append('file', file);
-                                                                                formData.append('checkOnly', 'true');
-                                                                                const detRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-                                                                                const detData = await detRes.json();
-
-                                                                                const onProceedWithUpload = async (catId) => {
-                                                                                    setOcrLoading(true);
-                                                                                    const uploadData = new FormData();
-                                                                                    uploadData.append('file', file);
-                                                                                    uploadData.append('catalogId', catId);
-                                                                                    uploadData.append('requireClean', 'true');
-                                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
-                                                                                    const data = await res.json();
-
-                                                                                    const finalUrl = data.watermarkedUrl || data.url;
-                                                                                    const existingArray = galleryImageUrl ? galleryImageUrl.split(',').filter(Boolean) : [];
-                                                                                    setGalleryImageUrl([finalUrl, ...existingArray].join(','));
-                                                                                    resolve();
-                                                                                };
-
-                                                                                if (detData.detected) {
-                                                                                    setWatermarkModal({ type: 'detected', detectedCode: detData.detected, url: base64, onProceed: onProceedWithUpload });
-                                                                                } else {
-                                                                                    await onProceedWithUpload(null);
-                                                                                }
-                                                                            } catch (err) {
-                                                                                setErrorModal({ title: 'Error', message: err.message });
-                                                                                resolve();
-                                                                            } finally {
-                                                                                setOcrLoading(false);
-                                                                            }
-                                                                        };
-                                                                        reader.readAsDataURL(file);
-                                                                    });
-                                                                    await filePromptPromise;
+                                                                    const formData = new FormData();
+                                                                    formData.append('file', file);
+                                                                    formData.append('skipDetection', 'true');
+                                                                    formData.append('requireClean', 'false');
+                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                    const data = await res.json();
+                                                                    if (res.ok) uploadedUrls.push(data.url);
                                                                 }
-                                                            } catch (err) { setErrorModal({ title: 'Upload Error', message: err.message }); }
-                                                            finally { setOcrLoading(false); }
+                                                                setGalleryImageUrl(prev => [...uploadedUrls, ...prev]);
+                                                            } catch (err) {
+                                                                setErrorModal({ title: 'Upload Error', message: err.message });
+                                                            } finally {
+                                                                setOcrLoading(false);
+                                                            }
                                                             e.target.value = '';
                                                         }} />
                                                     </label>
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Threshold</label>
-                                                <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} min="0" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
-                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: '1.25rem' }}>
+                                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Low Stock Threshold</label>
+                                            <input type="number" name="alert_threshold" defaultValue={currentProduct?.alert_threshold || 0} min="0" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                         </div>
                                     </div>
                                 ) : (
@@ -1570,7 +1502,7 @@ export default function ProductsPage() {
                                                         <input type="number" placeholder="Price" value={v.price} min="0" onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <input type="number" placeholder="Stock" value={v.stock} min="0" onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                            {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />}
+                                                            {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setZoomedImage(v.image_url)} title="Click to zoom" />}
                                                             <button type="button" onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem' }}>Library</button>
                                                             <label className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem', cursor: 'pointer', textAlign: 'center' }}>
                                                                 Upload
@@ -1578,7 +1510,8 @@ export default function ProductsPage() {
                                                                     const file = e.target.files?.[0];
                                                                     if (!file) return;
                                                                     try {
-                                                                        setOcrLoading(true);
+                                                                        setLoadingOverlayText('Processing Variant Image...');
+                                                                        setLoadingOverlayText("Processing..."); setOcrLoading(true);
                                                                         const reader = new FileReader();
                                                                         reader.onload = async (re) => {
                                                                             try {
@@ -1592,17 +1525,20 @@ export default function ProductsPage() {
                                                                                 const detData = await detRes.json();
 
                                                                                 const onProceedWithVariantUpload = async (catId) => {
-                                                                                    setOcrLoading(true);
+                                                                                    setLoadingOverlayText("Processing..."); setOcrLoading(true);
                                                                                     const uploadData = new FormData();
                                                                                     uploadData.append('file', file);
                                                                                     uploadData.append('catalogId', catId);
                                                                                     uploadData.append('requireClean', 'true');
+                                                                                    uploadData.append('skipDetection', 'true');
                                                                                     const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
                                                                                     const data = await res.json();
                                                                                     if (!res.ok) throw new Error(data.error || 'Upload failed');
 
                                                                                     updateVariant(i, 'image_url', data.watermarkedUrl || data.url);
-                                                                                    setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
+                                                                                    if (data.catalogId) {
+                                                                                        setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
+                                                                                    }
                                                                                     setWatermarkModal(null);
                                                                                 };
 
@@ -1686,7 +1622,7 @@ export default function ProductsPage() {
                                 {/* Facebook & Instagram Integration */}
                                 <div style={{ marginTop: '1.5rem', padding: '1.25rem', background: '#f1f5f9', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
                                     <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Social Media Integration</div>
-                                    
+
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                         {/* Facebook */}
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'white', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}>
@@ -1758,7 +1694,7 @@ export default function ProductsPage() {
 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.75rem' }}>
                                     <button type="button" onClick={() => setIsEditing(false)} className="btn btn-secondary">Cancel</button>
-                                    {currentProduct && (
+                                    {currentProduct?.id && (
                                         <button type="button" onClick={() => { handleDelete(currentProduct.id); setIsEditing(false); }} className="btn btn-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <Trash2 size={16} /> Delete Product
                                         </button>
@@ -1838,17 +1774,17 @@ export default function ProductsPage() {
                 {/* ─── IMPORT EXCEL PAGE ─── */}
                 {importModal && (
                     <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
-                        <div className="card shadow-premium" style={{ 
-                            maxWidth: '600px', margin: '0 auto', padding: 0, 
+                        <div className="card shadow-premium" style={{
+                            maxWidth: '600px', margin: '0 auto', padding: 0,
                             borderRadius: '32px', overflow: 'hidden', background: '#ffffff',
                             border: '1px solid hsl(var(--border-subtle))',
                             textAlign: 'center'
                         }}>
                             <div style={{ padding: '4rem' }}>
-                                <div style={{ 
-                                    width: '100px', height: '100px', borderRadius: '50%', 
-                                    background: '#f8fafc', 
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                <div style={{
+                                    width: '100px', height: '100px', borderRadius: '50%',
+                                    background: '#f8fafc',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     margin: '0 auto 2.5rem',
                                     boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
                                     color: '#0f172a',
@@ -1889,9 +1825,22 @@ export default function ProductsPage() {
                 {
                     showMediaPicker && (
                         <MediaPicker catalogId={currentProduct?.product_catalog_image_id}
-                            currentImage={activeImageField?.type === 'product' ? (productImageUrl ? productImageUrl.split(',')[0] : '') : variants[activeImageField?.index]?.image_url}
-                            onSelect={async (url) => {
+                            multiple={activeImageField?.type === 'gallery'}
+                            currentImage={
+                                activeImageField?.type === 'product' ? (productImageUrl ? productImageUrl.split(',')[0] : '') :
+                                    activeImageField?.type === 'gallery' ? galleryImageUrl :
+                                        variants[activeImageField?.index]?.image_url
+                            }
+                            onSelect={async (value) => {
                                 try {
+                                    if (activeImageField?.type === 'gallery') {
+                                        const urls = Array.isArray(value) ? value : [value];
+                                        setGalleryImageUrl(prev => Array.from(new Set([...urls, ...prev])));
+                                        return;
+                                    }
+
+                                    const url = Array.isArray(value) ? value[0] : value;
+                                    setLoadingOverlayText('Analyzing Image...');
                                     setOcrLoading(true);
                                     setShowMediaPicker(false);
 
@@ -1905,7 +1854,8 @@ export default function ProductsPage() {
 
                                     const onConfirmSelection = async (finalUrl, catId) => {
                                         if (activeImageField.type === 'product') {
-                                            setProductImageUrl(finalUrl);
+                                            const existingArray = productImageUrl ? productImageUrl.split(',').filter(Boolean) : [];
+                                            setProductImageUrl([finalUrl, ...existingArray].join(','));
                                             setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
                                         } else if (activeImageField.type === 'variant') {
                                             updateVariant(activeImageField.index, 'image_url', finalUrl);
@@ -1932,7 +1882,7 @@ export default function ProductsPage() {
                                             url: url,
                                             onProceed: async () => {
                                                 try {
-                                                    setOcrLoading(true);
+                                                    setLoadingOverlayText("Processing..."); setOcrLoading(true);
                                                     setWatermarkModal(null);
 
                                                     const response = await fetch(url);
@@ -1943,6 +1893,7 @@ export default function ProductsPage() {
                                                     formData.append('file', file);
                                                     formData.append('catalogId', newCatId);
                                                     formData.append('requireClean', 'true');
+                                                    formData.append('skipDetection', 'true');
 
                                                     const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
                                                     const uploadData = await uploadRes.json();
@@ -1971,18 +1922,18 @@ export default function ProductsPage() {
                 {/* OCR Loading Overlay */}
                 {ocrLoading && (
                     <ModalPortal>
-                    <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.8)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
-                            <div style={{ position: 'relative', width: '80px', height: '80px' }}>
-                                <div style={{ position: 'absolute', inset: 0, border: '4px solid rgba(255,255,255,0.1)', borderRadius: '50%' }}></div>
-                                <div style={{ position: 'absolute', inset: 0, border: '4px solid #fff', borderRadius: '50%', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }}></div>
-                                <Search size={32} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', color: 'white' }} />
-                            </div>
-                            <div style={{ color: 'white', fontWeight: 900, fontSize: '1.5rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                Searching for WaterMark...
+                        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.8)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+                                <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+                                    <div style={{ position: 'absolute', inset: 0, border: '4px solid rgba(255,255,255,0.1)', borderRadius: '50%' }}></div>
+                                    <div style={{ position: 'absolute', inset: 0, border: '4px solid #fff', borderRadius: '50%', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }}></div>
+                                    <Search size={32} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', color: 'white' }} />
+                                </div>
+                                <div style={{ color: 'white', fontWeight: 900, fontSize: '1.5rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                    {loadingOverlayText}
+                                </div>
                             </div>
                         </div>
-                    </div>
                     </ModalPortal>
                 )}
 
@@ -1991,14 +1942,14 @@ export default function ProductsPage() {
                 {
                     importedProductsForImage && importedProductsForImage.length > 0 && (
                         <ModalPortal>
-                        <ProductImageAssigner
-                            products={importedProductsForImage}
-                            onClose={() => setImportedProductsForImage(null)}
-                            onDone={() => {
-                                fetchProducts();
-                                setImportedProductsForImage(null);
-                            }}
-                        />
+                            <ProductImageAssigner
+                                products={importedProductsForImage}
+                                onClose={() => setImportedProductsForImage(null)}
+                                onDone={() => {
+                                    fetchProducts();
+                                    setImportedProductsForImage(null);
+                                }}
+                            />
                         </ModalPortal>
                     )
                 }
@@ -2007,22 +1958,22 @@ export default function ProductsPage() {
                 {
                     successModal && (
                         <ModalPortal>
-                        <div className="modal-overlay" onClick={() => setSuccessModal(null)}>
-                            <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: '3rem' }}>
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0fdf4', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #dcfce7' }}>
-                                        <Check size={40} strokeWidth={2} />
+                            <div className="modal-overlay" onClick={() => setSuccessModal(null)}>
+                                <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                    <div style={{ padding: '3rem' }}>
+                                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0fdf4', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #dcfce7' }}>
+                                            <Check size={40} strokeWidth={2} />
+                                        </div>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>Success!</h3>
+                                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                                            The operation was completed and synchronized successfully.
+                                        </p>
+                                        <button onClick={() => setSuccessModal(null)} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                                            Continue
+                                        </button>
                                     </div>
-                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>Success!</h3>
-                                    <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
-                                        The operation was completed and synchronized successfully.
-                                    </p>
-                                    <button onClick={() => setSuccessModal(null)} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
-                                        Continue
-                                    </button>
                                 </div>
                             </div>
-                        </div>
                         </ModalPortal>
                     )
                 }
@@ -2031,22 +1982,22 @@ export default function ProductsPage() {
                 {
                     errorModal && (
                         <ModalPortal>
-                        <div className="modal-overlay" onClick={() => setErrorModal(null)}>
-                            <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: '3rem' }}>
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #fee2e2' }}>
-                                        <X size={40} strokeWidth={2} />
+                            <div className="modal-overlay" onClick={() => setErrorModal(null)}>
+                                <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                    <div style={{ padding: '3rem' }}>
+                                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #fee2e2' }}>
+                                            <X size={40} strokeWidth={2} />
+                                        </div>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{errorModal.title}</h3>
+                                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                                            {errorModal.message}
+                                        </p>
+                                        <button onClick={() => setErrorModal(null)} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                                            Dismiss
+                                        </button>
                                     </div>
-                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{errorModal.title}</h3>
-                                    <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
-                                        {errorModal.message}
-                                    </p>
-                                    <button onClick={() => setErrorModal(null)} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
-                                        Dismiss
-                                    </button>
                                 </div>
                             </div>
-                        </div>
                         </ModalPortal>
                     )
                 }
@@ -2055,78 +2006,78 @@ export default function ProductsPage() {
                 {
                     previewModal && (
                         <ModalPortal>
-                        <div className="modal-overlay" onClick={() => setPreviewModal(null)}>
-                            <div className="modal-box shadow-premium" style={{ maxWidth: '640px', padding: '2rem', borderRadius: '24px', background: '#f8fafc' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                                    <div>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Social Media Preview</h3>
-                                        <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>See how your product will look on Meta platforms.</p>
-                                    </div>
-                                    <button onClick={() => setPreviewModal(null)} className="btn btn-secondary" style={{ padding: '0.4rem', borderRadius: '50%' }}><X size={18} /></button>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: previewModal.platform ? '1fr' : '1fr 1fr', gap: '1.5rem', justifyContent: 'center' }}>
-                                    {/* Facebook Mock */}
-                                    {(!previewModal.platform || previewModal.platform === 'facebook') && (
-                                        <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f0f2f5' }}>
-                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Facebook size={16} /></div>
-                                                <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Aiswarya Saree</div>
-                                            </div>
-                                            <div style={{ padding: '12px', fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
-                                                {(() => {
-                                                    const parts = previewModal.caption.split('\n\n#');
-                                                    return (
-                                                        <>
-                                                            {parts[0]}
-                                                            {parts[1] && <div style={{ color: '#1877F2', marginTop: '0.5rem', fontWeight: 500 }}>#{parts[1]}</div>}
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                            {previewModal.product.image_url && (
-                                                <div style={{ width: '100%', height: '320px', overflow: 'hidden', borderTop: '1px solid #eee' }}>
-                                                    <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                </div>
-                                            )}
-                                            <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#65676B', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
-                                            </div>
+                            <div className="modal-overlay" onClick={() => setPreviewModal(null)}>
+                                <div className="modal-box shadow-premium" style={{ maxWidth: '640px', padding: '2rem', borderRadius: '24px', background: '#f8fafc' }} onClick={e => e.stopPropagation()}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                        <div>
+                                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Social Media Preview</h3>
+                                            <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>See how your product will look on Meta platforms.</p>
                                         </div>
-                                    )}
-
-                                    {/* Instagram Mock */}
-                                    {(!previewModal.platform || previewModal.platform === 'instagram') && (
-                                        <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content', margin: '0 auto', width: '100%', maxWidth: '400px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
-                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Instagram size={14} /></div>
-                                                <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>aiswaryasaree</div>
-                                            </div>
-                                            {previewModal.product.image_url && (
-                                                <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}>
-                                                    <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <button onClick={() => setPreviewModal(null)} className="btn btn-secondary" style={{ padding: '0.4rem', borderRadius: '50%' }}><X size={18} /></button>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: previewModal.platform ? '1fr' : '1fr 1fr', gap: '1.5rem', justifyContent: 'center' }}>
+                                        {/* Facebook Mock */}
+                                        {(!previewModal.platform || previewModal.platform === 'facebook') && (
+                                            <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f0f2f5' }}>
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Facebook size={16} /></div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Aiswarya Saree</div>
                                                 </div>
-                                            )}
-                                            <div style={{ padding: '12px' }}>
-                                                <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', fontSize: '1rem' }}>❤️ 💬 ↗️</div>
-                                                <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
-                                                    <span style={{ fontWeight: 700 }}>aiswaryasaree</span>{' '}
+                                                <div style={{ padding: '12px', fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                                                     {(() => {
                                                         const parts = previewModal.caption.split('\n\n#');
                                                         return (
                                                             <>
-                                                                <span style={{ whiteSpace: 'pre-wrap' }}>{parts[0]}</span>
-                                                                {parts[1] && <div style={{ color: '#00376b', display: 'inline', marginLeft: '4px' }}>#{parts[1]}</div>}
+                                                                {parts[0]}
+                                                                {parts[1] && <div style={{ color: '#1877F2', marginTop: '0.5rem', fontWeight: 500 }}>#{parts[1]}</div>}
                                                             </>
                                                         );
                                                     })()}
                                                 </div>
+                                                {previewModal.product.image_url && (
+                                                    <div style={{ width: '100%', height: '320px', overflow: 'hidden', borderTop: '1px solid #eee' }}>
+                                                        <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                )}
+                                                <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#65676B', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+
+                                        {/* Instagram Mock */}
+                                        {(!previewModal.platform || previewModal.platform === 'instagram') && (
+                                            <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content', margin: '0 auto', width: '100%', maxWidth: '400px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
+                                                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Instagram size={14} /></div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>aiswaryasaree</div>
+                                                </div>
+                                                {previewModal.product.image_url && (
+                                                    <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}>
+                                                        <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                )}
+                                                <div style={{ padding: '12px' }}>
+                                                    <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', fontSize: '1rem' }}>❤️ 💬 ↗️</div>
+                                                    <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
+                                                        <span style={{ fontWeight: 700 }}>aiswaryasaree</span>{' '}
+                                                        {(() => {
+                                                            const parts = previewModal.caption.split('\n\n#');
+                                                            return (
+                                                                <>
+                                                                    <span style={{ whiteSpace: 'pre-wrap' }}>{parts[0]}</span>
+                                                                    {parts[1] && <div style={{ color: '#00376b', display: 'inline', marginLeft: '4px' }}>#{parts[1]}</div>}
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button onClick={() => setPreviewModal(null)} className="btn btn-primary" style={{ width: '100%', marginTop: '2rem', height: '52px', borderRadius: '14px', fontSize: '1rem', fontWeight: 700 }}>Close Preview</button>
                                 </div>
-                                <button onClick={() => setPreviewModal(null)} className="btn btn-primary" style={{ width: '100%', marginTop: '2rem', height: '52px', borderRadius: '14px', fontSize: '1rem', fontWeight: 700 }}>Close Preview</button>
                             </div>
-                        </div>
                         </ModalPortal>
                     )
                 }
@@ -2135,35 +2086,35 @@ export default function ProductsPage() {
                 {
                     resultModal && (
                         <ModalPortal>
-                        <div className="modal-overlay" onClick={() => setResultModal(null)}>
-                            <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                                <div style={{ padding: '3rem' }}>
-                                    <div style={{ 
-                                        width: '80px', height: '80px', borderRadius: '50%', 
-                                        background: resultModal.type === 'error' ? '#fef2f2' : '#f0fdf4', 
-                                        color: resultModal.type === 'error' ? '#ef4444' : '#10b981', 
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                                        margin: '0 auto 2rem',
-                                        border: `1px solid ${resultModal.type === 'error' ? '#fee2e2' : '#dcfce7'}`
-                                    }}>
-                                        {resultModal.type === 'error' ? <X size={40} strokeWidth={2} /> : <Check size={40} strokeWidth={2} />}
+                            <div className="modal-overlay" onClick={() => setResultModal(null)}>
+                                <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                    <div style={{ padding: '3rem' }}>
+                                        <div style={{
+                                            width: '80px', height: '80px', borderRadius: '50%',
+                                            background: resultModal.type === 'error' ? '#fef2f2' : '#f0fdf4',
+                                            color: resultModal.type === 'error' ? '#ef4444' : '#10b981',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            margin: '0 auto 2rem',
+                                            border: `1px solid ${resultModal.type === 'error' ? '#fee2e2' : '#dcfce7'}`
+                                        }}>
+                                            {resultModal.type === 'error' ? <X size={40} strokeWidth={2} /> : <Check size={40} strokeWidth={2} />}
+                                        </div>
+                                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{resultModal.title}</h3>
+                                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                                            {resultModal.message}
+                                        </p>
+                                        <button
+                                            onClick={() => {
+                                                setResultModal(null);
+                                                if (resultModal.onClose) resultModal.onClose();
+                                            }}
+                                            style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                                        >
+                                            Dismiss
+                                        </button>
                                     </div>
-                                    <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{resultModal.title}</h3>
-                                    <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
-                                        {resultModal.message}
-                                    </p>
-                                    <button 
-                                        onClick={() => {
-                                            setResultModal(null);
-                                            if (resultModal.onClose) resultModal.onClose();
-                                        }} 
-                                        style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}
-                                    >
-                                        Dismiss
-                                    </button>
                                 </div>
                             </div>
-                        </div>
                         </ModalPortal>
                     )
                 }
@@ -2172,133 +2123,131 @@ export default function ProductsPage() {
                 {
                     watermarkModal && (
                         <ModalPortal>
-                        <div className="modal-overlay">
-                            {watermarkModal.type === 'existing' ? (
-                                <div className="modal-box shadow-premium" style={{ 
-                                    maxWidth: '520px', padding: 0, borderRadius: '32px', 
-                                    overflow: 'hidden', background: '#ffffff',
-                                    boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
-                                    textAlign: 'center'
-                                }}>
-                                    <div style={{ padding: '3.5rem' }}>
-                                        <div style={{ 
-                                            width: '88px', height: '88px', borderRadius: '50%', 
-                                            background: '#fef2f2', color: '#ef4444', 
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                                            margin: '0 auto 2rem',
-                                            border: '1px solid #fee2e2'
-                                        }}>
-                                            <AlertTriangle size={40} strokeWidth={1.5} />
-                                        </div>
-                                        
-                                        <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a', letterSpacing: '-0.025em' }}>
-                                            Watermark Detected
-                                        </h3>
-                                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2.5rem' }}>
-                                            This image already contains a digital identity <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span>. To avoid visual issues, please use an original, clean file.
-                                        </p>
-                                        
-                                        <div className="modal-actions">
-                                            <button 
-                                                onClick={() => setWatermarkModal(null)} 
-                                                style={{ 
-                                                    width: '100%', background: '#0f172a', height: '56px', 
-                                                    borderRadius: '16px', color: '#fff', fontSize: '1rem',
-                                                    fontWeight: 800, border: 'none', cursor: 'pointer',
-                                                    boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                                            >
-                                                Dismiss Alert
-                                            </button>
+                            <div className="modal-overlay">
+                                {watermarkModal.type === 'existing' ? (
+                                    <div className="modal-box shadow-premium" style={{
+                                        maxWidth: '520px', padding: 0, borderRadius: '32px',
+                                        overflow: 'hidden', background: '#ffffff',
+                                        boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
+                                        textAlign: 'center'
+                                    }}>
+                                        <div style={{ padding: '3.5rem' }}>
+                                            <div style={{
+                                                width: '88px', height: '88px', borderRadius: '50%',
+                                                background: '#fef2f2', color: '#ef4444',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                margin: '0 auto 2rem',
+                                                border: '1px solid #fee2e2'
+                                            }}>
+                                                <AlertTriangle size={40} strokeWidth={1.5} />
+                                            </div>
+
+                                            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a', letterSpacing: '-0.025em' }}>
+                                                Watermark Detected
+                                            </h3>
+                                            <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2.5rem' }}>
+                                                This image already contains a digital identity <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span>. To avoid visual issues, please use an original, clean file.
+                                            </p>
+
+                                            <div className="modal-actions">
+                                                <button
+                                                    onClick={() => setWatermarkModal(null)}
+                                                    style={{
+                                                        width: '100%', background: '#0f172a', height: '56px',
+                                                        borderRadius: '16px', color: '#fff', fontSize: '1rem',
+                                                        fontWeight: 800, border: 'none', cursor: 'pointer',
+                                                        boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                                >
+                                                    Dismiss Alert
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="modal-box shadow-premium" style={{ 
-                                    maxWidth: '520px', padding: 0, borderRadius: '32px', 
-                                    overflow: 'hidden', background: '#ffffff',
-                                    boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
-                                    maxHeight: '90vh', overflowY: 'auto'
-                                }}>
-                                    <div style={{ padding: '2rem', textAlign: 'center' }}>
-                                        {/* <div style={{
-                                            width: '88px', height: '88px', borderRadius: '50%',
-                                            background: '#f8fafc',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            margin: '0 auto 2rem',
-                                            border: '1px solid #f1f5f9',
-                                            boxShadow: '0 10px 20px -5px rgba(0,0,0,0.05)'
-                                        }}>
-                                            <ImageIcon size={40} strokeWidth={1.5} style={{ color: '#0f172a' }} />
-                                        </div> */}
-                                        
-                                        <h3 style={{ 
-                                            fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', 
-                                            color: '#0f172a', letterSpacing: '-0.025em'
-                                        }}>
-                                            Apply Watermark?
-                                        </h3>
-                                        <p style={{ 
-                                            color: '#64748b', lineHeight: '1.6', fontSize: '1rem', 
-                                            marginBottom: '2rem'
-                                        }}>
-                                            This is a clean image. We will generate code <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span> and apply the watermark for you.
-                                        </p>
+                                ) : (
+                                    <div className="modal-box shadow-premium" style={{
+                                        maxWidth: '520px', padding: 0, borderRadius: '32px',
+                                        overflow: 'hidden', background: '#ffffff',
+                                        boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
+                                        maxHeight: '90vh', overflowY: 'auto'
+                                    }}>
+                                        <div style={{ padding: '2rem', textAlign: 'center' }}>
+                                            <h3 style={{
+                                                fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem',
+                                                color: '#0f172a', letterSpacing: '-0.025em'
+                                            }}>
+                                                Apply Watermark?
+                                            </h3>
+                                            <p style={{
+                                                color: '#64748b', lineHeight: '1.6', fontSize: '1rem',
+                                                marginBottom: '2rem'
+                                            }}>
+                                                This is a clean image. We will generate code <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span> and apply the watermark for you.
+                                            </p>
 
-                                        {/* <div style={{ 
-                                            background: '#f8fafc', 
-                                            padding: '1.25rem', borderRadius: '24px', 
-                                            marginBottom: '2.5rem', border: '1px solid #f1f5f9'
-                                        }}> */}
-                                            <div style={{ borderRadius: '16px', overflow: 'hidden', background: '#fff', border: '1px solid #e2e8f0' }}>
-                                                <img src={watermarkModal.url} style={{ 
+                                            <div style={{ borderRadius: '16px', overflow: 'hidden', background: '#fff', border: '1px solid #e2e8f0', position: 'relative' }}>
+                                                <img src={watermarkModal.url} style={{
                                                     width: '100%', height: '200px', objectFit: 'contain'
                                                 }} />
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    bottom: '20px',
+                                                    right: '20px',
+                                                    background: 'rgba(0,0,0,0.85)',
+                                                    color: 'white',
+                                                    padding: '8px 16px',
+                                                    borderRadius: '50px',
+                                                    fontSize: '1rem',
+                                                    fontWeight: 900,
+                                                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                                                    border: '1.5px solid rgba(255,255,255,0.3)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    zIndex: 10,
+                                                    fontFamily: 'monospace',
+                                                    letterSpacing: '0.05em'
+                                                }}>
+                                                    {watermarkModal.detectedCode}
+                                                </div>
                                             </div>
-                                            {/* <div style={{ 
-                                                marginTop: '1.25rem', fontWeight: 800, color: '#0f172a', 
-                                                fontSize: '1.5rem', letterSpacing: '0.05em'
-                                            }}>
-                                                {watermarkModal.detectedCode}
-                                            </div> */}
-                                        {/* </div> */}
 
-                                        <div style={{ display: 'flex', gap: '1rem',marginTop:"2rem" }}>
-                                            <button 
-                                                onClick={() => setWatermarkModal(null)} 
-                                                style={{ 
-                                                    flex: 1, height: '56px', borderRadius: '16px', 
-                                                    fontSize: '1rem', fontWeight: 700, border: 'none',
-                                                    color: '#64748b', background: '#f1f5f9', cursor: 'pointer',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
-                                                onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button 
-                                                onClick={watermarkModal.onProceed} 
-                                                style={{ 
-                                                    flex: 1.5, height: '56px', borderRadius: '16px', 
-                                                    fontSize: '1rem', fontWeight: 800, border: 'none',
-                                                    color: '#fff', background: '#0f172a',
-                                                    boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
-                                                    cursor: 'pointer', transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                                            >
-                                                Apply & Proceed
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '1rem', marginTop: "2rem" }}>
+                                                <button
+                                                    onClick={() => setWatermarkModal(null)}
+                                                    style={{
+                                                        flex: 1, height: '56px', borderRadius: '16px',
+                                                        fontSize: '1rem', fontWeight: 700, border: 'none',
+                                                        color: '#64748b', background: '#f1f5f9', cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={watermarkModal.onProceed}
+                                                    style={{
+                                                        flex: 1.5, height: '56px', borderRadius: '16px',
+                                                        fontSize: '1rem', fontWeight: 800, border: 'none',
+                                                        color: '#fff', background: '#0f172a',
+                                                        boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
+                                                        cursor: 'pointer', transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                                >
+                                                    Apply & Proceed
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
                         </ModalPortal>
                     )
                 }
@@ -2307,28 +2256,35 @@ export default function ProductsPage() {
                 {
                     confirmModal && (
                         <ModalPortal>
-                        <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
-                            <div className="modal-box modal-warning" onClick={e => e.stopPropagation()}>
-                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fffbeb', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', fontSize: '2.5rem', boxShadow: 'inset 0 0 0 2px #fef3c7' }}>
-                                    <AlertTriangle size={40} strokeWidth={2.5} />
-                                </div>
-                                <h3 className="modal-title">{confirmModal.title}</h3>
-                                <p className="modal-message">
-                                    {confirmModal.message}
-                                </p>
-                                <div className="modal-actions">
-                                    <button onClick={() => setConfirmModal(null)} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>
-                                        No, Cancel
-                                    </button>
-                                    <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} className="modal-btn modal-btn-primary" style={{ flex: 1.2, background: '#ef4444' }}>
-                                        Yes, Proceed
-                                    </button>
+                            <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
+                                <div className="modal-box modal-warning" onClick={e => e.stopPropagation()}>
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fffbeb', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', fontSize: '2.5rem', boxShadow: 'inset 0 0 0 2px #fef3c7' }}>
+                                        <AlertTriangle size={40} strokeWidth={2.5} />
+                                    </div>
+                                    <h3 className="modal-title">{confirmModal.title}</h3>
+                                    <p className="modal-message">
+                                        {confirmModal.message}
+                                    </p>
+                                    <div className="modal-actions">
+                                        <button onClick={() => setConfirmModal(null)} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>
+                                            No, Cancel
+                                        </button>
+                                        <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} className="modal-btn modal-btn-primary" style={{ flex: 1.2, background: '#ef4444' }}>
+                                            Yes, Proceed
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
                         </ModalPortal>
                     )
                 }
+
+                {/* IMAGE ZOOM OVERLAY */}
+                {zoomedImage && (
+                    <ModalPortal>
+                        <ImageZoom url={zoomedImage} onClose={() => setZoomedImage(null)} />
+                    </ModalPortal>
+                )}
 
                 <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -2389,11 +2345,8 @@ export default function ProductsPage() {
                         </div>
                     </div>
                 )}
-                {/* Image Zoom Modal */}
-                {zoomedImage && (
-                    <ImageZoom url={zoomedImage} onClose={() => setZoomedImage(null)} />
-                )}
             </div>
         </>
     );
 }
+

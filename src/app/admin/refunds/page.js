@@ -8,7 +8,7 @@ import ModalPortal from '@/components/ModalPortal';
 import { 
     ArrowLeft, RefreshCcw, Clock, CheckCircle, XCircle, AlertCircle, 
     DollarSign, Package, User, Phone, Calendar, Search, Filter,
-    ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink
+    ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 export default function RefundsPage() {
@@ -24,6 +24,8 @@ export default function RefundsPage() {
     const [processAction, setProcessAction] = useState(null); // 'approve', 'reject', 'complete'
     const [processNote, setProcessNote] = useState('');
     const [notification, setNotification] = useState(null);
+    const [refundsPage, setRefundsPage] = useState(1);
+    const REFUNDS_PER_PAGE = 20;
 
     // Fetch refunds and setup real-time subscription
     useEffect(() => {
@@ -194,6 +196,12 @@ export default function RefundsPage() {
         return matchesSearch && matchesStatus;
     });
 
+    // Reset to page 1 on search or filter
+    useEffect(() => { setRefundsPage(1); }, [searchTerm, statusFilter]);
+
+    const totalRefundPages = Math.ceil(filteredRefunds.length / REFUNDS_PER_PAGE);
+    const paginatedRefunds = filteredRefunds.slice((refundsPage - 1) * REFUNDS_PER_PAGE, refundsPage * REFUNDS_PER_PAGE);
+
     return (
         <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
             {/* Notification */}
@@ -316,7 +324,7 @@ export default function RefundsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredRefunds.map((refund) => (
+                            {paginatedRefunds.map((refund) => (
                                 <tr key={refund.id}>
                                     <td>#{refund.order_id}</td>
                                     <td>
@@ -381,6 +389,36 @@ export default function RefundsPage() {
                             ))}
                         </tbody>
                     </table>
+                )}
+
+                {/* ── Table Pagination ── */}
+                {totalRefundPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                        <button onClick={() => setRefundsPage(p => Math.max(1, p - 1))} disabled={refundsPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: refundsPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                            <ChevronLeft size={16} /> Previous
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                            {(() => {
+                                const pages = [];
+                                const range = 1;
+                                pages.push(1);
+                                if (refundsPage > range + 2) pages.push('...');
+                                for (let i = Math.max(2, refundsPage - range); i <= Math.min(totalRefundPages - 1, refundsPage + range); i++) { pages.push(i); }
+                                if (refundsPage < totalRefundPages - range - 1) pages.push('...');
+                                if (totalRefundPages > 1) pages.push(totalRefundPages);
+                                return pages.map((page, i) => (
+                                    page === '...' ? (
+                                        <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                    ) : (
+                                        <button key={page} onClick={() => setRefundsPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: refundsPage === page ? 'hsl(var(--primary))' : '#ffffff', color: refundsPage === page ? 'white' : 'hsl(var(--text-main))', border: refundsPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                    )
+                                ));
+                            })()}
+                        </div>
+                        <button onClick={() => setRefundsPage(p => Math.min(totalRefundPages, p + 1))} disabled={refundsPage === totalRefundPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: refundsPage === totalRefundPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                            Next <ChevronRight size={16} />
+                        </button>
+                    </div>
                 )}
             </div>
 

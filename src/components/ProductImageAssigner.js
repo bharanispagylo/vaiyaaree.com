@@ -60,6 +60,7 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                 uploadFormData.append('file', fileCheck);
                 uploadFormData.append('catalogId', catId);
                 uploadFormData.append('requireClean', 'true');
+                uploadFormData.append('skipDetection', 'true');
                 uploadFormData.append('mode', 'product');
 
                 const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: uploadFormData });
@@ -370,13 +371,30 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                                 marginBottom: '2.5rem', background: '#f8fafc', position: 'relative'
                             }}>
                                 <img src={watermarkModal.url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', color: 'white', padding: '0.4rem 1rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800 }}>
-                                    PREVIEW
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: '20px',
+                                    right: '20px',
+                                    background: 'rgba(0,0,0,0.8)',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    borderRadius: '50px',
+                                    fontSize: '1rem',
+                                    fontWeight: 900,
+                                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                                    border: '1px solid rgba(255,255,255,0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    zIndex: 10,
+                                    fontFamily: 'monospace'
+                                }}>
+                                    {watermarkModal.detectedCode}
                                 </div>
                             </div>
                             <div className="modal-actions">
                                 <button onClick={() => { setWatermarkModal(null); setOcrLoading(false); }} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>Cancel</button>
-                                <button onClick={watermarkModal.onProceed} className="modal-btn modal-btn-primary" style={{ flex: 1.5 }}>Generate & Apple</button>
+                                <button onClick={watermarkModal.onProceed} className="modal-btn modal-btn-primary" style={{ flex: 1.5 }}>Generate & Apply</button>
                             </div>
                         </div>
                     )}

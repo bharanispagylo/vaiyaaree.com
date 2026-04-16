@@ -7,14 +7,40 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient'; // still needed for getPublicUrl
 
-export default function MediaPicker({ onSelect, onClose, currentImage, catalogId }) {
+export default function MediaPicker({ onSelect, onClose, currentImage, catalogId, multiple = false }) {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeGroup, setActiveGroup] = useState('all'); // 'all' | 'watermark' | 'no-watermark'
     const [watermarkImages, setWatermarkImages] = useState([]);
+    
+    // Selection state for multiple mode
+    const [selectedUrls, setSelectedUrls] = useState(() => {
+        if (!multiple) return [];
+        if (Array.isArray(currentImage)) return currentImage;
+        if (typeof currentImage === 'string' && currentImage) return [currentImage];
+        return [];
+    });
+
     const fileInputRef = useRef(null);
+
+    const toggleSelect = (url) => {
+        if (!multiple) {
+            onSelect(url);
+            return;
+        }
+        setSelectedUrls(prev => {
+            const exists = prev.includes(url);
+            if (exists) return prev.filter(u => u !== url);
+            return [...prev, url];
+        });
+    };
+
+    const isSelected = (url) => {
+        if (!multiple) return currentImage === url;
+        return selectedUrls.includes(url);
+    };
 
     const fetchSettings = async () => {
         try {
@@ -28,8 +54,6 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
             console.error('Error fetching watermark settings in picker:', err);
         }
     };
-
-
 
     const fetchFiles = async () => {
         setLoading(true);
@@ -79,9 +103,13 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                 return;
             }
 
-            // Refresh the list and auto-select the new image
+            // Refresh the list and select the new image
             await fetchFiles();
-            onSelect(data.url);
+            if (multiple) {
+                setSelectedUrls(prev => [...prev, data.url]);
+            } else {
+                onSelect(data.url);
+            }
         } catch (err) {
             alert('Upload failed: ' + err.message);
         } finally {
@@ -98,7 +126,9 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
         if (activeGroup === 'watermark') return isWatermarked;
         if (activeGroup === 'no-watermark') return !isWatermarked;
         return true;
-    });    return (
+    });
+
+    return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-box shadow-premium" style={{
                 maxWidth: '960px', height: '85vh',
@@ -113,8 +143,12 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                     background: '#ffffff'
                 }}>
                     <div>
-                        <h2 style={{ fontSize: '1.4rem', fontWeight: 900, margin: 0, color: 'hsl(var(--text-main))' }}>Select Image</h2>
-                        <p style={{ fontSize: '0.825rem', color: 'hsl(var(--text-muted))', margin: '4px 0 0', fontWeight: 500 }}>Choose from media library or upload new assets.</p>
+                        <h2 style={{ fontSize: '1.4rem', fontWeight: 900, margin: 0, color: 'hsl(var(--text-main))' }}>
+                            {multiple ? `Select Images (${selectedUrls.length})` : 'Select Image'}
+                        </h2>
+                        <p style={{ fontSize: '0.825rem', color: 'hsl(var(--text-muted))', margin: '4px 0 0', fontWeight: 500 }}>
+                            {multiple ? 'Select multiple assets for your gallery.' : 'Choose from media library or upload new assets.'}
+                        </p>
                     </div>
                     <button
                         onClick={onClose}
@@ -204,11 +238,11 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                                         cursor: 'pointer', position: 'relative', 
                                         transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                                         border: '4px solid transparent',
-                                        borderColor: currentImage === file.url ? 'hsl(var(--primary))' : 'transparent',
-                                        boxShadow: currentImage === file.url ? '0 12px 30px rgba(0,0,0,0.15)' : '0 4px 15px rgba(0,0,0,0.05)',
-                                        transform: currentImage === file.url ? 'scale(1.02)' : 'scale(1)'
+                                        borderColor: isSelected(file.url) ? 'hsl(var(--primary))' : 'transparent',
+                                        boxShadow: isSelected(file.url) ? '0 12px 30px rgba(0,0,0,0.15)' : '0 4px 15px rgba(0,0,0,0.05)',
+                                        transform: isSelected(file.url) ? 'scale(1.02)' : 'scale(1)'
                                     }}
-                                    onClick={() => onSelect(file.url)}
+                                    onClick={() => toggleSelect(file.url)}
                                 >
                                     <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     {file.catalogId && (
@@ -223,7 +257,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                                             {file.catalogId}
                                         </div>
                                     )}
-                                    {currentImage === file.url && (
+                                    {isSelected(file.url) && (
                                         <div style={{
                                             position: 'absolute', top: '10px', right: '10px',
                                             background: 'hsl(var(--primary))', color: 'white',
@@ -248,7 +282,20 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                 {/* Footer */}
                 <div style={{ padding: '1.5rem 2.5rem', borderTop: '1px solid hsl(var(--border-subtle))', textAlign: 'right', background: '#f8fafc' }}>
                     <button onClick={onClose} className="btn modal-btn-secondary" style={{ padding: '0.75rem 2rem', borderRadius: '12px' }}>Close Library</button>
-                    <button onClick={() => { if (currentImage) onSelect(currentImage); onClose(); }} className="btn modal-btn-primary" style={{ padding: '0.75rem 2.5rem', borderRadius: '12px', marginLeft: '1rem' }}>Confirm Selection</button>
+                    <button 
+                        onClick={() => { 
+                            if (multiple) {
+                                onSelect(selectedUrls);
+                            } else if (currentImage) {
+                                onSelect(currentImage); 
+                            }
+                            onClose(); 
+                        }} 
+                        className="btn modal-btn-primary" 
+                        style={{ padding: '0.75rem 2.5rem', borderRadius: '12px', marginLeft: '1rem' }}
+                    >
+                        Confirm Selection {multiple && selectedUrls.length > 0 && `(${selectedUrls.length})`}
+                    </button>
                 </div>
             </div>
             <style jsx>{`
