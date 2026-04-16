@@ -82,11 +82,25 @@ export default function RefundsPage() {
             REJECTED: 'Rejected',
             COMPLETED: 'Completed'
         };
+
+        const colors = {
+            REQUESTED: { bg: '#fef3c7', text: '#92400e' }, // Soft Amber (same as PENDING)
+            APPROVED: { bg: '#dbeafe', text: '#1e40af' },  // Soft Blue
+            REJECTED: { bg: '#fee2e2', text: '#991b1b' },  // Soft Red
+            COMPLETED: { bg: '#dcfce7', text: '#166534' }  // Soft Green
+        };
+
+        const color = colors[status] || { bg: '#f3f4f6', text: '#374151' };
+
         return (
             <span style={{
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: 'hsl(var(--text-main))'
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                padding: '0.25rem 0.6rem',
+                borderRadius: '6px',
+                background: color.bg,
+                color: color.text,
+                display: 'inline-block'
             }}>
                 {labels[status] || status}
             </span>
@@ -477,35 +491,35 @@ export default function RefundsPage() {
 
                             {/* Refund Info */}
                             <div style={{ 
-                                padding: '1rem', background: '#fef3c7', 
+                                padding: '1rem', background: 'hsl(var(--bg-app))', 
                                 borderRadius: '12px', marginBottom: '1.5rem',
-                                border: '1px solid #f59e0b'
+                                border: '1px solid hsl(var(--border-subtle))'
                             }}>
-                                <h3 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '1rem', color: '#d97706' }}>
+                                <h3 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '1rem', color: 'hsl(var(--text-muted))' }}>
                                     REFUND INFORMATION
                                 </h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                                     <div>
-                                        <div style={{ fontSize: '0.75rem', color: '#b45309' }}>Refund Amount</div>
-                                        <div style={{ fontWeight: 700, fontSize: '1.25rem', color: '#d97706' }}>
+                                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Refund Amount</div>
+                                        <div style={{ fontWeight: 700, fontSize: '1.25rem', color: 'hsl(var(--primary))' }}>
                                             ₹{selectedRefund.amount?.toLocaleString()}
                                         </div>
                                     </div>
                                     <div>
-                                        <div style={{ fontSize: '0.75rem', color: '#b45309' }}>Status</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Status</div>
                                         <div style={{ marginTop: '0.25rem' }}>{getStatusBadge(selectedRefund.status)}</div>
                                     </div>
                                 </div>
                                 <div style={{ marginTop: '1rem' }}>
-                                    <div style={{ fontSize: '0.75rem', color: '#b45309' }}>Reason</div>
-                                    <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'white', borderRadius: '8px' }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Reason</div>
+                                    <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px' }}>
                                         {selectedRefund.reason || 'No reason provided'}
                                     </div>
                                 </div>
                                 {selectedRefund.admin_notes && (
                                     <div style={{ marginTop: '1rem' }}>
-                                        <div style={{ fontSize: '0.75rem', color: '#b45309' }}>Admin Notes</div>
-                                        <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'white', borderRadius: '8px' }}>
+                                        <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Admin Notes</div>
+                                        <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px' }}>
                                             {selectedRefund.admin_notes}
                                         </div>
                                     </div>

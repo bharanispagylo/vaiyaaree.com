@@ -241,16 +241,16 @@ export default function CMSPage() {
                         </div>
                     </div>
 
-                    <div className="card shadow-premium" style={{ padding: '0', overflow: 'hidden' }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ position: 'relative', width: '400px' }}>
-                                <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                    <div className="card shadow-premium" style={{ padding: '0', overflow: 'hidden', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px' }}>
+                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+                                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                                 <input
                                     type="text"
-                                    placeholder="Find pages by title, slug, or content..."
+                                    placeholder="Search pages by title or slug..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    style={{ ...inputStyle, paddingLeft: '3rem', marginBottom: 0, background: 'hsl(var(--bg-card))' }}
+                                    style={{ ...inputStyle, paddingLeft: '2.5rem', marginBottom: 0 }}
                                 />
                             </div>
                         </div>
@@ -268,57 +268,52 @@ export default function CMSPage() {
                             </div>
                         ) : (
                             <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', margin: 0, tableLayout: 'fixed' }}>
-                                    <thead>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', margin: 0 }}>
+                                    <thead style={{ background: 'hsl(var(--bg-app))' }}>
                                         <tr>
-                                            <th style={{ textAlign: 'left', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '35%' }}>Structure & Title</th>
-                                            <th style={{ textAlign: 'left', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '25%' }}>Endpoint</th>
-                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '12%' }}>Status</th>
-                                            <th style={{ textAlign: 'center', padding: '1.25rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '12%' }}>Template</th>
-                                            <th style={{ textAlign: 'right', padding: '1.25rem 2rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569', width: '16%' }}>Control</th>
+                                            <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--text-muted))', fontWeight: 700 }}>Page Title & Path</th>
+                                            <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--text-muted))', fontWeight: 700 }}>Status</th>
+                                            <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--text-muted))', fontWeight: 700 }}>Template</th>
+                                            <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--text-muted))', fontWeight: 700 }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {filteredPages.map((page, idx) => (
-                                            <tr key={page.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))', transition: 'background 0.2s', cursor: 'default' }} onMouseEnter={e => e.currentTarget.style.background = 'hsl(var(--bg-panel)/0.3)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                                <td style={{ padding: '1.5rem 2rem' }}>
+                                            <tr key={page.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))' }}>
+                                                <td style={{ padding: '1rem 1.5rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                                         <div style={{
-                                                            width: '44px', height: '44px', borderRadius: '12px',
-                                                            background: page.is_published ? 'hsl(var(--primary)/0.1)' : 'hsl(var(--bg-app))',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                            width: '40px', height: '40px', borderRadius: '10px',
+                                                            background: page.is_published ? 'hsl(var(--primary) / 0.1)' : 'hsl(var(--bg-app))',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                                                         }}>
-                                                            <FileText size={20} color={page.is_published ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))'} />
+                                                            <FileText size={18} color={page.is_published ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))'} />
                                                         </div>
-                                                        <div>
-                                                            <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'hsl(var(--text-main))' }}>{page.title}</div>
-                                                            <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))', marginTop: '0.2rem' }}>
-                                                                {page.parent_id ? `↳ Sub-page of ${pages.find(p => p.id === page.parent_id)?.title || '...'}` : 'Root Level Page'}
+                                                        <div style={{ overflow: 'hidden' }}>
+                                                            <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{page.title}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', marginTop: '0.2rem' }}>
+                                                                <code>/page/{page.slug}</code>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '1.5rem', maxWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    <code style={{ background: 'hsl(var(--bg-app))', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.85rem' }}>/page/{page.slug}</code>
-                                                </td>
-                                                <td style={{ padding: '1.5rem', textAlign: 'center' }}>
+                                                <td style={{ padding: '1rem 1.5rem' }}>
                                                     <span style={{
-                                                        padding: '0.4rem 1rem', borderRadius: '30px', fontSize: '0.72rem', fontWeight: 800,
-                                                        textTransform: 'uppercase', letterSpacing: '0.05em',
-                                                        background: page.status === 'published' ? 'hsl(var(--success)/0.15)' : page.status === 'scheduled' ? 'hsl(var(--accent)/0.15)' : 'hsl(var(--bg-app))',
-                                                        color: page.status === 'published' ? 'hsl(var(--success))' : page.status === 'scheduled' ? 'hsl(var(--accent))' : 'hsl(var(--text-muted))',
-                                                        border: `1px solid ${page.status === 'published' ? 'hsl(var(--success)/0.3)' : 'hsl(var(--text-muted)/0.3)'}`
+                                                        padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700,
+                                                        textTransform: 'uppercase',
+                                                        background: page.status === 'published' ? '#dcfce7' : page.status === 'scheduled' ? '#dbeafe' : '#f3f4f6',
+                                                        color: page.status === 'published' ? '#166534' : page.status === 'scheduled' ? '#1e40af' : '#374151'
                                                     }}>
                                                         {page.status}
                                                     </span>
                                                 </td>
-                                                <td style={{ padding: '1.5rem', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
-                                                        <ImageIcon size={14} /> {page.template || 'default'}
+                                                <td style={{ padding: '1rem 1.5rem' }}>
+                                                    <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>
+                                                        {page.template || 'default'}
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '1.5rem 2rem', textAlign: 'right' }}>
-                                                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                                                <td style={{ padding: '1rem 1.5rem' }}>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                                         <button
                                                             onClick={() => {
                                                                 setCurrentPage(page);
@@ -327,26 +322,29 @@ export default function CMSPage() {
                                                                 setIsEditing(true);
                                                                 setActiveTab('content');
                                                             }}
-                                                            className="btn-icon"
-                                                            title="Refine Page"
+                                                            className="btn btn-secondary"
+                                                            style={{ padding: '0.4rem', border: '1px solid hsl(var(--border-subtle))' }}
+                                                            title="Edit Page"
                                                         >
-                                                            <Edit size={18} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(page.id)}
-                                                            className="btn-icon danger"
-                                                            title="Destroy Page"
-                                                        >
-                                                            <Trash2 size={18} />
+                                                            <Edit size={16} />
                                                         </button>
                                                         <a
                                                             href={`/page/${page.slug}`}
                                                             target="_blank"
-                                                            className="btn-icon primary"
-                                                            title="Simulate Content View"
+                                                            className="btn btn-secondary"
+                                                            style={{ padding: '0.4rem', border: '1px solid hsl(var(--border-subtle))' }}
+                                                            title="View Page"
                                                         >
-                                                            <ExternalLink size={18} />
+                                                            <ExternalLink size={16} />
                                                         </a>
+                                                        <button
+                                                            onClick={() => handleDelete(page.id)}
+                                                            className="btn btn-secondary"
+                                                            style={{ padding: '0.4rem', color: '#dc2626', border: '1px solid #fee2e2' }}
+                                                            title="Delete Page"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -368,15 +366,15 @@ export default function CMSPage() {
                         position: 'relative', overflow: 'hidden', minHeight: '85vh'
                     }}>
                         {/* Editor Header */}
-                        <div style={{ padding: '2rem 2.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                        <div style={{ padding: '1.5rem 2.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'hsl(var(--bg-app))' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                                <div style={{ width: '56px', height: '56px', borderRadius: '18px', background: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                                    <ImageIcon size={28} />
+                                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                    <Layout size={24} />
                                 </div>
                                 <div>
-                                    <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>{currentPage ? `Editing Content: ${currentPage.title}` : 'Design New Experience'}</h2>
-                                    <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>
-                                        {currentPage ? `Last refined on ${new Date(currentPage.updated_at).toLocaleString()}` : 'Configuring initial content structure'}
+                                    <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>{currentPage ? `Edit: ${currentPage.title}` : 'Build New Experience'}</h2>
+                                    <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', marginTop: '0.2rem' }}>
+                                        {currentPage ? `System refined on ${new Date(currentPage.updated_at).toLocaleDateString()}` : 'Configuring initial content module'}
                                     </div>
                                 </div>
                             </div>
@@ -425,28 +423,30 @@ export default function CMSPage() {
                                             <label style={labelStyle}>Page Heading (Big Title)</label>
                                             <input name="title" required placeholder="What is this page about?" defaultValue={currentPage?.title} onChange={(e) => { if (!currentPage) document.querySelector('input[name="slug"]').value = generateSlug(e.target.value); }} style={{ ...inputStyle, fontSize: '1.5rem', fontWeight: 700, padding: '1rem 1.25rem' }} />
 
-                                            <label style={labelStyle}>Page Designer (What people see)</label>
-                                            <div style={{ background: '#f1f5f9', padding: '0.75rem', borderRadius: '12px 12px 0 0', display: 'flex', gap: '0.5rem', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none' }}>
-                                                <button type="button" onClick={() => formatText('bold')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 800 }}>B</button>
-                                                <button type="button" onClick={() => formatText('italic')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontStyle: 'italic' }}>I</button>
-                                                <button type="button" onClick={() => formatText('h2')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>H2</button>
-                                                <button type="button" onClick={() => formatText('link')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Link</button>
-                                                <button type="button" onClick={() => formatText('center')} style={{ padding: '0.4rem 0.8rem', background: '#333', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Center Text</button>
+                                            <label style={labelStyle}>Interface Builder</label>
+                                            <div style={{ background: 'hsl(var(--bg-app))', padding: '0.75rem', borderRadius: '12px 12px 0 0', display: 'flex', gap: '0.5rem', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none' }}>
+                                                <button type="button" onClick={() => formatText('bold')} style={{ padding: '0.4rem 0.8rem', background: 'hsl(var(--text-main))', color: 'hsl(var(--bg-card))', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 800 }}>B</button>
+                                                <button type="button" onClick={() => formatText('italic')} style={{ padding: '0.4rem 0.8rem', background: 'hsl(var(--text-main))', color: 'hsl(var(--bg-card))', border: 'none', borderRadius: '6px', cursor: 'pointer', fontStyle: 'italic' }}>I</button>
+                                                <button type="button" onClick={() => formatText('h2')} style={{ padding: '0.4rem 0.8rem', background: 'hsl(var(--text-main))', color: 'hsl(var(--bg-card))', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>H2</button>
+                                                <button type="button" onClick={() => formatText('link')} style={{ padding: '0.4rem 0.8rem', background: 'hsl(var(--text-main))', color: 'hsl(var(--bg-card))', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Link</button>
+                                                <button type="button" onClick={() => formatText('center')} style={{ padding: '0.4rem 0.8rem', background: 'hsl(var(--text-main))', color: 'hsl(var(--bg-card))', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Center</button>
                                             </div>
                                             <textarea name="content" required rows={15} placeholder="Draft your page here using the tools above..." defaultValue={currentPage?.content} style={{ ...inputStyle, borderRadius: '0 0 12px 12px', fontSize: '0.95rem', lineHeight: 1.6, minHeight: '350px', padding: '1.25rem' }} />
                                         </div>
 
                                         <div>
-                                            <div className="card" style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: '20px' }}>
-                                                <label style={labelStyle}>Quick Add Blocks</label>
-                                                <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Click to insert pre-made sections</p>
+                                            <div className="card" style={{ padding: '1.25rem', background: 'hsl(var(--bg-app))', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <label style={labelStyle}>Quick Add Modules</label>
+                                                <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Insert industrial content blocks</p>
                                                 <div style={{ display: 'grid', gap: '0.5rem' }}>
                                                     {CONTENT_BLOCKS.map(block => (
                                                         <button
                                                             key={block.name}
                                                             type="button"
                                                             onClick={() => insertBlock(block.content)}
-                                                            style={{ padding: '0.75rem', textAlign: 'left', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                                                            style={{ padding: '0.75rem', textAlign: 'left', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s' }}
+                                                            onMouseEnter={e => e.currentTarget.style.borderColor = 'hsl(var(--primary))'}
+                                                            onMouseLeave={e => e.currentTarget.style.borderColor = 'hsl(var(--border-subtle))'}
                                                         >
                                                             {block.name}
                                                         </button>
@@ -473,9 +473,9 @@ export default function CMSPage() {
                                 </div>
 
                                 <div className="animate-fade" style={{ display: activeTab === 'seo' ? 'block' : 'none' }}>
-                                    <div style={{ background: '#f8fafc', padding: '2rem', borderRadius: '24px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                        <h3 style={{ marginTop: 0, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            Appearance in Google Search
+                                    <div style={{ background: 'hsl(var(--bg-app))', padding: '2rem', borderRadius: '24px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                        <h3 style={{ marginTop: 0, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.25rem' }}>
+                                            Search Engine Optimization
                                         </h3>
 
                                         <label style={labelStyle}>Search Title (Keep it short)</label>
@@ -492,10 +492,10 @@ export default function CMSPage() {
                                             </button>
                                         </div>
 
-                                        <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'white', borderRadius: '14px', border: '1px solid #e2e8f0', color: '#1a202c' }}>
-                                            <div style={{ fontSize: '0.8rem', color: '#1a73e8', marginBottom: '0.25rem' }}>www.castprintz.com/page/{currentPage?.slug || 'preview'}</div>
+                                        <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'hsl(var(--bg-card))', borderRadius: '14px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                            <div style={{ fontSize: '0.8rem', color: '#1a73e8', marginBottom: '0.25rem' }}>www.aiswaryasaree.com/page/{currentPage?.slug || 'preview'}</div>
                                             <div style={{ fontSize: '1.2rem', color: '#1a0dab', fontWeight: 600, marginBottom: '0.25rem' }}>{currentPage?.seo_title || currentPage?.title || 'SEO Title Preview'}</div>
-                                            <div style={{ fontSize: '0.875rem', color: '#4d5156', lineHeight: 1.4 }}>{currentPage?.meta_description || 'Page meta description will appear here in search results. Make it catchy!'}</div>
+                                            <div style={{ fontSize: '0.875rem', color: 'hsl(var(--text-muted))', lineHeight: 1.4 }}>{currentPage?.meta_description || 'Page meta description will appear here in search results. Make it catchy!'}</div>
                                         </div>
                                     </div>
                                 </div>

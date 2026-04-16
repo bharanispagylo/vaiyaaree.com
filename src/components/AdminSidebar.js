@@ -36,13 +36,7 @@ const menuItems = [
             { name: 'Invoice Report', href: '/admin/invoices/report' }
         ]
     },
-    { 
-        name: 'Shipping', 
-        icon: Truck, 
-        children: [
-            { name: 'Shipping', href: '/admin/shipping' }
-        ]
-    },
+    { name: 'Shipping', href: '/admin/shipping' , icon: Truck},
     { 
         name: 'Social Media', 
         icon: Megaphone, 
