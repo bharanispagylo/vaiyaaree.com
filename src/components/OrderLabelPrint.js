@@ -324,7 +324,14 @@ export default function OrderLabelPrint({ orders }) {
                 @media print {
                     @page {
                         size: A4 portrait;
-                        margin: 6mm;
+                        margin: 0;
+                    }
+
+                    body {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: white !important;
+                        height: auto !important;
                     }
 
                     body * {
@@ -337,38 +344,59 @@ export default function OrderLabelPrint({ orders }) {
                     }
 
                     .label-print-container {
-                        position: absolute;
-                        inset: 0;
-                        background: none !important;
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        display: block !important;
+                        background: white !important;
                         padding: 0 !important;
                         margin: 0 !important;
+                    }
+
+                    .print-page:not(:last-child) {
+                        page-break-after: always !important;
                     }
 
                     .print-page {
-                        width: 100%;
-                        min-height: 297mm;
-                        margin: 0 !important;
-                        padding: 0 !important;
+                        width: 210mm;
+                        height: 297mm;
+                        margin: 0 auto !important;
+                        padding: 10mm !important;
+                        box-sizing: border-box;
                         box-shadow: none !important;
-                        page-break-after: always;
+                        position: relative;
+                        overflow: hidden;
+                        page-break-inside: avoid !important;
+                    }
+
+                    .print-page:last-child {
+                        page-break-after: auto !important;
+                        margin-bottom: 0 !important;
                     }
 
                     .label-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        grid-template-rows: repeat(3, 1fr);
+                        gap: 8mm;
                         width: 100%;
                         height: 100%;
-                        gap: 4mm;
                     }
 
                     .label-card {
                         border: 1.5px solid #000 !important;
-                        min-height: 80mm !important;
+                        height: 100%;
                         page-break-inside: avoid;
-                        overflow: hidden;
+                        padding: 6mm;
+                        box-sizing: border-box;
                     }
 
                     .label-card-empty {
                         border: none !important;
                         background: none !important;
+                        visibility: hidden !important;
                     }
                 }
             `}</style>

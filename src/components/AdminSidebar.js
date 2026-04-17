@@ -106,7 +106,7 @@ export default function AdminSidebar({ isOpen }) {
     }
 
     return (
-        <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <aside className={`sidebar no-print ${isOpen ? 'open' : ''}`}>
             {/* Brand */}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: '1rem',

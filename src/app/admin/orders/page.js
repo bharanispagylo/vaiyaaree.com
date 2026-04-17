@@ -895,6 +895,7 @@ export default function OrdersPage() {
                 ) : (
 
                     <>
+                    <div className="no-print">
                         {/* ─── MAIN LIST VIEW ─── */}
                         {!selectedOrder && !isAddingOrder && (
                             <>
@@ -2419,11 +2420,9 @@ export default function OrdersPage() {
                                 </div>
                             </div>
                         )}
-
-
-
-                    </>
-                )}
+                    </div>
+                </>
+            )}
             </div>
 
             {/* Notification */}
@@ -2551,10 +2550,9 @@ export default function OrdersPage() {
                     </div>
                 </div>
             )}
-
             {isPrintingLabels && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'white', overflow: 'auto' }}>
-                    <div style={{ position: 'sticky', top: 0, padding: '1rem 2rem', background: '#f8fafc', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
+                <div className="print-preview-modal" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'white', overflow: 'auto' }}>
+                    <div className="no-print" style={{ position: 'sticky', top: 0, padding: '1rem 2rem', background: '#f8fafc', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
                         <h2 style={{ margin: 0 }}>Print Preview ({printingOrders.length} labels)</h2>
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button onClick={() => setIsPrintingLabels(false)} className="btn btn-secondary">Close Preview</button>
@@ -2776,6 +2774,35 @@ export default function OrdersPage() {
                     .admin-filter-row::-webkit-scrollbar { display: none; }
                     .card { overflow: visible !important; }
                     table { min-width: 800px; }
+                }
+                @media print {
+                    .no-print { display: none !important; }
+                    html, body { 
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        background: white !important;
+                        height: auto !important;
+                        overflow: visible !important;
+                    }
+                    .print-preview-modal { 
+                        position: static !important; 
+                        display: block !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: visible !important;
+                    }
+                    /* Ensure parents don't constrain or add space */
+                    .admin-layout, .main-content, .animate-enter, .admin-layout > div {
+                        display: block !important;
+                        height: auto !important;
+                        min-height: 0 !important;
+                        overflow: visible !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        position: static !important;
+                    }
                 }
             `}</style>
         </>
