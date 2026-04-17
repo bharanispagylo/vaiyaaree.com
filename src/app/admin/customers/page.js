@@ -705,7 +705,18 @@ function CustomersPage() {
 
                             {/* ─── ANALYTICS VIEW ─── */}
                             {viewMode === 'analytics' && (
-                                <div className="animate-enter">
+                                <div className="animate-enter" style={{ paddingBottom: '3rem' }}>
+                                    {/* Analytics Header with Back Button */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                                        <button onClick={() => setViewMode('list')} className="btn btn-secondary" style={{ padding: '0.5rem', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <ArrowLeft size={18} />
+                                        </button>
+                                        <div>
+                                            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>Customer Analytics</h2>
+                                            <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '2px' }}>Detailed insights into customer behavior and retention</p>
+                                        </div>
+                                    </div>
+
                                     {/* Time Filters */}
                                     <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', background: 'hsl(var(--bg-card))', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid hsl(var(--border-subtle))' }}>
                                         {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (

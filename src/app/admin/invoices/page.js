@@ -304,14 +304,14 @@ export default function InvoicesPage() {
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                                         {settings.shop_logo ? (
-                                            <img src={settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`} 
-                                                alt="Logo" 
+                                            <img src={settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`}
+                                                alt="Logo"
                                                 style={{ height: '40px', objectFit: 'contain' }}
                                                 onError={(e) => { e.target.src = '/images/cp-logo.png'; }}
                                             />
                                         ) : (
-                                            <img src="/images/cp-logo.png" 
-                                                alt="Logo" 
+                                            <img src="/images/cp-logo.png"
+                                                alt="Logo"
                                                 style={{ height: '40px', objectFit: 'contain' }}
                                                 onError={(e) => { e.target.src = '/images/aiswarya-logo.png'; }}
                                             />
@@ -336,7 +336,7 @@ export default function InvoicesPage() {
                                     <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Bill To</div>
                                     <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>{selectedInvoice.customer_name || 'WhatsApp Customer'}</div>
                                     <div style={{ fontSize: '0.9rem', color: '#4b5563', marginTop: '0.25rem' }}>{selectedInvoice.customer_phone}</div>
-                                    
+
                                     <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem' }}>
                                         <div>
                                             <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Billing Address</div>
