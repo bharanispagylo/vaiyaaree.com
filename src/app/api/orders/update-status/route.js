@@ -32,7 +32,10 @@ async function sendWhatsAppText(to, text) {
                 recipient_type: "individual",
                 to: cleanedNum,
                 type: "text",
-                text: { body: text }
+                text: { 
+                    preview_url: true,
+                    body: text 
+                }
             })
         });
 
@@ -97,22 +100,32 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `— ${brand}`
             ].join('\n');
 
-        case 'SHIPPED':
+        case 'SHIPPED': {
+            const itemsList = items.map(i => `• ${i.product_name} (x${i.quantity})`).join('\n');
+            let trackingUrl = order.tracking_url || '';
+            const trackingNum = order.tracking_number || '';
+            
+            // Fix placeholders {tracking_number} etc.
+            if (trackingUrl && trackingNum && trackingUrl.includes('{')) {
+                trackingUrl = trackingUrl.replace(/\{[^}]+\}/g, trackingNum);
+            }
+
             return [
-                `ORDER SHIPPED!`,
+                `🚀 *ORDER SHIPPED*`,
                 ``,
-                `Order #${orderId} is on its way!`,
-                `Amount: ₹${totalAmount.toLocaleString()}`,
+                `Great news! Order #${orderId} is on its way!`,
                 ``,
-                `Shipping Details:`,
-                `Carrier: ${order.courier_name || 'N/A'}`,
-                `Tracking: ${order.tracking_number || 'N/A'}`,
+                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
                 ``,
-                order.tracking_url ? `Track Here: ${order.tracking_url}` : `View Details: ${invoiceUrl}`,
+                `🚚 *Shipping Details:*`,
+                `• Carrier: ${order.courier_name || 'N/A'}`,
+                `• Tracking: ${trackingNum || 'N/A'}`,
+                trackingUrl ? `• Track: ${trackingUrl}` : `• Details: ${invoiceUrl}`,
                 ``,
                 `Thank you for shopping with us!`,
                 `— ${brand}`
             ].join('\n');
+        }
 
         case 'DELIVERED':
             return [

@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 import {
     Search, Eye, ChevronDown, rotateCcw, ChevronLeft, ChevronRight,
     Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package,
-    Mail, XCircle, AlertCircle, Send, Save, X, Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee
+    Mail, XCircle, AlertCircle, CheckCircle, Send, Save, X, Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee
 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import OrderLabelPrint from '@/components/OrderLabelPrint';
@@ -2431,11 +2431,17 @@ export default function OrdersPage() {
             {notification && (
                 <div style={{
                     position: 'fixed', top: '2rem', right: '2rem', zIndex: 3000,
-                    padding: '1rem 1.5rem', borderRadius: 'var(--radius)',
-                    background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))',
+                    padding: '1rem 2.5rem', borderRadius: '15px',
+                    background: (notification.type === 'success' || notification.type === 'info') ? 'hsl(142, 70%, 45%)' : 'hsl(0, 84%, 60%)',
                     color: 'white', fontWeight: 600, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                    display: 'flex', alignItems: 'center', gap: '10px',
                     animation: 'slideDown 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
                 }}>
+                    <div className="animate-spin-slow">
+                        {notification.type === 'info' && <Loader2 size={16} />}
+                        {notification.type === 'success' && <CheckCircle size={16} />}
+                        {notification.type === 'error' && <AlertCircle size={16} />}
+                    </div>
                     {notification.message}
                 </div>
             )}
@@ -2611,12 +2617,13 @@ export default function OrdersPage() {
                                         setSelectedCourierId(cid);
                                         const courier = couriers.find(c => c.id === cid);
                                         if (courier) {
+                                            const awb = shippingForm.tracking_number || '';
                                             setShippingForm({
                                                 ...shippingForm,
                                                 courier_name: courier.name,
                                                 courier_phone: courier.phone || '',
                                                 courier_email: courier.email || '',
-                                                tracking_url: shippingForm.tracking_number ? courier.tracking_url_template?.replace('{tracking_number}', shippingForm.tracking_number) : ''
+                                                tracking_url: courier.tracking_url_template ? courier.tracking_url_template.replace(/\{[^}]+\}/g, awb) : ''
                                             });
                                         }
                                     }}
@@ -2653,7 +2660,7 @@ export default function OrdersPage() {
                                         setShippingForm({
                                             ...shippingForm,
                                             tracking_number: awb,
-                                            tracking_url: courier && courier.tracking_url_template ? courier.tracking_url_template.replace('{tracking_number}', awb) : shippingForm.tracking_url
+                                            tracking_url: courier && courier.tracking_url_template ? courier.tracking_url_template.replace(/\{[^}]+\}/g, awb) : shippingForm.tracking_url
                                         });
                                     }}
                                     style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
@@ -2691,25 +2698,35 @@ export default function OrdersPage() {
                                     if (!selectedOrder) return;
                                     setLoading(true);
                                     try {
-                                        const { error } = await supabase
-                                            .from('orders')
-                                            .update({
-                                                courier_name: shippingForm.courier_name,
-                                                tracking_number: shippingForm.tracking_number,
-                                                tracking_url: shippingForm.tracking_url
+                                        setNotification({ message: 'Synchronizing details...', type: 'info' });
+                                        // Use the central update-status API to handle DB update, logging, and notifications
+                                        const response = await fetch('/api/orders/update-status', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                orderId: selectedOrder.id,
+                                                status: 'SHIPPED',
+                                                courierName: shippingForm.courier_name,
+                                                trackingNumber: shippingForm.tracking_number,
+                                                trackingUrl: shippingForm.tracking_url,
+                                                notes: `Shipped via ${shippingForm.courier_name}`
                                             })
-                                            .eq('id', selectedOrder.id);
+                                        });
 
-                                        if (error) throw error;
+                                        if (!response.ok) {
+                                            const errData = await response.json();
+                                            throw new Error(errData.error || 'Failed to update status');
+                                        }
 
                                         setSelectedOrder(prev => ({
                                             ...prev,
                                             courier_name: shippingForm.courier_name,
                                             tracking_number: shippingForm.tracking_number,
-                                            tracking_url: shippingForm.tracking_url
+                                            tracking_url: shippingForm.tracking_url,
+                                            status: 'SHIPPED'
                                         }));
 
-                                        setNotification({ message: 'Tracking saved', type: 'success' });
+                                        setNotification({ message: 'Tracking saved & Status updated to SHIPPED', type: 'success' });
                                         setShowShippingForm(false);
                                         fetchOrders();
                                     } catch (err) {

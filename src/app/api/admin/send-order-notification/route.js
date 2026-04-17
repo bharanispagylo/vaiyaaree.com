@@ -5,26 +5,47 @@ import { supabase } from '@/lib/supabaseClient';
 // Build the correct WhatsApp message for a given status (mirrors update-status route logic)
 function buildStatusMessage(order, status, orderId) {
     const totalAmount = order.total_amount || 0;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
     const invoiceUrl = `${appUrl}/shop/invoice?oid=${orderId}`;
     const brand = 'Cast Printz';
     const items = order.order_items || [];
+    const itemsList = items.map(i => `• ${i.product_name} (x${i.quantity})`).join('\n');
+    
+    // Common Shipping Block
+    const shipDetails = [];
+    if (order.courier_name || order.tracking_number) {
+        let trackingUrl = order.tracking_url || '';
+        const trackingNum = order.tracking_number || '';
+        
+        // Fix: If tracking_url has a placeholder like {tracking_number} or {821011}, replace it
+        if (trackingUrl && trackingNum && trackingUrl.includes('{') && trackingUrl.includes('}')) {
+            trackingUrl = trackingUrl.replace(/\{[^}]+\}/g, trackingNum);
+        }
+
+        shipDetails.push(`\n🚚 *Shipping Details:*`);
+        shipDetails.push(`• Carrier: ${order.courier_name || 'N/A'}`);
+        shipDetails.push(`• Tracking: ${trackingNum || 'N/A'}`);
+        if (trackingUrl) shipDetails.push(`• Track: ${trackingUrl}`);
+    }
 
     switch (status) {
         case 'PLACED':
             return [
-                `ORDER CONFIRMED`,
+                `✅ *ORDER CONFIRMED*`,
                 ``,
-                `Your order #${orderId} has been confirmed!`,
-                `Amount: ₹${totalAmount.toLocaleString()}`,
+                `Hi ${order.customer_name || 'Customer'}, your order #${orderId} is confirmed!`,
+                `💰 Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `We are preparing your saree for shipping.`,
+                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ...shipDetails,
+                ``,
+                `We are preparing your package for dispatch.`,
                 `— ${brand}`
             ].join('\n');
 
         case 'AWAITING_PAYMENT':
             return [
-                `PAYMENT PENDING`,
+                `⏳ *PAYMENT PENDING*`,
                 ``,
                 `Your order #${orderId} is awaiting payment.`,
                 `Amount Due: ₹${totalAmount.toLocaleString()}`,
@@ -35,32 +56,32 @@ function buildStatusMessage(order, status, orderId) {
                 `— ${brand}`
             ].join('\n');
 
-        case 'PAID': {
-            const itemList = items.map(i => `• ${i.product_name} (x${i.quantity}) - ₹${((i.price_at_time || 0) * i.quantity).toLocaleString()}`).join('\n');
+        case 'PAID':
             return [
-                `INVOICE: ${orderId}`,
+                `💳 *PAYMENT RECEIVED*`,
                 `--------------------------`,
-                `Payment Received!`,
-                ``,
-                `Items:`,
-                itemList || '• (see invoice)',
-                `--------------------------`,
+                `Order ID: #${orderId}`,
                 `Total Paid: ₹${totalAmount.toLocaleString()}`,
                 `Method: ${order.payment_method || 'UPI/Online'}`,
+                ``,
+                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ...shipDetails,
                 ``,
                 `View Full Bill: ${invoiceUrl}`,
                 ``,
                 `Your order is being processed. Thank you!`,
                 `— ${brand}`
             ].join('\n');
-        }
 
         case 'PACKING':
             return [
-                `ORDER PACKING`,
+                `📦 *ORDER PACKING*`,
                 ``,
                 `Hi! We are currently packing your order #${orderId}.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ...shipDetails,
                 ``,
                 `It will be shipped shortly. Thank you!`,
                 `— ${brand}`
@@ -68,16 +89,14 @@ function buildStatusMessage(order, status, orderId) {
 
         case 'SHIPPED':
             return [
-                `ORDER SHIPPED!`,
+                `🚀 *ORDER SHIPPED*`,
                 ``,
-                `Order #${orderId} is on its way!`,
-                `Amount: ₹${totalAmount.toLocaleString()}`,
+                `Great news! Order #${orderId} is on its way!`,
                 ``,
-                `Shipping Details:`,
-                `Carrier: ${order.courier_name || 'N/A'}`,
-                `Tracking: ${order.tracking_number || 'N/A'}`,
+                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ...shipDetails,
                 ``,
-                order.tracking_url ? `Track Here: ${order.tracking_url}` : `View Details: ${invoiceUrl}`,
+                order.tracking_url ? `🔗 Track Here: ${order.tracking_url}` : `🔗 View Details: ${invoiceUrl}`,
                 ``,
                 `Thank you for shopping with us!`,
                 `— ${brand}`
@@ -85,41 +104,43 @@ function buildStatusMessage(order, status, orderId) {
 
         case 'DELIVERED':
             return [
-                `ORDER DELIVERED!`,
+                `🎉 *ORDER DELIVERED*`,
                 ``,
                 `Order #${orderId} has been delivered successfully!`,
                 `Total: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `Hope you love your new saree!`,
-                `Type Hi to shop again anytime.`,
+                `Hope you love your new saree! 💖`,
+                `Type "Hi" to shop again anytime.`,
                 ``,
                 `— ${brand}`
             ].join('\n');
 
         case 'CANCELLED':
             return [
-                `ORDER CANCELLED`,
+                `❌ *ORDER CANCELLED*`,
                 ``,
                 `Order #${orderId} has been cancelled.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `If you did not request this cancellation, please contact us!`,
+                `If you did not request this cancellation, please contact us.`,
                 ``,
                 `— ${brand}`
             ].join('\n');
 
         default:
-            // Default order confirmation
-            return (
-                `✅ *Order Confirmed — ${brand}* 🎉\n\n` +
-                `Dear ${order.customer_name},\n\n` +
-                `Your order #${orderId} has been placed successfully.\n\n` +
-                `📦 *Order Details:*\n` +
-                `• Total Amount: ₹${totalAmount.toLocaleString()}\n` +
-                `• Payment Method: ${order.payment_method || 'N/A'}\n` +
-                `• Items: ${items.length || 0} product(s)\n\n` +
-                `Thank you for shopping with ${brand}! 💖`
-            );
+            return [
+                `✅ *Order Update — ${brand}*`,
+                ``,
+                `Order: #${orderId}`,
+                `Status: ${status}`,
+                `Amount: ₹${totalAmount.toLocaleString()}`,
+                ``,
+                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ...shipDetails,
+                ``,
+                `Thank you for your patience!`,
+                `— ${brand}`
+            ].join('\n');
     }
 }
 

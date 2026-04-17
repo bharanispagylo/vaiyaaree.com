@@ -28,7 +28,7 @@ const truncate = (str, limit) => (str && str.length > limit) ? str.substring(0, 
 async function updateCustomerAdminNotes(toOrId, notes) {
     let query;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toOrId);
-    
+
     if (isUuid) {
         console.log(`[WA-UPDATE] Updating notes by ID: ${toOrId}`);
         query = supabaseAdmin.from('customers').update({ admin_notes: notes }).eq('id', toOrId);
@@ -43,7 +43,7 @@ async function updateCustomerAdminNotes(toOrId, notes) {
     }
 
     const { data, error } = await query.select();
-    
+
     if (error) {
         console.error(`[WA-UPDATE-ERROR] Failed to update notes:`, error);
     } else if (data && data.length > 0) {
@@ -51,31 +51,31 @@ async function updateCustomerAdminNotes(toOrId, notes) {
     } else {
         console.warn(`[WA-UPDATE-WARNING] No records found to update for: ${toOrId}`);
     }
-    
+
     return { data, error };
 }
 
 function normalizePhoneNumber(phone) {
     if (!phone) return phone;
-    
+
     // Remove any non-digit characters (+ , - , space)
     let digits = phone.replace(/\D/g, '');
-    
+
     // Remove leading zeros
     while (digits.startsWith('0')) {
         digits = digits.substring(1);
     }
-    
+
     // If it starts with 91 and has 12 digits, it's correct for India
     if (digits.length === 12 && digits.startsWith('91')) {
         return digits;
     }
-    
+
     // If it has 10 digits and starts with [6-9], add 91
     if (digits.length === 10 && /^[6789]/.test(digits)) {
         return '91' + digits;
     }
-    
+
     return digits;
 }
 
@@ -305,7 +305,7 @@ async function addToCart(phone, product, quantity = 1, variant = null) {
         .select('*')
         .in('phone', phoneVariations)
         .eq('product_id', productId);
-    
+
     if (variantId) query.eq('variant_id', variantId);
     else query.is('variant_id', null);
 
@@ -502,7 +502,7 @@ export async function sendMainMenu(to) {
 
     // Fetch dynamic welcome message
     const welcomeMsg = await getConfig('wa_welcome_message', 'Explore our premium collection and manage your orders:');
-    
+
     // Fetch welcome image or shop logo
     let welcomeImg = await getConfig('wa_welcome_image', null) || await getConfig('shop_logo', 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1000&q=80');
 
@@ -892,7 +892,7 @@ export async function startCheckout(to) {
         .limit(1);
 
     const lastOrder = lastOrders?.[0];
-    
+
     if (lastOrder && lastOrder.billing_address) {
         const billing = lastOrder.billing_address;
         await sendButtons(to,
@@ -925,7 +925,7 @@ export async function handleSavedBilling(to, orderId) {
         .neq('status', 'DRAFT')
         .order('created_at', { ascending: false })
         .limit(1);
-    
+
     const lastOrder = lastOrders?.[0];
     if (lastOrder && lastOrder.billing_address) {
         await supabase.from('orders').update({
@@ -935,7 +935,7 @@ export async function handleSavedBilling(to, orderId) {
             billing_email: lastOrder.customer_email || lastOrder.billing_address.email,
             billing_address: lastOrder.billing_address
         }).eq('id', orderId);
-        
+
         // If no email exists, ask for it
         if (!lastOrder.customer_email && !lastOrder.billing_address.email) {
             await sendText(to,
@@ -947,7 +947,7 @@ export async function handleSavedBilling(to, orderId) {
             return; // Wait for email response
         }
     }
-    
+
     // Ask if shipping same as billing
     return await askShippingSameAsBilling(to, orderId);
 }
@@ -969,7 +969,7 @@ export async function handleShippingSame(to, orderId) {
         .select('billing_address, customer_name, customer_phone, customer_email')
         .eq('id', orderId)
         .single();
-    
+
     if (order && order.billing_address) {
         await supabase.from('orders').update({
             shipping_address: order.billing_address,
@@ -977,7 +977,7 @@ export async function handleShippingSame(to, orderId) {
             shipping_email: order.billing_address.email || order.customer_email
         }).eq('id', orderId);
     }
-    
+
     // Continue to state selection
     return await askState(to, orderId);
 }
@@ -985,7 +985,7 @@ export async function handleShippingSame(to, orderId) {
 // Handle new billing address input
 export async function handleNewBillingAddress(to, orderId, text) {
     const parsed = parseAddressString(text, to);
-    
+
     if (parsed.error) {
         return await sendText(to, `⚠️ ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
     }
@@ -1019,7 +1019,7 @@ export async function handleNewBillingAddress(to, orderId, text) {
 // Handle new shipping address input
 export async function handleNewShippingAddress(to, orderId, text) {
     const parsed = parseAddressString(text, to);
-    
+
     if (parsed.error) {
         return await sendText(to, `⚠️ ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
     }
@@ -1061,7 +1061,7 @@ function parseAddressString(text, defaultMobile) {
         name = parts[0];
         mobile = parts[1];
         email = parts[2];
-        
+
         // Sometimes email and mobile are swapped
         if (mobile.includes('@') && !email.includes('@')) {
             const temp = mobile; mobile = email; email = temp;
@@ -1069,7 +1069,7 @@ function parseAddressString(text, defaultMobile) {
 
         // Remaining parts are address, city, pincode
         const remaining = parts.slice(3);
-        
+
         // Try to identify pincode (6 digits)
         const pinIdx = remaining.findIndex(p => /^\d{6}$/.test(p));
         if (pinIdx !== -1) {
@@ -1099,7 +1099,7 @@ function parseAddressString(text, defaultMobile) {
     if (email && !email.includes('@')) {
         return { error: "Invalid email format." };
     }
-    
+
     // Clean phone
     mobile = mobile.replace(/\D/g, '');
     if (mobile.length === 10) mobile = '91' + mobile;
@@ -1180,13 +1180,13 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
         const bPhone = order.billing_phone || (typeof order.billing_address === 'object' ? order.billing_address?.phone : null);
         const targets = [...new Set([phoneTo, bPhone].filter(Boolean).map(t => normalizePhoneNumber(String(t).trim())))];
         if (targets.length === 0) return;
-        
+
         console.log(`[NOTIFY] Targets for Order #${orderId}:`, targets);
 
         let baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://mathematically-foliaged-palmer.ngrok-free.dev');
         // Ensure no trailing slash for consistency
         if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
-        
+
         const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
         console.log(`[NOTIFY] Invoice URL: ${invoiceUrl}`);
         const total = order.total_amount?.toLocaleString() || '0';
@@ -1217,7 +1217,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                     await new Promise(r => setTimeout(r, 1000));
                     await sendDocument(targetPhone, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
                 }
-                
+
                 await new Promise(r => setTimeout(r, 1200));
 
                 await sendButtons(targetPhone, "Thank you for shopping with *Cast Printz*!\n\nTap below to manage your order:", [
@@ -1239,10 +1239,10 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
 // Finalize Order
 export async function finalizeOrder(to, method, orderId) {
     const { data: currentOrder } = await supabase.from('orders').select('status').eq('id', orderId).single();
-    
+
     // Determine target status
     let status = method === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT';
-    
+
     // If it's already PAID or more advanced, don't downgrade it
     if (currentOrder && (currentOrder.status === 'PAID' || currentOrder.status === 'SHIPPED')) {
         status = currentOrder.status;
@@ -1314,7 +1314,7 @@ export async function finalizeOrder(to, method, orderId) {
 export async function handlePaymentConfirmed(to, orderId) {
     // Mark order as PAID
     await supabase.from('orders').update({ status: 'PAID' }).eq('id', orderId);
-    
+
     // Add PAID log entry
     await supabase.from('order_status_logs').insert({
         order_id: orderId,
@@ -1322,7 +1322,7 @@ export async function handlePaymentConfirmed(to, orderId) {
         notes: 'Payment confirmed via WhatsApp (UPI)',
         created_at: new Date().toISOString()
     });
-    
+
     await clearCart(customerId || to);
     await deductStock(orderId);
 
@@ -1333,7 +1333,7 @@ export async function handleCancelOrder(to, customerId) {
     // Normalize phone number to handle both formats (with/without country code)
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
-    
+
     // Also try without country code if it has one
     if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
         phoneVariations.push(normalizedPhone.substring(2)); // Without 91
@@ -1342,7 +1342,7 @@ export async function handleCancelOrder(to, customerId) {
     if (to.length === 10) {
         phoneVariations.push('91' + to);
     }
-    
+
     // Query with OR condition for all phone variations
     let orders = [];
     for (const phone of phoneVariations) {
@@ -1358,26 +1358,26 @@ export async function handleCancelOrder(to, customerId) {
             break;
         }
     }
-    
+
     if (!orders?.length) {
-        return sendButtons(to, 
-            "❌ You don't have any active orders that can be cancelled.\n\nOrders that are already shipped or delivered cannot be cancelled.", 
+        return sendButtons(to,
+            "❌ You don't have any active orders that can be cancelled.\n\nOrders that are already shipped or delivered cannot be cancelled.",
             [{ id: "menu_main", title: "🏠 Main Menu" }]
         );
     }
-    
+
     let msg = "❌ *Cancel Order*\n\nYour recent orders:\n";
     orders.forEach((o, i) => {
         msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()} (${o.status})\n`;
     });
     msg += "\n📋 *Please reply with the Order ID you want to cancel*\n\n_Example: ORD-123456_";
-    
+
     return sendText(to, msg);
 }
 
 export async function processCancelOrder(to, orderId) {
     const upperOrderId = orderId.toUpperCase();
-    
+
     // Normalize phone number variations
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
@@ -1387,7 +1387,7 @@ export async function processCancelOrder(to, orderId) {
     if (to.length === 10) {
         phoneVariations.push('91' + to);
     }
-    
+
     // Check if order exists and belongs to user (try all phone variations)
     let order = null;
     for (const phone of phoneVariations) {
@@ -1401,36 +1401,36 @@ export async function processCancelOrder(to, orderId) {
             break;
         }
     }
-    
+
     if (!order) {
-        return sendButtons(to, 
-            `❌ Order *${orderId}* not found or doesn't belong to you.\n\nPlease check the Order ID and try again.`, 
+        return sendButtons(to,
+            `❌ Order *${orderId}* not found or doesn't belong to you.\n\nPlease check the Order ID and try again.`,
             [{ id: "menu_cancel_order", title: "Try Again" }, { id: "menu_main", title: "🏠 Main Menu" }]
         );
     }
-    
+
     // Check if order is already cancelled
     if (order.status === 'CANCELLED') {
-        return sendButtons(to, 
-            `❌ Order *${orderId}* has already been cancelled.\n\nNo further action needed.`, 
+        return sendButtons(to,
+            `❌ Order *${orderId}* has already been cancelled.\n\nNo further action needed.`,
             [{ id: "menu_main", title: "🏠 Main Menu" }]
         );
     }
-    
+
     // Check if order can be cancelled
     const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
     if (!cancellableStatuses.includes(order.status)) {
-        return sendButtons(to, 
-            `❌ Order *${orderId}* cannot be cancelled.\n\nStatus: ${order.status}\nOrders that are already shipped or delivered cannot be cancelled.`, 
+        return sendButtons(to,
+            `❌ Order *${orderId}* cannot be cancelled.\n\nStatus: ${order.status}\nOrders that are already shipped or delivered cannot be cancelled.`,
             [{ id: "menu_main", title: "🏠 Main Menu" }]
         );
     }
-    
+
     // Update state to wait for reason
     await updateCustomerAdminNotes(to, `WAITING_CANCEL_REASON:${upperOrderId}`);
 
     // Ask for reason
-    return sendText(to, 
+    return sendText(to,
         `⚠️ *Cancel Order: ${upperOrderId}*\n\n` +
         `Please reply with the *reason* for your cancellation.\n\n` +
         `_Example: "Changed my mind" or "Need to change shipping address"_`
@@ -1439,25 +1439,25 @@ export async function processCancelOrder(to, orderId) {
 
 export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by customer via WhatsApp') {
     const upperOrderId = orderId.toUpperCase();
-    
+
     // First check if order is already cancelled
     const { data: existingOrder } = await supabase.from('orders')
         .select('status')
         .eq('id', upperOrderId)
         .single();
-    
+
     if (existingOrder?.status === 'CANCELLED') {
-        return sendButtons(to, 
-            `❌ Order *${upperOrderId}* has already been cancelled.\n\nNo further action needed.`, 
+        return sendButtons(to,
+            `❌ Order *${upperOrderId}* has already been cancelled.\n\nNo further action needed.`,
             [{ id: "menu_main", title: "🏠 Main Menu" }]
         );
     }
-    
+
     // Get order items to restore stock
     const { data: items } = await supabase.from('order_items')
         .select('*')
         .eq('order_id', upperOrderId);
-    
+
     // Restore stock for each item
     if (items) {
         for (const item of items) {
@@ -1488,18 +1488,18 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
             }
         }
     }
-    
+
     // Update order status to CANCELLED
     await supabase.from('orders')
-        .update({ 
+        .update({
             status: 'CANCELLED',
             admin_notes: `Order cancelled by customer via WhatsApp on ${new Date().toLocaleString()}. Reason: ${reason}`
         })
         .eq('id', upperOrderId);
-    
+
     // Clear customer state
     await updateCustomerAdminNotes(to, null);
-    
+
     // Only create a refund entry if money was actually collected (PAID or AWAITING_PAYMENT)
     // PLACED (COD) orders never took money, so no refund is needed
     if (['PAID', 'AWAITING_PAYMENT'].includes(existingOrder?.status)) {
@@ -1510,7 +1510,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
             status: 'REQUESTED'
         });
     }
-    
+
     // Add to status history (both tables for compatibility)
     await supabase.from('order_status_history').insert({
         order_id: upperOrderId,
@@ -1519,7 +1519,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
         changed_by: 'customer',
         notes: `Order cancelled. Reason: ${reason}`
     });
-    
+
     // Also add to order_status_logs which is what the admin panel reads
     await supabase.from('order_status_logs').insert({
         order_id: upperOrderId,
@@ -1527,9 +1527,9 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
         notes: `Order cancelled. Reason: ${reason}`,
         created_at: new Date().toISOString()
     });
-    
-    return sendButtons(to, 
-        `✅ *Order Cancelled Successfully*\n\nOrder: *${upperOrderId}*\nReason: ${reason}\n\nYour order has been cancelled and stock has been restored.\n\nIf you have already paid, a refund will be processed within 5-7 business days.`, 
+
+    return sendButtons(to,
+        `✅ *Order Cancelled Successfully*\n\nOrder: *${upperOrderId}*\nReason: ${reason}\n\nYour order has been cancelled and stock has been restored.\n\nIf you have already paid, a refund will be processed within 5-7 business days.`,
         [
             { id: "menu_catalogue", title: "Browse Products" },
             { id: "menu_main", title: "Main Menu" }
@@ -1542,7 +1542,7 @@ export async function handleRefundOrder(to) {
     const phoneVariations = [normalizedPhone];
     if (normalizedPhone.startsWith('91')) phoneVariations.push(normalizedPhone.substring(2));
     if (to.length === 10) phoneVariations.push('91' + to);
-    
+
     let allDelivered = [];
     for (const phone of phoneVariations) {
         const { data } = await supabase.from('orders')
@@ -1553,7 +1553,7 @@ export async function handleRefundOrder(to) {
             .limit(15);
         if (data?.length) { allDelivered = data; break; }
     }
-    
+
     if (!allDelivered?.length) {
         return sendButtons(to, "You don't have any delivered orders available for refund. Only delivered orders can be refunded.", [{ id: "menu_main", title: "Main Menu" }]);
     }
@@ -1577,7 +1577,7 @@ export async function handleRefundOrder(to) {
     if (!orders?.length) {
         return sendButtons(to, "❌ You don't have any orders delivered within the last 10 days. Refund requests must be submitted within 10 days of delivery.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
     }
-    
+
     let msg = "Refund Request\n\nYour delivered orders:\n";
     orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
     msg += "\nPlease reply with the Order ID you want to refund\n\n_Example: ORD-123456_";
@@ -1591,7 +1591,7 @@ export async function processRefundOrder(to, orderId) {
     if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
         phoneVariations.push(normalizedPhone.substring(2));
     }
-    
+
     // Check if order exists and belongs to user (try all phone variations)
     let order = null;
     for (const phone of phoneVariations) {
@@ -1605,7 +1605,7 @@ export async function processRefundOrder(to, orderId) {
             break;
         }
     }
-    
+
     if (!order || order.status !== 'DELIVERED') {
         return sendButtons(to, `Order *${orderId}* not found or is not in a refundable status (must be DELIVERED).`, [{ id: "menu_main", title: "Main Menu" }]);
     }
@@ -1618,7 +1618,7 @@ export async function processRefundOrder(to, orderId) {
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
-    
+
     const deliveryDate = deliveryLog ? new Date(deliveryLog.created_at) : (order.status === 'DELIVERED' ? new Date() : new Date(order.created_at));
     const tenDaysAgo = new Date();
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
@@ -1626,27 +1626,27 @@ export async function processRefundOrder(to, orderId) {
     if (deliveryDate < tenDaysAgo) {
         return sendButtons(to, `❌ Order *${upperOrderId}* was delivered more than 10 days ago (on ${deliveryDate.toLocaleDateString()}). It is no longer eligible for refund.`, [{ id: "menu_main", title: "🏠 Main Menu" }]);
     }
-    
+
     // Store that this user is now in "Waiting for Refund Reason" state for this order
     await updateCustomerAdminNotes(customerId || to, `WAITING_REFUND_REASON:${upperOrderId}`);
-    
+
     return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.`);
 }
 
 export async function handleReturnExchangeOrder(customerId, to) {
     console.log('\n🔄 === HANDLE RETURN/EXCHANGE ORDER ===');
     console.log('ID:', customerId, 'Phone:', to);
-    
+
     // Clear any previous state
     await updateCustomerAdminNotes(customerId || to, null);
-    
+
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
     if (normalizedPhone.startsWith('91')) phoneVariations.push(normalizedPhone.substring(2));
     if (to.length === 10) phoneVariations.push('91' + to);
-    
+
     console.log('Phone variations to check:', phoneVariations);
-    
+
     let allDelivered = [];
     for (const phone of phoneVariations) {
         console.log(`📋 Checking orders for phone: ${phone}`);
@@ -1656,19 +1656,19 @@ export async function handleReturnExchangeOrder(customerId, to) {
             .eq('status', 'DELIVERED')
             .order('created_at', { ascending: false })
             .limit(50);
-            
+
         console.log(`  - Orders found for ${phone}:`, data?.length || 0);
         console.log(`  - Error:`, error);
-        
-        if (data?.length) { 
-            allDelivered = data; 
+
+        if (data?.length) {
+            allDelivered = data;
             console.log('✅ Found delivered orders, stopping search');
-            break; 
+            break;
         }
     }
-    
+
     console.log('Total delivered orders found:', allDelivered?.length || 0);
-    
+
     if (!allDelivered?.length) {
         console.log('❌ No delivered orders found - sending error message');
         return sendButtons(to, "❌ No delivered orders found. Only delivered orders can be returned or exchanged.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
@@ -1679,7 +1679,7 @@ export async function handleReturnExchangeOrder(customerId, to) {
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
     const orderIds = allDelivered.map(o => o.id);
-    const [ { data: logs }, { data: existingRequests } ] = await Promise.all([
+    const [{ data: logs }, { data: existingRequests }] = await Promise.all([
         supabaseAdmin.from('order_status_logs')
             .select('order_id, created_at')
             .in('order_id', orderIds)
@@ -1701,7 +1701,7 @@ export async function handleReturnExchangeOrder(customerId, to) {
     if (!orders?.length) {
         return sendButtons(to, "❌ No orders found eligible for return or exchange (delivery window exceeded or request already submitted).", [{ id: "menu_main", title: "🏠 Main Menu" }]);
     }
-    
+
     let msg = "🔄 *Return or Exchange*\n\nYour delivered orders:\n";
     orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
     msg += "\n📋 *Please reply with the Order ID* you want to return/exchange\n\n_Example: ORD-123456_";
@@ -1713,7 +1713,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
     if (normalizedPhone.startsWith('91')) phoneVariations.push(normalizedPhone.substring(2));
-    
+
     let order = null;
     for (const phone of phoneVariations) {
         const { data } = await supabaseAdmin.from('orders')
@@ -1723,7 +1723,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
             .single();
         if (data) { order = data; break; }
     }
-    
+
     if (!order || order.status !== 'DELIVERED') {
         return sendButtons(to, `❌ Order *${orderId}* not found or is not DELIVERED.\n\nOnly delivered orders can be returned or exchanged.`, [{ id: "menu_main", title: "🏠 Main Menu" }]);
     }
@@ -1736,7 +1736,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
-    
+
     const deliveryDate = deliveryLog ? new Date(deliveryLog.created_at) : new Date(order.created_at);
     const tenDaysAgo = new Date();
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
@@ -1744,10 +1744,10 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     if (deliveryDate < tenDaysAgo) {
         return sendButtons(to, `❌ Order *${upperOrderId}* was delivered more than 10 days ago (on ${deliveryDate.toLocaleDateString()}). It is no longer eligible for return or exchange.`, [{ id: "menu_main", title: "🏠 Main Menu" }]);
     }
-    
+
     // Store state: WAITING_RETURN_TYPE:ORDER_ID
     await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_TYPE:${upperOrderId}`);
-    
+
     return sendButtons(to, `Order *${upperOrderId}* selected.\n\nWhat would you like to do?`, [
         { id: `rectype_return_${upperOrderId}`, title: "🔄 Return & Refund" },
         { id: `rectype_exchange_${upperOrderId}`, title: "👕 Exchange Item" }
@@ -1757,14 +1757,14 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
 export async function handleReturnExchangeTypeSelection(customerId, type, orderId, to) {
     // type is 'RETURN' or 'EXCHANGE'
     await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_REASON:${type}:${orderId}`);
-    
+
     return sendText(to, `You selected *${type}* for Order *${orderId}*.\n\nPlease reply with the *reason* for your request and which item(s) you wish to ${type.toLowerCase()}.`);
 }
 
 export async function submitReturnExchangeRequest(to, type, orderId, reason, customerId = null) {
     console.log('\n💾 === SUBMIT RETURN/EXCHANGE REQUEST (INTERNAL) ===');
     console.log(`[RETURN] Order: ${orderId}, Type: ${type}`);
-    
+
     try {
         // Fetch order items for the service (try exact match first, then uppercase)
         let { data: order, error: fetchErr } = await supabaseAdmin
@@ -1772,7 +1772,7 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
             .select('*, order_items(*)')
             .eq('id', orderId)
             .single();
-        
+
         if (!order || fetchErr) {
             // Try uppercase fallback
             const retry = await supabaseAdmin
@@ -1785,7 +1785,7 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
                 fetchErr = null;
             }
         }
-        
+
         if (fetchErr || !order) {
             console.error(`[RETURN] Order #${orderId} not found:`, fetchErr);
             return sendText(to, `❌ Sorry, I couldn't find Order *#${orderId}*. Please check the order ID and try again.`);
@@ -1840,17 +1840,17 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
 
 export async function confirmRefundOrder(to, orderId, reason) {
     const { data: order } = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
-    
+
     await supabase.from('orders').update({ status: 'REFUND_REQUESTED', refund_reason: reason, refund_status: 'PENDING' }).eq('id', orderId);
-    
+
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
     if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
         phoneVariations.push(normalizedPhone.substring(2));
     }
-    
+
     await updateCustomerAdminNotes(to, null);
-    
+
     if (order) {
         await supabase.from('refunds').insert({
             order_id: orderId,
@@ -1859,7 +1859,7 @@ export async function confirmRefundOrder(to, orderId, reason) {
             status: 'REQUESTED'
         });
     }
-    
+
     return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.`, [{ id: "menu_main", title: "Main Menu" }]);
 }
 
@@ -1867,7 +1867,7 @@ export async function handleTrackOrder(to) {
     // Normalize phone number to handle both formats (with/without country code)
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
-    
+
     // Also try without country code if it has one
     if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
         phoneVariations.push(normalizedPhone.substring(2)); // Without 91
@@ -1876,7 +1876,7 @@ export async function handleTrackOrder(to) {
     if (to.length === 10) {
         phoneVariations.push('91' + to);
     }
-    
+
     // Query with IN condition for all phone variations to get the absolute latest order
     const { data: oList, error } = await supabase
         .from('orders')
@@ -1885,30 +1885,30 @@ export async function handleTrackOrder(to) {
         .neq('status', 'DRAFT')
         .order('created_at', { ascending: false })
         .limit(1);
-    
+
     const orders = oList || [];
-    
+
     if (!orders?.length) return sendButtons(to, "No previous orders found.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
 
     const o = orders[0];
     const sourceLabel = o.source === 'WEBSITE' ? '🌐 Website' : '📱 WhatsApp';
     const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
-    
+
     const buttons = [
         { id: "menu_main", title: "🏠 Main Menu" }
     ];
-    
+
     if (canCancel) {
         buttons.unshift({ id: "menu_cancel_order", title: "Cancel Order" });
     }
-    
-    await sendButtons(to, 
+
+    await sendButtons(to,
         `🛒 *Latest Order Details*\n\n` +
         `Order ID: *#${o.id}*\n` +
         `Source: *${sourceLabel}*\n` +
         `Status: *${o.status}*\n` +
         `Amount: *₹${o.total_amount?.toLocaleString()}*\n` +
-        `Date: *${new Date(o.created_at).toLocaleDateString()}*`, 
+        `Date: *${new Date(o.created_at).toLocaleDateString()}*`,
         buttons
     );
 }
@@ -2030,26 +2030,26 @@ function isDuplicate(msgId) {
 export async function processIncomingMessage(body) {
     console.log('\n🔍 === PROCESSING INCOMING MESSAGE ===');
     debugLog('Processing incoming message body:', body);
-    
+
     try {
         const value = body.entry?.[0]?.changes?.[0]?.value;
         const message = value?.messages?.[0];
-        
+
         console.log('📨 Message extraction:');
         console.log('  - Value exists:', !!value);
         console.log('  - Message exists:', !!message);
-        
+
         if (!message) {
             console.log('❌ No message found in body - exiting');
             debugLog('No message found in body');
             return;
         }
-        
+
         const from = message.from;
         const msgType = message.type;
         const msgId = message.id;
         const text = message.text?.body?.toLowerCase().trim();
-        
+
         console.log('📝 Message details:');
         console.log('  - From:', from);
         console.log('  - Type:', msgType);
@@ -2102,7 +2102,7 @@ export async function processIncomingMessage(body) {
                 // If multiple records, find one with admin_notes, otherwise take first
                 customer = customers.find(c => c.admin_notes) || customers[0];
                 console.log(`[WA-STATE] Customer found. ID: ${customer.id}, Notes: "${customer.admin_notes || 'NONE'}"`);
-                
+
                 // Update name if it's new
                 if ((!customer.name || customer.name === 'WhatsApp Customer') && profileName !== 'WhatsApp Customer') {
                     await supabaseAdmin.from('customers').update({ name: profileName }).eq('id', customer.id);
@@ -2172,10 +2172,10 @@ export async function processIncomingMessage(body) {
                     let type = null;
                     if (messageText.includes('return') || messageText.includes('refund')) type = 'RETURN';
                     else if (messageText.includes('exchange')) type = 'EXCHANGE';
-                    
+
                     if (type) return await handleReturnExchangeTypeSelection(customer.id, type, orderId, from);
                 }
-                
+
                 if (notes.startsWith('WAITING_RETURN_REASON:') || notes.startsWith('WAITING_REFUND_REASON:')) {
                     const parts = notes.split(':');
                     if (parts.length === 3) {
@@ -2194,7 +2194,7 @@ export async function processIncomingMessage(body) {
 
             // Text commands for menu items (typed by user)
             console.log('🔍 Checking keyword matches for text:', messageText);
-            
+
             if (['track order', 'my orders', 'my order', 'orders', 'order status', 'track'].includes(messageText)) {
                 console.log('✅ Track order keyword matched');
                 return await handleTrackOrder(from);
@@ -2203,7 +2203,7 @@ export async function processIncomingMessage(body) {
                 console.log('✅ Cancel keyword matched');
                 return await handleCancelOrder(from);
             }
-            
+
             const returnKeywords = ['refund', 'return', 'exchange', 'refund order', 'return order', 'exchange order', 'returns', 'exchanges', 'retutn', 'return a product', 'exchange a product', 'i want to return', 'i want to exchange'];
             if (returnKeywords.includes(messageText)) {
                 console.log('✅ Return/Exchange keyword matched - calling handleReturnExchangeOrder');
@@ -2214,7 +2214,7 @@ export async function processIncomingMessage(body) {
                     throw error;
                 }
             }
-            
+
             if (['view catalogue', 'view catalog', 'browse catalogue', 'browse catalog', 'show catalogue', 'show products'].includes(messageText)) return await sendCatalogueCategories(from);
             if (['view cart', 'my cart', 'show cart', 'cart'].includes(messageText)) return await handleViewCart(from);
 
@@ -2225,17 +2225,17 @@ export async function processIncomingMessage(body) {
                 /^[A-Z]{2,6}-?\d{4,}$/i,         // CAT-1234, ABC123456
                 /^\d{6,}$/i                      // Just numbers like 123456
             ];
-            
+
             const trimmedMessage = message.text.body.trim();
             let matchedOrderId = null;
-            
+
             for (const pattern of orderIdPatterns) {
                 if (pattern.test(trimmedMessage)) {
                     matchedOrderId = trimmedMessage.toUpperCase().replace(/^ORDER-/i, 'ORD-');
                     break;
                 }
             }
-            
+
             if (matchedOrderId) {
                 console.log(`[WA] Detected order ID: ${matchedOrderId}`);
                 const { data: o } = await supabaseAdmin.from('orders').select('status').eq('id', matchedOrderId).single();
@@ -2299,7 +2299,7 @@ export async function processIncomingMessage(body) {
                             if (invoiceUrl) {
                                 await sendDocument(from, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
                             }
-                            
+
                             // Unify with bot flow by providing the same buttons
                             await sendButtons(from, "💗 We will contact you shortly to confirm cash on delivery dispatch!\n\nTap below to manage your order:", [
                                 { id: "menu_track", title: "Track Order" },
@@ -2335,7 +2335,7 @@ export async function processIncomingMessage(body) {
                     console.log(`[WA] Saving billing address for draft ${draft.id}`);
                     return await handleNewBillingAddress(from, draft.id, message.text.body);
                 }
-                
+
                 // Check if we need email (fallback if email was missing during billing)
                 if (draft.billing_address && !draft.customer_email) {
                     console.log(`[WA] Saving email for draft ${draft.id}`);
@@ -2351,7 +2351,7 @@ export async function processIncomingMessage(body) {
                         return;
                     }
                 }
-                
+
                 // Check if we need shipping address (only if not set)
                 if (!draft.shipping_address) {
                     console.log(`[WA] Saving shipping address for draft ${draft.id}`);
@@ -2362,7 +2362,7 @@ export async function processIncomingMessage(body) {
                 if ((!draft.customer_state || draft.customer_state === 'Other') && !MENU_TRIGGERS.includes(messageText)) {
                     console.log(`[WA] Attempting to set state for draft ${draft.id}: ${messageText}`);
                     const INDIAN_STATES = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Puducherry", "Chandigarh", "Ladakh", "Jammu and Kashmir"];
-                    
+
                     const matchedState = INDIAN_STATES.find(s => s.toLowerCase() === messageText.toLowerCase() || messageText.toLowerCase().includes(s.toLowerCase()));
                     if (matchedState) {
                         return await handleStateSelection(from, matchedState.toLowerCase().replace(/ /g, '_'), draft.id);
