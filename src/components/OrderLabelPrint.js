@@ -41,13 +41,16 @@ const STORE_INFO = {
     phone: "+91 98765 43210"
 };
 
-export default function OrderLabelPrint({ orders }) {
+export default function OrderLabelPrint({ orders, mode = 'address' }) {
     if (!orders || orders.length === 0) return null;
 
-    // chunk orders into groups of 6 (2x3 grid per page)
+    // Determine grid density based on mode
+    const isSmall = mode === 'id';
+    const labelsPerPage = isSmall ? 65 : 6; // 65 labels (5x13) for ID only, 6 labels (2x3) for Address
+
     const chunks = [];
-    for (let i = 0; i < orders.length; i += 6) {
-        chunks.push(orders.slice(i, i + 6));
+    for (let i = 0; i < orders.length; i += labelsPerPage) {
+        chunks.push(orders.slice(i, i + labelsPerPage));
     }
 
     return (
@@ -57,58 +60,70 @@ export default function OrderLabelPrint({ orders }) {
                     <div className="label-grid">
                         {chunk.map((order) => (
                             <div key={order.id} className="label-card">
-
-                                {/* HEADER: Payment badge + Order ID */}
-                                <div className="label-header">
-                                    <div className={`payment-badge ${order.payment_method?.toUpperCase() === 'COD' ? 'badge-cod' : 'badge-prepaid'}`}>
-                                        {order.payment_method?.toUpperCase() === 'COD' ? 'CASH ON DELIVERY' : 'PREPAID'}
+                                {mode === 'id' ? (
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '7.5pt', fontWeight: 800, color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm' }}>
+                                            Order ID :
+                                        </div>
+                                        <div style={{ fontSize: '14pt', fontWeight: 900, color: '#000', fontFamily: 'monospace', lineHeight: 1 }}>
+                                            #{order.id?.toString().slice(-8)}
+                                        </div>
                                     </div>
-                                    <div className="order-no">#{order.id?.toString().slice(-8)}</div>
-                                </div>
+                                ) : (
+                                    <>
+                                        {/* HEADER: Payment badge + Order ID */}
+                                        <div className="label-header">
+                                            <div className={`payment-badge ${order.payment_method?.toUpperCase() === 'COD' ? 'badge-cod' : 'badge-prepaid'}`}>
+                                                {order.payment_method?.toUpperCase() === 'COD' ? 'CASH ON DELIVERY' : 'PREPAID'}
+                                            </div>
+                                            <div className="order-no">#{order.id?.toString().slice(-8)}</div>
+                                        </div>
 
-                                {/* FROM section */}
-                                <div className="label-section">
-                                    <div className="section-label">FROM</div>
-                                    <div className="from-name">{STORE_INFO.name}</div>
-                                    <div className="from-details">{STORE_INFO.address}, {STORE_INFO.city} – {STORE_INFO.pincode}</div>
-                                    <div className="from-details">{STORE_INFO.phone}</div>
-                                </div>
+                                        {/* FROM section */}
+                                        <div className="label-section">
+                                            <div className="section-label">FROM</div>
+                                            <div className="from-name">{STORE_INFO.name}</div>
+                                            <div className="from-details">{STORE_INFO.address}, {STORE_INFO.city} – {STORE_INFO.pincode}</div>
+                                            <div className="from-details">{STORE_INFO.phone}</div>
+                                        </div>
 
-                                <div className="divider-dashed" />
+                                        <div className="divider-dashed" />
 
-                                {/* TO section */}
-                                <div className="label-section to-section">
-                                    <div className="section-label">TO</div>
-                                    <div className="to-name">{order.customer_name}</div>
-                                    <div className="to-address">
-                                        {formatAddress(order.shipping_address || order.delivery_address || order.billing_address)}
-                                    </div>
-                                    <div className="to-phone">
-                                        {order.customer_phone}
-                                    </div>
-                                </div>
+                                        {/* TO section */}
+                                        <div className="label-section to-section">
+                                            <div className="section-label">TO</div>
+                                            <div className="to-name">{order.customer_name}</div>
+                                            <div className="to-address">
+                                                {formatAddress(order.shipping_address || order.delivery_address || order.billing_address)}
+                                            </div>
+                                            <div className="to-phone">
+                                                {order.customer_phone}
+                                            </div>
+                                        </div>
 
-                                {/* FOOTER: Courier + AWB */}
-                                <div className="label-footer">
-                                    <div className="footer-left">
-                                        {order.courier_name && (
-                                            <div className="courier-name">{order.courier_name}</div>
-                                        )}
-                                        {order.tracking_number && (
-                                            <div className="awb-no">AWB: {order.tracking_number}</div>
-                                        )}
-                                    </div>
-                                    <div className="footer-right">
-                                        <div className="contents-label">CONTENTS</div>
-                                        <div className="contents-value">Saree Package</div>
-                                    </div>
-                                </div>
+                                        {/* FOOTER: Courier + AWB */}
+                                        <div className="label-footer">
+                                            <div className="footer-left">
+                                                {order.courier_name && (
+                                                    <div className="courier-name">{order.courier_name}</div>
+                                                )}
+                                                {order.tracking_number && (
+                                                    <div className="awb-no">AWB: {order.tracking_number}</div>
+                                                )}
+                                            </div>
+                                            <div className="footer-right">
+                                                <div className="contents-label">CONTENTS</div>
+                                                <div className="contents-value">Saree Package</div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
 
-                        {/* Fill empty slots so grid stays 2x3 */}
-                        {chunk.length < 6 && Array.from({ length: 6 - chunk.length }).map((_, i) => (
-                            <div key={`empty-${i}`} className="label-card label-card-empty" />
+                        {/* Fill empty slots */}
+                        {chunk.length < labelsPerPage && Array.from({ length: labelsPerPage - chunk.length }).map((_, i) => (
+                            <div key={`empty-${i}`} className={`label-card label-card-empty ${isSmall ? 'label-small' : ''}`} />
                         ))}
                     </div>
                 </div>
@@ -136,23 +151,23 @@ export default function OrderLabelPrint({ orders }) {
 
                 .label-grid {
                     display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    grid-template-rows: repeat(3, 1fr);
-                    gap: 6mm;
+                    grid-template-columns: ${isSmall ? 'repeat(5, 1fr)' : '1fr 1fr'};
+                    grid-template-rows: ${isSmall ? 'repeat(13, 1fr)' : 'repeat(3, 1fr)'};
+                    gap: ${isSmall ? '1.5mm' : '6mm'};
                     width: 100%;
                     height: 100%;
                 }
 
                 .label-card {
-                    border: 1.5px solid #111;
-                    padding: 5mm;
+                    border: 1.2px solid #111;
+                    padding: ${isSmall ? '1.5mm' : '5mm'};
                     display: flex;
                     flex-direction: column;
                     box-sizing: border-box;
                     background: white;
                     overflow: hidden;
                     width: 100%;
-                    min-height: 80mm;
+                    min-height: ${isSmall ? '18mm' : '80mm'};
                 }
 
                 .label-card-empty {
@@ -378,18 +393,18 @@ export default function OrderLabelPrint({ orders }) {
 
                     .label-grid {
                         display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        grid-template-rows: repeat(3, 1fr);
-                        gap: 8mm;
+                        grid-template-columns: ${isSmall ? 'repeat(5, 1fr)' : '1fr 1fr'};
+                        grid-template-rows: ${isSmall ? 'repeat(13, 1fr)' : 'repeat(3, 1fr)'};
+                        gap: ${isSmall ? '1.5mm' : '8mm'};
                         width: 100%;
                         height: 100%;
                     }
 
                     .label-card {
-                        border: 1.5px solid #000 !important;
+                        border: 1.2px solid #000 !important;
                         height: 100%;
                         page-break-inside: avoid;
-                        padding: 6mm;
+                        padding: ${isSmall ? '1.5mm' : '6mm'};
                         box-sizing: border-box;
                     }
 

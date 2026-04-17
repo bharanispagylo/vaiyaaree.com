@@ -141,6 +141,7 @@ export default function OrdersPage() {
     useEffect(() => { setOrdersPage(1); }, [searchTerm, statusFilter, sourceFilter]);
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [printingOrders, setPrintingOrders] = useState([]);
+    const [printMode, setPrintMode] = useState('address'); // 'address' or 'id'
     const [notificationSelection, setNotificationSelection] = useState(null); // { type: 'email' | 'whatsapp', billing: string, shipping: string, orderId: string }
 
 
@@ -2469,7 +2470,7 @@ export default function OrdersPage() {
                 <div className="animate-pop" style={{
                     position: 'fixed',
                     bottom: '2rem',
-                    width: '50%',
+                    width: '60%',
                     left: 'calc(var(--sidebar-width, 280px) + (100% - var(--sidebar-width, 280px)) / 2)',
                     transform: 'translateX(-50%)',
                     background: '#1a1d21',
@@ -2488,6 +2489,7 @@ export default function OrdersPage() {
                     <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.2)' }} />
                     <div style={{ display: 'flex', gap: '1rem' }}>
                         <button onClick={async () => {
+                            setPrintMode('address');
                             setLoading(true);
                             try {
                                 const { data, error } = await supabase
@@ -2516,7 +2518,39 @@ export default function OrdersPage() {
                             gap: '8px',
                             transition: 'all 0.2s'
                         }}>
-                            <Download size={16} /> Print Shipping Labels
+                            <Download size={16} /> Print Address Labels
+                        </button>
+                        <button onClick={async () => {
+                            setPrintMode('id');
+                            setLoading(true);
+                            try {
+                                const { data, error } = await supabase
+                                    .from('orders')
+                                    .select('*')
+                                    .in('id', selectedOrderIds);
+                                if (error) throw error;
+                                setPrintingOrders(data || []);
+                                setIsPrintingLabels(true);
+                            } catch (err) {
+                                setNotification({ type: 'error', message: 'Failed to load orders for print' });
+                            } finally {
+                                setLoading(false);
+                            }
+                        }} style={{
+                            background: 'rgba(16,185,129,0.2)',
+                            border: '1px solid rgba(16,185,129,0.5)',
+                            color: '#10b981',
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}>
+                            <Download size={16} /> Print ID Labels
                         </button>
                         <button onClick={handleBulkDelete} style={{
                             background: 'rgba(239,68,68,0.2)',
@@ -2559,7 +2593,7 @@ export default function OrdersPage() {
                             <button onClick={() => window.print()} className="btn btn-primary">Proceed to Print</button>
                         </div>
                     </div>
-                    <OrderLabelPrint orders={printingOrders} />
+                    <OrderLabelPrint orders={printingOrders} mode={printMode} />
                 </div>
             )}
 
