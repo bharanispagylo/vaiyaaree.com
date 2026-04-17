@@ -122,9 +122,8 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
         const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
         if (!matchesSearch) return false;
 
-        const isWatermarked = watermarkImages.includes(f.url);
-        if (activeGroup === 'watermark') return isWatermarked;
-        if (activeGroup === 'no-watermark') return !isWatermarked;
+        if (activeGroup === 'watermark') return f.folder === 'with-watermark';
+        if (activeGroup === 'no-watermark') return f.folder === 'without-watermark';
         return true;
     });
 

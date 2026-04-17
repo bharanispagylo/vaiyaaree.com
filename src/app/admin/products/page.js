@@ -1063,7 +1063,7 @@ export default function ProductsPage() {
                                                         </td>
                                                         <td style={{ textAlign: 'right' }}>
                                                             <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                                                                <button onClick={() => window.open('/product/' + product.id, '_blank')} title="View Product Page" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
+                                                                                                                                 <button onClick={() => window.open('/product/' + product.id, '_blank')} title="View Product Page" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
                                                                     <Eye size={15} />
                                                                 </button>
                                                                 <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
@@ -1348,7 +1348,7 @@ export default function ProductsPage() {
                                                     </div>
                                                 )}
                                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button type="button" onClick={() => { setActiveImageField({ type: 'product' }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, height: '44px' }}>
+                                                    <button type="button" onClick={() => { setActiveImageField({ type: 'product' }); setTimeout(() => setShowMediaPicker(true), 50); }} className="btn btn-secondary" style={{ flex: 1, height: '44px' }}>
                                                         <ImageIcon size={15} /> From Library
                                                     </button>
                                                     <label className="btn btn-secondary" style={{ flex: 1, height: '44px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -1444,7 +1444,7 @@ export default function ProductsPage() {
                                                     ))}
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button type="button" onClick={() => { setActiveImageField({ type: 'gallery' }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, height: '44px' }}>
+                                                    <button type="button" onClick={() => { setActiveImageField({ type: 'gallery' }); setTimeout(() => setShowMediaPicker(true), 50); }} className="btn btn-secondary" style={{ flex: 1, height: '44px' }}>
                                                         <ImageIcon size={15} /> From Library
                                                     </button>
                                                     <label className="btn btn-secondary" style={{ flex: 1, height: '44px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -1503,7 +1503,7 @@ export default function ProductsPage() {
                                                         <input type="number" placeholder="Stock" value={v.stock} min="0" onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                             {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setZoomedImage(v.image_url)} title="Click to zoom" />}
-                                                            <button type="button" onClick={() => { setActiveImageField({ type: 'variant', index: i }); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem' }}>Library</button>
+                                                            <button type="button" onClick={() => { setActiveImageField({ type: 'variant', index: i }); setTimeout(() => setShowMediaPicker(true), 20); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem' }}>Library</button>
                                                             <label className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem', cursor: 'pointer', textAlign: 'center' }}>
                                                                 Upload
                                                                 <input type="file" style={{ display: 'none' }} onChange={async (e) => {
@@ -2004,7 +2004,7 @@ export default function ProductsPage() {
                     previewModal && (
                         <ModalPortal>
                             <div className="modal-overlay" onClick={() => setPreviewModal(null)}>
-                                <div className="modal-box shadow-premium" style={{ maxWidth: '640px', padding: '2rem', borderRadius: '24px', background: '#f8fafc' }} onClick={e => e.stopPropagation()}>
+                                <div className="modal-box shadow-premium" style={{ maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', borderRadius: '24px', background: '#f8fafc' }} onClick={e => e.stopPropagation()}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                                         <div>
                                             <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Social Media Preview</h3>
@@ -2032,8 +2032,8 @@ export default function ProductsPage() {
                                                     })()}
                                                 </div>
                                                 {previewModal.product.image_url && (
-                                                    <div style={{ width: '100%', height: '320px', overflow: 'hidden', borderTop: '1px solid #eee' }}>
-                                                        <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <div style={{ width: '100%', height: '240px', overflow: 'hidden', borderTop: '1px solid #eee', background: '#f1f5f9' }}>
+                                                        <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                                     </div>
                                                 )}
                                                 <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#65676B', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
@@ -2050,8 +2050,8 @@ export default function ProductsPage() {
                                                     <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>aiswaryasaree</div>
                                                 </div>
                                                 {previewModal.product.image_url && (
-                                                    <div style={{ width: '100%', aspectRatio: '1/1', overflow: 'hidden' }}>
-                                                        <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <div style={{ width: '100%', height: '300px', overflow: 'hidden', background: '#f1f5f9' }}>
+                                                        <img src={previewModal.product.image_url} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                                     </div>
                                                 )}
                                                 <div style={{ padding: '12px' }}>
@@ -2072,7 +2072,7 @@ export default function ProductsPage() {
                                             </div>
                                         )}
                                     </div>
-                                    <button onClick={() => setPreviewModal(null)} className="btn btn-primary" style={{ width: '100%', marginTop: '2rem', height: '52px', borderRadius: '14px', fontSize: '1rem', fontWeight: 700 }}>Close Preview</button>
+                                    {/* <button onClick={() => setPreviewModal(null)} className="btn btn-primary" style={{ width: '100%', marginTop: '2rem', height: '52px', borderRadius: '14px', fontSize: '1rem', fontWeight: 700 }}>Close Preview</button> */}
                                 </div>
                             </div>
                         </ModalPortal>
@@ -2282,6 +2282,8 @@ export default function ProductsPage() {
                         <ImageZoom url={zoomedImage} onClose={() => setZoomedImage(null)} />
                     </ModalPortal>
                 )}
+
+
 
                 <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

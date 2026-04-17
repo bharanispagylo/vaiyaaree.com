@@ -94,10 +94,10 @@ export default function ProductDetailsPage() {
                 {product.category && <><Link href={`/shop?category=${encodeURIComponent(product.category)}`}>{product.category}</Link> &gt;</>}
                 <span className={styles.breadcrumbCurrent}>{product.name}</span>
             </div>
+            
             <div className={styles.mainSection}>
-                {/* Left: Product Image — Amazon style */}
+                {/* Left: Product Image — Premium Display */}
                 <div className={styles.imageGallery}>
-                    {/* Main large image on top */}
                     <div
                         className={styles.imageWrapper}
                         onClick={() => setIsZoomed(true)}
@@ -113,7 +113,7 @@ export default function ProductDetailsPage() {
                             <ZoomIn size={24} />
                         </div>
                     </div>
-                    {/* Horizontal thumbnail strip below */}
+                    {/* Thumbnail strip */}
                     {galleryImages.length > 1 && (
                         <div className={styles.thumbStrip}>
                             {galleryImages.map((img, idx) => (
@@ -134,22 +134,29 @@ export default function ProductDetailsPage() {
                     )}
                 </div>
 
-                {/* Right: Product Details */}
+                {/* Right: Product Details — Premium Info */}
                 <div className={styles.productDetails}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <h1 className={styles.productName} style={{ margin: 0, paddingRight: '1rem' }}>{product.name}</h1>
+                    <div style={{ marginBottom: '1rem' }}>
+                        <div style={{ color: 'hsl(var(--primary))', fontWeight: 800, textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.1em', marginBottom: '8px' }}>
+                            {product.category}
+                        </div>
+                        <h1 className={styles.productName}>{product.name}</h1>
                     </div>
-                    <div className={styles.priceTag} style={{ marginTop: '0.75rem' }}>₹{displayPrice?.toLocaleString()}.00</div>
+                    
+                    <div className={styles.priceTag}>₹{displayPrice?.toLocaleString()}</div>
 
                     <div className={styles.stockStatus}>
                         {currentStock > 0 ? (
-                            <span className={styles.inStock}><CheckCircle size={16} /> Availability: {currentStock} in stock</span>
+                            <span className={styles.inStock}><CheckCircle size={16} /> {currentStock} Items Available</span>
                         ) : (
-                            <span className={styles.outOfStock}>Out of Stock</span>
+                            <span className={styles.outOfStock}><X size={16} /> Currently Out of Stock</span>
                         )}
                     </div>
 
-                    <p className={styles.description}>{product.description}</p>
+                    <div className={styles.description}>
+                        <h4 style={{ color: '#0f172a', fontWeight: 900, marginBottom: '12px', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</h4>
+                        {product.description || "Premium quality saree set from our exclusive collection. Crafted with elegance and precision for your special occasions."}
+                    </div>
 
                     {product.type === 'variant' && variants.length > 0 && (
                         <div className={styles.variantsSection}>
@@ -169,77 +176,40 @@ export default function ProductDetailsPage() {
                     )}
 
                     <div className={styles.actions}>
-                        {currentStock === 0 ? (
-                            <div className={styles.outOfStockContainer}>
-                                <h4 className={styles.outOfStockTitle}>Out of Stock</h4>
-                                <p className={styles.outOfStockMessage}>Please check back later or contact support.</p>
-                            </div>
-                        ) : (
+                        {currentStock > 0 && (
                             <>
                                 <div className={styles.qtySelector}>
                                     <button onClick={() => setQty(Math.max(1, qty - 1))}>-</button>
                                     <span>{qty}</span>
                                     <button onClick={() => setQty(qty + 1)}>+</button>
                                 </div>
-                                <button
-                                    className={styles.addToCartBtn}
-                                    onClick={handleAddToCart}
-                                    disabled={currentStock === 0}
-                                >
-                                    <ShoppingCart size={18} /> ADD TO CART
+                                <button className={styles.addToCartBtn} onClick={handleAddToCart}>
+                                    <ShoppingCart size={20} /> Add to Cart
                                 </button>
-                                
                                 <button
                                     className={styles.buyNowBtn}
-                                    onClick={() => {
-                                        handleAddToCart();
-                                        router.push('/checkout');
-                                    }}
-                                    disabled={currentStock === 0}
+                                    onClick={() => { handleAddToCart(); router.push('/checkout'); }}
                                 >
-                                    BUY NOW
+                                    Buy Now
                                 </button>
                             </>
                         )}
                     </div>
 
                     <div className={styles.meta}>
-                        <div className={styles.metaItem}><strong>Category:</strong> {product.category}</div>
-                        {product.product_group && <div className={styles.metaItem}><strong>Brand:</strong> {product.product_group}</div>}
+                        <div className={styles.metaItem}><strong>Category</strong> {product.category}</div>
+                        {product.product_group && <div className={styles.metaItem}><strong>Brand</strong> {product.product_group}</div>}
+                        <div className={styles.metaItem}><strong>SKU</strong> {product.product_catalog_image_id || 'AS-PRD-' + product.id}</div>
                     </div>
-
-                    {product.tags && product.tags.length > 0 && (
-                        <div className={styles.tagsContainer} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {product.tags.map(tag => (
-                                <span key={tag} style={{ background: '#f1f5f9', padding: '0.25rem 0.75rem', borderRadius: '50px', fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
-                                    #{tag}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-
-
                 </div>
             </div>
 
             {/* Related Products Section */}
             {relatedProducts.length > 0 && (
                 <section className={styles.relatedSection}>
-                    <h2 className={styles.sectionTitle}>Related products</h2>
+                    <h2 className={styles.sectionTitle}>You may also like</h2>
                     <div className={styles.relatedGrid}>
                         {relatedProducts.map(p => (
-                            <ProductCard key={p.id} product={p} />
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            {/* Recently Viewed Section */}
-            {recentlyViewed.length > 0 && (
-                <section className={styles.relatedSection} style={{ marginTop: '2rem' }}>
-                    <h2 className={styles.sectionTitle}>Recently Viewed</h2>
-                    <div className={styles.relatedGrid}>
-                        {recentlyViewed.map(p => (
                             <ProductCard key={p.id} product={p} />
                         ))}
                     </div>
@@ -250,7 +220,7 @@ export default function ProductDetailsPage() {
             {isZoomed && (
                 <div className={styles.zoomModal} onClick={() => setIsZoomed(false)}>
                     <button className={styles.closeZoomBtn} onClick={(e) => { e.stopPropagation(); setIsZoomed(false); }}>
-                        <X size={32} />
+                        <X size={40} strokeWidth={1.5} />
                     </button>
                     <img
                         src={activeImageUrl}
