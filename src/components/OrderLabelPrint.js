@@ -76,8 +76,14 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                                             <div className={`payment-badge ${order.payment_method?.toUpperCase() === 'COD' ? 'badge-cod' : 'badge-prepaid'}`}>
                                                 {order.payment_method?.toUpperCase() === 'COD' ? 'CASH ON DELIVERY' : 'PREPAID'}
                                             </div>
-                                            <div className="order-no">#{order.id?.toString().slice(-8)}</div>
-                                        </div>
+<div className="footer-left">
+                                                {order.courier_name && (
+                                                    <div className="courier-name">{order.courier_name}</div>
+                                                )}
+                                                {order.tracking_number && (
+                                                    <div className="awb-no">AWB: {order.tracking_number}</div>
+                                                )}
+                                            </div>                                        </div>
 
                                         {/* FROM section */}
                                         <div className="label-section">
@@ -102,19 +108,12 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                                         </div>
 
                                         {/* FOOTER: Courier + AWB */}
-                                        <div className="label-footer">
-                                            <div className="footer-left">
-                                                {order.courier_name && (
-                                                    <div className="courier-name">{order.courier_name}</div>
-                                                )}
-                                                {order.tracking_number && (
-                                                    <div className="awb-no">AWB: {order.tracking_number}</div>
-                                                )}
-                                            </div>
-                                            <div className="footer-right">
+                                        <div className="label">
+                                            
+                                            {/* <div className="footer-right">
                                                 <div className="contents-label">CONTENTS</div>
                                                 <div className="contents-value">Saree Package</div>
-                                            </div>
+                                            </div> */}
                                         </div>
                                     </>
                                 )}
@@ -215,7 +214,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                 }
 
                 .section-label {
-                    font-size: 6.5pt;
+                    font-size: 7.5pt;
                     font-weight: 900;
                     letter-spacing: 1px;
                     color: #666;
@@ -233,7 +232,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                     word-break: break-word;
                 }
                 .from-details {
-                    font-size: 8pt;
+                    font-size: 8.5pt;
                     color: #333;
                     line-height: 1.3;
                     word-break: break-word;
@@ -253,7 +252,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                 }
 
                 .to-name {
-                    font-size: 16pt;
+                    font-size: 15pt;
                     font-weight: 700;
                     color: #000;
                     text-transform: uppercase;
@@ -264,7 +263,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
 
                 .to-address {
                     font-size: 12pt;
-                    font-weight: 600;
+                    font-weight: 500;
                     color: #111;
                     line-height: 1.4;
                     word-break: break-word;
