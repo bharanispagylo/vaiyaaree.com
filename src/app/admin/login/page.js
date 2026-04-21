@@ -26,9 +26,10 @@ export default function AdminLoginPage() {
             });
             const data = await res.json();
             if (res.ok) {
+                const adminData = { ...data, login_at: Date.now() };
                 localStorage.setItem('cast_prince_admin', 'true');
-                localStorage.setItem('cast_prince_user', JSON.stringify(data));
-                setUser(data);
+                localStorage.setItem('cast_prince_user', JSON.stringify(adminData));
+                setUser(adminData);
                 router.push('/admin');
             } else {
                 setError(data.error || 'Invalid username or password');

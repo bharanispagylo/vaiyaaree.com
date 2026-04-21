@@ -1173,7 +1173,7 @@ export default function OrdersPage() {
                                                                     />
                                                                 </th>
                                                                 <th>Customer</th>
-                                                                <th style={{ textAlign: 'left' }}>Region</th>
+                                                                
                                                                 <th style={{ textAlign: 'center' }}>Source</th>
                                                                 <th style={{ textAlign: 'right' }}>Amount</th>
 
@@ -1181,7 +1181,8 @@ export default function OrdersPage() {
 
                                                                 <th style={{ textAlign: 'center' }}>Status</th>
 
-                                                                <th style={{ textAlign: 'left' }}>Date</th>
+                                                                                                                                 <th style={{ textAlign: 'center' }}>Logistics</th>
+
 
                                                                 <th style={{ textAlign: 'right' }}>Actions</th>
 
@@ -1192,7 +1193,8 @@ export default function OrdersPage() {
                                                         <tbody>
 
                                                             {filteredOrders.length === 0 ? (
-                                                                <tr><td colSpan={10} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
+                                                                                                                                 <tr><td colSpan={9} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
+
                                                             ) : (
                                                                 paginatedOrders.map(order => {
                                                                     const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
@@ -1221,10 +1223,7 @@ export default function OrdersPage() {
                                                                                     <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
                                                                                     <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
                                                                                 </td>
-                                                                                <td style={{ textAlign: 'left' }}>
-                                                                                    <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>{order.shipping_state || '—'}</div>
-                                                                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>India</div>
-                                                                                </td>
+
                                                                                 <td style={{ textAlign: 'center' }}>
                                                                                     <span style={{
                                                                                         display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
@@ -1241,43 +1240,44 @@ export default function OrdersPage() {
                                                                                 <td style={{ textAlign: 'center' }}>
                                                                                     <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
                                                                                 </td>
-                                                                                <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-                                                                                    {toIST(order.created_at, { day: '2-digit', month: 'short' })}
+                                                                                <td style={{ textAlign: 'center' }}>
+                                                                                    {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' ? (
+                                                                                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                                                                                            <button
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setSelectedOrder(order);
+                                                                                                    openOrderDetail(order).then(() => setShowShippingForm(true));
+                                                                                                }}
+                                                                                                className="btn btn-secondary"
+                                                                                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px', color: 'hsl(var(--success))', borderRadius: '8px' }}
+                                                                                                title="Select Courier"
+                                                                                            >
+                                                                                                <Truck size={14} /> <span>Courier</span>
+                                                                                            </button>
+                                                                                            {order.courier_name && order.tracking_number && (
+                                                                                                <button
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        handleSendNotifications(order);
+                                                                                                    }}
+                                                                                                    className="btn btn-secondary"
+                                                                                                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px', color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.1)', borderRadius: '8px' }}
+                                                                                                    title="Update Info (Send Notification)"
+                                                                                                >
+                                                                                                    <Send size={14} /> <span>Send Info</span>
+                                                                                                </button>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 600 }}>—</span>
+                                                                                    )}
                                                                                 </td>
                                                                                 <td style={{ textAlign: 'right' }}>
                                                                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                                                                         <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Order">
                                                                                             <Eye size={15} />
                                                                                         </button>
-                                                                                        {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
-                                                                                            <>
-                                                                                                <button
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        setSelectedOrder(order);
-                                                                                                        openOrderDetail(order).then(() => setShowShippingForm(true));
-                                                                                                    }}
-                                                                                                    className="btn btn-secondary"
-                                                                                                    style={{ padding: '0.4rem', color: 'hsl(var(--success))' }}
-                                                                                                    title="Select Courier"
-                                                                                                >
-                                                                                                    <Truck size={15} />
-                                                                                                </button>
-                                                                                                {order.courier_name && order.tracking_number && (
-                                                                                                    <button
-                                                                                                        onClick={(e) => {
-                                                                                                            e.stopPropagation();
-                                                                                                            handleSendNotifications(order);
-                                                                                                        }}
-                                                                                                        className="btn btn-secondary"
-                                                                                                        style={{ padding: '0.4rem', color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.1)' }}
-                                                                                                        title="Update Info (Send Notification)"
-                                                                                                    >
-                                                                                                        <Send size={15} />
-                                                                                                    </button>
-                                                                                                )}
-                                                                                            </>
-                                                                                        )}
                                                                                         <button onClick={(e) => { e.stopPropagation(); handleBulkDelete([order.id]); }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }} title="Delete Order">
                                                                                             <Trash2 size={15} />
                                                                                         </button>
@@ -1815,17 +1815,6 @@ export default function OrdersPage() {
                                                         </div>
                                                     )}
 
-                                                    {!showShippingForm && selectedOrder.courier_name && (
-                                                        <button
-                                                            onClick={() => handleSendNotifications(selectedOrder)}
-                                                            disabled={loading}
-                                                            className="btn btn-primary"
-                                                            style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)', marginTop: '0.5rem' }}
-                                                        >
-                                                            {loading ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Update Info (Notify Customer)</>}
-                                                        </button>
-                                                    )}
-
                                                     {/* Cancel Order Modal */}
                                                     {showCancelModal && (
                                                         <div className="animate-enter" style={{ marginTop: '0.75rem', padding: '1rem', background: '#fef2f2', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1850,22 +1839,23 @@ export default function OrdersPage() {
                                                         </div>
                                                     )}
 
+                                                    {/* Shipping Actions Block */}
                                                     {['PLACED', 'PAID', 'PACKING', 'SHIPPED'].includes(selectedOrder.status) && (
-                                                        <button onClick={() => setShowShippingForm(true)} className="btn btn-primary" style={{ width: '100%', marginBottom: '0.5rem' }}>
-                                                            <Truck size={16} /> Select Courier
-                                                        </button>
-                                                    )}
-
-                                                    {selectedOrder.courier_name && (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                                            <button
-                                                                onClick={() => handleSendNotifications(selectedOrder)}
-                                                                disabled={loading}
-                                                                className="btn btn-primary"
-                                                                style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)' }}
-                                                            >
-                                                                {loading && notification?.type === 'info' ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Update Info (Send Notification)</>}
+                                                            <button onClick={() => setShowShippingForm(true)} className="btn btn-primary" style={{ width: '100%', background: '#0f172a' }}>
+                                                                <Truck size={16} /> {selectedOrder.courier_name ? 'Update Courier' : 'Select Courier'}
                                                             </button>
+                                                            
+                                                            {selectedOrder.courier_name && (
+                                                                <button
+                                                                    onClick={() => handleSendNotifications(selectedOrder)}
+                                                                    disabled={loading}
+                                                                    className="btn btn-primary"
+                                                                    style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                                                                >
+                                                                    {loading && notification?.type === 'info' ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Send Info</>}
+                                                                </button>
+                                                            )}
 
                                                             {selectedOrder.tracking_url && (
                                                                 <a

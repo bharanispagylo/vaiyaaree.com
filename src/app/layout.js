@@ -18,7 +18,7 @@ import WhatsAppWidget from '@/components/WhatsAppWidget';
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={roboto.variable}>
+    <html lang="en" className={roboto.variable} suppressHydrationWarning>
       <body className={roboto.className}>
         <Providers>
           {children}

@@ -49,9 +49,9 @@ export default function CustomerLoginPage() {
             });
             const data = await res.json();
             if (res.ok) {
-                // Save to LocalStorage (No Cookies)
-                localStorage.setItem('cast_prince_user', JSON.stringify(data.customer));
-                setUser(data.customer);
+                const customerData = { ...data.customer, login_at: Date.now() };
+                localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
+                setUser(customerData);
                 router.push('/shop');
             } else {
                 setError(data.error || 'Invalid OTP');

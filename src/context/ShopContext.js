@@ -4,6 +4,8 @@ import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 const ShopContext = createContext();
+const SESSION_EXPIRY_DAYS = 7; // Auto-logout after 7 days
+
 
 export function ShopProvider({ children }) {
     const [products, setProducts] = useState([]);
@@ -154,6 +156,21 @@ export function ShopProvider({ children }) {
         if (storedUser) {
             try {
                 const localUser = JSON.parse(storedUser);
+                
+                // Check for session expiration
+                if (localUser.login_at) {
+                    const diff = Date.now() - localUser.login_at;
+                    const days = diff / (1000 * 60 * 60 * 24);
+                    if (days > SESSION_EXPIRY_DAYS) {
+                        handleLogout();
+                        return;
+                    }
+                } else {
+                    // For legacy sessions without timestamp, add it now or force refresh
+                    // Let's add it now so they get one more grace period
+                    localUser.login_at = Date.now();
+                    localStorage.setItem('cast_prince_user', JSON.stringify(localUser));
+                }
                 
                 // Only fetch from database if we have a valid ID
                 if (localUser.id && localUser.id !== 'undefined') {
