@@ -1029,3 +1029,22 @@ tr:hover td {
   50% { transform: scale(1.1); opacity: 0.1; }
   100% { transform: scale(1); opacity: 0.3; }
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

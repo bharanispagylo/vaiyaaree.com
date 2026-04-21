@@ -280,7 +280,7 @@ export default function InvoicesPage() {
             {selectedInvoice && (
                 <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <button onClick={() => setSelectedInvoice(null)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem' }}>
                                 ← Back to Invoices
                             </button>
@@ -330,68 +330,75 @@ export default function InvoicesPage() {
                                 </div>
                             </div>
 
-                            {/* Bill To */}
-                            <div style={{ padding: '2rem 3rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                                <div>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Bill To</div>
-                                    <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>{selectedInvoice.customer_name || 'WhatsApp Customer'}</div>
-                                    <div style={{ fontSize: '0.9rem', color: '#4b5563', marginTop: '0.25rem' }}>{selectedInvoice.customer_phone}</div>
-
-                                    <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5rem' }}>
-                                        <div>
-                                            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Billing Address</div>
-                                            <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.5' }}>
-                                                {formatAddress(selectedInvoice.billing_address || selectedInvoice.delivery_address) || '—'}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.4rem', letterSpacing: '0.05em' }}>Shipping Address</div>
-                                            <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.5' }}>
-                                                {formatAddress(selectedInvoice.shipping_address || selectedInvoice.delivery_address) || '—'}
-                                            </div>
+                            {/* Customer & Address Details */}
+                            <div style={{ padding: '2rem 3rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '3rem', marginBottom: '2.5rem' }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.05em' }}>Bill To</div>
+                                        <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#111827' }}>{selectedInvoice.customer_name || 'WhatsApp Customer'}</div>
+                                        <div style={{ fontSize: '1rem', color: '#4b5563', marginTop: '0.25rem', fontWeight: 500 }}>+ {selectedInvoice.customer_phone}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '0.05em' }}>Payment Info</div>
+                                        <div style={{ fontSize: '0.95rem', color: '#374151' }}>Payment Method: <strong style={{ color: '#111827' }}>{selectedInvoice.payment_method || 'N/A'}</strong></div>
+                                        <div style={{ fontSize: '0.95rem', marginTop: '0.4rem', color: '#374151' }}>
+                                            Status: <span style={{
+                                                padding: '0.25rem 0.75rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800,
+                                                background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#374151', textTransform: 'uppercase', marginLeft: '0.5rem'
+                                            }}>{selectedInvoice.status}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Payment Info</div>
-                                    <div style={{ fontSize: '0.9rem', color: '#374151' }}>Method: <strong>{selectedInvoice.payment_method || 'N/A'}</strong></div>
-                                    <div style={{ fontSize: '0.9rem', marginTop: '0.25rem', color: '#374151' }}>
-                                        Status: <span style={{
-                                            padding: '0.15rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
-                                            background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#374151', textTransform: 'uppercase'
-                                        }}>{selectedInvoice.status}</span>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', background: '#f9fafb', padding: '1.5rem', borderRadius: '12px', border: '1px solid #f3f4f6' }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>Billing Address</div>
+                                        <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.6', fontWeight: 500 }}>
+                                            {formatAddress(selectedInvoice.billing_address || selectedInvoice.delivery_address) || 'No billing address provided'}
+                                        </div>
+                                    </div>
+                                    <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: '3rem' }}>
+                                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>Shipping Address</div>
+                                        <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.6', fontWeight: 500 }}>
+                                            {formatAddress(selectedInvoice.shipping_address || selectedInvoice.delivery_address) || 'No shipping address provided'}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Items Table */}
                             <div style={{ padding: '0 3rem' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                                    <thead>
-                                        <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                                            <th style={{ padding: '0.75rem 0', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase' }}>#</th>
-                                            <th style={{ padding: '0.75rem 0', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase' }}>Item</th>
-                                            <th style={{ padding: '0.75rem 0', textAlign: 'center', fontWeight: 700, fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase' }}>Qty</th>
-                                            <th style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 700, fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase' }}>Price</th>
-                                            <th style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 700, fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase' }}>Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {invoiceItems.length === 0 ? (
-                                            <tr><td colSpan={5} style={{ padding: '1.5rem 0', textAlign: 'center', color: '#9ca3af' }}>No items recorded</td></tr>
-                                        ) : (
-                                            invoiceItems.map((item, i) => (
-                                                <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                    <td style={{ padding: '1rem 0', color: '#9ca3af' }}>{i + 1}</td>
-                                                    <td style={{ padding: '1rem 0', fontWeight: 500, color: '#111827' }}>{item.product_name}</td>
-                                                    <td style={{ padding: '1rem 0', textAlign: 'center', color: '#374151' }}>{item.quantity}</td>
-                                                    <td style={{ padding: '1rem 0', textAlign: 'right', color: '#374151' }}>₹{(item.price_at_time || 0).toLocaleString()}</td>
-                                                    <td style={{ padding: '1rem 0', textAlign: 'right', fontWeight: 600, color: '#111827' }}>₹{((item.price_at_time || 0) * item.quantity).toLocaleString()}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                                <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
+                                                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 800, fontSize: '0.7rem', color: '#4b5563', textTransform: 'uppercase', width: '50px' }}>#</th>
+                                                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 800, fontSize: '0.7rem', color: '#4b5563', textTransform: 'uppercase' }}>Item Description</th>
+                                                <th style={{ padding: '1rem', textAlign: 'center', fontWeight: 800, fontSize: '0.7rem', color: '#4b5563', textTransform: 'uppercase', width: '80px' }}>Qty</th>
+                                                <th style={{ padding: '1rem', textAlign: 'right', fontWeight: 800, fontSize: '0.7rem', color: '#4b5563', textTransform: 'uppercase', width: '120px' }}>Rate</th>
+                                                <th style={{ padding: '1rem', textAlign: 'right', fontWeight: 800, fontSize: '0.7rem', color: '#4b5563', textTransform: 'uppercase', width: '140px' }}>Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {invoiceItems.length === 0 ? (
+                                                <tr><td colSpan={5} style={{ padding: '3rem 0', textAlign: 'center', color: '#9ca3af', fontStyle: 'italic' }}>No items found for this order</td></tr>
+                                            ) : (
+                                                invoiceItems.map((item, i) => (
+                                                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? 'white' : '#fcfdfe' }}>
+                                                        <td style={{ padding: '1rem', color: '#9ca3af', fontWeight: 600 }}>{String(i + 1).padStart(2, '0')}</td>
+                                                        <td style={{ padding: '1rem' }}>
+                                                            <div style={{ fontWeight: 700, color: '#111827' }}>{item.product_name}</div>
+                                                            {item.variant_name && <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.15rem' }}>Variant: {item.variant_name}</div>}
+                                                        </td>
+                                                        <td style={{ padding: '1rem', textAlign: 'center', color: '#374151', fontWeight: 600 }}>{item.quantity}</td>
+                                                        <td style={{ padding: '1rem', textAlign: 'right', color: '#374151', fontWeight: 500 }}>₹{(item.price_at_time || 0).toLocaleString()}</td>
+                                                        <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 800, color: '#111827' }}>₹{((item.price_at_time || 0) * item.quantity).toLocaleString()}</td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
 
                             {/* Total */}
@@ -462,12 +469,39 @@ export default function InvoicesPage() {
 
             <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                
                 @media print {
-                    body * { visibility: hidden; }
-                    #printable-invoice, #printable-invoice * { visibility: visible; }
-                    #printable-invoice { 
-                        position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; 
-                        box-shadow: none !important; border-radius: 0 !important;
+                    /* Hide everything */
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    /* Show ONLY the invoice and all its children */
+                    #printable-invoice, #printable-invoice * {
+                        visibility: visible !important;
+                    }
+                    /* Ensure the invoice fills the top-left corner */
+                    #printable-invoice {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        box-shadow: none !important;
+                        border: none !important;
+                        border-radius: 0 !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    /* Force hide dashboard UI to prevent space issues */
+                    .no-print, .sidebar, .admin-layout > div:first-child, button, .btn {
+                        display: none !important;
+                    }
+
+                    @page {
+                        size: A4;
+                        margin: 10mm;
                     }
                 }
             `}</style>

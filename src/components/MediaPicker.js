@@ -130,7 +130,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-box shadow-premium" style={{
-                maxWidth: '960px', height: '85vh',
+                maxWidth: '960px', height: '90vh',
                 display: 'flex', flexDirection: 'column', padding: 0,
                 borderRadius: '32px', background: '#ffffff',
                 overflow: 'hidden', border: 'none'

@@ -144,7 +144,10 @@ export async function POST(request) {
         let finalPublicUrl = '';
         let isNowWatermarked = hasWatermark;
         let finalId = catalogId || detectedCatalogId || Math.random().toString(36).substring(2, 7).toUpperCase();
-        const fileName = `${finalId}.${fileExt}`;
+        
+        // Use a unique filename even if the catalogId is the same, to prevent overwriting
+        // when multiple images are uploaded for the same product catalog code.
+        const fileName = `${finalId}_${Date.now()}.${fileExt}`;
 
         if (!hasWatermark && catalogId && requireClean) {
             // CASE 1: No watermark detected -> Store Clean AND Generate Watermark

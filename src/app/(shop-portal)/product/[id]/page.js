@@ -88,12 +88,7 @@ export default function ProductDetailsPage() {
             <button onClick={() => router.back()} className={styles.backButton}>
                 <ChevronLeft size={20} /> Back
             </button>
-            <div className={styles.breadcrumb}>
-                <Link href="/">Home</Link> &gt; 
-                <Link href="/shop">Shop</Link> &gt; 
-                {product.category && <><Link href={`/shop?category=${encodeURIComponent(product.category)}`}>{product.category}</Link> &gt;</>}
-                <span className={styles.breadcrumbCurrent}>{product.name}</span>
-            </div>
+            {/* Breadcrumb section removed as per user request */}
             
             <div className={styles.mainSection}>
                 {/* Left: Product Image — Premium Display */}
@@ -113,7 +108,8 @@ export default function ProductDetailsPage() {
                             <ZoomIn size={24} />
                         </div>
                     </div>
-                    {/* Thumbnail strip */}
+
+                    {/* Thumbnail strip moved BELOW main image */}
                     {galleryImages.length > 1 && (
                         <div className={styles.thumbStrip}>
                             {galleryImages.map((img, idx) => (

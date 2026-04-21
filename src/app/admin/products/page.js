@@ -1010,16 +1010,16 @@ export default function ProductsPage() {
                                                                             <img src={product.image_url?.split(',')[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                                                 onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
                                                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
-                                                                            {product.product_catalog_image_id && (
+                                                                            {/* {product.product_catalog_image_id && (
                                                                                 <div style={{
                                                                                     position: 'absolute', bottom: 2, right: 2,
                                                                                     background: 'hsl(var(--accent))', color: 'white',
                                                                                     fontSize: '0.6rem', fontWeight: 700, padding: '2px 4px',
                                                                                     borderRadius: '4px', fontFamily: 'var(--font-body)'
-                                                                                }}>
+                                                                                }}> */}
                                                                                     {/* {product.product_catalog_image_id} */}
-                                                                                </div>
-                                                                            )}
+                                                                                {/* </div>
+                                                                            )} */}
                                                                         </>
                                                                     ) : (
                                                                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1138,17 +1138,17 @@ export default function ProductsPage() {
                                                                 onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
                                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
                                                             {/* Catalog ID Badge */}
-                                                            {product.product_catalog_image_id && (
+                                                            {/* {product.product_catalog_image_id && (
                                                                 <div style={{
                                                                     position: 'absolute', bottom: '10px', left: '10px',
                                                                     background: 'hsl(var(--accent))', color: 'white',
                                                                     fontSize: '0.65rem', fontWeight: 700, padding: '4px 8px',
                                                                     borderRadius: '6px', fontFamily: 'var(--font-roboto)',
                                                                     boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                                                                }}>
-                                                                    {product.product_catalog_image_id}
-                                                                </div>
-                                                            )}
+                                                                }}> */}
+                                                                    {/* {product.product_catalog_image_id} */}
+                                                                {/* </div>
+                                                            )} */}
                                                         </>
                                                     ) : (
                                                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>
@@ -1327,21 +1327,23 @@ export default function ProductsPage() {
                                             </div>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Stock Qty *</label>
-                                                <input type="number" name="stock" defaultValue={currentProduct?.stock} required min="0" placeholder="e.g. 10" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                        <input type="number" name="stock" defaultValue={currentProduct?.stock} required min="0" placeholder="e.g. 10" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
                                         <div style={{ marginTop: '1.25rem', display: 'flex', gap: '1.25rem' }}>
-                                            <div style={{ flex: 1 }}>
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '10px' }}>Product Image *</label>
                                                 {productImageUrl && (
-                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px', alignContent: 'flex-start' }}>
                                                         {productImageUrl.split(',').filter(Boolean).map((imgUrl, idx) => (
-                                                            <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
+                                                            <div key={imgUrl} style={{ position: 'relative', width: '80px', height: '100px' }}>
                                                                 <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }} onClick={() => setZoomedImage(imgUrl)} title="Click to zoom" />
                                                                 <button type="button" onClick={() => {
-                                                                    const urls = productImageUrl.split(',').filter(Boolean);
-                                                                    urls.splice(idx, 1);
-                                                                    setProductImageUrl(urls.join(','));
+                                                                    setProductImageUrl(prev => {
+                                                                        const urls = prev.split(',').filter(Boolean);
+                                                                        urls.splice(idx, 1);
+                                                                        return urls.join(',');
+                                                                    });
                                                                 }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
                                                             </div>
                                                         ))}
@@ -1384,8 +1386,10 @@ export default function ProductsPage() {
                                                                                     const data = await res.json();
 
                                                                                     const finalUrl = data.watermarkedUrl || data.url;
-                                                                                    const existingArray = productImageUrl ? productImageUrl.split(',').filter(Boolean) : [];
-                                                                                    setProductImageUrl([finalUrl, ...existingArray].join(','));
+                                                                                    setProductImageUrl(prev => {
+                                                                                        const existingArray = prev ? prev.split(',').filter(Boolean) : [];
+                                                                                        return [...existingArray, finalUrl].join(',');
+                                                                                    });
                                                                                     if (data.catalogId) {
                                                                                         setCurrentProduct(prev => ({ ...prev, product_catalog_image_id: data.catalogId }));
                                                                                     }
@@ -1429,20 +1433,24 @@ export default function ProductsPage() {
                                                     </label>
                                                 </div>
                                             </div>
-                                            <div style={{ flex: 1 }}>
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '10px' }}>Gallery Image</label>
-                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                {galleryImageUrl.filter(Boolean).length > 0 && (
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px', alignContent: 'flex-start' }}>
                                                     {galleryImageUrl.filter(Boolean).map((imgUrl, idx) => (
-                                                        <div key={idx} style={{ position: 'relative', width: '80px', height: '100px' }}>
+                                                        <div key={imgUrl} style={{ position: 'relative', width: '80px', height: '100px' }}>
                                                             <img src={imgUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', cursor: 'pointer' }} onClick={() => setZoomedImage(imgUrl)} title="Click to zoom" />
                                                             <button type="button" onClick={() => {
-                                                                const urls = [...galleryImageUrl];
-                                                                urls.splice(idx, 1);
-                                                                setGalleryImageUrl(urls);
+                                                                setGalleryImageUrl(prev => {
+                                                                    const urls = [...prev];
+                                                                    urls.splice(idx, 1);
+                                                                    return urls;
+                                                                });
                                                             }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
                                                         </div>
                                                     ))}
-                                                </div>
+                                                    </div>
+                                                )}
                                                 <div style={{ display: 'flex', gap: '8px' }}>
                                                     <button type="button" onClick={() => { setActiveImageField({ type: 'gallery' }); setTimeout(() => setShowMediaPicker(true), 50); }} className="btn btn-secondary" style={{ flex: 1, height: '44px' }}>
                                                         <ImageIcon size={15} /> From Library
@@ -1503,9 +1511,11 @@ export default function ProductsPage() {
                                                         <input type="number" placeholder="Stock" value={v.stock} min="0" onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                             {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setZoomedImage(v.image_url)} title="Click to zoom" />}
-                                                            <button type="button" onClick={() => { setActiveImageField({ type: 'variant', index: i }); setTimeout(() => setShowMediaPicker(true), 20); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem' }}>Library</button>
-                                                            <label className="btn btn-secondary" style={{ flex: 1, fontSize: '0.65rem', padding: '0.4rem', cursor: 'pointer', textAlign: 'center' }}>
-                                                                Upload
+                                                            <button type="button" onClick={() => { setActiveImageField({ type: 'variant', index: i }); setTimeout(() => setShowMediaPicker(true), 20); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.7rem', padding: '0.4rem 0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                                <ImageIcon size={14} /> Library
+                                                            </button>
+                                                            <label className="btn btn-secondary" style={{ flex: 1, fontSize: '0.7rem', padding: '0.4rem 0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                                <Upload size={14} /> Upload
                                                                 <input type="file" style={{ display: 'none' }} onChange={async (e) => {
                                                                     const file = e.target.files?.[0];
                                                                     if (!file) return;
@@ -1850,11 +1860,13 @@ export default function ProductsPage() {
                                     const detData = await detRes.json();
 
                                     const onConfirmSelection = async (finalUrl, catId) => {
-                                        if (activeImageField.type === 'product') {
-                                            const existingArray = productImageUrl ? productImageUrl.split(',').filter(Boolean) : [];
-                                            setProductImageUrl([finalUrl, ...existingArray].join(','));
-                                            setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
-                                        } else if (activeImageField.type === 'variant') {
+                                         if (activeImageField.type === 'product') {
+                                             setProductImageUrl(prev => {
+                                                 const existingArray = prev ? prev.split(',').filter(Boolean) : [];
+                                                 return [...existingArray, finalUrl].join(',');
+                                             });
+                                             setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
+                                         } else if (activeImageField.type === 'variant') {
                                             updateVariant(activeImageField.index, 'image_url', finalUrl);
                                             setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
                                         }

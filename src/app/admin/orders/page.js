@@ -145,6 +145,9 @@ export default function OrdersPage() {
     const [printingOrders, setPrintingOrders] = useState([]);
     const [printMode, setPrintMode] = useState('address'); // 'address' or 'id'
     const [notificationSelection, setNotificationSelection] = useState(null); // { type: 'email' | 'whatsapp', billing: string, shipping: string, orderId: string }
+    const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+    const [shippingZones, setShippingZones] = useState([]);
+    const [shippingMappings, setShippingMappings] = useState([]);
 
 
 
@@ -251,8 +254,9 @@ export default function OrdersPage() {
                 channels[src] = (channels[src] || 0) + 1;
             });
             const channelData = [
-                { name: 'Website', value: channels.WEBSITE, color: 'hsl(195 85% 40%)' },
-                { name: 'WhatsApp', value: channels.WHATSAPP, color: 'hsl(142 71% 45%)' }
+                { name: 'Website', value: channels.WEBSITE || 0, color: 'hsl(195 85% 40%)' },
+                { name: 'WhatsApp', value: channels.WHATSAPP || 0, color: 'hsl(142 71% 45%)' },
+                { name: 'Manual', value: (channels.MANUAL || 0) + (channels.ADMIN_MANUAL || 0), color: 'hsl(38 92% 50%)' }
             ];
 
             // 4. Status Data (from filtered set)
@@ -318,9 +322,23 @@ export default function OrdersPage() {
 
 
 
+    const fetchShippingConfig = async () => {
+        try {
+            const [zonesRes, mappingsRes] = await Promise.all([
+                supabase.from('shipping_zones').select('*'),
+                supabase.from('shipping_zone_states').select('*')
+            ]);
+            setShippingZones(zonesRes.data || []);
+            setShippingMappings(mappingsRes.data || []);
+        } catch (err) {
+            console.error('Failed to fetch shipping config:', err);
+        }
+    };
+
     useEffect(() => {
         setHasMounted(true);
-        fetchOrders(); // Re-fetch analytics when time range changes
+        fetchOrders();
+        fetchShippingConfig();
         const channel = supabase
             .channel('orders_page')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
@@ -2168,10 +2186,23 @@ export default function OrdersPage() {
                                         <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '15px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
                                             {(() => {
                                                 const subtotal = newOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0);
-                                                const shipping = 100;
+                                                
+                                                const shipping = (() => {
+                                                    if (subtotal === 0) return 0;
+                                                    const state = newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state;
+                                                    // Find zone for this state
+                                                    const mapping = shippingMappings.find(m => m.state_name === state);
+                                                    const zoneId = mapping ? mapping.zone_id : (shippingZones.find(z => z.name.toLowerCase().includes('default'))?.id || shippingZones[0]?.id);
+                                                    const zone = shippingZones.find(z => z.id === zoneId);
+                                                    
+                                                    if (!zone) return 100; // ultimate fallback
+                                                    if (subtotal >= zone.free_threshold) return 0;
+                                                    return zone.rate || 0;
+                                                })();
 
+                                                const effectiveState = newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state;
                                                 let cgst = 0, sgst = 0, igst = 0;
-                                                if (newOrder.shipping_state === 'Tamil Nadu') {
+                                                if (effectiveState === 'Tamil Nadu') {
                                                     cgst = Math.round(subtotal * 0.025);
                                                     sgst = Math.round(subtotal * 0.025);
                                                 } else {
@@ -2196,7 +2227,8 @@ export default function OrdersPage() {
                                                                 if (!newOrder.customer_name || !newOrder.billing_phone || newOrder.items.length === 0) {
                                                                     setNotification({ message: 'Please fill all customer details and add at least one item.', type: 'error' }); return;
                                                                 }
-                                                                setLoading(true);
+                                                                setNotification({ message: 'Order creating...', type: 'info' });
+                                                                setIsCreatingOrder(true);
                                                                 try {
                                                                     const orderId = `MAN-${Date.now().toString().slice(-6)}`;
 
@@ -2272,7 +2304,7 @@ export default function OrdersPage() {
                                                                         igst: igst,
                                                                         shipping_cost: shipping,
                                                                         status: 'PLACED',
-                                                                        source: 'ADMIN_MANUAL',
+                                                                        source: 'MANUAL',
                                                                         payment_method: newOrder.payment_method
                                                                     });
                                                                     if (ordErr) throw ordErr;
@@ -2362,14 +2394,14 @@ export default function OrdersPage() {
                                                                     console.error('Manual Order Error:', err);
                                                                     setNotification({ message: `Failed to create order: ${err.message || 'Unknown error'}`, type: 'error' });
                                                                 } finally {
-                                                                    setLoading(false);
+                                                                    setIsCreatingOrder(false);
                                                                     setTimeout(() => setNotification(null), 3000);
                                                                 }
                                                             }}
-                                                            disabled={loading}
-                                                            style={{ width: '100%', padding: '1rem', borderRadius: '12px', background: 'linear-gradient(135deg, #a855f7, #7c3aed)', color: 'white', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '1.1rem', boxShadow: '0 10px 20px rgba(168, 85, 247, 0.3)' }}
+                                                            disabled={isCreatingOrder}
+                                                            style={{ width: '100%', padding: '1rem', borderRadius: '12px', background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))', color: 'white', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '1.1rem', boxShadow: '0 10px 20px hsl(var(--primary) / 0.2)' }}
                                                         >
-                                                            {loading ? <Loader2 className="animate-spin" /> : 'Confirm & Place Order'}
+                                                            {isCreatingOrder ? <><Loader2 className="animate-spin" /> Placing Order...</> : 'Confirm & Place Order'}
                                                         </button>
                                                     </>
                                                 );
