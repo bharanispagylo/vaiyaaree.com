@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { supabase } from './supabaseClient';
+import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
 
 
 // Create transporter using environment variables or default settings
@@ -21,7 +22,7 @@ export async function sendOrderConfirmationEmail(order) {
         return { success: true, message: 'Email logging mode - SMTP not configured' };
     }
 
-    const items = order.order_items?.map(item => 
+    const items = order.order_items?.map(item =>
         `<tr>
             <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.product_name || 'Product'}</td>
             <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
@@ -42,11 +43,11 @@ export async function sendOrderConfirmationEmail(order) {
 
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
-    
+
     // Ensure shopLogo is an absolute URL for email clients
     // We prefer the Vercel URL for images because ngrok blocks Gmail's image proxy
     const assetBaseUrl = 'https://aiswaryasaree.vercel.app';
-    
+
     if (shopLogo && !shopLogo.startsWith('http')) {
         let logoPath = shopLogo;
         if (!shopLogo.startsWith('/')) {
@@ -55,10 +56,39 @@ export async function sendOrderConfirmationEmail(order) {
         shopLogo = assetBaseUrl + logoPath;
     }
 
+    // Fetch settings for the PDF
+    let settings = {
+        shop_name: 'Cast Printz',
+        shop_phone: '7558189732',
+        shop_email: 'castprintzofficial@gmail.com',
+        shop_address: 'Premium Saree Collections',
+        shop_gstin: '',
+        bill_terms: 'All sales are final. Returns accepted within 7 days of delivery.',
+        bill_footer: 'Thank you for shopping with Cast Printz!'
+    };
+
+    try {
+        const { data: settingsData } = await supabase.from('app_settings').select('*');
+        if (settingsData) {
+            settingsData.forEach(item => {
+                if (item.key === 'shop_name') settings.shop_name = item.value;
+                if (item.key === 'business_phone' || item.key === 'shop_phone') settings.shop_phone = item.value;
+                if (item.key === 'shop_email') settings.shop_email = item.value;
+                if (item.key === 'shop_address') settings.shop_address = item.value;
+                if (item.key === 'shop_gstin') settings.shop_gstin = item.value;
+                if (item.key === 'bill_terms') settings.bill_terms = item.value;
+                if (item.key === 'bill_footer') settings.bill_footer = item.value;
+            });
+        }
+    } catch (err) {
+        console.error('Settings fetch error:', err);
+    }
+
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Cast Printz" <orders@castprintz.com>',
         to: order.customer_email || order.customer_phone,
         subject: `Order Confirmation - ${order.id}`,
+        attachments: [],
         html: `
             <div style="font-family: 'Roboto', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
                 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -68,7 +98,7 @@ export async function sendOrderConfirmationEmail(order) {
                     
                     <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                         <p style="margin: 5px 0;"><strong>Order ID:</strong> ${order.id}</p>
-                        <p style="margin: 5px 0;"><strong>Date:</strong> ${new Date(order.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
+                        <p style="margin: 5px 0;"><strong>Date:</strong> ${new Date(order.created_at).toLocaleString('en-IN')}</p>
                         <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #059669; font-weight: bold;">${order.status}</span></p>
                         <p style="margin: 5px 0;"><strong>Payment:</strong> ${order.payment_method || 'N/A'}</p>
                     </div>
@@ -111,35 +141,23 @@ export async function sendOrderConfirmationEmail(order) {
                         <a href="${orderUrl}" style="display: inline-block; background: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 5px;">Track Order</a>
                     </div>
 
-                    <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-top: 20px;">
-                        <h4 style="margin: 0 0 10px 0; color: #92400e;">Delivery Address</h4>
-                        <p style="margin: 0; color: #78350f;">
-                            ${(() => {
-                                const addr = order.shipping_address || order.delivery_address;
-                                if (!addr) return 'Same as billing address';
-                                if (typeof addr === 'string') {
-                                    try {
-                                        const parsed = JSON.parse(addr);
-                                        return `${parsed.name || ''}, ${parsed.address || ''}, ${parsed.city || ''}, ${parsed.state || ''} - ${parsed.pincode || ''}`;
-                                    } catch {
-                                        return addr;
-                                    }
-                                }
-                                return `${addr.name || ''}, ${addr.address || ''}, ${addr.city || ''}, ${addr.state || ''} - ${addr.pincode || ''}`;
-                            })()}
-                        </p>
-                    </div>
-
-                    <p style="color: #666; font-size: 0.9em; margin-top: 30px; text-align: center;">
-                        We'll notify you when your order ships. For any queries, contact us at <a href="mailto:support@castprintz.com">support@castprintz.com</a>
-                    </p>
-                    <p style="text-align: center; margin-top: 20px;">
-                        <a href="https://aiswaryasaree.vercel.app" style="color: #4f46e5; text-decoration: none; font-weight: bold; font-size: 1.1em;">Shop Online</a>
-                    </p>
                 </div>
             </div>
         `
     };
+
+    // Attach High-Quality PDF Invoice
+    try {
+        const pdfBuffer = await generateOrderPDFBuffer(order, settings);
+        if (pdfBuffer) {
+            mailOptions.attachments.push({
+                filename: `Invoice_${order.id}.pdf`,
+                content: pdfBuffer
+            });
+        }
+    } catch (pdfErr) {
+        console.error('Failed to generate PDF attachment:', pdfErr);
+    }
 
     try {
         await transporter.sendMail(mailOptions);
@@ -152,12 +170,12 @@ export async function sendOrderConfirmationEmail(order) {
 
 export async function sendOrderStatusEmail(order, status, specificEmails = null) {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return { success: true };
-    
+
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')).replace(/\/$/, '');
-    
+
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
-    
+
     // Ensure shopLogo is an absolute URL for email clients
     const assetBaseUrl = 'https://aiswaryasaree.vercel.app';
     if (shopLogo && !shopLogo.startsWith('http')) {
@@ -182,11 +200,40 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
     const toEmails = specificEmails ? Array.from(specificEmails).join(',') : (order.customer_email || order.customer_phone);
     if (!toEmails || toEmails.indexOf('@') === -1) return { success: true };
     
+    // Fetch settings for PDF branding
+    let settingsUI = {
+        shop_name: 'Cast Printz',
+        shop_phone: '7558189732',
+        shop_email: 'castprintzofficial@gmail.com',
+        shop_address: 'Premium Saree Collections',
+        shop_gstin: '',
+        bill_terms: 'All sales are final. Returns accepted within 7 days of delivery.',
+        bill_footer: 'Thank you for shopping with Cast Printz!'
+    };
+
+    try {
+        const { data: settingsData } = await supabase.from('app_settings').select('*');
+        if (settingsData) {
+            settingsData.forEach(item => {
+                if (item.key === 'shop_name') settingsUI.shop_name = item.value;
+                if (item.key === 'business_phone' || item.key === 'shop_phone') settingsUI.shop_phone = item.value;
+                if (item.key === 'shop_email') settingsUI.shop_email = item.value;
+                if (item.key === 'shop_address') settingsUI.shop_address = item.value;
+                if (item.key === 'shop_gstin') settingsUI.shop_gstin = item.value;
+                if (item.key === 'bill_terms') settingsUI.bill_terms = item.value;
+                if (item.key === 'bill_footer') settingsUI.bill_footer = item.value;
+            });
+        }
+    } catch (err) {
+        console.error('Settings fetch error:', err);
+    }
+
     const shipping = order.shipping_cost || order.shipping_amount || order.shipping || 0;
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Cast Printz" <orders@castprintz.com>',
         to: toEmails,
         subject: `${config.title} - ${order.id}`,
+        attachments: [],
         html: `
             <div style="font-family: 'Roboto', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
                 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -207,20 +254,23 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
                         <p style="margin: 5px 0; display: flex; justify-content: space-between;"><strong>Shipping:</strong> <span>₹${shipping.toLocaleString()}</span></p>
                     </div>
 
-                    <div style="margin: 20px 0; text-align: center;">
-                        <a href="${orderUrl}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px;">View Order Details</a>
-                    </div>
-
-                    <p style="color: #666; font-size: 0.9em; margin-top: 30px;">
-                        For any queries, contact us at <a href="mailto:support@castprintz.com">support@castprintz.com</a>
-                    </p>
-                    <p style="text-align: center; margin-top: 20px;">
-                        <a href="https://aiswaryasaree.vercel.app" style="color: #4f46e5; text-decoration: none; font-weight: bold; font-size: 1.1em;">Shop Online</a>
-                    </p>
                 </div>
             </div>
         `
     };
+
+    // Attach PDF Invoice for Status emails too
+    try {
+        const pdfBuffer = await generateOrderPDFBuffer(order, settingsUI);
+        if (pdfBuffer) {
+            mailOptions.attachments.push({
+                filename: `Invoice_${order.id}.pdf`,
+                content: pdfBuffer
+            });
+        }
+    } catch (pdfErr) {
+        console.error('Failed to generate PDF attachment for status email:', pdfErr);
+    }
 
     try {
         await transporter.sendMail(mailOptions);
