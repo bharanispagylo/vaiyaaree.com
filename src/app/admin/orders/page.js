@@ -22,7 +22,7 @@ import {
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 const STATUS_OPTIONS = ['PLACED', 'AWAITING_PAYMENT', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
-const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP'];
+const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP', 'MANUAL'];
 
 // Helper: parse Supabase UTC timestamps reliably (adds 'Z' if missing so JS treats it as UTC → converts to IST)
 const toIST = (dStr, opts) => {
@@ -248,9 +248,9 @@ export default function OrdersPage() {
             const revenueTrend = Object.entries(trendMap).map(([date, amount]) => ({ date, amount }));
 
             // 3. Channel Data (from filtered set)
-            const channels = { WEBSITE: 0, WHATSAPP: 0 };
+            const channels = { WEBSITE: 0, WHATSAPP: 0, MANUAL: 0 };
             filteredOrders.forEach(o => {
-                const src = o.source || (o.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
+                const src = o.source || (o.id?.startsWith('WEB-') ? 'WEBSITE' : o.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
                 channels[src] = (channels[src] || 0) + 1;
             });
             const channelData = [
@@ -874,7 +874,7 @@ export default function OrdersPage() {
         const matchesStatus = statusFilter === 'ALL' ||
             (statusFilter === 'AWAITING_PAYMENT' ? (o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING') : o.status === statusFilter);
 
-        const orderSource = o.source || (o.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
+        const orderSource = o.source || (o.id?.startsWith('WEB-') ? 'WEBSITE' : o.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
 
         const matchesSource = sourceFilter === 'ALL' || orderSource === sourceFilter;
 
@@ -967,7 +967,7 @@ export default function OrdersPage() {
                                             >
                                                 {SOURCE_FILTERS.map(src => (
                                                     <option key={src} value={src}>
-                                                        {src === 'ALL' ? 'All' : src === 'WEBSITE' ? 'Website' : 'WhatsApp'}
+                                                        {src === 'ALL' ? 'All' : src === 'WEBSITE' ? 'Website' : src === 'MANUAL' ? 'Manual' : 'WhatsApp'}
                                                     </option>
                                                 ))}
                                             </select>
@@ -1215,7 +1215,7 @@ export default function OrdersPage() {
                                                                 <tr><td colSpan={9} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
                                                             ) : (
                                                                 paginatedOrders.map(order => {
-                                                                    const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : 'WHATSAPP');
+                                                                    const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : order.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
                                                                     const isExpanded = selectedOrder?.id === order.id;
 
                                                                     return (
@@ -1246,11 +1246,11 @@ export default function OrdersPage() {
                                                                                     <span style={{
                                                                                         display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
                                                                                         padding: '0.2rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
-                                                                                        background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : 'rgba(37,211,102,0.12)',
-                                                                                        color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : 'hsl(var(--primary))',
-                                                                                        border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
+                                                                                        background: src === 'WEBSITE' ? 'hsl(195 85% 40% / 0.15)' : src === 'MANUAL' ? 'hsl(38 92% 50% / 0.15)' : 'rgba(37,211,102,0.12)',
+                                                                                        color: src === 'WEBSITE' ? 'hsl(195 85% 55%)' : src === 'MANUAL' ? 'hsl(38 92% 50%)' : 'hsl(var(--primary))',
+                                                                                        border: src === 'WEBSITE' ? '1px solid hsl(195 85% 40% / 0.3)' : src === 'MANUAL' ? '1px solid hsl(38 92% 50% / 0.3)' : '1px solid rgba(37,211,102,0.3)'
                                                                                     }}>
-                                                                                        {src === 'WEBSITE' ? 'Web' : 'WhatsApp'}
+                                                                                        {src === 'WEBSITE' ? 'Web' : src === 'MANUAL' ? 'Manual' : 'WhatsApp'}
                                                                                     </span>
                                                                                 </td>
                                                                                 <td style={{ textAlign: 'right', fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{(order.total_amount || 0).toLocaleString()}</td>
@@ -1363,7 +1363,25 @@ export default function OrdersPage() {
                                     <div style={{ padding: '1.5rem 2rem', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
                                             <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.id}</h2>
-                                            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Placed on {toIST(selectedOrder.created_at)}</div>
+                                            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '4px' }}>
+                                                <span>Placed on {toIST(selectedOrder.created_at)}</span>
+                                                <span style={{
+                                                    padding: '0.2rem 0.6rem',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.65rem',
+                                                    fontWeight: 800,
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em',
+                                                    background: 'hsl(var(--bg-app))',
+                                                    border: '1px solid hsl(var(--border-subtle))',
+                                                    color: 'hsl(var(--text-muted))'
+                                                }}>
+                                                    Source: {(() => {
+                                                        const src = selectedOrder.source || (selectedOrder.id?.startsWith('WEB-') ? 'WEBSITE' : selectedOrder.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
+                                                        return src === 'WEBSITE' ? 'Web' : src === 'MANUAL' ? 'Manual' : 'WhatsApp';
+                                                    })()}
+                                                </span>
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                                             <button onClick={() => { setSelectedOrder(null); setOrderItems([]); setIsEditingItems(false); }} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
