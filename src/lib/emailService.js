@@ -30,7 +30,13 @@ export async function sendOrderConfirmationEmail(order) {
         </tr>`
     ).join('') || '';
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    // Calculate subtotal if missing or zero
+    const calculatedSubtotal = order.order_items?.reduce((sum, item) => sum + ((item.price_at_time || item.price || 0) * (item.quantity || 1)), 0) || 0;
+    const subtotal = order.subtotal || order.sub_total || calculatedSubtotal;
+    const shipping = order.shipping_cost || order.shipping_amount || order.shipping || 0;
+    const totalTax = order.tax_amount || ((order.cgst || 0) + (order.sgst || 0) + (order.igst || 0));
+
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')).replace(/\/$/, '');
     const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
     const orderUrl = `${baseUrl}/order-confirmation?orderId=${order.id}`;
 
@@ -38,13 +44,15 @@ export async function sendOrderConfirmationEmail(order) {
     let shopLogo = logoSetting?.value || '';
     
     // Ensure shopLogo is an absolute URL for email clients
+    // We prefer the Vercel URL for images because ngrok blocks Gmail's image proxy
+    const assetBaseUrl = 'https://aiswaryasaree.vercel.app';
+    
     if (shopLogo && !shopLogo.startsWith('http')) {
         let logoPath = shopLogo;
         if (!shopLogo.startsWith('/')) {
             logoPath = '/images/' + shopLogo;
         }
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-        shopLogo = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + logoPath;
+        shopLogo = assetBaseUrl + logoPath;
     }
 
     const mailOptions = {
@@ -60,7 +68,7 @@ export async function sendOrderConfirmationEmail(order) {
                     
                     <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                         <p style="margin: 5px 0;"><strong>Order ID:</strong> ${order.id}</p>
-                        <p style="margin: 5px 0;"><strong>Date:</strong> ${new Date(order.created_at).toLocaleString('en-IN')}</p>
+                        <p style="margin: 5px 0;"><strong>Date:</strong> ${new Date(order.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
                         <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #059669; font-weight: bold;">${order.status}</span></p>
                         <p style="margin: 5px 0;"><strong>Payment:</strong> ${order.payment_method || 'N/A'}</p>
                     </div>
@@ -83,14 +91,14 @@ export async function sendOrderConfirmationEmail(order) {
                     <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                         <div style="display: flex; justify-content: space-between; margin: 5px 0;">
                             <span>Subtotal:</span>
-                            <span>₹${(order.subtotal || 0).toLocaleString()}</span>
+                            <span>₹${subtotal.toLocaleString()}</span>
                         </div>
                         ${order.cgst ? `<div style="display: flex; justify-content: space-between; margin: 5px 0;"><span>CGST (2.5%):</span><span>₹${order.cgst.toLocaleString()}</span></div>` : ''}
                         ${order.sgst ? `<div style="display: flex; justify-content: space-between; margin: 5px 0;"><span>SGST (2.5%):</span><span>₹${order.sgst.toLocaleString()}</span></div>` : ''}
                         ${order.igst ? `<div style="display: flex; justify-content: space-between; margin: 5px 0;"><span>IGST (5%):</span><span>₹${order.igst.toLocaleString()}</span></div>` : ''}
                         <div style="display: flex; justify-content: space-between; margin: 5px 0;">
                             <span>Shipping:</span>
-                            <span>₹${(order.shipping_amount || order.shipping || 0).toLocaleString()}</span>
+                            <span>₹${shipping.toLocaleString()}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin: 10px 0 5px 0; padding-top: 10px; border-top: 2px solid #ddd; font-weight: bold; font-size: 1.1em;">
                             <span>Total Amount:</span>
@@ -126,7 +134,7 @@ export async function sendOrderConfirmationEmail(order) {
                         We'll notify you when your order ships. For any queries, contact us at <a href="mailto:support@castprintz.com">support@castprintz.com</a>
                     </p>
                     <p style="text-align: center; margin-top: 20px;">
-                        <a href="${baseUrl}" style="color: #4f46e5; text-decoration: none; font-weight: bold; font-size: 1.1em;">Shop Online</a>
+                        <a href="https://aiswaryasaree.vercel.app" style="color: #4f46e5; text-decoration: none; font-weight: bold; font-size: 1.1em;">Shop Online</a>
                     </p>
                 </div>
             </div>
@@ -145,17 +153,19 @@ export async function sendOrderConfirmationEmail(order) {
 export async function sendOrderStatusEmail(order, status, specificEmails = null) {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return { success: true };
     
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')).replace(/\/$/, '');
+    
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
     
     // Ensure shopLogo is an absolute URL for email clients
+    const assetBaseUrl = 'https://aiswaryasaree.vercel.app';
     if (shopLogo && !shopLogo.startsWith('http')) {
         let logoPath = shopLogo;
         if (!shopLogo.startsWith('/')) {
             logoPath = '/images/' + shopLogo;
         }
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-        shopLogo = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + logoPath;
+        shopLogo = assetBaseUrl + logoPath;
     }
 
     const statusConfig = {
@@ -167,12 +177,12 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
     };
 
     const config = statusConfig[status] || { title: `Order Update: ${status}`, body: `Your order #${order.id} status has been updated to: ${status}` };
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const orderUrl = `${baseUrl}/order-confirmation?orderId=${order.id}`;
 
     const toEmails = specificEmails ? Array.from(specificEmails).join(',') : (order.customer_email || order.customer_phone);
     if (!toEmails || toEmails.indexOf('@') === -1) return { success: true };
     
+    const shipping = order.shipping_cost || order.shipping_amount || order.shipping || 0;
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Cast Printz" <orders@castprintz.com>',
         to: toEmails,
@@ -191,6 +201,12 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
                         <p style="margin: 5px 0;"><strong>Tracking ID:</strong> ${order.tracking_number}</p>
                     </div>` : ''}
 
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 25px; text-align: left;">
+                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><strong>Order ID:</strong> <span>#${order.id}</span></p>
+                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><strong>Total Amount:</strong> <span>₹${(order.total_amount || 0).toLocaleString()}</span></p>
+                        <p style="margin: 5px 0; display: flex; justify-content: space-between;"><strong>Shipping:</strong> <span>₹${shipping.toLocaleString()}</span></p>
+                    </div>
+
                     <div style="margin: 20px 0; text-align: center;">
                         <a href="${orderUrl}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px;">View Order Details</a>
                     </div>
@@ -199,7 +215,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
                         For any queries, contact us at <a href="mailto:support@castprintz.com">support@castprintz.com</a>
                     </p>
                     <p style="text-align: center; margin-top: 20px;">
-                        <a href="${baseUrl}" style="color: #4f46e5; text-decoration: none; font-weight: bold; font-size: 1.1em;">Shop Online</a>
+                        <a href="https://aiswaryasaree.vercel.app" style="color: #4f46e5; text-decoration: none; font-weight: bold; font-size: 1.1em;">Shop Online</a>
                     </p>
                 </div>
             </div>
