@@ -85,12 +85,12 @@ export default function ShopHeader() {
                                 {user ? (
                                     <>
                                         <div className={styles.profileAvatar} onClick={() => setIsProfileOpen(!isProfileOpen)}>
-                                            {user.full_name ? user.full_name.charAt(0).toUpperCase() : <User size={18} />}
+                                            {user.name ? user.name.charAt(0).toUpperCase() : <User size={18} />}
                                         </div>
                                         {isProfileOpen && (
                                             <div className={styles.profileDropdown}>
                                                 <div className={styles.dropdownHeader}>
-                                                    <p className={styles.dropdownName}>{user.full_name || 'Customer'}</p>
+                                                    <p className={styles.dropdownName}>{user.name || 'Customer'}</p>
                                                     <p className={styles.dropdownPhone}>{user.phone}</p>
                                                 </div>
                                                 <div className={styles.divider}></div>

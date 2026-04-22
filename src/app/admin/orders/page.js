@@ -1365,7 +1365,7 @@ export default function OrdersPage() {
                                             <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.id}</h2>
                                             <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '4px' }}>
                                                 <span>Placed on {toIST(selectedOrder.created_at)}</span>
-                                                <span style={{
+                                                {/* <span style={{
                                                     padding: '0.2rem 0.6rem',
                                                     borderRadius: '6px',
                                                     fontSize: '0.65rem',
@@ -1380,7 +1380,7 @@ export default function OrdersPage() {
                                                         const src = selectedOrder.source || (selectedOrder.id?.startsWith('WEB-') ? 'WEBSITE' : selectedOrder.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
                                                         return src === 'WEBSITE' ? 'Web' : src === 'MANUAL' ? 'Manual' : 'WhatsApp';
                                                     })()}
-                                                </span>
+                                                </span> */}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
