@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, Store, CreditCard, Bell, Globe, MapPin, Phone, Truck, Percent, Power, Instagram, Facebook } from 'lucide-react';
+import { Store, CreditCard, Bell, Globe, MapPin, Phone, Truck, Percent, Power, Instagram, Facebook } from 'lucide-react';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('General');
@@ -159,7 +159,7 @@ export default function SettingsPage() {
 
                     <div style={{ paddingTop: '2rem', borderTop: '1px solid hsl(var(--border-subtle))', marginTop: '2.5rem' }}>
                         <button className="btn btn-primary" style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
-                            <Save size={18} /> Save All Changes
+                            Save All Changes
                         </button>
                     </div>
                 </div>

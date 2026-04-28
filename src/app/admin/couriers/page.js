@@ -213,7 +213,7 @@ export default function CouriersPage() {
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button type="button" className="btn-secondary" onClick={handleCloseForm}>Cancel</button>
                                 <button type="submit" className="btn-primary" disabled={loading}>
-                                    {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                                    {loading && <Loader2 className="animate-spin" size={18} />}
                                     <span>{editingCourier ? 'Update Partner' : 'Save Partner'}</span>
                                 </button>
                             </div>

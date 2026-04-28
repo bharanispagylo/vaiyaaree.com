@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import ModalPortal from '@/components/ModalPortal';
 import {
-    Truck, Save, Plus, Trash2, Globe, MapPin,
+    Truck, Plus, Trash2, Globe, MapPin,
     AlertCircle, CheckCircle2, Loader2, Info,
     Search, LayoutGrid, List, ChevronRight,
     Tag, Map as MapIcon, ChevronDown, PlusCircle,
@@ -83,7 +83,7 @@ export default function ShippingAdminPage() {
                         is_international: zone.is_international
                     })
                     .eq('id', zone.id);
-                if (updateError) throw updateError;
+                if (updateError) throw new Error(updateError.message || updateError.details || JSON.stringify(updateError));
             }
 
             const zoneIds = zones.map(z => z.id);
@@ -92,10 +92,9 @@ export default function ShippingAdminPage() {
                 if (mappings.length > 0) {
                     const { error: insError } = await supabase.from('shipping_zone_states').insert(mappings.map(m => ({
                         zone_id: m.zone_id,
-                        state_name: m.state_name,
-                        district_name: m.district_name || null
+                        state_name: m.state_name
                     })));
-                    if (insError) throw insError;
+                    if (insError) throw new Error(insError.message || insError.details || JSON.stringify(insError));
                 }
             }
 
@@ -178,7 +177,7 @@ export default function ShippingAdminPage() {
                     <p>Manage delivery price groups and regional coverage.</p>
                 </div>
                 <button onClick={saveChanges} disabled={saving} className="btn-primary-glow">
-                    {saving ? <Loader2 className="spin" /> : <Save size={18} />}
+                    {saving && <Loader2 className="spin" />}
                     <span>Save Network Configuration</span>
                 </button>
             </header>

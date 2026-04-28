@@ -383,7 +383,7 @@ export default function CMSPage() {
                                     <Eye size={18} /> Preview Page
                                 </button>
                                 <button type="button" onClick={handleSave} disabled={saving} className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '14px' }}>
-                                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {currentPage ? 'Apply Changes' : 'Initialize Page'}
+                                    {saving && <Loader2 size={18} className="animate-spin" />} {currentPage ? 'Apply Changes' : 'Initialize Page'}
                                 </button>
                                 <button
                                     onClick={() => { setIsEditing(false); setActiveTab('content'); }}

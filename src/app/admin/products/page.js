@@ -125,32 +125,50 @@ export default function ProductsPage() {
     const fetchAnalytics = async (currentProducts) => {
         try {
             const now = new Date();
-            let timeFilter = {};
+            let startDate = null;
 
             if (timeRange === 'DAILY') {
-                timeFilter = { start: new Date(now.setHours(0, 0, 0, 0)).toISOString() };
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                startDate = today.toISOString();
             } else if (timeRange === 'MONTHLY') {
-                timeFilter = { start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString() };
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
             } else if (timeRange === 'QUARTERLY') {
                 const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
-                timeFilter = { start: new Date(now.getFullYear(), qStartMonth, 1).toISOString() };
+                startDate = new Date(now.getFullYear(), qStartMonth, 1).toISOString();
             }
 
-            // 1. Top Sellers (Filter based on range)
-            let itemsQuery = supabase.from('order_items').select('product_name, quantity, created_at');
-            if (timeFilter.start) {
-                itemsQuery = itemsQuery.gte('created_at', timeFilter.start);
+            // 1. Top Sellers — fetch orders in time range, then their items
+            let ordersQuery = supabase.from('orders').select('id').neq('status', 'DRAFT').neq('status', 'CANCELLED');
+            if (startDate) {
+                ordersQuery = ordersQuery.gte('created_at', startDate);
             }
+            const { data: ordersInRange } = await ordersQuery;
+            const orderIds = (ordersInRange || []).map(o => o.id);
 
-            const { data: orderItems } = await itemsQuery;
-            const salesMap = {};
-            orderItems?.forEach(item => {
-                salesMap[item.product_name] = (salesMap[item.product_name] || 0) + item.quantity;
-            });
-            const topSellers = Object.entries(salesMap)
-                .map(([name, sales]) => ({ name, sales }))
-                .sort((a, b) => b.sales - a.sales)
-                .slice(0, 10);
+            let topSellers = [];
+            if (orderIds.length > 0) {
+                // Fetch in batches if needed (Supabase IN limit)
+                const batchSize = 200;
+                let allItems = [];
+                for (let i = 0; i < orderIds.length; i += batchSize) {
+                    const batch = orderIds.slice(i, i + batchSize);
+                    const { data: batchItems } = await supabase
+                        .from('order_items')
+                        .select('product_name, quantity')
+                        .in('order_id', batch);
+                    if (batchItems) allItems = allItems.concat(batchItems);
+                }
+
+                const salesMap = {};
+                allItems.forEach(item => {
+                    if (!item.product_name) return;
+                    salesMap[item.product_name] = (salesMap[item.product_name] || 0) + (item.quantity || 1);
+                });
+                topSellers = Object.entries(salesMap)
+                    .map(([name, sales]) => ({ name, sales }))
+                    .sort((a, b) => b.sales - a.sales)
+                    .slice(0, 10);
+            }
 
             // 2. Inventory Health (Always current)
             const lowStock = currentProducts.filter(p => (p.stock || 0) <= (p.alert_threshold || 5)).length;
@@ -226,7 +244,14 @@ export default function ProductsPage() {
         };
         window.addEventListener('resetAdminView', handleReset);
         return () => window.removeEventListener('resetAdminView', handleReset);
-    }, [timeRange]); // Refresh when time range changes
+    }, []);
+
+    // Re-run analytics when time range changes
+    useEffect(() => {
+        if (products.length > 0) {
+            fetchAnalytics(products);
+        }
+    }, [timeRange]);
 
     // Reset to page 1 when search/filter changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -465,6 +490,22 @@ export default function ProductsPage() {
             }
         }
 
+        // Validate: Product image is mandatory
+        if (productType === 'simple' && !productImageUrl) {
+            setErrorModal({
+                title: 'Image Required',
+                message: 'Please add a product image before saving. Product image is mandatory.'
+            });
+            return;
+        }
+        if (productType === 'variant' && variants.length > 0 && !variants[0].image_url) {
+            setErrorModal({
+                title: 'Image Required',
+                message: 'Please add an image for at least the first variant before saving.'
+            });
+            return;
+        }
+
         try {
             let savedProduct = null;
             const isNew = !currentProduct?.id;
@@ -633,7 +674,7 @@ export default function ProductsPage() {
                         .update({ is_active: false })
                         .eq('id', id);
 
-                    if (error) throw error;
+                    if (error) throw new Error(error.message || error.details || JSON.stringify(error));
 
                     setResultModal({
                         title: 'Product Deactivated',
@@ -645,7 +686,7 @@ export default function ProductsPage() {
                     console.error('Deactivation Error:', err);
                     setResultModal({
                         title: 'Action Failed',
-                        message: `Could not deactivate: ${err.message}`,
+                        message: `Could not deactivate: ${err.message || 'Unknown error'}`,
                         type: 'error'
                     });
                 } finally {
@@ -683,7 +724,7 @@ export default function ProductsPage() {
                         .update({ is_active: false })
                         .in('id', selectedProductIds);
 
-                    if (error) throw error;
+                    if (error) throw new Error(error.message || error.details || JSON.stringify(error));
 
                     setResultModal({
                         title: 'Products Deactivated',
@@ -696,7 +737,7 @@ export default function ProductsPage() {
                     console.error('Bulk Deactivation Error:', err);
                     setResultModal({
                         title: 'Bulk Action Failed',
-                        message: `Failed to deactivate products: ${err.message}`,
+                        message: `Failed to deactivate products: ${err.message || 'Unknown error'}`,
                         type: 'error'
                     });
                 } finally {
@@ -1057,7 +1098,7 @@ export default function ProductsPage() {
                                                         </td>
                                                         <td style={{ textAlign: 'right', fontWeight: 700 }}>₹{(product.price || 0).toLocaleString()}</td>
                                                         <td style={{ textAlign: 'center' }}>
-                                                            <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'} style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
+                                                            <span className={(product.stock || 0) <= (product.alert_threshold || 5) ? 'badge badge-cancelled' : 'badge badge-delivered'} style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
                                                                 {product.stock} pcs
                                                             </span>
                                                         </td>
@@ -1157,7 +1198,7 @@ export default function ProductsPage() {
                                                     )}
                                                     {/* Stock badge */}
                                                     <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
-                                                        <span className={product.stock < 5 ? 'badge badge-cancelled' : 'badge badge-delivered'}>
+                                                        <span className={(product.stock || 0) <= (product.alert_threshold || 5) ? 'badge badge-cancelled' : 'badge badge-delivered'}>
                                                             {product.stock} pcs
                                                         </span>
                                                     </div>

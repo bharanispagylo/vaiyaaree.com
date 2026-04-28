@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import styles from '../page.module.css';
-import { Save, MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings } from 'lucide-react';
 
 
 
@@ -79,7 +79,7 @@ export default function WhatsAppSettingsPage() {
                         fontWeight: 700, boxShadow: '0 8px 25px hsl(var(--primary) / 0.25)'
                     }}
                 >
-                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    {saving && <Loader2 size={18} className="animate-spin" />}
                     {saving ? 'Syncing...' : 'Save Configuration'}
                 </button>
             </div>

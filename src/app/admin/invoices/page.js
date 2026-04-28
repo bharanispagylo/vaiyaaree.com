@@ -350,16 +350,16 @@ export default function InvoicesPage() {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', background: '#f9fafb', padding: '1.5rem', borderRadius: '12px', border: '1px solid #f3f4f6' }}>
-                                    <div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', background: '#f9fafb', padding: '1.5rem', borderRadius: '12px', border: '1px solid #f3f4f6' }}>
+                                    <div style={{ overflow: 'hidden' }}>
                                         <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>Billing Address</div>
-                                        <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.6', fontWeight: 500 }}>
+                                        <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.6', fontWeight: 500, wordBreak: 'break-word' }}>
                                             {formatAddress(selectedInvoice.billing_address || selectedInvoice.delivery_address) || 'No billing address provided'}
                                         </div>
                                     </div>
-                                    <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: '3rem' }}>
+                                    <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: '1.5rem', overflow: 'hidden' }}>
                                         <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>Shipping Address</div>
-                                        <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.6', fontWeight: 500 }}>
+                                        <div style={{ fontSize: '0.85rem', color: '#374151', lineHeight: '1.6', fontWeight: 500, wordBreak: 'break-word' }}>
                                             {formatAddress(selectedInvoice.shipping_address || selectedInvoice.delivery_address) || 'No shipping address provided'}
                                         </div>
                                     </div>

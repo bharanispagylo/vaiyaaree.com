@@ -122,7 +122,7 @@ export default function AdminReturnsPage() {
 
             if (returnError) throw returnError;
 
-            // Add activity log
+            // 2. Add activity log
             await supabase.from('order_status_logs').insert({
                 order_id: selectedRequest.order_id,
                 status: updates.status,
@@ -130,7 +130,42 @@ export default function AdminReturnsPage() {
                 created_at: now
             });
 
-            // Send WhatsApp notification
+            // 3. Automatic Refund Creation (Only for COMPLETED RETURNS of PAID orders)
+            if (processAction === 'complete' && selectedRequest.request_type === 'RETURN') {
+                try {
+                    // Fetch order to check payment status
+                    const { data: order } = await supabase
+                        .from('orders')
+                        .select('status, total_amount')
+                        .eq('id', selectedRequest.order_id)
+                        .single();
+                    
+                    if (order) {
+                        // Check if a refund request already exists to avoid duplicates
+                        const { data: existingRefund } = await supabase
+                            .from('refunds')
+                            .select('id')
+                            .eq('order_id', selectedRequest.order_id)
+                            .eq('status', 'REQUESTED')
+                            .maybeSingle();
+                        
+                        if (!existingRefund) {
+                            await supabase.from('refunds').insert({
+                                order_id: selectedRequest.order_id,
+                                amount: order.total_amount,
+                                reason: `Return Request Completed: ${selectedRequest.reason || 'No reason'}`,
+                                status: 'REQUESTED',
+                                processed_at: now
+                            });
+                            console.log('[AUTO-REFUND] Refund entry created for order:', selectedRequest.order_id);
+                        }
+                    }
+                } catch (refundErr) {
+                    console.error('[AUTO-REFUND-ERROR] Failed to create refund entry:', refundErr);
+                }
+            }
+
+            // 4. Send WhatsApp notification
             try {
                 await fetch('/api/returns/notify', {
                     method: 'POST',

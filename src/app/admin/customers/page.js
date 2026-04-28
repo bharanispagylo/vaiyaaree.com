@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 
-import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Save, Edit2, Check, X, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, Filter, Users, ShoppingCart } from 'lucide-react';
+import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Edit2, Check, X, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, Filter, Users, ShoppingCart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area } from 'recharts';
 
 
@@ -45,136 +45,7 @@ function CustomersPage() {
 
         setHasMounted(true);
 
-        const fetchCustomers = async () => {
-            setLoading(true);
-            try {
-                // 1. Fetch all customers
-                const { data: allCustomers, error: custError } = await supabase
-                    .from('customers')
-                    .select('*')
-                    .order('created_at', { ascending: false });
 
-                if (custError) throw custError;
-
-                // 2. Fetch all orders (except drafts) to aggregate stats
-                let orderQuery = supabase.from('orders').select('*').neq('status', 'DRAFT');
-
-                const now = new Date();
-                if (timeRange === 'DAILY') {
-                    orderQuery = orderQuery.gte('created_at', new Date(now.setHours(0, 0, 0, 0)).toISOString());
-                } else if (timeRange === 'MONTHLY') {
-                    orderQuery = orderQuery.gte('created_at', new Date(now.getFullYear(), now.getMonth(), 1).toISOString());
-                } else if (timeRange === 'QUARTERLY') {
-                    const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
-                    orderQuery = orderQuery.gte('created_at', new Date(now.getFullYear(), qStartMonth, 1).toISOString());
-                }
-
-                const { data: allOrders, error: orderError } = await orderQuery.order('created_at', { ascending: false });
-
-                if (orderError) throw orderError;
-
-                // 3. Map orders to customers
-                const customerMap = {};
-
-                const normalizePhone = (p) => {
-                    if (!p) return '';
-                    const clean = p.replace(/\D/g, '');
-                    return clean.startsWith('91') ? clean : (clean.length === 10 ? `91${clean}` : clean);
-                };
-
-                (allCustomers || []).forEach(cust => {
-                    const normPhone = normalizePhone(cust.phone);
-                    if (normPhone) {
-                        customerMap[normPhone] = {
-                            phone: normPhone,
-                            name: cust.name || 'WhatsApp Customer',
-                            totalOrders: 0,
-                            totalSpent: 0,
-                            lastOrder: cust.created_at,
-                            lastAddress: cust.address || '',
-                            orders: []
-                        };
-                    }
-                });
-
-                (allOrders || []).forEach(order => {
-                    const normPhone = normalizePhone(order.customer_phone);
-
-                    if (normPhone) {
-                        if (!customerMap[normPhone]) {
-                            customerMap[normPhone] = {
-                                phone: normPhone,
-                                name: order.customer_name || 'User',
-                                totalOrders: 0,
-                                totalSpent: 0,
-                                lastOrder: order.created_at,
-                                lastAddress: order.delivery_address || '',
-                                orders: []
-                            };
-                        }
-
-                        customerMap[normPhone].totalOrders++;
-                        customerMap[normPhone].totalSpent += order.total_amount || 0;
-                        customerMap[normPhone].orders.push(order);
-
-                        // Use most recent order date for 'lastOrder' in terms of activity
-                        if (new Date(order.created_at) > new Date(customerMap[normPhone].lastOrder)) {
-                            customerMap[normPhone].lastOrder = order.created_at;
-                        }
-
-                        if (order.customer_name && order.customer_name !== 'WhatsApp Customer' && order.customer_name !== 'Website User') {
-                            customerMap[normPhone].name = order.customer_name;
-                        }
-                        if (order.delivery_address && !customerMap[normPhone].lastAddress) {
-                            customerMap[normPhone].lastAddress = order.delivery_address;
-                        }
-                    }
-                });
-
-                const customerList = Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
-
-                setCustomers(customerList);
-
-                // --- Analytics Logic ---
-                // 1. Tier Data
-                const tiers = { VIP: 0, Gold: 0, Silver: 0, Regular: 0 };
-                customerList.forEach(c => {
-                    if (c.totalSpent >= 15000) tiers.VIP++;
-                    else if (c.totalSpent >= 7000) tiers.Gold++;
-                    else if (c.totalSpent >= 2000) tiers.Silver++;
-                    else if (c.totalSpent > 0) tiers.Regular++;
-                });
-                const tierData = [
-                    { name: 'VIP', value: tiers.VIP, color: '#f59e0b' },
-                    { name: 'Gold', value: tiers.Gold, color: '#fbbf24' },
-                    { name: 'Silver', value: tiers.Silver, color: '#94a3b8' },
-                    { name: 'Regular', value: tiers.Regular, color: '#cbd5e1' }
-                ].filter(t => t.value > 0);
-
-                // 2. Repeat Data
-                const repeatCount = customerList.filter(c => c.totalOrders > 1).length;
-                const activeCount = customerList.filter(c => c.totalOrders > 0).length;
-                const repeatData = [
-                    { name: 'Repeat', value: repeatCount, color: 'hsl(var(--primary))' },
-                    { name: 'Single', value: activeCount - repeatCount, color: 'hsl(var(--accent))' }
-                ];
-
-                // 3. Growth Data (Simplified by last order date)
-                // const growth = {};
-                // customerList.forEach(c => {
-                //     const date = new Date(c.orders[0]?.created_at || c.lastOrder);
-                //     const month = date.toLocaleDateString('en-IN', { month: 'short' });
-                //     growth[month] = (growth[month] || 0) + 1;
-                // });
-                // const growthData = Object.entries(growth).map(([name, value]) => ({ name, value }));
-
-                setAnalyticsData({ tierData, repeatData, growthData: [] });
-            } catch (err) {
-                console.error('Customer Load Error:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
 
 
 
@@ -308,7 +179,44 @@ function CustomersPage() {
                 { name: 'Single', value: activeCount - repeatCount, color: 'hsl(var(--accent))' }
             ];
 
-            setAnalyticsData({ tierData, repeatData, growthData: [] });
+            // 4. Growth Data (New Customers by month)
+            const growthMap = new Map();
+            customerList.forEach(c => {
+                try {
+                    // Use the earliest date we know for this customer (their first order or creation date)
+                    let joinedDate = new Date(c.lastOrder); 
+                    if (c.orders && c.orders.length > 0) {
+                        c.orders.forEach(o => {
+                            const oDate = new Date(o.created_at);
+                            if (oDate < joinedDate) joinedDate = oDate;
+                        });
+                    }
+
+                    const month = joinedDate.toLocaleString('en-US', { month: 'short' });
+                    const year = joinedDate.getFullYear().toString().slice(-2);
+                    const label = `${month} ${year}`;
+                    growthMap.set(label, (growthMap.get(label) || 0) + 1);
+                } catch (e) {
+                    console.error('Growth data error:', e);
+                }
+            });
+
+            const growthData = Array.from(growthMap.entries())
+                .map(([name, value]) => ({ name, value }))
+                .sort((a, b) => {
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const [mA, yA] = a.name.split(' ');
+                    const [mB, yB] = b.name.split(' ');
+                    if (yA !== yB) return parseInt(yA) - parseInt(yB);
+                    return months.indexOf(mA) - months.indexOf(mB);
+                });
+
+            // Fallback for empty data
+            if (growthData.length === 0) {
+                growthData.push({ name: 'No Data', value: 0 });
+            }
+
+            setAnalyticsData({ tierData, repeatData, growthData });
 
             // Update selectedCustomer if it exists to reflect fresh data
             if (selectedCustomer) {
@@ -519,7 +427,7 @@ function CustomersPage() {
                                         <>
                                             <button onClick={() => setIsEditingCustomer(false)} className="btn btn-secondary">Cancel</button>
                                             <button onClick={handleUpdateCustomer} disabled={isUpdating} className="btn btn-primary" style={{ background: 'hsl(var(--success))', border: 'none' }}>
-                                                {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Changes
+                                                {isUpdating && <Loader2 size={16} className="animate-spin" />} Save Changes
                                             </button>
                                         </>
                                     ) : (
@@ -792,7 +700,7 @@ function CustomersPage() {
                                                     <Tooltip
                                                         contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}
                                                     />
-                                                    <Bar dataKey="value" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} barSize={50} />
+                                                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} barSize={50} />
                                                 </BarChart>
                                             </ResponsiveContainer>
                                         </div>

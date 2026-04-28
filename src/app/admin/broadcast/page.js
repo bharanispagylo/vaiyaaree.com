@@ -555,8 +555,8 @@ export default function BroadcastPage() {
                     )}
 
                     {activeTab === 'SUMMARY' && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '2rem', padding: '1.5rem', background: 'white', borderRadius: '0 0 20px 20px', border: '1px solid hsl(var(--border-subtle))', borderTop: 'none' }}>
-                            <div className="card" style={{ padding: '1.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: '2rem', padding: '1.5rem', background: 'white', borderRadius: '0 0 20px 20px', border: '1px solid hsl(var(--border-subtle))', borderTop: 'none' }}>
+                            <div className="card" style={{ padding: '1.5rem', minWidth: 0 }}>
                                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.5rem' }}>Final Campaign Review</h2>
                                 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

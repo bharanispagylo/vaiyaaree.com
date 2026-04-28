@@ -94,7 +94,7 @@ export default function ShopSettingsPage() {
                     disabled={saving}
                     className="btn-primary-glow"
                 >
-                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    {saving && <Loader2 size={18} className="animate-spin" />}
                     Save All Changes
                 </button>
             </div>

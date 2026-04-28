@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, Mail, MapPin, Phone, MessageCircle, Save } from 'lucide-react';
+import { User, Mail, MapPin, Phone, MessageCircle } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import styles from './profile.module.css';
 

@@ -298,7 +298,7 @@ export default function UserManagementPage() {
                             <div className="modal-footer">
                                 <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                                 <button type="submit" className="btn-primary-glow" disabled={saving}>
-                                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                                    {saving && <Loader2 size={18} className="animate-spin" />}
                                     {editingUser ? 'Update User' : 'Create User'}
                                 </button>
                             </div>

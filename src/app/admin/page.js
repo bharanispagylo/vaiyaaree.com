@@ -39,7 +39,7 @@ export default function AdminDashboard() {
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'REFUNDED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'CANCELLED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today),
-                    supabase.from('products').select('id, name, stock, image_url, price').order('stock', { ascending: true }).limit(20),
+                    supabase.from('products').select('id, name, stock, image_url, price, alert_threshold').order('stock', { ascending: true }),
                     supabase.from('order_items').select('product_name, quantity, price_at_time').limit(2000),
                     supabase.from('orders').select('customer_phone', { count: 'exact', head: true })
                 ]);
@@ -54,7 +54,7 @@ export default function AdminDashboard() {
                     .order('created_at', { ascending: false })
                     .limit(6);
 
-                const lowStock = (productsRes.data || []).filter(p => p.stock < 5).slice(0, 5);
+                const lowStock = (productsRes.data || []).filter(p => (p.stock || 0) <= (p.alert_threshold || 5));
 
                 // Build top selling from order_items
                 const orderItemsData = itemsRes.data || [];
@@ -354,10 +354,120 @@ export default function AdminDashboard() {
                             )}
                         </div>
                     </div>
+
+                    {/* Low Stock Alert */}
+                    <div className="card" style={{ padding: 0, border: lowStockProducts.length > 0 ? '1px solid hsl(var(--danger) / 0.3)' : undefined }}>
+                        <div style={{
+                            padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: lowStockProducts.length > 0 ? 'hsl(var(--danger) / 0.04)' : undefined
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{
+                                    width: '32px', height: '32px', borderRadius: '8px',
+                                    background: 'hsl(var(--danger) / 0.12)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    <AlertTriangle size={16} color="hsl(var(--danger))" />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: '1.1rem', margin: 0 }}>Low Stock Alert</h3>
+                                    <span style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Products below alert threshold</span>
+                                </div>
+                            </div>
+                            {lowStockProducts.length > 0 && (
+                                <span style={{
+                                    fontSize: '0.7rem', fontWeight: 800,
+                                    color: 'hsl(var(--danger))',
+                                    background: 'hsl(var(--danger) / 0.1)',
+                                    padding: '0.25rem 0.65rem', borderRadius: '20px',
+                                    border: '1px solid hsl(var(--danger) / 0.2)'
+                                }}>
+                                    {lowStockProducts.length} ITEM{lowStockProducts.length > 1 ? 'S' : ''}
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ padding: '0 1.5rem 1.5rem', maxHeight: '400px', overflowY: 'auto' }}>
+                            {lowStockProducts.length === 0 ? (
+                                <div style={{
+                                    padding: '2rem 0', textAlign: 'center',
+                                    color: 'hsl(var(--success))', fontSize: '0.875rem',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem'
+                                }}>
+                                    <Package size={24} />
+                                    <span>All products are well stocked!</span>
+                                </div>
+                            ) : (
+                                lowStockProducts.map((p, i) => {
+                                    const threshold = p.alert_threshold || 5;
+                                    const stockColor = p.stock === 0
+                                        ? 'hsl(0 84% 60%)'
+                                        : p.stock <= Math.floor(threshold * 0.3)
+                                            ? 'hsl(25 95% 53%)'
+                                            : 'hsl(45 93% 47%)';
+                                    const stockBg = p.stock === 0
+                                        ? 'hsl(0 84% 60% / 0.1)'
+                                        : p.stock <= Math.floor(threshold * 0.3)
+                                            ? 'hsl(25 95% 53% / 0.1)'
+                                            : 'hsl(45 93% 47% / 0.1)';
+
+                                    return (
+                                        <div key={p.id || i} style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            padding: '0.85rem 0',
+                                            borderBottom: i < lowStockProducts.length - 1 ? '1px solid hsl(var(--border-subtle))' : 'none'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
+                                                <div style={{
+                                                    width: '8px', height: '8px', borderRadius: '50%',
+                                                    background: stockColor, flexShrink: 0,
+                                                    boxShadow: p.stock === 0 ? `0 0 8px ${stockColor}` : 'none',
+                                                    animation: p.stock === 0 ? 'pulse-dot 1.5s ease-in-out infinite' : 'none'
+                                                }} />
+                                                <div style={{
+                                                    fontWeight: 600, fontSize: '0.875rem',
+                                                    color: 'hsl(var(--text-main))',
+                                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                                                }}>
+                                                    {p.name}
+                                                </div>
+                                            </div>
+                                            <div style={{
+                                                fontSize: '0.75rem', fontWeight: 700,
+                                                color: stockColor, background: stockBg,
+                                                padding: '0.2rem 0.6rem', borderRadius: '4px',
+                                                flexShrink: 0, marginLeft: '0.75rem',
+                                                border: `1px solid ${stockColor}20`
+                                            }}>
+                                                {p.stock === 0 ? 'OUT OF STOCK' : `${p.stock} left`}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                        {lowStockProducts.length > 0 && (
+                            <div style={{
+                                padding: '0.75rem 1.5rem',
+                                borderTop: '1px solid hsl(var(--border-subtle))',
+                                background: 'hsl(var(--bg-app))'
+                            }}>
+                                <Link href="/admin/products" style={{
+                                    fontSize: '0.8rem', fontWeight: 600,
+                                    color: 'hsl(var(--primary))',
+                                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                                    textDecoration: 'none'
+                                }}>
+                                    Manage Inventory <ArrowUpRight size={14} />
+                                </Link>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
             <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }
             `}</style>
         </div>
     );

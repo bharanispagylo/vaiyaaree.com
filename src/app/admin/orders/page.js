@@ -94,6 +94,7 @@ export default function OrdersPage() {
     });
     const [isAddingOrder, setIsAddingOrder] = useState(false);
     const [showShippingForm, setShowShippingForm] = useState(false);
+    const [savingCourier, setSavingCourier] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [showResendEmailModal, setShowResendEmailModal] = useState(false);
@@ -123,7 +124,9 @@ export default function OrdersPage() {
         same_as_billing: true,
         payment_method: 'UPI',
         send_notifications: 'both',
-        items: [] // {product_id, product_name, quantity, price}
+        items: [], // {product_id, product_name, quantity, price}
+        is_replacement: false,
+        manual_shipping_cost: ''
     });
     const [allProducts, setAllProducts] = useState([]);
     const [productSearch, setProductSearch] = useState('');
@@ -362,6 +365,12 @@ export default function OrdersPage() {
     // Reset to page 1 when filters change
     useEffect(() => { setOrdersPage(1); }, [searchTerm, statusFilter, sourceFilter]);
 
+    // Re-run analytics when time range changes
+    useEffect(() => {
+        if (orders.length > 0) {
+            fetchAnalytics(orders);
+        }
+    }, [timeRange]);
 
 
     const fetchAllProducts = async () => {
@@ -2143,6 +2152,25 @@ export default function OrdersPage() {
                                                     <option value="COD">Cash on Delivery</option>
                                                 </select>
                                             </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    id="is_replacement"
+                                                    checked={newOrder.is_replacement} 
+                                                    onChange={e => setNewOrder({ ...newOrder, is_replacement: e.target.checked })} 
+                                                />
+                                                <label htmlFor="is_replacement" style={{ fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Replacement Order (Zero Billing)</label>
+                                            </div>
+                                            <div>
+                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Manual Shipping Rate (Optional)</label>
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="Calculate Automatically" 
+                                                    value={newOrder.manual_shipping_cost} 
+                                                    onChange={e => setNewOrder({ ...newOrder, manual_shipping_cost: e.target.value })} 
+                                                    style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }} 
+                                                />
+                                            </div>
                                         </div>
 
                                         {/* Item Selection */}
@@ -2203,9 +2231,11 @@ export default function OrdersPage() {
                                         {/* Summary & Save */}
                                         <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '15px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
                                             {(() => {
-                                                const subtotal = newOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+                                                const subtotal = newOrder.is_replacement ? 0 : newOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0);
                                                 
                                                 const shipping = (() => {
+                                                    if (newOrder.manual_shipping_cost !== '') return parseFloat(newOrder.manual_shipping_cost) || 0;
+                                                    if (newOrder.is_replacement) return 0;
                                                     if (subtotal === 0) return 0;
                                                     const state = newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state;
                                                     // Find zone for this state
@@ -2405,7 +2435,9 @@ export default function OrdersPage() {
                                                                         same_as_billing: true,
                                                                         payment_method: 'UPI',
                                                                         send_notifications: 'both',
-                                                                        items: []
+                                                                        items: [],
+                                                                        is_replacement: false,
+                                                                        manual_shipping_cost: ''
                                                                     });
                                                                     fetchOrders();
                                                                 } catch (err) {
@@ -2649,9 +2681,10 @@ export default function OrdersPage() {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Choose Partner</label>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Choose Partner <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
                                 <select
                                     value={selectedCourierId}
+                                    required
                                     onChange={(e) => {
                                         const cid = e.target.value;
                                         setSelectedCourierId(cid);
@@ -2677,10 +2710,11 @@ export default function OrdersPage() {
 
                             {selectedCourierId === 'CUSTOM' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Name</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Name <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
                                     <input
                                         type="text"
                                         placeholder="e.g. Local Express"
+                                        required
                                         value={shippingForm.courier_name}
                                         onChange={e => setShippingForm({ ...shippingForm, courier_name: e.target.value })}
                                         style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
@@ -2689,10 +2723,11 @@ export default function OrdersPage() {
                             )}
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>AWB / Tracking ID</label>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>AWB / Tracking ID <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
                                 <input
                                     type="text"
                                     placeholder="Enter ID"
+                                    required
                                     value={shippingForm.tracking_number}
                                     onChange={e => {
                                         const awb = e.target.value;
@@ -2709,20 +2744,22 @@ export default function OrdersPage() {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Phone</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Phone <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
                                     <input
                                         type="text"
                                         placeholder="+91..."
+                                        required
                                         value={shippingForm.courier_phone || ''}
                                         onChange={e => setShippingForm({ ...shippingForm, courier_phone: e.target.value })}
                                         style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
                                     />
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Email</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Email <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
                                     <input
                                         type="email"
                                         placeholder="support@..."
+                                        required
                                         value={shippingForm.courier_email || ''}
                                         onChange={e => setShippingForm({ ...shippingForm, courier_email: e.target.value })}
                                         style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
@@ -2736,7 +2773,7 @@ export default function OrdersPage() {
                             <button
                                 onClick={async () => {
                                     if (!selectedOrder) return;
-                                    setLoading(true);
+                                    setSavingCourier(true);
                                     try {
                                         setNotification({ message: 'Synchronizing details...', type: 'info' });
                                         // Use the central update-status API to handle DB update, logging, and notifications
@@ -2770,16 +2807,17 @@ export default function OrdersPage() {
                                         setShowShippingForm(false);
                                         fetchOrders();
                                     } catch (err) {
-                                        setNotification({ message: 'Save failed', type: 'error' });
+                                        console.error('Courier save error:', err);
+                                        setNotification({ message: `Save failed: ${err.message || 'Unknown error'}`, type: 'error' });
                                     } finally {
-                                        setLoading(false);
+                                        setSavingCourier(false);
                                     }
                                 }}
-                                disabled={!shippingForm.courier_name || !shippingForm.tracking_number || loading}
+                                disabled={!shippingForm.courier_name || !shippingForm.tracking_number || !shippingForm.courier_phone || !shippingForm.courier_email || savingCourier}
                                 className="btn btn-primary"
                                 style={{ padding: '0.8rem', background: 'hsl(var(--success))', border: 'none' }}
                             >
-                                {loading ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save Courier Info</>}
+                                {savingCourier ? <Loader2 size={16} className="animate-spin" /> : 'Save Courier Info'}
                             </button>
                         </div>
                     </div>

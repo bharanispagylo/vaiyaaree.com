@@ -123,8 +123,8 @@ export default function RefundsPage() {
             let updates = {
                 status: processAction === 'approve' ? 'APPROVED' : 
                         processAction === 'reject' ? 'REJECTED' : 'COMPLETED',
-                // Removed non-existent temporal columns to prevent database errors
-                // updated_at: now 
+                notes: processNote,
+                processed_at: now
             };
 
             // Order status update (only for COMPLETION)
@@ -189,14 +189,14 @@ export default function RefundsPage() {
         if (refund.created_at) {
             timeline.push({ time: refund.created_at, label: 'Request Submitted', icon: Clock, color: '#6b7280' });
         }
-        if (refund.approved_at) {
-            timeline.push({ time: refund.approved_at, label: 'Request Approved', icon: CheckCircle, color: '#2563eb' });
-        }
-        if (refund.rejected_at) {
-            timeline.push({ time: refund.rejected_at, label: 'Request Rejected', icon: XCircle, color: '#dc2626' });
-        }
-        if (refund.completed_at) {
-            timeline.push({ time: refund.completed_at, label: 'Refund Completed', icon: CheckCircle, color: '#059669' });
+        if (refund.processed_at) {
+            const label = refund.status === 'APPROVED' ? 'Request Approved' :
+                         refund.status === 'REJECTED' ? 'Request Rejected' :
+                         refund.status === 'COMPLETED' ? 'Refund Completed' : 'Processed';
+            const color = refund.status === 'APPROVED' ? '#2563eb' :
+                         refund.status === 'REJECTED' ? '#dc2626' :
+                         refund.status === 'COMPLETED' ? '#059669' : '#6b7280';
+            timeline.push({ time: refund.processed_at, label, icon: CheckCircle, color });
         }
         return timeline;
     };
@@ -516,11 +516,11 @@ export default function RefundsPage() {
                                         {selectedRefund.reason || 'No reason provided'}
                                     </div>
                                 </div>
-                                {selectedRefund.admin_notes && (
+                                {selectedRefund.notes && (
                                     <div style={{ marginTop: '1rem' }}>
                                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Admin Notes</div>
                                         <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px' }}>
-                                            {selectedRefund.admin_notes}
+                                            {selectedRefund.notes}
                                         </div>
                                     </div>
                                 )}

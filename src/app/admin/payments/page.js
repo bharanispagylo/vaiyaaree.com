@@ -515,7 +515,7 @@ export default function PaymentGatewayPage() {
                                     disabled={savingSettings}
                                     style={{ padding: '1rem 3rem', background: 'hsl(var(--primary))', color: 'white', border: 'none', borderRadius: 14, fontWeight: 800, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem', boxShadow: '0 10px 30px hsl(var(--primary) / 0.3)' }}
                                 >
-                                    {savingSettings ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                                    {savingSettings && <Loader2 size={20} className="animate-spin" />}
                                     Update Gateway Integration
                                 </button>
                             </div>

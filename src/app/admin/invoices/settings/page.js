@@ -99,7 +99,7 @@ export default function InvoiceSettingsPage() {
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button onClick={saveSettings} disabled={saving} className="btn btn-primary" style={{ padding: '0.85rem 2rem', borderRadius: '12px', minWidth: '180px', boxShadow: '0 8px 20px hsl(var(--primary)/0.2)' }}>
-                        {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Save All Changes
+                        {saving && <Loader2 size={18} className="animate-spin" />} Save All Changes
                     </button>
                 </div>
             </div>

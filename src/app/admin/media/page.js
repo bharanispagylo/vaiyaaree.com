@@ -635,6 +635,31 @@ export default function MediaLibraryPage() {
                                     zIndex: 10
                                 }}>
                                     <button
+                                        onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }}
+                                        style={{ 
+                                            padding: '0.4rem', borderRadius: '6px', border: 'none', 
+                                            background: heroImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)', 
+                                            color: heroImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))', 
+                                            cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                                        }}
+                                        title={heroImages.includes(file.url) ? "Remove from Hero" : "Add to Hero"}
+                                    >
+                                        <Star size={14} fill={heroImages.includes(file.url) ? "white" : "none"} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }}
+                                        style={{ 
+                                            padding: '0.4rem', borderRadius: '6px', border: 'none', 
+                                            background: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)', 
+                                            color: galleryImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))', 
+                                            cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                                        }}
+                                        title={galleryImages.includes(file.url) ? "Remove from Gallery" : "Add to Gallery"}
+                                    >
+                                        <Layout size={14} />
+                                    </button>
+                                    <div style={{ width: '1px', height: '20px', background: 'rgba(0,0,0,0.1)', margin: '0 2px' }}></div>
+                                    <button
                                         onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }}
                                         style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--primary))', cursor: 'pointer' }}
                                         title="Copy Link"
@@ -685,7 +710,15 @@ export default function MediaLibraryPage() {
                                         </td>
                                         <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>{file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</td>
                                         <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{(file.metadata.size / 1024).toFixed(1)} KB</td>
-                                        <td>
+                                        <td style={{ minWidth: '180px' }}>
+                                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                                <button onClick={() => toggleHero(file.url)} className={`btn ${heroImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Star size={12} /> {heroImages.includes(file.url) ? 'In Hero' : 'To Hero'}
+                                                </button>
+                                                <button onClick={() => toggleGallery(file.url)} className={`btn ${galleryImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Layout size={12} /> {galleryImages.includes(file.url) ? 'In Gallery' : 'To Gallery'}
+                                                </button>
+                                            </div>
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
@@ -724,9 +757,17 @@ export default function MediaLibraryPage() {
                                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{selectedFile.url}</div>
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button onClick={() => setSelectedFile(null)} className="btn btn-secondary">Deselect</button>
-                            <button onClick={() => copyToClipboard(selectedFile.url)} className="btn btn-primary">Copy URL</button>
+                        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginRight: '0.5rem', textTransform: 'uppercase' }}>Assign To:</div>
+                            <button onClick={() => toggleHero(selectedFile.url)} className={`btn ${heroImages.includes(selectedFile.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem' }}>
+                                {heroImages.includes(selectedFile.url) ? 'Remove Hero' : 'Hero Slider'}
+                            </button>
+                            <button onClick={() => toggleGallery(selectedFile.url)} className={`btn ${galleryImages.includes(selectedFile.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem' }}>
+                                {galleryImages.includes(selectedFile.url) ? 'Remove Gallery' : 'Gallery'}
+                            </button>
+                            <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))', margin: '0 0.5rem' }}></div>
+                            <button onClick={() => setSelectedFile(null)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>Deselect</button>
+                            <button onClick={() => copyToClipboard(selectedFile.url)} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>Copy URL</button>
                         </div>
                     </div>
                 )}
