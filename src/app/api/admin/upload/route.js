@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { detectWatermark, applyWatermark } from '@/lib/imageService';
 import { Buffer } from 'buffer';
+import { verifyAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,8 +16,12 @@ const supabaseAdmin = createClient(
 const BUCKET_NAME = 'media';
 
 // GET - List all files in the media bucket including subfolders
-export async function GET() {
+export async function GET(request) {
     try {
+        const auth = await verifyAdmin(request);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+        }
         console.log('[GET] Starting to list media files...');
         
         let rootFiles = [];
@@ -100,6 +105,10 @@ export async function GET() {
 // POST - Upload a file (with optional watermarking)
 export async function POST(request) {
     try {
+        const auth = await verifyAdmin(request);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+        }
         console.log('[UPLOAD] Starting upload process...');
         
         const formData = await request.formData();
@@ -231,6 +240,10 @@ export async function POST(request) {
 // DELETE - Remove a file
 export async function DELETE(request) {
     try {
+        const auth = await verifyAdmin(request);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+        }
         const { fileName } = await request.json();
         if (!fileName) return NextResponse.json({ error: 'No filename' }, { status: 400 });
 

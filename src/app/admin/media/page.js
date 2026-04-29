@@ -347,6 +347,59 @@ export default function MediaLibraryPage() {
             onConfirm: async () => {
                 setConfirmAction(null);
                 try {
+                    // Check if image is used by products or variants
+                    const fileToDelete = files.find(f => {
+                        const filePath = f.folder && f.folder !== 'root'
+                            ? `${f.folder}/${f.name}`
+                            : f.name;
+                        return filePath === fullPath;
+                    });
+
+                    if (fileToDelete) {
+                        const { data: usedByProduct } = await supabase
+                            .from('products')
+                            .select('id, name')
+                            .eq('image_url', fileToDelete.url)
+                            .maybeSingle();
+
+                        if (usedByProduct) {
+                            setNotification({
+                                message: `Cannot delete: Image is used by product "${usedByProduct.name}"`,
+                                type: 'error'
+                            });
+                            return;
+                        }
+
+                        // Also check gallery_urls (array check)
+                        const { data: usedInGallery } = await supabase
+                            .from('products')
+                            .select('name')
+                            .contains('gallery_urls', [fileToDelete.url])
+                            .maybeSingle();
+
+                        if (usedInGallery) {
+                            setNotification({
+                                message: `Cannot delete: Image is used in gallery of product "${usedInGallery.name}"`,
+                                type: 'error'
+                            });
+                            return;
+                        }
+
+                        const { data: usedByVariant } = await supabase
+                            .from('product_variants')
+                            .select('id, name')
+                            .eq('image_url', fileToDelete.url)
+                            .maybeSingle();
+
+                        if (usedByVariant) {
+                            setNotification({
+                                message: `Cannot delete: Image is used by variant "${usedByVariant.name}"`,
+                                type: 'error'
+                            });
+                            return;
+                        }
+                    }
+
                     const res = await fetch('/api/admin/upload', {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
@@ -355,14 +408,6 @@ export default function MediaLibraryPage() {
 
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Delete failed');
-
-                    // Get the URL from the files array using the full path
-                    const fileToDelete = files.find(f => {
-                        const filePath = f.folder && f.folder !== 'root'
-                            ? `${f.folder}/${f.name}`
-                            : f.name;
-                        return filePath === fullPath;
-                    });
 
                     if (fileToDelete) {
                         const fileUrl = fileToDelete.url;

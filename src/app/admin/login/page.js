@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
             const data = await res.json();
             if (res.ok) {
                 const adminData = { ...data, login_at: Date.now() };
-                localStorage.setItem('cast_prince_admin', 'true');
+                localStorage.setItem('cast_prince_admin', data.token);
                 localStorage.setItem('cast_prince_user', JSON.stringify(adminData));
                 setUser(adminData);
                 router.push('/admin');

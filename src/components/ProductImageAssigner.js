@@ -81,6 +81,15 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                     const { data: insData, error } = await supabase.from('products').insert([dbData]).select();
                     if (error) throw error;
                     savedProduct = insData?.[0];
+                    if (savedProduct && savedProduct.stock > 0) {
+                        await supabase.from('product_history').insert({
+                            product_id: savedProduct.id,
+                            change_type: 'ADD',
+                            quantity_change: savedProduct.stock,
+                            new_stock: savedProduct.stock,
+                            reason: 'Excel Import (Initial)'
+                        });
+                    }
                 } else {
                     const { data: updData, error } = await supabase.from('products').update(dbData).eq('id', item.id).select();
                     if (error) throw error;

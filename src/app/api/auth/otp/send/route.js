@@ -22,6 +22,24 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Invalid phone number format. Please include country code.' }, { status: 400 });
         }
 
+        // 0. Check for cooldown (Rate Limiting)
+        const { data: lastOtp } = await supabase
+            .from('otps')
+            .select('created_at')
+            .eq('phone', cleanPhone)
+            .maybeSingle();
+
+        if (lastOtp) {
+            const lastSent = new Date(lastOtp.created_at).getTime();
+            const now = Date.now();
+            const diffSeconds = Math.floor((now - lastSent) / 1000);
+            if (diffSeconds < 120) {
+                return NextResponse.json({ 
+                    error: `Please wait ${120 - diffSeconds} seconds before requesting a new code.` 
+                }, { status: 429 });
+            }
+        }
+
         // 1. Generate 6-digit random OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 mins
@@ -54,7 +72,6 @@ export async function POST(req) {
 
         if (waResult?.error) {
             console.error('[AUTH] WhatsApp Dispatch Failed:', waResult.error);
-            // Return the specific error for debugging
             return NextResponse.json({ 
                 error: `WhatsApp Error: ${waResult.error}`,
                 details: waResult.full
@@ -71,4 +88,3 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
-

@@ -206,6 +206,7 @@ export default function OrdersPage() {
         }
     };
 
+
     const fetchAnalytics = async (allOrders) => {
         try {
             const now = new Date();
@@ -1520,7 +1521,7 @@ export default function OrdersPage() {
                                                         </div>
                                                         <div>
                                                             <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '4px' }}>Tracking Number</div>
-                                                            <div style={{ fontWeight: 700, fontFamily: 'monospace', letterSpacing: '1px' }}>{selectedOrder.tracking_number}</div>
+                                                            <div style={{ fontWeight: 700, fontFamily: 'var(--font-roboto)', letterSpacing: '1px' }}>{selectedOrder.tracking_number}</div>
                                                         </div>
                                                     </div>
                                                     {selectedOrder.tracking_url && (
@@ -2013,7 +2014,7 @@ export default function OrdersPage() {
                                                     {selectedOrder.transaction_id && (
                                                         <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
                                                             <span style={{ color: 'hsl(var(--text-muted))' }}>Transaction ID:</span>
-                                                            <span style={{ fontFamily: 'monospace', marginLeft: '0.5rem' }}>{selectedOrder.transaction_id}</span>
+                                                            <span style={{ fontFamily: 'var(--font-roboto)', marginLeft: '0.5rem' }}>{selectedOrder.transaction_id}</span>
                                                         </div>
                                                     )}
                                                     {selectedOrder.payment_gateway && (
@@ -2976,7 +2977,7 @@ export default function OrdersPage() {
                                         <div style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}><Truck size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }}/> Courier: {infoModalOrder.courier_name}</div>
                                         <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <span style={{ color: 'hsl(var(--text-muted))' }}>AWB Track ID:</span> 
-                                            <span style={{ fontFamily: 'monospace', fontWeight: 800, background: 'hsl(var(--text-main))', color: 'white', padding: '2px 6px', borderRadius: '4px', letterSpacing: '1px' }}>{infoModalOrder.tracking_number}</span>
+                                            <span style={{ fontFamily: 'var(--font-roboto)', fontWeight: 800, background: 'hsl(var(--text-main))', color: 'white', padding: '2px 6px', borderRadius: '4px', letterSpacing: '1px' }}>{infoModalOrder.tracking_number}</span>
                                         </div>
                                     </div>
                                 </div>

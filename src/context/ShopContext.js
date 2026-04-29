@@ -249,43 +249,36 @@ export function ShopProvider({ children }) {
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
     }
 
-    function addToCart(product, variant = null) {
-        // Removed guest login guard to allow guest checkout
-        /*
-        if (!user) {
-            showToast('Please login to add items to cart', 'error');
-            return;
-        }
-        */
-
+    function addToCart(product, variant = null, quantity = 1) {
         const itemStock = variant ? variant.stock : product.stock;
-        if (itemStock < 1) {
-            showToast('This item is out of stock', 'error');
+        if (itemStock < quantity) {
+            showToast(`Only ${itemStock} items available in stock`, 'error');
             return;
         }
 
         setCart(prev => {
             const existing = prev.find(i => (variant ? i.variantId === variant.id : i.id === product.id));
             if (existing) {
-                if (existing.qty >= itemStock) {
-                    showToast(`Only ${itemStock} in stock`, 'error');
+                const totalRequested = existing.qty + quantity;
+                if (totalRequested > itemStock) {
+                    showToast(`Cannot add more. Only ${itemStock} in stock.`, 'error');
                     return prev;
                 }
-                return prev.map(i => (variant ? i.variantId === variant.id : i.id === product.id) ? { ...i, qty: i.qty + 1 } : i);
+                return prev.map(i => (variant ? i.variantId === variant.id : i.id === product.id) ? { ...i, qty: totalRequested } : i);
             }
 
             const newEntry = {
                 ...product,
                 price: variant ? variant.price : product.price,
                 image_url: (variant && variant.image_url) ? variant.image_url : product.image_url,
-                qty: 1,
+                qty: quantity,
                 variantId: variant?.id,
                 variantName: variant?.name
             };
             return [...prev, newEntry];
         });
 
-        showToast(`✨ ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
+        showToast(`✨ ${quantity}x ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
     }
 
     function updateQty(index, delta) {
@@ -454,81 +447,55 @@ export function ShopProvider({ children }) {
                 localStorage.setItem('cast_prince_user', JSON.stringify(currentCustomer));
             }
 
-            const { error: orderError } = await supabase.from('orders').insert({
-                id: orderId,
-                customer_id: customerId,
-                customer_phone: fullPhone,
-                customer_name: checkoutForm.billingName,
-                customer_email: checkoutForm.billingEmail || null,
-                delivery_address: fullShippingAddress,
-                billing_address: billingAddressObj,
-                shipping_address: shippingAddressObj,
-                billing_email: checkoutForm.billingEmail || null,
-                shipping_email: shippingEmail || null,
-                billing_phone: checkoutForm.billingPhone || null,
-                shipping_phone: shippingPhone || null,
-                shipping_state: shippingState,
-                shipping_cost: taxDetails.shipping,
-                shipping_zone_id: taxDetails.activeZone?.id,
-                status: checkoutForm.paymentMethod === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT',
-                total_amount: taxDetails.totalOrder,
-                tax_amount: (taxDetails.cgst || 0) + (taxDetails.sgst || 0) + (taxDetails.igst || 0),
-                cgst: taxDetails.cgst,
-                sgst: taxDetails.sgst,
-                igst: taxDetails.igst,
-                payment_method: checkoutForm.paymentMethod,
-                source: 'WEBSITE',
-                created_at: new Date()
+            // --- SECURE SERVER-SIDE ORDER CREATION ---
+            // We now call an API route instead of direct Supabase inserts to prevent price manipulation and race conditions.
+            const orderPayload = {
+                orderId,
+                customerId,
+                customerPhone: fullPhone,
+                customerName: checkoutForm.billingName,
+                customerEmail: checkoutForm.billingEmail,
+                shippingAddress: shippingAddressObj,
+                billingAddress: billingAddressObj,
+                paymentMethod: checkoutForm.paymentMethod,
+                cart: cart,
+                shippingCost: taxDetails.shipping,
+                shippingZoneId: taxDetails.activeZone?.id
+            };
+
+            const createRes = await fetch('/api/orders/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderPayload)
             });
 
-            if (orderError) throw orderError;
-
-            const items = cart.map(item => ({
-                order_id: orderId,
-                product_id: item.id,
-                product_name: item.name,
-                quantity: item.qty,
-                price_at_time: item.price,
-                variant_id: item.variantId || null,
-                variant_name: item.variantName || null
-            }));
-            await supabase.from('order_items').insert(items);
-
-            // Add initial PLACED log entry
-            await supabase.from('order_status_logs').insert({
-                order_id: orderId,
-                status: 'PLACED',
-                notes: 'Order placed from website',
-                created_at: new Date().toISOString()
-            });
-
-            // Deduct stock
-            for (const item of cart) {
-                if (item.variantId) {
-                    const { data: v } = await supabase.from('product_variants').select('stock').eq('id', item.variantId).single();
-                    if (v) {
-                        const newStock = Math.max(0, v.stock - item.qty);
-                        await supabase.from('product_variants').update({ stock: newStock }).eq('id', item.variantId);
-                        await supabase.from('product_history').insert({
-                            product_id: item.id, variant_id: item.variantId,
-                            change_type: 'SALE', quantity_change: -item.qty, new_stock: newStock,
-                            reason: `Website Order #${orderId}`
-                        });
-                    }
-                } else {
-                    const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
-                    if (prod) {
-                        const newStock = Math.max(0, prod.stock - item.qty);
-                        await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
-                        await supabase.from('product_history').insert({
-                            product_id: item.id,
-                            change_type: 'SALE', quantity_change: -item.qty, new_stock: newStock,
-                            reason: `Website Order #${orderId}`
-                        });
-                    }
-                }
-                await supabase.rpc('increment_total_sold', { prod_id: item.id, qty: item.qty });
+            const createData = await createRes.json();
+            if (!createRes.ok) {
+                throw new Error(createData.error || 'Failed to secure your order. Please try again.');
             }
+
+            // --- SYNC CUSTOMER PROFILE ---
+            if (user && user.id) {
+                try {
+                    await supabase.from('customers').update({
+                        name: checkoutForm.billingName || user.name,
+                        email: checkoutForm.billingEmail || user.email,
+                        phone: checkoutForm.billingPhone || user.phone,
+                        address: checkoutForm.shippingAddress || checkoutForm.billingAddress,
+                        city: checkoutForm.shippingCity || checkoutForm.billingCity,
+                        state: checkoutForm.shippingState || checkoutForm.billingState,
+                        pincode: checkoutForm.shippingPincode || checkoutForm.billingPincode,
+                        metadata: {
+                            ...(user.metadata || {}),
+                            last_billing_address: billingAddressObj,
+                            last_shipping_address: shippingAddressObj
+                        }
+                    }).eq('id', user.id);
+                } catch (syncErr) {
+                    console.error('[PROFILE-SYNC] Failed to update customer profile:', syncErr);
+                }
+            }
+            // --- END SYNC ---
 
             const finalOrderData = {
                 orderId,

@@ -302,9 +302,9 @@ export default function ProductsPage() {
                     const id = row.id || row.productid || row.itemid || null;
                     const name = row.name || row.productname || row.sareename || row.title || row.item || 'Untitled Product';
                     const priceVal = parseFloat(row.price || row.sellingprice || row.mrp || row.rate || row.amount);
-                    const price = isNaN(priceVal) ? 0 : priceVal;
+                    const price = Math.max(0, isNaN(priceVal) ? 0 : priceVal);
                     const stockVal = parseInt(row.stock || row.quantity || row.qty || row.inventory || row.available);
-                    const stock = isNaN(stockVal) ? 0 : stockVal;
+                    const stock = Math.max(0, isNaN(stockVal) ? 0 : stockVal);
                     const description = String(row.description || row.desc || row.details || row.about || row.info || '');
                     const category = String(row.category || row.collection || row.type || row.group || 'General');
 
@@ -327,8 +327,8 @@ export default function ProductsPage() {
                                 if (diff !== 0) {
                                     await supabase.from('product_history').insert({
                                         product_id: existingData.id,
-                                        change_type: 'ADJUSTMENT',
-                                        quantity_change: Math.abs(diff),
+                                        change_type: diff > 0 ? 'ADD' : 'ADJUSTMENT',
+                                        quantity_change: diff,
                                         new_stock: stock,
                                         reason: 'Excel Bulk Sync'
                                     });
@@ -338,9 +338,16 @@ export default function ProductsPage() {
                         }
                     }
 
-                    // No ID or not found -> New Draft
-                    newlyImportedProducts.push({ ...productData, isNew: true });
-                    insertCount++;
+                    // No ID or not found -> Insert as New Draft immediately
+                    const { data: newProd, error: insertError } = await supabase.from('products').insert({
+                        ...productData,
+                        is_active: false // Keep as draft until images assigned
+                    }).select().single();
+                    
+                    if (!insertError && newProd) {
+                        newlyImportedProducts.push(newProd);
+                        insertCount++;
+                    }
                 } catch (rowErr) {
                     console.error('Error processing a single row:', rowErr);
                 }
@@ -561,8 +568,8 @@ export default function ProductsPage() {
                     const variantsToInsert = variants.map(v => ({
                         product_id: savedProduct.id,
                         name: v.name,
-                        price: v.price,
-                        stock: v.stock,
+                        price: Math.max(0, parseFloat(v.price || '0')),
+                        stock: Math.max(0, parseInt(v.stock || '0')),
                         image_url: v.image_url
                     }));
                     await supabase.from('product_variants').insert(variantsToInsert);
@@ -2258,7 +2265,7 @@ export default function ProductsPage() {
                                                     alignItems: 'center',
                                                     gap: '8px',
                                                     zIndex: 10,
-                                                    fontFamily: 'monospace',
+                                                    fontFamily: 'var(--font-roboto)',
                                                     letterSpacing: '0.05em'
                                                 }}>
                                                     {watermarkModal.detectedCode}

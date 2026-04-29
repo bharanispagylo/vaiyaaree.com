@@ -132,13 +132,16 @@ async function generateInvoicePDF(order) {
         doc.setFontSize(10);
         doc.text(order.customer_name || 'Customer', margin, 96);
         doc.text(order.customer_phone || '', margin, 102);
+        let addrY = 108;
         if (order.customer_email) {
-            doc.text(order.customer_email, margin, 108);
+            doc.text(order.customer_email, margin, addrY);
+            addrY += 6;
         }
-        doc.text(order.delivery_address || order.billing_address || 'Address not provided', margin, 114);
+        const fullAddress = order.delivery_address || order.billing_address || 'Address not provided';
+        const addrLines = doc.splitTextToSize(fullAddress, 80);
+        doc.text(addrLines, margin, addrY);
 
-        // Items table header
-        let yPosition = 130;
+        let yPosition = Math.max(130, addrY + (addrLines.length * 5) + 10);
         doc.setFont(undefined, 'bold');
         doc.text('Description', margin, yPosition);
         doc.text('Qty', 100, yPosition);
@@ -236,7 +239,12 @@ export async function POST(request) {
             });
         }
 
-        // Get order details
+        // --- SECURITY: Auth & Ownership Check (Anti-IDOR) ---
+        // 1. Check if requester is an admin
+        const { verifyAdmin } = await import('@/lib/auth');
+        const adminAuth = await verifyAdmin(request);
+        
+        // 2. Fetch order details (needed for ownership check)
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .select('*, order_items(*)')
@@ -244,11 +252,24 @@ export async function POST(request) {
             .single();
 
         if (orderError || !order) {
-            return new Response(JSON.stringify({ error: 'Order not found' }), {
-                status: 404,
-                headers: { 'Content-Type': 'application/json' }
-            });
+            return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 });
         }
+
+        // 3. Ownership Verification
+        // If not admin, check if the request provides the correct phone number matching the order
+        if (!adminAuth.authorized) {
+            const { customerPhone } = await request.json().catch(() => ({}));
+            
+            // Normalize both for comparison
+            const orderPhone = (order.customer_phone || '').replace(/\D/g, '');
+            const inputPhone = (customerPhone || '').replace(/\D/g, '');
+
+            if (!inputPhone || !orderPhone.includes(inputPhone)) {
+                console.warn(`[INVOICE-SECURITY] Unauthorized attempt to access invoice for ${orderId}`);
+                return new Response(JSON.stringify({ error: 'Unauthorized. Please provide the correct phone number used during checkout.' }), { status: 403 });
+            }
+        }
+        // --- End Security Check ---
 
         // Generate PDF
         const doc = await generateInvoicePDF(order);

@@ -13,23 +13,48 @@ export default function AdminLayout({ children }) {
 
     useEffect(() => {
         setMounted(true);
-        const isAdmin = localStorage.getItem('cast_prince_admin');
-        const isLoginPage = pathname === '/admin/login';
-        const isForgotPasswordPage = pathname === '/admin/login/forgot-password';
+        const isAdminToken = localStorage.getItem('cast_prince_admin');
+        const isLoginPage = pathname === '/admin/login' || pathname === '/admin/login/forgot-password';
         
-        if (!isAdmin && !isLoginPage && !isForgotPasswordPage) {
-            router.push('/admin/login');
-        } else {
-            setIsAuthorized(true);
-        }
+        const checkAuth = async () => {
+            if (!isAdminToken) {
+                if (!isLoginPage) router.push('/admin/login');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/verify-session', {
+                    headers: { 'Authorization': `Bearer ${isAdminToken}` }
+                });
+                
+                if (res.ok) {
+                    setIsAuthorized(true);
+                } else {
+                    console.warn('[ADMIN-AUTH] Session invalid or expired');
+                    localStorage.removeItem('cast_prince_admin');
+                    if (!isLoginPage) router.push('/admin/login');
+                }
+            } catch (err) {
+                console.error('[ADMIN-AUTH] Check failed:', err);
+                // On network error, we might want to allow offline access if they were already auth'd,
+                // but for maximum security, we redirect.
+                if (!isLoginPage) router.push('/admin/login');
+            }
+        };
+
+        checkAuth();
         setSidebarOpen(false);
     }, [pathname, router]);
 
-    if (!mounted || !isAuthorized) return null;
+    if (!mounted) return null;
 
-    if (pathname === '/admin/login' || pathname === '/admin/login/forgot-password') {
+    const isLoginPage = pathname === '/admin/login' || pathname === '/admin/login/forgot-password';
+
+    if (isLoginPage) {
         return <>{children}</>;
     }
+
+    if (!isAuthorized) return null;
 
     return (
         <div className="admin-layout" style={{ fontFamily: 'var(--font-roboto)' }}>

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { notifyOrderSuccess } from '@/services/whatsappService';
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 // import { sendWhatsAppText } from '@/lib/whatsapp';
 
 import { getGatewaySettings } from '@/lib/settings';

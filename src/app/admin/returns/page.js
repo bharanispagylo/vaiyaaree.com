@@ -144,9 +144,8 @@ export default function AdminReturnsPage() {
                         // Check if a refund request already exists to avoid duplicates
                         const { data: existingRefund } = await supabase
                             .from('refunds')
-                            .select('id')
+                            .select('id, status')
                             .eq('order_id', selectedRequest.order_id)
-                            .eq('status', 'REQUESTED')
                             .maybeSingle();
                         
                         if (!existingRefund) {
@@ -162,6 +161,46 @@ export default function AdminReturnsPage() {
                     }
                 } catch (refundErr) {
                     console.error('[AUTO-REFUND-ERROR] Failed to create refund entry:', refundErr);
+                }
+
+                // 3b. Automatic Restocking (If not an EXCHANGE)
+                if (selectedRequest.request_type === 'RETURN') {
+                    try {
+                        const { data: requestItems } = await supabase
+                            .from('order_items')
+                            .select('product_id, variant_id, quantity')
+                            .eq('order_id', selectedRequest.order_id);
+
+                        if (requestItems) {
+                            for (const item of requestItems) {
+                                // Restore Product Stock
+                                const { data: p } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
+                                if (p) {
+                                    const newStock = (p.stock || 0) + item.quantity;
+                                    await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+                                    
+                                    // Log History
+                                    await supabase.from('product_history').insert({
+                                        product_id: item.product_id,
+                                        change_type: 'STOCK_IN',
+                                        quantity_change: item.quantity,
+                                        new_stock: newStock,
+                                        reason: `Return Completed (#${selectedRequest.order_id})`
+                                    });
+                                }
+
+                                // Restore Variant Stock if applicable
+                                if (item.variant_id) {
+                                    const { data: v } = await supabase.from('product_variants').select('stock').eq('id', item.variant_id).single();
+                                    if (v) {
+                                        await supabase.from('product_variants').update({ stock: v.stock + item.quantity }).eq('id', item.variant_id);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (restockErr) {
+                        console.error('[RESTOCK-ERROR] Failed to restore stock:', restockErr);
+                    }
                 }
             }
 

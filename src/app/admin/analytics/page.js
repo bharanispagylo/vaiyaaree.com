@@ -99,10 +99,14 @@ export default function AnalyticsHub() {
             trendData = Object.entries(trendMap).map(([label, value]) => ({ label, value }));
         }
 
-        // 3. Top Products (By Quantity)
+        // 3. Top Products (By Quantity) - Only from non-cancelled orders
         const prodSalesMap = {};
+        const validOrderIds = new Set(orders.filter(o => !['CANCELLED', 'REFUNDED'].includes(o.status)).map(o => o.id));
+        
         orderItems.forEach(item => {
-            prodSalesMap[item.product_name] = (prodSalesMap[item.product_name] || 0) + item.quantity;
+            if (validOrderIds.has(item.order_id)) {
+                prodSalesMap[item.product_name] = (prodSalesMap[item.product_name] || 0) + item.quantity;
+            }
         });
         const topProducts = Object.entries(prodSalesMap)
             .map(([name, sales]) => ({ name, sales }))

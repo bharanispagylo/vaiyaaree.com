@@ -19,22 +19,38 @@ export async function POST(req) {
             .maybeSingle();
 
         if (user) {
-            // User FOUND in table. Trust THIS result ONLY.
-            if (user.password === password) {
-                // Update last login
-                await supabase.from('admin_users').update({ last_login: new Date().toISOString() }).eq('username', username);
-                return NextResponse.json({ success: true, role: user.role || 'admin', source: 'db_users' });
+            const { verifyPassword, hashPassword } = require('@/lib/hash');
+            const isHashed = user.password && user.password.length === 64; // SHA-256 hex is 64 chars
+            
+            let isValid = false;
+            if (isHashed) {
+                isValid = verifyPassword(password, user.password);
             } else {
-                // Wrong password for the DB user
+                // Legacy plaintext check
+                isValid = user.password === password;
+                
+                // Lazy migration: hash the password for future use
+                if (isValid) {
+                    const newHash = hashPassword(password);
+                    await supabase.from('admin_users').update({ password: newHash }).eq('username', username);
+                    console.log(`[AUTH] Migrated user ${username} to hashed password.`);
+                }
+            }
+
+            if (isValid) {
+                const token = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
+                await supabase.from('admin_users').update({ last_login: new Date().toISOString() }).eq('username', username);
+                return NextResponse.json({ success: true, role: user.role || 'admin', token, source: 'db_users' });
+            } else {
                 return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
             }
         }
 
-        // 2. Fallback to settings mechanism (Only if user NOT found in admin_users table)
+        // 2. Fallback to settings mechanism
         const { admin_username, admin_password } = await getAdminSettings();
-
         if (username === admin_username && password === admin_password) {
-            return NextResponse.json({ success: true, role: 'admin', source: 'db_settings' });
+            const token = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
+            return NextResponse.json({ success: true, role: 'admin', token, source: 'db_settings' });
         }
 
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });

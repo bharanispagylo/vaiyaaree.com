@@ -1,6 +1,10 @@
 // API Route: Update Order Status + Send WhatsApp Notification
+import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
+import { notifyOrderSuccess } from '@/services/whatsappService';
 import { supabase } from '@/lib/supabaseClient';
 import { sendOrderStatusEmail } from '@/lib/emailService';
+import { verifyAdmin } from '@/lib/auth';
 
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
@@ -165,6 +169,15 @@ export async function POST(request) {
             trackingNumber,
             trackingUrl
         } = await request.json();
+
+        // 0. Authorization Check
+        const { authorized, error: authError } = await verifyAdmin(request);
+        if (!authorized) {
+            return new Response(JSON.stringify({ error: authError || 'Unauthorized' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
 
         if (!orderId || !status) {
             return new Response(JSON.stringify({ error: 'Missing orderId or status' }), {

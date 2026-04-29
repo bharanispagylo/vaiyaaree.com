@@ -120,75 +120,47 @@ function TrackContent() {
         const phone = order.customer_phone || user?.phone;
         if (!phone) return;
         
-        const otpValue = Math.floor(100000 + Math.random() * 900000).toString();
-        setGeneratedOtp(otpValue);
-        setOtpSent(true);
-        
         try {
-            await fetch('/api/whatsapp/send-otp', {
+            const res = await fetch('/api/whatsapp/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: phone, otp: otpValue, orderId: order.id })
+                body: JSON.stringify({ to: phone, orderId: order.id })
             });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to send OTP');
+            
+            setOtpSent(true);
             showToast('Verification code sent to WhatsApp', 'info');
         } catch (err) {
             console.error('Error sending OTP:', err);
-            showToast('Failed to send WhatsApp code', 'error');
+            showToast(err.message || 'Failed to send WhatsApp code', 'error');
         }
     }
 
     async function confirmCancel() {
-        if (!order || otp !== generatedOtp) {
-            showToast('Invalid verification code', 'error');
+        if (!order || !otp) {
+            showToast('Please enter the verification code', 'error');
             return;
         }
         
         setCancellingId(order.id);
-        setShowCancelModal(false);
         
         try {
-            // Restore stock
-            if (order.order_items) {
-                for (const item of order.order_items) {
-                    const table = item.variant_id ? 'product_variants' : 'products';
-                    const id = item.variant_id || item.product_id;
-                    const { data: current } = await supabase.from(table).select('stock').eq('id', id).single();
-                    if (current) {
-                        await supabase.from(table).update({ stock: current.stock + item.quantity }).eq('id', id);
-                    }
-                }
-            }
-            
-            // Update status
-            await supabase.from('orders').update({ 
-                status: 'CANCELLED',
-                admin_notes: `Order cancelled by customer via website on ${new Date().toLocaleString()}`
-            }).eq('id', order.id);
-            
-            // Logs
-            const logNote = 'Order cancelled by customer via website';
-            await supabase.from('order_status_logs').insert({ 
-                order_id: order.id, 
-                status: 'CANCELLED', 
-                notes: logNote, 
-                created_at: new Date().toISOString() 
+            const res = await fetch('/api/orders/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id, otp: otp })
             });
-            
-            // Refund entry
-            if (['PAID', 'AWAITING_PAYMENT'].includes(order.status)) {
-                await supabase.from('refunds').insert({
-                    order_id: order.id,
-                    amount: order.total_amount,
-                    status: 'REQUESTED',
-                    reason: logNote
-                });
-            }
-            
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Cancellation failed');
+
+            setShowCancelModal(false);
             showToast('Order cancelled successfully', 'success');
             fetchTrackingOrder(order.id);
         } catch (err) {
             console.error('Cancel Order Error:', err);
-            showToast('Failed to cancel order', 'error');
+            showToast(err.message || 'Failed to cancel order', 'error');
         } finally {
             setCancellingId(null);
         }
@@ -202,17 +174,38 @@ function TrackContent() {
         }
 
         try {
+            const isAllOrder = returnForm.productId === 'ALL_ORDER';
+            const payload = {
+                orderId: order.id,
+                customerId: user?.id || null, 
+                type: returnForm.type,
+                reason: returnForm.reason,
+                requestedFrom: 'website'
+            };
+
+            let itemsToTrack = [];
+
+            if (isAllOrder) {
+                const eligibleItems = order.order_items?.filter(item => {
+                    return !returnRequests.some(r => r.product_id === item.product_id && r.status !== 'REJECTED');
+                });
+                
+                if (!eligibleItems || eligibleItems.length === 0) {
+                    showToast('No items left to return/exchange.', 'error');
+                    return;
+                }
+                
+                payload.items = eligibleItems.map(item => ({ product_id: item.product_id }));
+                itemsToTrack = eligibleItems.map(item => ({ order_id: order.id, product_id: item.product_id, status: 'PENDING' }));
+            } else {
+                payload.productId = returnForm.productId;
+                itemsToTrack = [{ order_id: order.id, product_id: returnForm.productId, status: 'PENDING' }];
+            }
+
             const response = await fetch('/api/returns/submit', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orderId: order.id,
-                    productId: returnForm.productId,
-                    customerId: user?.id || null, 
-                    type: returnForm.type,
-                    reason: returnForm.reason,
-                    requestedFrom: 'website'
-                })
+                body: JSON.stringify(payload)
             });
 
             const result = await response.json();
@@ -221,7 +214,7 @@ function TrackContent() {
                 throw new Error(result.error || 'Failed to submit request');
             }
 
-            setReturnRequests(prev => [...prev, { order_id: order.id, product_id: returnForm.productId, status: 'PENDING' }]);
+            setReturnRequests(prev => [...prev, ...itemsToTrack]);
             showToast(`Your ${returnForm.type.toLowerCase()} request has been submitted successfully. Our team will review it and notify you.`, 'success');
             setShowReturnModal(false);
             setReturnForm({ type: 'RETURN', reason: '', productId: '' });
@@ -297,7 +290,12 @@ function TrackContent() {
 
                         {/* Order Actions - EXCLUSIVELY ON THIS PAGE NOW */}
                         <div className={styles.summaryActions}>
-                            <a href={`/api/invoice/${order.id}`} target="_blank" rel="noopener noreferrer" className={styles.actionBtn}>
+                            <a 
+                                href={`/api/invoice/${order.id}?phone=${order.customer_phone}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className={styles.actionBtn}
+                            >
                                 <Download size={18} /> Download Invoice
                             </a>
                             
@@ -413,6 +411,9 @@ function TrackContent() {
                         </div>
                         <div className={styles.modalBody}>
                             <p>Verify identity to cancel order <strong>#{order.id}</strong></p>
+                            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
+                                A verification code will be sent to <strong>{order.customer_phone?.replace(/(\d{2})(\d{6})(\d{4})/, '$1******$3') || 'your phone'}</strong>
+                            </p>
                             {!otpSent ? (
                                 <button onClick={sendOtp} className={styles.btnPrimary} style={{ width: '100%' }}>Send Verification Code</button>
                             ) : (
@@ -445,20 +446,28 @@ function TrackContent() {
                             <h3>Return or Exchange</h3>
                         </div>
                         <div className={styles.modalBody}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>Select Product</label>
-                            <select 
-                                className={styles.formSelect}
-                                value={returnForm.productId}
-                                onChange={(e) => setReturnForm({ ...returnForm, productId: e.target.value })}
-                            >
-                                <option value="" disabled>Select an item</option>
-                                {order.order_items?.filter(item => {
+                            {(() => {
+                                const eligibleItems = order.order_items?.filter(item => {
                                     return !returnRequests.some(r => r.product_id === item.product_id && r.status !== 'REJECTED');
-                                }).map((item, idx) => (
-                                    <option key={idx} value={item.product_id}>{item.product_name}</option>
-                                ))}
-                                {order.order_items?.length > 1 && <option value="ALL_ORDER">Return All Items</option>}
-                            </select>
+                                }) || [];
+
+                                return (
+                                    <>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>Select Product</label>
+                                        <select 
+                                            className={styles.formSelect}
+                                            value={returnForm.productId}
+                                            onChange={(e) => setReturnForm({ ...returnForm, productId: e.target.value })}
+                                        >
+                                            <option value="" disabled>Select an item</option>
+                                            {eligibleItems.map((item, idx) => (
+                                                <option key={idx} value={item.product_id}>{item.product_name}</option>
+                                            ))}
+                                            {eligibleItems.length > 1 && <option value="ALL_ORDER">Return All Items</option>}
+                                        </select>
+                                    </>
+                                );
+                            })()}
 
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>Request Type</label>
                             <select className={styles.formSelect} value={returnForm.type} onChange={(e) => setReturnForm({ ...returnForm, type: e.target.value })}>

@@ -338,64 +338,56 @@ async function clearCart(phone) {
 
 // Deduct stock for all items in an order
 async function deductStock(orderId) {
+    // SECURITY: Fetch order source first to prevent double-deduction
+    const { data: orderMeta } = await supabase.from('orders').select('source, status').eq('id', orderId).single();
+    if (orderMeta?.source === 'WEBSITE') {
+        console.log(`[STOCK] Skipping deduction for Order #${orderId} (Source: WEBSITE, already deducted)`);
+        return;
+    }
+
     const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
     if (items) {
         for (const item of items) {
-            if (item.variant_id) {
-                // Deduct from variant
-                const { data: variant } = await supabase.from('product_variants')
-                    .select('stock')
-                    .eq('id', item.variant_id)
-                    .single();
-                if (variant) {
-                    const newStock = Math.max(0, variant.stock - item.quantity);
-                    await supabase.from('product_variants').update({ stock: newStock }).eq('id', item.variant_id);
+            const id = item.variant_id || item.product_id;
+            const table = item.variant_id ? 'product_variants' : 'products';
 
-                    // LOG HISTORY
-                    await supabase.from('product_history').insert({
-                        product_id: item.product_id,
-                        variant_id: item.variant_id,
-                        change_type: 'SALE',
-                        quantity_change: -item.quantity,
-                        new_stock: newStock,
-                        reason: `Sold in Order #${orderId}`
-                    });
+            // 1. Fetch current stock and verify availability
+            const { data: current, error: fetchErr } = await supabase.from(table)
+                .select('stock, name, alert_threshold')
+                .eq('id', id)
+                .single();
 
-                    await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
+            if (fetchErr || !current) continue;
 
-                    // Check low stock alert
-                    const { data: fullVariant } = await supabase.from('product_variants').select('*, products(name, alert_threshold)').eq('id', item.variant_id).single();
-                    if (fullVariant && fullVariant.stock <= (fullVariant.products?.alert_threshold || 0)) {
-                        const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '15551678232';
-                        await sendText(adminPhone, `⚠️ *LOW STOCK ALERT*\n\nProduct: *${fullVariant.products.name}*\nVariant: *${fullVariant.name}*\nCurrent Stock: *${fullVariant.stock}*\nThreshold: *${fullVariant.products.alert_threshold}*`);
-                    }
-                }
-            } else {
-                // Deduct from main product
-                const { data: product } = await supabase.from('products')
-                    .select('name, stock, alert_threshold')
-                    .eq('id', item.product_id)
-                    .single();
-                if (product) {
-                    const newStock = Math.max(0, product.stock - item.quantity);
-                    await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+            // 2. Perform atomic-style update (Only if stock >= quantity)
+            const newStock = Math.max(0, current.stock - item.quantity);
+            const { error: updateErr } = await supabase.from(table)
+                .update({ stock: newStock })
+                .eq('id', id)
+                .gte('stock', item.quantity); // Atomic safety check
 
-                    // LOG HISTORY
-                    await supabase.from('product_history').insert({
-                        product_id: item.product_id,
-                        change_type: 'SALE',
-                        quantity_change: -item.quantity,
-                        new_stock: newStock,
-                        reason: `Sold in Order #${orderId}`
-                    });
+            if (!updateErr) {
+                // 3. Log History
+                await supabase.from('product_history').insert({
+                    product_id: item.product_id,
+                    variant_id: item.variant_id || null,
+                    change_type: 'SALE',
+                    quantity_change: -item.quantity,
+                    new_stock: newStock,
+                    reason: `Sold in Order #${orderId}`
+                });
 
-                    await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
+                await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
 
-                    // Check low stock alert
-                    if (newStock <= (product.alert_threshold || 0)) {
-                        const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '15551678232';
-                        await sendText(adminPhone, `⚠️ *LOW STOCK ALERT*\n\nProduct: *${product.name}*\nCurrent Stock: *${newStock}*\nThreshold: *${product.alert_threshold}*`);
-                    }
+                // 4. Low Stock Alert (with unified main/variant check)
+                const alertThreshold = (table === 'product_variants') 
+                    ? (await supabase.from('products').select('alert_threshold').eq('id', item.product_id).single()).data?.alert_threshold
+                    : current.alert_threshold;
+
+                if (newStock <= (alertThreshold || 0)) {
+                    const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '15551678232';
+                    const prodName = current.name || (item.variant_id ? 'Variant' : 'Product');
+                    await sendText(adminPhone, `⚠️ *LOW STOCK ALERT*\n\nProduct: *${prodName}*\nCurrent Stock: *${newStock}*\nThreshold: *${alertThreshold || 0}*`);
                 }
             }
         }
@@ -416,29 +408,46 @@ async function deductStock(orderId) {
 function getCatalogIdVariants(catalogId) {
     const code = catalogId.replace(/^CAT[-\s]?/i, '').toUpperCase();
     const CONFUSABLES = {
-        '1': ['I', 'L'], '0': ['O'], '5': ['S'], '8': ['B'],
-        'I': ['1'], 'O': ['0'], 'S': ['5'], 'B': ['8']
+        '1': ['I', 'L'], 'I': ['1', 'L'], 'L': ['1', 'I'],
+        '0': ['O'], 'O': ['0'],
+        '5': ['S'], 'S': ['5'],
+        '8': ['B'], 'B': ['8'],
+        '6': ['G'], 'G': ['6'],
+        'Z': ['2'], '2': ['Z']
     };
 
     const variants = new Set();
-    // Always try with CAT-, without, and with CAT (no dash)
-    variants.add(`CAT-${code}`);
-    variants.add(`CAT${code}`);
-    variants.add(code);
+    
+    // Recursive function to generate all permutations of confusable characters
+    function generatePermutations(currentStr, index) {
+        if (index === code.length) {
+            variants.add(currentStr);
+            variants.add(`CAT-${currentStr}`);
+            variants.add(`CAT${currentStr}`);
+            return;
+        }
 
-    for (let i = 0; i < code.length; i++) {
-        const alts = CONFUSABLES[code[i]];
-        if (alts) {
-            alts.forEach(a => {
-                const altCode = `${code.slice(0, i)}${a}${code.slice(i + 1)}`;
-                variants.add(`CAT-${altCode}`);
-                variants.add(`CAT${altCode}`);
-                variants.add(altCode);
-            });
+        const char = code[index];
+        const options = [char, ...(CONFUSABLES[char] || [])];
+
+        for (const opt of options) {
+            generatePermutations(currentStr + opt, index + 1);
         }
     }
+
+    // Safety: Only recurse if the code isn't excessively long to avoid memory issues
+    if (code.length <= 10) {
+        generatePermutations('', 0);
+    } else {
+        // Fallback for long codes: just add base and basic dash variants
+        variants.add(code);
+        variants.add(`CAT-${code}`);
+        variants.add(`CAT${code}`);
+    }
+
     return [...variants];
 }
+
 
 export async function handleProductInquiry(to, catalogId) {
     try {
@@ -867,6 +876,7 @@ export async function startCheckout(to) {
         status: "DRAFT",
         subtotal: subtotal,
         total_amount: subtotal,
+        source: 'WHATSAPP',
         created_at: new Date()
     });
 
@@ -1312,22 +1322,27 @@ export async function finalizeOrder(to, method, orderId) {
 
 // Called when UPI customer confirms payment
 export async function handlePaymentConfirmed(to, orderId) {
-    // Mark order as PAID
-    await supabase.from('orders').update({ status: 'PAID' }).eq('id', orderId);
+    // SECURITY: Mark order as PENDING_VERIFICATION instead of PAID
+    // This prevents fraud where users click "I Have Paid" without paying.
+    await supabase.from('orders').update({ status: 'PENDING_VERIFICATION' }).eq('id', orderId);
 
-    // Add PAID log entry
+    // Add Log entry
     await supabase.from('order_status_logs').insert({
         order_id: orderId,
-        status: 'PAID',
-        notes: 'Payment confirmed via WhatsApp (UPI)',
+        status: 'PENDING_VERIFICATION',
+        notes: 'Customer clicked "I Have Paid" on WhatsApp. Awaiting admin verification of UPI payment.',
         created_at: new Date().toISOString()
     });
 
-    await clearCart(customerId || to);
-    await deductStock(orderId);
+    // Notify Admin to check payment
+    const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '15551678232';
+    await sendText(adminPhone, `🔔 *PAYMENT VERIFICATION NEEDED*\n\nOrder: *#${orderId}*\nCustomer: ${to}\nStatus: Customer claims they have paid via UPI.\n\nPlease check your bank/UPI app and update order status.`);
 
-    // Unify logic by calling notifyOrderSuccess
-    return await notifyOrderSuccess(orderId, true);
+    await clearCart(to);
+    // Note: Stock is NOT deducted yet for unverified UPI to prevent "locking" stock with fake payments.
+    // Stock will be deducted when admin marks it as PAID.
+
+    return await sendText(to, "✅ *Payment Notification Received*\n\nThank you! We are verifying your payment. Once confirmed, you will receive your official invoice and tracking details.\n\nOrder ID: *#" + orderId + "*");
 }
 export async function handleCancelOrder(to, customerId) {
     // Normalize phone number to handle both formats (with/without country code)
@@ -1472,6 +1487,16 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
                     await supabase.from('product_variants')
                         .update({ stock: newStock })
                         .eq('id', item.variant_id);
+
+                    // Add to ledger
+                    await supabase.from('product_history').insert({
+                        product_id: item.product_id,
+                        variant_id: item.variant_id,
+                        change_type: 'STOCK_IN',
+                        quantity_change: item.quantity,
+                        new_stock: newStock,
+                        reason: `Order #${upperOrderId} Cancelled (WhatsApp)`
+                    });
                 }
             } else {
                 // Get current product stock
@@ -1484,6 +1509,15 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
                     await supabase.from('products')
                         .update({ stock: newStock })
                         .eq('id', item.product_id);
+                    
+                    // Add to ledger
+                    await supabase.from('product_history').insert({
+                        product_id: item.product_id,
+                        change_type: 'STOCK_IN',
+                        quantity_change: item.quantity,
+                        new_stock: newStock,
+                        reason: `Order #${upperOrderId} Cancelled (WhatsApp)`
+                    });
                 }
             }
         }
@@ -2238,9 +2272,11 @@ export async function processIncomingMessage(body) {
 
             if (matchedOrderId) {
                 console.log(`[WA] Detected order ID: ${matchedOrderId}`);
-                const { data: o } = await supabaseAdmin.from('orders').select('status').eq('id', matchedOrderId).single();
-                if (o?.status === 'DELIVERED') return await processReturnExchangeOrder(customer.id, matchedOrderId, from);
-                return await processCancelOrder(from, matchedOrderId);
+                const { data: o } = await supabaseAdmin.from('orders').select('status').eq('id', matchedOrderId).maybeSingle();
+                if (o) {
+                    if (o.status === 'DELIVERED') return await processReturnExchangeOrder(customer.id, matchedOrderId, from);
+                    return await processCancelOrder(from, matchedOrderId);
+                }
             }
 
             // Handle YES confirmation for cancellation

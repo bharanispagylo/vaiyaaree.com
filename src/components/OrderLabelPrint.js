@@ -65,7 +65,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                                         <div style={{ fontSize: '7.5pt', fontWeight: 800, color: '#444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '1mm' }}>
                                             Order ID :
                                         </div>
-                                        <div style={{ fontSize: '14pt', fontWeight: 900, color: '#000', fontFamily: 'monospace', lineHeight: 1 }}>
+                                        <div style={{ fontSize: '14pt', fontWeight: 900, color: '#000', fontFamily: 'var(--font-roboto)', lineHeight: 1 }}>
                                             #{order.id?.toString().slice(-8)}
                                         </div>
                                     </div>
@@ -135,7 +135,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                     min-height: 100vh;
                     padding: 24px;
                     box-sizing: border-box;
-                    font-family: Arial, Helvetica, sans-serif;
+                    font-family: var(--font-roboto), sans-serif;
                 }
 
                 .print-page {
@@ -204,7 +204,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                     font-size: 7.5pt;
                     font-weight: 700;
                     color: #444;
-                    font-family: monospace;
+                    font-family: var(--font-roboto);
                 }
 
                 /* Sections */
@@ -309,7 +309,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                     font-size: 9pt;
                     font-weight: 900;
                     color: #000;
-                    font-family: monospace;
+                    font-family: var(--font-roboto);
                     letter-spacing: 0.5px;
                     white-space: nowrap;
                     overflow: hidden;

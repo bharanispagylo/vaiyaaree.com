@@ -29,6 +29,8 @@ export async function POST(req) {
 
         if (dbError || !otpData) {
             console.warn(`[AUTH] Failed verification for ${cleanPhone}: Incorrect or expired code.`);
+            // SECURITY: Artificial delay to prevent brute-force (slow down bots)
+            await new Promise(resolve => setTimeout(resolve, 2000));
             return NextResponse.json({ error: 'Invalid or expired verification code' }, { status: 401 });
         }
 

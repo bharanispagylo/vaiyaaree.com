@@ -14,7 +14,40 @@ export async function processReturnRequest({ orderId, items, productId, customer
     console.log(`[RETURN-SERVICE] Processing ${type} for Order ${orderId} (Source: ${requestedFrom})`);
     
     try {
-        // 1. Fetch existing requests for idempotency check
+        // 1. Fetch Order and Delivery Status (Policy Enforcement)
+        const { data: order, error: orderError } = await supabaseAdmin
+            .from('orders')
+            .select('status, created_at')
+            .eq('id', orderId)
+            .single();
+
+        if (orderError || !order) {
+            return { success: false, error: 'Order not found' };
+        }
+
+        if (order.status !== 'DELIVERED') {
+            return { success: false, error: `Cannot request ${type.toLowerCase()} for an order that is not DELIVERED.` };
+        }
+
+        // 2. Check 10-day eligibility on server
+        const { data: deliveryLog } = await supabaseAdmin
+            .from('order_status_logs')
+            .select('created_at')
+            .eq('order_id', orderId)
+            .eq('status', 'DELIVERED')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        const deliveryDate = deliveryLog ? new Date(deliveryLog.created_at) : new Date(order.created_at);
+        const tenDaysAgo = new Date();
+        tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+        if (deliveryDate < tenDaysAgo) {
+            return { success: false, error: 'Return window (10 days) has expired for this order.' };
+        }
+
+        // 3. Fetch existing requests for idempotency check
         const { data: existingRequests, error: checkError } = await supabaseAdmin
             .from('return_requests')
             .select('id, product_id')

@@ -66,9 +66,7 @@ export default function ProductDetailsPage() {
 
     const handleAddToCart = () => {
         if (!product) return;
-        for (let i = 0; i < qty; i++) {
-            addToCart(product, selectedVariant);
-        }
+        addToCart(product, selectedVariant, qty);
     };
 
     if (loading) return <div className={styles.loading}>Loading product details...</div>;

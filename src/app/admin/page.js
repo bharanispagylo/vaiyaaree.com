@@ -32,7 +32,7 @@ export default function AdminDashboard() {
                     customerRes
                 ] = await Promise.all([
                     supabase.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'DRAFT'),
-                    supabase.from('orders').select('total_amount').neq('status', 'DRAFT').not('status', 'in', '("CANCELLED","REFUNDED")'),
+                    supabase.from('orders').select('total_amount').neq('status', 'DRAFT').neq('status', 'CANCELLED').neq('status', 'REFUNDED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'PLACED', 'AWAITING_PAYMENT', 'AWAITING PAYMENT', 'awaiting_payment']),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'SHIPPED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'DELIVERED'),
@@ -40,7 +40,7 @@ export default function AdminDashboard() {
                     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'CANCELLED'),
                     supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today),
                     supabase.from('products').select('id, name, stock, image_url, price, alert_threshold').order('stock', { ascending: true }),
-                    supabase.from('order_items').select('product_name, quantity, price_at_time').limit(2000),
+                    supabase.from('order_items').select('product_name, quantity, price_at_time, order_id').limit(2000),
                     supabase.from('orders').select('customer_phone', { count: 'exact', head: true })
                 ]);
 
@@ -63,7 +63,10 @@ export default function AdminDashboard() {
 
                 if (orderItemsData.length > 0) {
                     const productSales = {};
+                    const validOrderIds = new Set((activeRes.data || []).map(o => o.id)); // activeRes already filters out CANCELLED/REFUNDED
+
                     orderItemsData.forEach(item => {
+                        if (!validOrderIds.has(item.order_id)) return;
                         const key = item.product_name;
                         if (!key) return;
                         if (!productSales[key]) {
@@ -95,7 +98,8 @@ export default function AdminDashboard() {
                     pending: pendingRes.count || 0,
                     shipped: shippedRes.count || 0,
                     delivered: deliveredRes.count || 0,
-                    todayOrders: todayRes.count || 0
+                    todayOrders: todayRes.count || 0,
+                    whatsappOrders: recentOrdersRes.data?.filter(o => o.source === 'WHATSAPP').length || 0
                 };
 
                 setStats(newStats);

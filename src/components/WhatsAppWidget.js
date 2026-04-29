@@ -58,7 +58,8 @@ export default function WhatsAppWidget() {
                     maxWidth: '220px',
                     position: 'relative',
                     animation: 'fadeInSlide 0.4s ease-out',
-                    border: '1px solid #f0f0f0'
+                    border: '1px solid #f0f0f0',
+                    fontFamily: 'var(--font-roboto)'
                 }}>
                     <button 
                         onClick={() => setShowTooltip(false)}

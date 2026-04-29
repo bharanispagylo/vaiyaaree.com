@@ -305,6 +305,21 @@ export async function GET(request, { params }) {
             return new Response('Order not found', { status: 404 });
         }
 
+        // --- SECURITY: Phone Verification ---
+        const url = new URL(request.url);
+        const inputPhone = url.searchParams.get('phone');
+        const authHeader = request.headers.get('Authorization');
+        
+        // Allow if it's an admin (has token) OR if the phone matches
+        const isAdmin = authHeader && authHeader.includes(process.env.ADMIN_API_SECRET || 'fallback_secret');
+        const orderPhone = (order.customer_phone || '').replace(/\D/g, '');
+        const normalizedInput = (inputPhone || '').replace(/\D/g, '');
+
+        if (!isAdmin && (!normalizedInput || !orderPhone.includes(normalizedInput))) {
+            return new Response('Unauthorized. Please provide the correct phone number associated with this order.', { status: 401 });
+        }
+        // --- End Security ---
+
         let settings = {
             shop_name: 'Cast Printz',
             shop_phone: '7558189732',
