@@ -500,6 +500,7 @@ export function ShopProvider({ children }) {
             const finalOrderData = {
                 orderId,
                 billingName: checkoutForm.billingName,
+                billingPhone: checkoutForm.billingPhone,
                 customerName: checkoutForm.billingName,
                 total: taxDetails.totalOrder,
                 subtotal: taxDetails.subtotal || (taxDetails.totalOrder - taxDetails.shipping - ((taxDetails.cgst || 0) + (taxDetails.sgst || 0) + (taxDetails.igst || 0))),

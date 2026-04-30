@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search, Grid, List, Filter, ArrowUpDown, X, Check, ShoppingCart, SlidersHorizontal, ChevronDown, Package, Clock, Tag, MessageCircle, Truck, User, LogOut, MapPin } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
@@ -29,9 +29,15 @@ export default function ShopPage() {
     const ITEMS_PER_PAGE = 12;
 
     // Reset pagination to page 1 whenever any filter changes
-    useMemo(() => {
+    useEffect(() => {
         setCurrentPage(1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [selectedCategory, selectedBrand, selectedType, searchQuery, priceRange, showInStockOnly, sortBy]);
+
+    // Scroll to top when page changes
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentPage]);
 
     // ── OPTIONS ──
     const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);

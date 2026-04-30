@@ -387,9 +387,37 @@ function TrackContent() {
                                     </div>
                                 )}
                             </div>
-                            <div className={styles.totalRow}>
-                                <span>Grand Total</span>
-                                <span>₹{(order.total_amount || 0).toLocaleString()}.00</span>
+                            <div className={styles.summaryBreakdown}>
+                                <div className={styles.summaryLine}>
+                                    <span>Subtotal</span>
+                                    <span>₹{(order.total_amount - (order.cgst || 0) - (order.sgst || 0) - (order.igst || 0) - (order.shipping_cost || 0)).toLocaleString('en-IN')}.00</span>
+                                </div>
+                                {order.cgst > 0 && (
+                                    <div className={styles.summaryLine}>
+                                        <span>CGST (2.5%)</span>
+                                        <span>₹{order.cgst.toLocaleString('en-IN')}.00</span>
+                                    </div>
+                                )}
+                                {order.sgst > 0 && (
+                                    <div className={styles.summaryLine}>
+                                        <span>SGST (2.5%)</span>
+                                        <span>₹{order.sgst.toLocaleString('en-IN')}.00</span>
+                                    </div>
+                                )}
+                                {order.igst > 0 && (
+                                    <div className={styles.summaryLine}>
+                                        <span>IGST (5%)</span>
+                                        <span>₹{order.igst.toLocaleString('en-IN')}.00</span>
+                                    </div>
+                                )}
+                                <div className={styles.summaryLine}>
+                                    <span>Shipping</span>
+                                    <span>{order.shipping_cost > 0 ? `₹${order.shipping_cost.toLocaleString('en-IN')}.00` : 'FREE'}</span>
+                                </div>
+                                <div className={styles.totalRow}>
+                                    <span>Grand Total</span>
+                                    <span>₹{(order.total_amount || 0).toLocaleString('en-IN')}.00</span>
+                                </div>
                             </div>
                         </div>
                     </div>

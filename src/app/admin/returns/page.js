@@ -26,6 +26,10 @@ export default function AdminReturnsPage() {
     const [returnsPage, setReturnsPage] = useState(1);
     const ITEMS_PER_PAGE = 20;
 
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [returnsPage]);
+
     // Fetch returns
     useEffect(() => {
         fetchReturns();

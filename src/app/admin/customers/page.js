@@ -39,6 +39,10 @@ function CustomersPage() {
     const [customersPage, setCustomersPage] = useState(1);
     const CUSTOMERS_PER_PAGE = 20;
 
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [customersPage]);
+
 
 
     useEffect(() => {

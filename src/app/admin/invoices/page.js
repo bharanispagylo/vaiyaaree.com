@@ -14,6 +14,10 @@ export default function InvoicesPage() {
     const [notification, setNotification] = useState(null);
     const [invoicePage, setInvoicePage] = useState(1);
     const INVOICES_PER_PAGE = 20;
+
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [invoicePage]);
     const [settings, setSettings] = useState({
         shop_name: 'Cast Printz',
         shop_logo: '',

@@ -315,8 +315,8 @@ export async function GET(request, { params }) {
         const orderPhone = (order.customer_phone || '').replace(/\D/g, '');
         const normalizedInput = (inputPhone || '').replace(/\D/g, '');
 
-        if (!isAdmin && (!normalizedInput || !orderPhone.includes(normalizedInput))) {
-            return new Response('Unauthorized. Please provide the correct phone number associated with this order.', { status: 401 });
+        if (!isAdmin && (!inputPhone || (!orderPhone.includes(normalizedInput) && !normalizedInput.includes(orderPhone)))) {
+            return new Response(`Unauthorized. Please provide the correct phone number associated with this order. (Received: ${inputPhone || 'none'})`, { status: 401 });
         }
         // --- End Security ---
 

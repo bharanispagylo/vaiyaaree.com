@@ -132,6 +132,10 @@ export default function OrdersPage() {
     const [productSearch, setProductSearch] = useState('');
     const [ordersPage, setOrdersPage] = useState(1);
     const ORDERS_PER_PAGE = 20;
+
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [ordersPage]);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'analytics'
     const [analyticsData, setAnalyticsData] = useState({
         revenueTrend: [],

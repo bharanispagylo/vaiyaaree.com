@@ -79,6 +79,10 @@ export default function ProductsPage() {
     const [importedProductsForImage, setImportedProductsForImage] = useState(null);
     const [productsPage, setProductsPage] = useState(1);
     const PRODUCTS_PER_PAGE = 10;
+
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [productsPage]);
     const [selectedProductIds, setSelectedProductIds] = useState([]);
 
     const fetchHistory = async (product) => {

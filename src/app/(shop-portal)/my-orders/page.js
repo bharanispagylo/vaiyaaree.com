@@ -67,6 +67,10 @@ export default function MyOrdersPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const ORDERS_PER_PAGE = 8;
 
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentPage]);
+
     const filteredOrders = orders.filter(o => 
         o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.status.toLowerCase().includes(searchTerm.toLowerCase())

@@ -13,17 +13,7 @@ export default function CheckoutPage() {
     const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, placeOrder, supabase, showToast } = useShop();
     const [placing, setPlacing] = useState(false);
     const [orderData, setOrderData] = useState(null);
-    const [invoiceUrl, setInvoiceUrl] = useState(null);
-    const [polling, setPolling] = useState(false);
 
-    // The invoice is now dynamically generated via the API route natively without needing to wait
-    // for an external worker to upload to supabase. We can just link directly to it.
-    useEffect(() => {
-        if (orderData?.orderId) {
-            setInvoiceUrl(`/api/invoice/${orderData.orderId}`);
-            setPolling(false);
-        }
-    }, [orderData?.orderId, invoiceUrl, supabase]);
 
     // Sync shipping with billing when sameAsBilling is checked
     useEffect(() => {
@@ -190,12 +180,10 @@ export default function CheckoutPage() {
                                     <span>Subtotal</span>
                                     <span>₹{orderData.subtotal?.toLocaleString() || (orderData.total - orderData.shipping - ((orderData.cgst || 0) + (orderData.sgst || 0) + (orderData.igst || 0))).toLocaleString()}</span>
                                 </div>
-                                {orderData.shipping > 0 && (
-                                    <div className={styles.successTaxRow}>
-                                        <span>Shipping</span>
-                                        <span>₹{orderData.shipping.toLocaleString()}</span>
-                                    </div>
-                                )}
+                                <div className={styles.successTaxRow}>
+                                    <span>Shipping</span>
+                                    <span>{orderData.shipping > 0 ? `₹${orderData.shipping.toLocaleString()}` : 'FREE'}</span>
+                                </div>
                                 {orderData.cgst > 0 && (
                                     <div className={styles.successTaxRow}>
                                         <span>CGST (2.5%)</span>
@@ -228,12 +216,11 @@ export default function CheckoutPage() {
                         </button>
 
                         <a
-                            href={invoiceUrl || '#'}
-                            target={invoiceUrl ? "_blank" : "_self"}
-                            className={`${styles.downloadBtn} ${!invoiceUrl ? styles.disabled : ''}`}
-                            onClick={(e) => !invoiceUrl && e.preventDefault()}
+                            href={`/api/invoice/${orderData.orderId}?phone=${orderData.billingPhone || orderData.customerPhone || ''}`}
+                            target="_blank"
+                            className={styles.downloadBtn}
                         >
-                            <Download size={18} /> {invoiceUrl ? 'Download Bill' : (polling ? 'Generating Bill...' : 'Download Bill')}
+                            <Download size={18} /> Download Bill
                         </a>
                     </div>
 

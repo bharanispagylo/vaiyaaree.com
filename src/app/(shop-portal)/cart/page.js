@@ -46,7 +46,15 @@ export default function CartPage() {
                         {cart.map((item, idx) => (
                             <div key={idx} className={styles.cartItem}>
                                 <div className={styles.productCell}>
-                                    <img src={item.image_url?.split(',')[0]} className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder} alt={item.name} />
+                                    <img 
+                                        src={item.image_url?.split(',')[0]} 
+                                        className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder} 
+                                        alt={item.name} 
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = 'https://placehold.co/100x125?text=No+Image';
+                                        }}
+                                    />
                                     <div className={styles.itemName}>
                                         {item.name}
                                         {item.variantName && <span className={styles.variantName}>({item.variantName})</span>}

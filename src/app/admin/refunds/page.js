@@ -27,6 +27,10 @@ export default function RefundsPage() {
     const [refundsPage, setRefundsPage] = useState(1);
     const REFUNDS_PER_PAGE = 20;
 
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [refundsPage]);
+
     // Fetch refunds and setup real-time subscription
     useEffect(() => {
         fetchRefunds();

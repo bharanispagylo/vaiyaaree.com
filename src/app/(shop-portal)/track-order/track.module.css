@@ -301,12 +301,28 @@
     color: hsl(var(--text-main));
 }
 
+.summaryBreakdown {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid hsl(var(--text-main) / 0.1);
+}
+
+.summaryLine {
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 0.75rem;
+    font-size: 0.95rem;
+    color: hsl(var(--text-muted));
+}
+
 .totalRow {
     display: flex;
     justify-content: space-between;
-    margin-top: 1.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed hsl(var(--text-main) / 0.1);
     font-weight: 800;
-    font-size: 1.1rem;
+    font-size: 1.25rem;
     color: hsl(var(--text-main));
 }
 
