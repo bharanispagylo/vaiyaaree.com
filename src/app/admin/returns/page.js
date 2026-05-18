@@ -8,7 +8,7 @@ import {
     ArrowLeft, RefreshCcw, Clock, CheckCircle, XCircle, AlertCircle, 
     Package, User, Phone, Calendar, Search, Filter,
     ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink, 
-    RotateCcw, DollarSign, ShoppingCart, TrendingUp
+    RotateCcw, DollarSign, ShoppingCart, TrendingUp, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 export default function AdminReturnsPage() {
@@ -24,17 +24,89 @@ export default function AdminReturnsPage() {
     const [processNote, setProcessNote] = useState('');
     const [notification, setNotification] = useState(null);
     const [returnsPage, setReturnsPage] = useState(1);
-    const ITEMS_PER_PAGE = 20;
+    const [totalCount, setTotalCount] = useState(0);
+    const [statusCounts, setStatusCounts] = useState({
+        total: 0,
+        pending: 0,
+        approved: 0,
+        completed: 0
+    });
+    const ITEMS_PER_PAGE = 10;
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [returnsPage]);
 
-    // Fetch returns
+    const fetchStatusCounts = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('return_requests')
+                .select('status');
+            if (error) throw error;
+            const list = data || [];
+            setStatusCounts({
+                total: list.length,
+                pending: list.filter(r => r.status === 'PENDING').length,
+                approved: list.filter(r => r.status === 'APPROVED').length,
+                completed: list.filter(r => r.status === 'COMPLETED').length
+            });
+        } catch (err) {
+            console.error('Error fetching return status counts:', err);
+        }
+    };
+
+    const fetchReturns = async () => {
+        setLoading(true);
+        try {
+            const from = (returnsPage - 1) * ITEMS_PER_PAGE;
+            const to = returnsPage * ITEMS_PER_PAGE - 1;
+
+            let query = supabase
+                .from('return_requests')
+                .select(`
+                    id, order_id, request_type, reason, status, admin_notes, created_at,
+                    products (id, name, image_url),
+                    customers (id, name, phone, email)
+                `, { count: 'exact' });
+
+            if (statusFilter !== 'ALL') {
+                query = query.eq('status', statusFilter);
+            }
+
+            if (requestTypeFilter !== 'ALL') {
+                query = query.eq('request_type', requestTypeFilter);
+            }
+
+            if (searchTerm.trim()) {
+                const term = searchTerm.trim();
+                if (!isNaN(term)) {
+                    query = query.eq('order_id', parseInt(term));
+                } else {
+                    query = query.or(`reason.ilike.%${term}%,admin_notes.ilike.%${term}%`);
+                }
+            }
+
+            const { data, count, error } = await query
+                .order('created_at', { ascending: false })
+                .range(from, to);
+
+            if (error) throw error;
+            setReturns(data || []);
+            setTotalCount(count || 0);
+
+            fetchStatusCounts();
+        } catch (err) {
+            console.error('Error fetching returns:', err);
+            showNotification('Failed to load data', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Fetch returns on changes
     useEffect(() => {
         fetchReturns();
-        
-        // Real-time subscriptions for returns table
+
         const returnsChannel = supabase
             .channel('returns_realtime')
             .on('postgres_changes', { 
@@ -49,29 +121,7 @@ export default function AdminReturnsPage() {
         return () => {
             supabase.removeChannel(returnsChannel);
         };
-    }, []);
-
-    const fetchReturns = async () => {
-        setLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('return_requests')
-                .select(`
-                    id, order_id, request_type, reason, status, admin_notes, created_at,
-                    products (id, name, image_url),
-                    customers (id, name, phone, email)
-                `)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setReturns(data || []);
-        } catch (err) {
-            console.error('Error fetching returns:', err);
-            showNotification('Failed to load data', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [returnsPage, searchTerm, statusFilter, requestTypeFilter]);
 
     const showNotification = (message, type = 'success') => {
         setNotification({ message, type });
@@ -237,22 +287,14 @@ export default function AdminReturnsPage() {
     };
 
     // Filter functions
-    const filteredReturns = returns.filter(r => {
-        const matchesSearch = 
-            r.customers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            r.customers?.phone?.includes(searchTerm) ||
-            r.order_id?.toString().includes(searchTerm);
-        const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
-        const matchesType = requestTypeFilter === 'ALL' || r.request_type === requestTypeFilter;
-        return matchesSearch && matchesStatus && matchesType;
-    });
+    const filteredReturns = returns;
+    const paginatedReturns = returns;
+    const totalReturnPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-    // Pagination
-    const totalReturnPages = Math.ceil(filteredReturns.length / ITEMS_PER_PAGE);
-    const paginatedReturns = filteredReturns.slice((returnsPage - 1) * ITEMS_PER_PAGE, returnsPage * ITEMS_PER_PAGE);
-
-    // Reset to page 1 on search or filter
-    useEffect(() => { setReturnsPage(1); }, [searchTerm, statusFilter, requestTypeFilter]);
+    // Reset to page 1 on search or filter changes
+    useEffect(() => {
+        setReturnsPage(1);
+    }, [searchTerm, statusFilter, requestTypeFilter]);
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
@@ -295,10 +337,10 @@ export default function AdminReturnsPage() {
             {/* Stats */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
                 {[
-                    { label: 'Total Returns', value: returns.length, icon: RotateCcw, color: '#6b7280' },
-                    { label: 'Pending Returns', value: returns.filter(r => r.status === 'PENDING').length, icon: Clock, color: '#d97706' },
-                    { label: 'Approved Returns', value: returns.filter(r => r.status === 'APPROVED').length, icon: CheckCircle, color: '#2563eb' },
-                    { label: 'Completed Returns', value: returns.filter(r => r.status === 'COMPLETED').length, icon: CheckCircle, color: '#059669' }
+                    { label: 'Total Returns', value: statusCounts.total, icon: RotateCcw, color: '#6b7280' },
+                    { label: 'Pending Returns', value: statusCounts.pending, icon: Clock, color: '#d97706' },
+                    { label: 'Approved Returns', value: statusCounts.approved, icon: CheckCircle, color: '#2563eb' },
+                    { label: 'Completed Returns', value: statusCounts.completed, icon: CheckCircle, color: '#059669' }
                 ].map((stat, i) => (
                     <div key={i} style={{
                         padding: '1.5rem', background: 'hsl(var(--bg-card))', borderRadius: '12px',

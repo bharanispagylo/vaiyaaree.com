@@ -37,7 +37,15 @@ function CustomersPage() {
     const [editedOrderData, setEditedOrderData] = useState({ total_amount: 0, payment_method: '', status: '' });
     const [filterMode, setFilterMode] = useState('ALL'); // ALL, ORDERED, UNORDERED
     const [customersPage, setCustomersPage] = useState(1);
-    const CUSTOMERS_PER_PAGE = 20;
+    const [totalCount, setTotalCount] = useState(0);
+    const [stats, setStats] = useState({
+        totalCustomers: 0,
+        averageSpend: 0,
+        repeatCustomers: 0,
+        orderedCustomers: 0,
+        unorderedCustomers: 0
+    });
+    const CUSTOMERS_PER_PAGE = 10;
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -46,14 +54,7 @@ function CustomersPage() {
 
 
     useEffect(() => {
-
         setHasMounted(true);
-
-
-
-
-
-        fetchCustomers();
 
         const handleReset = () => {
             setSelectedCustomer(null);
@@ -61,47 +62,78 @@ function CustomersPage() {
             setEditingOrderId(null);
         };
         window.addEventListener('resetAdminView', handleReset);
-
         return () => window.removeEventListener('resetAdminView', handleReset);
+    }, []);
 
-    }, [timeRange]); // Re-fetch on time range change
-    
+    // Fetch customers on changes
+    useEffect(() => {
+        fetchCustomers();
+    }, [customersPage, searchTerm, filterMode]);
+
+    // Fetch analytics in background when analytics view mode is entered or timeRange changes
+    useEffect(() => {
+        if (viewMode === 'analytics') {
+            fetchAnalyticsData();
+        }
+    }, [viewMode, timeRange]);
+
     // Reset to page 1 when filters or search change
-    useEffect(() => { setCustomersPage(1); }, [searchTerm, filterMode]);
+    useEffect(() => {
+        setCustomersPage(1);
+    }, [searchTerm, filterMode]);
 
 
 
-    const fetchCustomers = async () => {
-        setLoading(true);
+    const fetchOverallStats = async () => {
         try {
-            // 1. Fetch all customers
-            const { data: allCustomers, error: custError } = await supabase
-                .from('customers')
-                .select('*')
-                .order('created_at', { ascending: false });
+            const { count: totalCust, data: custPhones } = await supabase.from('customers').select('phone', { count: 'exact' });
+            const { data: ords } = await supabase.from('orders').select('customer_phone, total_amount').neq('status', 'DRAFT');
 
-            if (custError) throw custError;
+            const normalizePhone = (p) => {
+                if (!p) return '';
+                const clean = p.replace(/\D/g, '');
+                return clean.startsWith('91') ? clean : (clean.length === 10 ? `91${clean}` : clean);
+            };
 
-            // 2. Fetch all orders (except drafts) to aggregate stats
-            let orderQuery = supabase.from('orders').select('*').neq('status', 'DRAFT');
+            const registeredPhones = new Set((custPhones || []).map(c => normalizePhone(c.phone)).filter(Boolean));
 
-            const now = new Date();
-            if (timeRange === 'DAILY') {
-                orderQuery = orderQuery.gte('created_at', new Date(now.setHours(0, 0, 0, 0)).toISOString());
-            } else if (timeRange === 'MONTHLY') {
-                orderQuery = orderQuery.gte('created_at', new Date(now.getFullYear(), now.getMonth(), 1).toISOString());
-            } else if (timeRange === 'QUARTERLY') {
-                const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
-                orderQuery = orderQuery.gte('created_at', new Date(now.getFullYear(), qStartMonth, 1).toISOString());
-            }
+            const list = ords || [];
+            const custMap = {};
+            list.forEach(o => {
+                if (o.customer_phone) {
+                    const normPhone = normalizePhone(o.customer_phone);
+                    if (registeredPhones.has(normPhone)) {
+                        if (!custMap[normPhone]) custMap[normPhone] = { count: 0, spent: 0 };
+                        custMap[normPhone].count++;
+                        custMap[normPhone].spent += o.total_amount || 0;
+                    }
+                }
+            });
 
-            const { data: allOrders, error: orderError } = await orderQuery.order('created_at', { ascending: false });
+            const custsWithOrders = Object.values(custMap);
+            const totalSpent = custsWithOrders.reduce((sum, c) => sum + c.spent, 0);
+            const repeat = custsWithOrders.filter(c => c.count > 1).length;
+            const ordered = custsWithOrders.filter(c => c.count > 0).length;
+            const unordered = Math.max(0, (totalCust || 0) - ordered);
 
-            if (orderError) throw orderError;
+            setStats({
+                totalCustomers: totalCust || 0,
+                averageSpend: totalCust ? Math.round(totalSpent / totalCust) : 0,
+                repeatCustomers: repeat,
+                orderedCustomers: ordered,
+                unorderedCustomers: unordered
+            });
+        } catch (err) {
+            console.error('Stats fetch error:', err);
+        }
+    };
 
-            // 3. Map orders to customers
+    const fetchAnalyticsData = async () => {
+        try {
+            const { data: allCustomers } = await supabase.from('customers').select('*');
+            const { data: allOrders } = await supabase.from('orders').select('*').neq('status', 'DRAFT');
+
             const customerMap = {};
-
             const normalizePhone = (p) => {
                 if (!p) return '';
                 const clean = p.replace(/\D/g, '');
@@ -117,7 +149,6 @@ function CustomersPage() {
                         totalOrders: 0,
                         totalSpent: 0,
                         lastOrder: cust.created_at,
-                        lastAddress: cust.address || '',
                         orders: []
                     };
                 }
@@ -125,7 +156,6 @@ function CustomersPage() {
 
             (allOrders || []).forEach(order => {
                 const normPhone = normalizePhone(order.customer_phone);
-
                 if (normPhone) {
                     if (!customerMap[normPhone]) {
                         customerMap[normPhone] = {
@@ -134,34 +164,17 @@ function CustomersPage() {
                             totalOrders: 0,
                             totalSpent: 0,
                             lastOrder: order.created_at,
-                            lastAddress: order.delivery_address || '',
                             orders: []
                         };
                     }
-
                     customerMap[normPhone].totalOrders++;
                     customerMap[normPhone].totalSpent += order.total_amount || 0;
                     customerMap[normPhone].orders.push(order);
-
-                    // Use most recent order date for 'lastOrder' in terms of activity
-                    if (new Date(order.created_at) > new Date(customerMap[normPhone].lastOrder)) {
-                        customerMap[normPhone].lastOrder = order.created_at;
-                    }
-
-                    if (order.customer_name && order.customer_name !== 'WhatsApp Customer' && order.customer_name !== 'Website User') {
-                        customerMap[normPhone].name = order.customer_name;
-                    }
-                    if (order.delivery_address && !customerMap[normPhone].lastAddress) {
-                        customerMap[normPhone].lastAddress = order.delivery_address;
-                    }
                 }
             });
 
-            const customerList = Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
+            const customerList = Object.values(customerMap);
 
-            setCustomers(customerList);
-
-            // --- Analytics Logic ---
             const tiers = { VIP: 0, Gold: 0, Silver: 0, Regular: 0 };
             customerList.forEach(c => {
                 if (c.totalSpent >= 15000) tiers.VIP++;
@@ -183,11 +196,9 @@ function CustomersPage() {
                 { name: 'Single', value: activeCount - repeatCount, color: 'hsl(var(--accent))' }
             ];
 
-            // 4. Growth Data (New Customers by month)
             const growthMap = new Map();
             customerList.forEach(c => {
                 try {
-                    // Use the earliest date we know for this customer (their first order or creation date)
                     let joinedDate = new Date(c.lastOrder); 
                     if (c.orders && c.orders.length > 0) {
                         c.orders.forEach(o => {
@@ -201,7 +212,7 @@ function CustomersPage() {
                     const label = `${month} ${year}`;
                     growthMap.set(label, (growthMap.get(label) || 0) + 1);
                 } catch (e) {
-                    console.error('Growth data error:', e);
+                    console.error(e);
                 }
             });
 
@@ -215,14 +226,157 @@ function CustomersPage() {
                     return months.indexOf(mA) - months.indexOf(mB);
                 });
 
-            // Fallback for empty data
             if (growthData.length === 0) {
                 growthData.push({ name: 'No Data', value: 0 });
             }
 
             setAnalyticsData({ tierData, repeatData, growthData });
+        } catch (err) {
+            console.error('Analytics load error:', err);
+        }
+    };
 
-            // Update selectedCustomer if it exists to reflect fresh data
+    const fetchCustomers = async () => {
+        setLoading(true);
+        try {
+            const from = (customersPage - 1) * CUSTOMERS_PER_PAGE;
+            const to = customersPage * CUSTOMERS_PER_PAGE - 1;
+
+            const normalizePhone = (p) => {
+                if (!p) return '';
+                const clean = p.replace(/\D/g, '');
+                return clean.startsWith('91') ? clean : (clean.length === 10 ? `91${clean}` : clean);
+            };
+
+            // 1. Fetch all customer phones and order phones to determine matching IDs
+            const { data: custPhones } = await supabase.from('customers').select('id, phone');
+            const { data: ords } = await supabase.from('orders').select('customer_phone').neq('status', 'DRAFT');
+
+            const orderedPhonesSet = new Set((ords || []).map(o => normalizePhone(o.customer_phone)).filter(Boolean));
+
+            const orderedCustIds = [];
+            const unorderedCustIds = [];
+
+            (custPhones || []).forEach(c => {
+                const norm = normalizePhone(c.phone);
+                if (norm && orderedPhonesSet.has(norm)) {
+                    orderedCustIds.push(c.id);
+                } else {
+                    unorderedCustIds.push(c.id);
+                }
+            });
+
+            // 2. Build the query
+            let query = supabase
+                .from('customers')
+                .select('*', { count: 'exact' });
+
+            if (filterMode === 'ORDERED') {
+                if (orderedCustIds.length === 0) {
+                    setCustomers([]);
+                    setTotalCount(0);
+                    setLoading(false);
+                    return;
+                }
+                query = query.in('id', orderedCustIds);
+            } else if (filterMode === 'UNORDERED') {
+                if (unorderedCustIds.length === 0) {
+                    setCustomers([]);
+                    setTotalCount(0);
+                    setLoading(false);
+                    return;
+                }
+                query = query.in('id', unorderedCustIds);
+            }
+
+            if (searchTerm.trim()) {
+                const term = searchTerm.trim();
+                query = query.or(`name.ilike.%${term}%,phone.ilike.%${term}%`);
+            }
+
+            const { data: pageCustomers, count, error } = await query
+                .order('created_at', { ascending: false })
+                .range(from, to);
+
+            if (error) throw error;
+
+            const pagePhones = (pageCustomers || []).map(c => c.phone).filter(Boolean);
+
+            let pageOrders = [];
+            if (pagePhones.length > 0) {
+                // To support both normalized and raw formats in the database query
+                const phonesToQuery = [];
+                pagePhones.forEach(p => {
+                    phonesToQuery.push(p);
+                    const clean = p.replace(/\D/g, '');
+                    if (clean) {
+                        phonesToQuery.push(clean);
+                        if (clean.startsWith('91')) {
+                            phonesToQuery.push(clean.substring(2));
+                            phonesToQuery.push('+' + clean);
+                        } else {
+                            phonesToQuery.push('91' + clean);
+                            phonesToQuery.push('+91' + clean);
+                        }
+                    }
+                });
+                const uniquePhonesToQuery = [...new Set(phonesToQuery)];
+
+                const { data: orderData } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .neq('status', 'DRAFT')
+                    .in('customer_phone', uniquePhonesToQuery);
+                pageOrders = orderData || [];
+            }
+
+            const customerMap = {};
+
+            (pageCustomers || []).forEach(cust => {
+                const normPhone = normalizePhone(cust.phone);
+                if (normPhone) {
+                    customerMap[normPhone] = {
+                        phone: normPhone,
+                        name: cust.name || 'WhatsApp Customer',
+                        totalOrders: 0,
+                        totalSpent: 0,
+                        lastOrder: cust.created_at,
+                        lastAddress: cust.address || '',
+                        orders: []
+                    };
+                }
+            });
+
+            (pageOrders || []).forEach(order => {
+                const normPhone = normalizePhone(order.customer_phone);
+                if (normPhone && customerMap[normPhone]) {
+                    customerMap[normPhone].totalOrders++;
+                    customerMap[normPhone].totalSpent += order.total_amount || 0;
+                    customerMap[normPhone].orders.push(order);
+                    if (new Date(order.created_at) > new Date(customerMap[normPhone].lastOrder)) {
+                        customerMap[normPhone].lastOrder = order.created_at;
+                    }
+                    if (order.customer_name && order.customer_name !== 'WhatsApp Customer' && order.customer_name !== 'Website User') {
+                        customerMap[normPhone].name = order.customer_name;
+                    }
+                    if (order.delivery_address && !customerMap[normPhone].lastAddress) {
+                        customerMap[normPhone].lastAddress = order.delivery_address;
+                    }
+                }
+            });
+
+            const customerList = Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
+
+            setCustomers(customerList);
+            setTotalCount(count || 0);
+
+            // Trigger background fetches
+            fetchOverallStats();
+            if (viewMode === 'analytics') {
+                fetchAnalyticsData();
+            }
+
+            // Sync open customer view if active
             if (selectedCustomer) {
                 const refreshed = customerList.find(c => c.phone === selectedCustomer.phone);
                 if (refreshed) {
@@ -355,15 +509,9 @@ function CustomersPage() {
 
 
 
-    const filteredCustomers = customers.filter(c => {
-        const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm);
-        if (filterMode === 'ORDERED') return matchesSearch && c.totalOrders > 0;
-        if (filterMode === 'UNORDERED') return matchesSearch && c.totalOrders === 0;
-        return matchesSearch;
-    });
-    
-    const totalCustomerPages = Math.ceil(filteredCustomers.length / CUSTOMERS_PER_PAGE);
-    const paginatedCustomers = filteredCustomers.slice((customersPage - 1) * CUSTOMERS_PER_PAGE, customersPage * CUSTOMERS_PER_PAGE);
+    const filteredCustomers = customers;
+    const paginatedCustomers = customers;
+    const totalCustomerPages = Math.ceil(totalCount / CUSTOMERS_PER_PAGE);
 
 
 
@@ -607,7 +755,7 @@ function CustomersPage() {
 
                                 <div>
                                     <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>Customers</h1>
-                                    <p style={{ color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>All registered customers from Website & WhatsApp • {customers.length} total</p>
+                                    <p style={{ color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>All registered customers from Website & WhatsApp • {totalCount} total</p>
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -722,13 +870,9 @@ function CustomersPage() {
                                     <div className="admin-grid-3">
 
                                         {[
-
-                                            { label: 'Total Customers', value: customers.length, icon: '👥', color: 'hsl(var(--primary))' },
-
-                                            { label: 'Average Spend', value: `₹${customers.length ? Math.round(customers.reduce((s, c) => s + c.totalSpent, 0) / customers.length).toLocaleString() : 0}`, icon: '💰', color: 'hsl(var(--success))' },
-
-                                            { label: 'Repeat Customers', value: customers.filter(c => c.totalOrders > 1).length, icon: '🔄', color: 'hsl(var(--warning))' },
-
+                                            { label: 'Total Customers', value: stats.totalCustomers, icon: '👥', color: 'hsl(var(--primary))' },
+                                            { label: 'Average Spend', value: `₹${stats.averageSpend.toLocaleString()}`, icon: '💰', color: 'hsl(var(--success))' },
+                                            { label: 'Repeat Customers', value: stats.repeatCustomers, icon: '🔄', color: 'hsl(var(--warning))' },
                                         ].map((stat, i) => (
 
                                             <div key={i} className="card" style={{
@@ -788,9 +932,9 @@ function CustomersPage() {
                                                             className="admin-input"
                                                             style={{ paddingLeft: '2.5rem', paddingRight: '2rem', width: '100%', height: '42px', fontSize: '0.85rem', appearance: 'none', cursor: 'pointer' }}
                                                         >
-                                                            <option value="ALL">All Customers ({customers.length})</option>
-                                                            <option value="ORDERED">Ordered ({customers.filter(c => c.totalOrders > 0).length})</option>
-                                                            <option value="UNORDERED">Unordered ({customers.filter(c => c.totalOrders === 0).length})</option>
+                                                            <option value="ALL">All Customers ({stats.totalCustomers})</option>
+                                                            <option value="ORDERED">Ordered ({stats.orderedCustomers})</option>
+                                                            <option value="UNORDERED">Unordered ({stats.unorderedCustomers})</option>
                                                         </select>
                                                         <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))', pointerEvents: 'none' }} />
                                                     </div>
@@ -871,6 +1015,36 @@ function CustomersPage() {
                                                 )}
                                             </tbody>
                                         </table>
+
+                                        {/* Pagination */}
+                                        {totalCustomerPages > 1 && (
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                                                <button onClick={() => setCustomersPage(p => Math.max(1, p - 1))} disabled={customersPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: customersPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                                    <ChevronLeft size={16} /> Previous
+                                                </button>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                    {(() => {
+                                                        const pages = [];
+                                                        const range = 1;
+                                                        pages.push(1);
+                                                        if (customersPage > range + 2) pages.push('...');
+                                                        for (let i = Math.max(2, customersPage - range); i <= Math.min(totalCustomerPages - 1, customersPage + range); i++) { pages.push(i); }
+                                                        if (customersPage < totalCustomerPages - range - 1) pages.push('...');
+                                                        if (totalCustomerPages > 1) pages.push(totalCustomerPages);
+                                                        return pages.map((page, i) => (
+                                                            page === '...' ? (
+                                                                <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                                            ) : (
+                                                                <button key={page} onClick={() => setCustomersPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: customersPage === page ? 'hsl(var(--primary))' : '#ffffff', color: customersPage === page ? 'white' : 'hsl(var(--text-main))', border: customersPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                                            )
+                                                        ));
+                                                    })()}
+                                                </div>
+                                                <button onClick={() => setCustomersPage(p => Math.min(totalCustomerPages, p + 1))} disabled={customersPage === totalCustomerPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: customersPage === totalCustomerPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                                                    Next <ChevronRight size={16} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             )}

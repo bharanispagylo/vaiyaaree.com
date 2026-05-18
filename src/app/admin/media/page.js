@@ -31,7 +31,10 @@ export default function MediaLibraryPage() {
     const fetchFiles = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/admin/upload');
+            const token = localStorage.getItem('cast_prince_admin') || '';
+            const res = await fetch('/api/admin/upload', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await res.json();
 
             if (!res.ok) throw new Error(data.error || 'Failed to load');
@@ -141,9 +144,13 @@ export default function MediaLibraryPage() {
 
                 for (const file of files) {
                     try {
+                        const token = localStorage.getItem('cast_prince_admin') || '';
                         const res = await fetch('/api/admin/watermark-detect', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
                             body: JSON.stringify({ imageUrl: file.url })
                         });
 
@@ -193,9 +200,13 @@ export default function MediaLibraryPage() {
 
                 for (const file of files) {
                     try {
+                        const token = localStorage.getItem('cast_prince_admin') || '';
                         const res = await fetch('/api/admin/watermark-detect', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
                             body: JSON.stringify({ imageUrl: file.url })
                         });
 
@@ -255,9 +266,13 @@ export default function MediaLibraryPage() {
 
         for (const file of files) {
             try {
+                const token = localStorage.getItem('cast_prince_admin') || '';
                 const res = await fetch('/api/admin/watermark-detect', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ imageUrl: file.url })
                 });
 
@@ -301,8 +316,10 @@ export default function MediaLibraryPage() {
             formData.append('file', file);
             formData.append('mode', 'gallery');
 
+            const token = localStorage.getItem('cast_prince_admin') || '';
             const res = await fetch('/api/admin/upload', {
                 method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData,
             });
 
@@ -400,9 +417,13 @@ export default function MediaLibraryPage() {
                         }
                     }
 
+                    const token = localStorage.getItem('cast_prince_admin') || '';
                     const res = await fetch('/api/admin/upload', {
                         method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
                         body: JSON.stringify({ fileName: fullPath }),
                     });
 

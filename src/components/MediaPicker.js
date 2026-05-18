@@ -58,7 +58,10 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
     const fetchFiles = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/admin/upload');
+            const token = localStorage.getItem('cast_prince_admin') || '';
+            const res = await fetch('/api/admin/upload', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to load');
             setFiles(data.files || []);
@@ -81,6 +84,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
 
         setUploading(true);
         try {
+            const token = localStorage.getItem('cast_prince_admin') || '';
             const formData = new FormData();
             formData.append('file', file);
             if (catalogId) {
@@ -89,6 +93,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
 
             const res = await fetch('/api/admin/upload', {
                 method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData,
             });
 

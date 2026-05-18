@@ -170,7 +170,6 @@ export default function AdminDashboard() {
                         icon: IndianRupee,
                         gradient: 'linear-gradient(135deg, hsl(var(--success)), hsl(152 76% 25%))',
                         color: 'hsl(152 76% 95%)',
-                        sub: `Excl. Cancelled/Refunded`,
                         glow: 'hsl(var(--success) / 0.3)'
                     },
                     {
@@ -179,7 +178,6 @@ export default function AdminDashboard() {
                         icon: ShoppingCart,
                         gradient: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
                         color: 'hsl(222 47% 10%)',
-                        sub: `${stats.todayOrders} today`,
                         glow: 'hsl(var(--primary) / 0.4)'
                     },
                     {
@@ -381,11 +379,16 @@ export default function AdminDashboard() {
                             </div>
                             {lowStockProducts.length > 0 && (
                                 <span style={{
-                                    fontSize: '0.7rem', fontWeight: 800,
+                                    fontSize: '0.75rem', fontWeight: 800,
                                     color: 'hsl(var(--danger))',
                                     background: 'hsl(var(--danger) / 0.1)',
-                                    padding: '0.25rem 0.65rem', borderRadius: '20px',
-                                    border: '1px solid hsl(var(--danger) / 0.2)'
+                                    padding: '13px', borderRadius: '20px',
+                                    border: '1px solid hsl(var(--danger) / 0.2)',
+                                    whiteSpace: 'nowrap',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    lineHeight: 1
                                 }}>
                                     {lowStockProducts.length} ITEM{lowStockProducts.length > 1 ? 'S' : ''}
                                 </span>

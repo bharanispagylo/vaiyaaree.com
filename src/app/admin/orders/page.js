@@ -131,7 +131,11 @@ export default function OrdersPage() {
     const [allProducts, setAllProducts] = useState([]);
     const [productSearch, setProductSearch] = useState('');
     const [ordersPage, setOrdersPage] = useState(1);
-    const ORDERS_PER_PAGE = 20;
+    const [totalCount, setTotalCount] = useState(0);
+    const [statusCounts, setStatusCounts] = useState({
+        ALL: 0, PLACED: 0, AWAITING_PAYMENT: 0, PAID: 0, PACKING: 0, SHIPPED: 0, DELIVERED: 0, CANCELLED: 0, REFUNDED: 0
+    });
+    const ORDERS_PER_PAGE = 10;
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -165,10 +169,10 @@ export default function OrdersPage() {
     };
 
     const toggleSelectAll = () => {
-        if (selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0) {
+        if (selectedOrderIds.length === orders.length && orders.length > 0) {
             setSelectedOrderIds([]);
         } else {
-            setSelectedOrderIds(filteredOrders.map(o => o.id));
+            setSelectedOrderIds(orders.map(o => o.id));
         }
     };
 
@@ -211,8 +215,41 @@ export default function OrdersPage() {
     };
 
 
-    const fetchAnalytics = async (allOrders) => {
+    const fetchOrderCounts = async () => {
         try {
+            const { data, error } = await supabase
+                .from('orders')
+                .select('status')
+                .neq('status', 'DRAFT');
+            if (error) throw error;
+            if (data) {
+                const counts = {
+                    ALL: data.length,
+                    PLACED: data.filter(o => o.status === 'PLACED').length,
+                    'AWAITING_PAYMENT': data.filter(o => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING').length,
+                    PAID: data.filter(o => o.status === 'PAID').length,
+                    PACKING: data.filter(o => o.status === 'PACKING').length,
+                    SHIPPED: data.filter(o => o.status === 'SHIPPED').length,
+                    DELIVERED: data.filter(o => o.status === 'DELIVERED').length,
+                    CANCELLED: data.filter(o => o.status === 'CANCELLED').length,
+                    REFUNDED: data.filter(o => o.status === 'REFUNDED').length,
+                };
+                setStatusCounts(counts);
+            }
+        } catch (err) {
+            console.error('Counts fetch error:', err);
+        }
+    };
+
+    const fetchAnalytics = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('orders')
+                .select('id, created_at, status, total_amount, source, courier_name')
+                .neq('status', 'DRAFT');
+            if (error) throw error;
+            const allOrders = data || [];
+
             const now = new Date();
             let filteredOrders = allOrders;
 
@@ -240,7 +277,6 @@ export default function OrdersPage() {
                     if (o.status !== 'CANCELLED') trendMap[`${new Date(o.created_at).getHours()}:00`] += (o.total_amount || 0);
                 });
             } else {
-                // Group by day for other views
                 const daysToFetch = timeRange === 'MONTHLY' ? 30 : timeRange === 'QUARTERLY' ? 90 : 365;
                 for (let i = daysToFetch; i >= 0; i--) {
                     const d = new Date(now);
@@ -255,7 +291,7 @@ export default function OrdersPage() {
             }
             const revenueTrend = Object.entries(trendMap).map(([date, amount]) => ({ date, amount }));
 
-            // 3. Channel Data (from filtered set)
+            // 3. Channel Data
             const channels = { WEBSITE: 0, WHATSAPP: 0, MANUAL: 0 };
             filteredOrders.forEach(o => {
                 const src = o.source || (o.id?.startsWith('WEB-') ? 'WEBSITE' : o.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
@@ -267,7 +303,7 @@ export default function OrdersPage() {
                 { name: 'Manual', value: (channels.MANUAL || 0) + (channels.ADMIN_MANUAL || 0), color: 'hsl(38 92% 50%)' }
             ];
 
-            // 4. Status Data (from filtered set)
+            // 4. Status Data
             const stats = {};
             filteredOrders.forEach(o => { stats[o.status] = (stats[o.status] || 0) + 1; });
             const statusData = Object.entries(stats).map(([name, value]) => ({ name, value }));
@@ -279,7 +315,7 @@ export default function OrdersPage() {
             });
             const courierData = Object.entries(couriers).map(([name, value]) => ({ name, value }));
 
-            // 6. Top Products (Fetch order items for filtered orders)
+            // 6. Top Products
             const orderIds = filteredOrders.map(o => o.id);
             const { data: items } = await supabase.from('order_items').select('product_name, quantity').in('order_id', orderIds);
             const prodMap = {};
@@ -294,41 +330,64 @@ export default function OrdersPage() {
     };
 
     const fetchOrders = async () => {
-
         setLoading(true);
-
         try {
+            const from = (ordersPage - 1) * ORDERS_PER_PAGE;
+            const to = ordersPage * ORDERS_PER_PAGE - 1;
 
             let query = supabase
-
                 .from('orders')
+                .select('*', { count: 'exact' })
+                .neq('status', 'DRAFT');
 
-                .select('*')
+            // 1. Status Filter
+            if (statusFilter !== 'ALL') {
+                if (statusFilter === 'AWAITING_PAYMENT') {
+                    query = query.or('status.eq.AWAITING_PAYMENT,status.eq.PENDING');
+                } else {
+                    query = query.eq('status', statusFilter);
+                }
+            }
 
-                .neq('status', 'DRAFT')
+            // 2. Source Filter
+            if (sourceFilter !== 'ALL') {
+                if (sourceFilter === 'WEBSITE') {
+                    query = query.or('source.eq.WEBSITE,id.ilike.WEB-%');
+                } else if (sourceFilter === 'MANUAL') {
+                    query = query.or('source.eq.MANUAL,id.ilike.MAN-%');
+                } else if (sourceFilter === 'WHATSAPP') {
+                    query = query.or('source.eq.WHATSAPP,source.is.null');
+                }
+            }
 
-                .order('created_at', { ascending: false });
+            // 3. Search Term
+            if (searchTerm.trim()) {
+                const term = searchTerm.trim();
+                const isNumeric = /^\d+$/.test(term);
+                if (isNumeric) {
+                    query = query.or(`id.eq.${term},customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%`);
+                } else {
+                    query = query.or(`customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%,customer_email.ilike.%${term}%`);
+                }
+            }
 
+            const { data, count, error } = await query
+                .order('created_at', { ascending: false })
+                .range(from, to);
 
-
-            const { data } = await query;
+            if (error) throw error;
 
             setOrders(data || []);
-            fetchAnalytics(data || []);
+            setTotalCount(count || 0);
 
+            // Fetch total status counts dynamically
+            fetchOrderCounts();
         } catch (error) {
-
             console.error('Error fetching orders:', error);
-
         } finally {
-
             setLoading(false);
-
         }
-
     };
-
-
 
     const fetchShippingConfig = async () => {
         try {
@@ -345,7 +404,6 @@ export default function OrdersPage() {
 
     useEffect(() => {
         setHasMounted(true);
-        fetchOrders();
         fetchShippingConfig();
         const channel = supabase
             .channel('orders_page')
@@ -370,11 +428,13 @@ export default function OrdersPage() {
     // Reset to page 1 when filters change
     useEffect(() => { setOrdersPage(1); }, [searchTerm, statusFilter, sourceFilter]);
 
+    useEffect(() => {
+        fetchOrders();
+    }, [ordersPage, searchTerm, statusFilter, sourceFilter]);
+
     // Re-run analytics when time range changes
     useEffect(() => {
-        if (orders.length > 0) {
-            fetchAnalytics(orders);
-        }
+        fetchAnalytics();
     }, [timeRange]);
 
 
@@ -433,9 +493,13 @@ export default function OrdersPage() {
 
     const updateOrderStatus = async (orderId, newStatus, shippingData = {}, targetPhone = null) => {
         try {
+            const token = localStorage.getItem('cast_prince_admin') || '';
             const res = await fetch('/api/orders/update-status', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ orderId, status: newStatus, targetPhone, ...shippingData })
             });
 
@@ -875,41 +939,8 @@ export default function OrdersPage() {
 
 
 
-    const filteredOrders = orders.filter(o => {
-
-        const term = searchTerm.toLowerCase();
-
-        const matchesSearch = (o.id || '').toLowerCase().includes(term) ||
-
-            (o.customer_name || '').toLowerCase().includes(term) ||
-
-            (o.customer_phone || '').toLowerCase().includes(term);
-
-        const matchesStatus = statusFilter === 'ALL' ||
-            (statusFilter === 'AWAITING_PAYMENT' ? (o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING') : o.status === statusFilter);
-
-        const orderSource = o.source || (o.id?.startsWith('WEB-') ? 'WEBSITE' : o.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
-
-        const matchesSource = sourceFilter === 'ALL' || orderSource === sourceFilter;
-
-        return matchesSearch && matchesStatus && matchesSource;
-
-    });
-
-    const totalOrderPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
-    const paginatedOrders = filteredOrders.slice((ordersPage - 1) * ORDERS_PER_PAGE, ordersPage * ORDERS_PER_PAGE);
-
-    const orderCounts = {
-        ALL: orders.length,
-        PLACED: orders.filter(o => o.status === 'PLACED').length,
-        'AWAITING_PAYMENT': orders.filter(o => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING').length,
-        PAID: orders.filter(o => o.status === 'PAID').length,
-        PACKING: orders.filter(o => o.status === 'PACKING').length,
-        SHIPPED: orders.filter(o => o.status === 'SHIPPED').length,
-        DELIVERED: orders.filter(o => o.status === 'DELIVERED').length,
-        CANCELLED: orders.filter(o => o.status === 'CANCELLED').length,
-        REFUNDED: orders.filter(o => o.status === 'REFUNDED').length,
-    };
+    const totalOrderPages = Math.ceil(totalCount / ORDERS_PER_PAGE);
+    const orderCounts = statusCounts;
 
 
 
@@ -1154,7 +1185,7 @@ export default function OrdersPage() {
 
                                                         value={searchTerm}
 
-                                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                                        onChange={(e) => { setSearchTerm(e.target.value); setOrdersPage(1); }}
 
                                                         style={{
 
@@ -1201,7 +1232,7 @@ export default function OrdersPage() {
                                                                 <th style={{ width: '40px', textAlign: 'center' }}>
                                                                     <input
                                                                         type="checkbox"
-                                                                        checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length}
+                                                                        checked={orders.length > 0 && selectedOrderIds.length === orders.length}
                                                                         onChange={toggleSelectAll}
                                                                         style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                                                                     />
@@ -1225,10 +1256,10 @@ export default function OrdersPage() {
 
                                                         <tbody>
 
-                                                            {filteredOrders.length === 0 ? (
+                                                            {orders.length === 0 ? (
                                                                 <tr><td colSpan={9} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders found matching your criteria.</td></tr>
                                                             ) : (
-                                                                paginatedOrders.map(order => {
+                                                                orders.map(order => {
                                                                     const src = order.source || (order.id?.startsWith('WEB-') ? 'WEBSITE' : order.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
                                                                     const isExpanded = selectedOrder?.id === order.id;
 
@@ -2782,9 +2813,13 @@ export default function OrdersPage() {
                                     try {
                                         setNotification({ message: 'Synchronizing details...', type: 'info' });
                                         // Use the central update-status API to handle DB update, logging, and notifications
+                                        const token = localStorage.getItem('cast_prince_admin') || '';
                                         const response = await fetch('/api/orders/update-status', {
                                             method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${token}`
+                                            },
                                             body: JSON.stringify({
                                                 orderId: selectedOrder.id,
                                                 status: 'SHIPPED',

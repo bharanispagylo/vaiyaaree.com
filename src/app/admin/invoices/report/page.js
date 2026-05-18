@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react';
+import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, ChevronRight, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
@@ -22,6 +22,8 @@ export default function InvoiceReportPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [viewInvoice, setViewInvoice] = useState(null);
     const [notification, setNotification] = useState(null); // { message, type }
+    const [reportPage, setReportPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -106,6 +108,10 @@ export default function InvoiceReportPage() {
         fetchReportData();
     }, [timeframe, selectedLocation, selectedCategory, customStartDate, customEndDate]);
 
+    useEffect(() => {
+        setReportPage(1);
+    }, [timeframe, selectedLocation, selectedCategory, reportStatusFilter, searchTerm, customStartDate, customEndDate]);
+
     const downloadReport = () => {
         // Summary Data
         const summaryData = [
@@ -173,6 +179,9 @@ export default function InvoiceReportPage() {
             o.customer_phone?.includes(searchTerm))
         );
     });
+
+    const totalReportPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+    const paginatedOrders = filteredOrders.slice((reportPage - 1) * ITEMS_PER_PAGE, reportPage * ITEMS_PER_PAGE);
 
     const metrics = {
         totalRevenue: filteredOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
@@ -370,7 +379,7 @@ export default function InvoiceReportPage() {
             <div className="card shadow-premium" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', background: '#f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#475569', textTransform: 'uppercase' }}>
-                        Showing {filteredOrders.length} Results
+                        Showing {filteredOrders.length === 0 ? 0 : (reportPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(reportPage * ITEMS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length} Results
                     </div>
                     {loading && <RefreshCw size={16} className="animate-spin" style={{ color: 'hsl(var(--primary))' }} />}
                 </div>
@@ -401,7 +410,7 @@ export default function InvoiceReportPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredOrders.map(o => (
+                                paginatedOrders.map(o => (
                                     <tr key={o.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))' }}>
                                         <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>INV-{o.id}</td>
                                         <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem' }}>{new Date(o.created_at).toLocaleDateString()}</td>
@@ -425,6 +434,36 @@ export default function InvoiceReportPage() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination */}
+                {totalReportPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
+                        <button onClick={() => setReportPage(p => Math.max(1, p - 1))} disabled={reportPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: reportPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                            <ChevronLeft size={16} /> Previous
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                            {(() => {
+                                const pages = [];
+                                const range = 1;
+                                pages.push(1);
+                                if (reportPage > range + 2) pages.push('...');
+                                for (let i = Math.max(2, reportPage - range); i <= Math.min(totalReportPages - 1, reportPage + range); i++) { pages.push(i); }
+                                if (reportPage < totalReportPages - range - 1) pages.push('...');
+                                if (totalReportPages > 1) pages.push(totalReportPages);
+                                return pages.map((page, i) => (
+                                    page === '...' ? (
+                                        <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.5rem', fontWeight: 600 }}>...</span>
+                                    ) : (
+                                        <button key={page} onClick={() => setReportPage(page)} className="btn" style={{ minWidth: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0', fontSize: '0.9rem', fontWeight: 700, borderRadius: '10px', background: reportPage === page ? 'hsl(var(--primary))' : '#ffffff', color: reportPage === page ? 'white' : 'hsl(var(--text-main))', border: reportPage === page ? 'none' : '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'all 0.2s' }}>{page}</button>
+                                    )
+                                ));
+                            })()}
+                        </div>
+                        <button onClick={() => setReportPage(p => Math.min(totalReportPages, p + 1))} disabled={reportPage === totalReportPages} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: reportPage === totalReportPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
+                            Next <ChevronRight size={16} />
+                        </button>
+                    </div>
+                )}
             </div>
 
             <style jsx>{`

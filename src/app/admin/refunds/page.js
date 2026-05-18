@@ -25,16 +25,86 @@ export default function RefundsPage() {
     const [processNote, setProcessNote] = useState('');
     const [notification, setNotification] = useState(null);
     const [refundsPage, setRefundsPage] = useState(1);
-    const REFUNDS_PER_PAGE = 20;
+    const [totalCount, setTotalCount] = useState(0);
+    const [statusCounts, setStatusCounts] = useState({
+        total: 0,
+        pending: 0,
+        approved: 0,
+        completed: 0
+    });
+    const REFUNDS_PER_PAGE = 10;
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [refundsPage]);
 
-    // Fetch refunds and setup real-time subscription
+    const fetchStatusCounts = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('refunds')
+                .select('status');
+            if (error) throw error;
+            const list = data || [];
+            setStatusCounts({
+                total: list.length,
+                pending: list.filter(r => r.status === 'REQUESTED').length,
+                approved: list.filter(r => r.status === 'APPROVED').length,
+                completed: list.filter(r => r.status === 'COMPLETED').length
+            });
+        } catch (err) {
+            console.error('Error fetching refund status counts:', err);
+        }
+    };
+
+    const fetchRefunds = async () => {
+        setLoading(true);
+        try {
+            const from = (refundsPage - 1) * REFUNDS_PER_PAGE;
+            const to = refundsPage * REFUNDS_PER_PAGE - 1;
+
+            let query = supabase
+                .from('refunds')
+                .select(`
+                    *,
+                    orders:order_id (
+                        id, customer_name, customer_phone, customer_email, total_amount, status, created_at
+                    )
+                `, { count: 'exact' });
+
+            if (statusFilter !== 'ALL') {
+                query = query.eq('status', statusFilter);
+            }
+
+            if (searchTerm.trim()) {
+                const term = searchTerm.trim();
+                if (!isNaN(term)) {
+                    query = query.eq('order_id', parseInt(term));
+                } else {
+                    query = query.or(`reason.ilike.%${term}%,notes.ilike.%${term}%`);
+                }
+            }
+
+            const { data, count, error } = await query
+                .order('created_at', { ascending: false })
+                .range(from, to);
+
+            if (error) throw error;
+            setRefunds(data || []);
+            setTotalCount(count || 0);
+
+            fetchStatusCounts();
+        } catch (err) {
+            console.error('Error fetching refunds:', err);
+            showNotification('Failed to load refunds', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Fetch refunds on changes
     useEffect(() => {
         fetchRefunds();
-        
+
         const channel = supabase
             .channel('refunds_realtime')
             .on('postgres_changes', { 
@@ -49,30 +119,7 @@ export default function RefundsPage() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
-
-    const fetchRefunds = async () => {
-        setLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('refunds')
-                .select(`
-                    *,
-                    orders:order_id (
-                        id, customer_name, customer_phone, customer_email, total_amount, status, created_at
-                    )
-                `)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            setRefunds(data || []);
-        } catch (err) {
-            console.error('Error fetching refunds:', err);
-            showNotification('Failed to load refunds', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [refundsPage, searchTerm, statusFilter]);
 
     const showNotification = (message, type = 'success') => {
         setNotification({ message, type });
@@ -205,20 +252,12 @@ export default function RefundsPage() {
         return timeline;
     };
 
-    const filteredRefunds = refunds.filter(r => {
-        const matchesSearch = 
-            r.orders?.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            r.orders?.customer_phone?.includes(searchTerm) ||
-            r.order_id?.toString().includes(searchTerm);
-        const matchesStatus = statusFilter === 'ALL' || r.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
+    const filteredRefunds = refunds;
+    const paginatedRefunds = refunds;
+    const totalRefundPages = Math.ceil(totalCount / REFUNDS_PER_PAGE);
 
     // Reset to page 1 on search or filter
     useEffect(() => { setRefundsPage(1); }, [searchTerm, statusFilter]);
-
-    const totalRefundPages = Math.ceil(filteredRefunds.length / REFUNDS_PER_PAGE);
-    const paginatedRefunds = filteredRefunds.slice((refundsPage - 1) * REFUNDS_PER_PAGE, refundsPage * REFUNDS_PER_PAGE);
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
@@ -261,10 +300,10 @@ export default function RefundsPage() {
             {/* Stats */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
                 {[
-                    { label: 'Total Requests', value: refunds.length, icon: RefreshCcw, color: '#6b7280' },
-                    { label: 'Pending', value: refunds.filter(r => r.status === 'REQUESTED').length, icon: Clock, color: '#d97706' },
-                    { label: 'Approved', value: refunds.filter(r => r.status === 'APPROVED').length, icon: CheckCircle, color: '#2563eb' },
-                    { label: 'Completed', value: refunds.filter(r => r.status === 'COMPLETED').length, icon: DollarSign, color: '#059669' }
+                    { label: 'Total Requests', value: statusCounts.total, icon: RefreshCcw, color: '#6b7280' },
+                    { label: 'Pending', value: statusCounts.pending, icon: Clock, color: '#d97706' },
+                    { label: 'Approved', value: statusCounts.approved, icon: CheckCircle, color: '#2563eb' },
+                    { label: 'Completed', value: statusCounts.completed, icon: DollarSign, color: '#059669' }
                 ].map((stat, i) => (
                     <div key={i} style={{
                         padding: '1.5rem', background: 'hsl(var(--bg-card))', borderRadius: '12px',

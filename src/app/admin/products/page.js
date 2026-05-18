@@ -25,6 +25,8 @@ export default function ProductsPage() {
     const router = useRouter();
     const [hasMounted, setHasMounted] = useState(false);
     const [products, setProducts] = useState([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [allProductsData, setAllProductsData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [currentProduct, setCurrentProduct] = useState(null);
@@ -196,14 +198,61 @@ export default function ProductsPage() {
         }
     };
 
+    const fetchStatsAndAnalytics = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('products')
+                .select('id, name, price, stock, category, product_group, is_active, alert_threshold, product_catalog_image_id');
+            if (error) throw error;
+            const list = data || [];
+            setAllProductsData(list);
+            fetchAnalytics(list);
+        } catch (err) {
+            console.error('Stats and analytics fetch error:', err);
+        }
+    };
+
     const fetchProducts = async () => {
         setLoading(true);
         try {
-            const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+            const from = (productsPage - 1) * PRODUCTS_PER_PAGE;
+            const to = productsPage * PRODUCTS_PER_PAGE - 1;
+
+            let query = supabase
+                .from('products')
+                .select('*', { count: 'exact' });
+
+            if (categoryFilter !== 'ALL') {
+                query = query.eq('category', categoryFilter);
+            }
+            if (groupFilter !== 'ALL') {
+                query = query.eq('product_group', groupFilter);
+            }
+            if (statusFilter !== 'ALL') {
+                query = query.eq('is_active', statusFilter === 'ACTIVE');
+            }
+            if (searchTerm.trim()) {
+                const term = searchTerm.trim();
+                query = query.or(`name.ilike.%${term}%,category.ilike.%${term}%,product_group.ilike.%${term}%`);
+            }
+
+            if (sortBy === 'low_stock') {
+                query = query.order('stock', { ascending: true });
+            } else if (sortBy === 'high_price') {
+                query = query.order('price', { ascending: false });
+            } else {
+                query = query.order('created_at', { ascending: false });
+            }
+
+            const { data, count, error } = await query.range(from, to);
+            if (error) throw error;
+
             setProducts(data || []);
-            fetchAnalytics(data || []);
+            setTotalCount(count || 0);
+
+            fetchStatsAndAnalytics();
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error fetching products:', error.message || error);
         } finally {
             setLoading(false);
         }
@@ -234,7 +283,6 @@ export default function ProductsPage() {
 
     useEffect(() => {
         setHasMounted(true);
-        fetchProducts();
         fetchFbConfig();
 
         const handleReset = () => {
@@ -252,14 +300,19 @@ export default function ProductsPage() {
 
     // Re-run analytics when time range changes
     useEffect(() => {
-        if (products.length > 0) {
-            fetchAnalytics(products);
+        if (allProductsData.length > 0) {
+            fetchAnalytics(allProductsData);
         }
     }, [timeRange]);
 
     // Reset to page 1 when search/filter changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => { setProductsPage(1); }, [searchTerm, categoryFilter, sortBy]);
+    useEffect(() => {
+        setProductsPage(1);
+    }, [searchTerm, categoryFilter, groupFilter, statusFilter, sortBy]);
+
+    useEffect(() => {
+        fetchProducts();
+    }, [productsPage, searchTerm, categoryFilter, groupFilter, statusFilter, sortBy]);
 
     if (!hasMounted) return null;
 
@@ -758,9 +811,10 @@ export default function ProductsPage() {
         });
     };
 
-    const categories = ['ALL', ...new Set(products.map(p => p.category).filter(Boolean))];
-    const groups = ['ALL', ...new Set(products.map(p => p.product_group).filter(Boolean))];
-    let filtered = products.filter(p => {
+    const categories = ['ALL', ...new Set(allProductsData.map(p => p.category).filter(Boolean))];
+    const groups = ['ALL', ...new Set(allProductsData.map(p => p.product_group).filter(Boolean))];
+
+    const statsFiltered = allProductsData.filter(p => {
         const term = searchTerm.toLowerCase();
         const matchesSearch = (
             (p.name || '').toLowerCase().includes(term) ||
@@ -774,17 +828,13 @@ export default function ProductsPage() {
             (statusFilter === 'ACTIVE' ? p.is_active !== false : p.is_active === false);
         return matchesSearch && matchesCategory && matchesGroup && matchesStatus;
     });
-    filtered.sort((a, b) => {
-        if (sortBy === 'low_stock') return (a.stock || 0) - (b.stock || 0);
-        if (sortBy === 'high_price') return (b.price || 0) - (a.price || 0);
-        return new Date(b.created_at) - new Date(a.created_at);
-    });
 
-    const totalProductPages = Math.ceil(filtered.length / PRODUCTS_PER_PAGE);
-    const paginatedProducts = filtered.slice((productsPage - 1) * PRODUCTS_PER_PAGE, productsPage * PRODUCTS_PER_PAGE);
+    const totalStock = statsFiltered.reduce((s, p) => s + (p.stock || 0), 0);
+    const totalValue = statsFiltered.reduce((s, p) => s + ((p.price || 0) * (p.stock || 0)), 0);
 
-    const totalStock = filtered.reduce((s, p) => s + (p.stock || 0), 0);
-    const totalValue = filtered.reduce((s, p) => s + ((p.price || 0) * (p.stock || 0)), 0);
+    const totalProductPages = Math.ceil(totalCount / PRODUCTS_PER_PAGE);
+    const paginatedProducts = products;
+    const filtered = products;
 
     return (
         <>
@@ -796,7 +846,7 @@ export default function ProductsPage() {
                         <div className="admin-header-row">
                             <div>
                                 <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
-                                <p>Manage your premium product collection • {filtered.length} items</p>
+                                <p>Manage your premium product collection • {totalCount} items</p>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button onClick={() => setImportModal(true)} className="btn btn-secondary">
@@ -814,7 +864,7 @@ export default function ProductsPage() {
                         {/* Stats */}
                         <div className="admin-grid-3">
                             {[
-                                { label: 'Total Products', value: products.length, color: 'hsl(var(--primary))' },
+                                { label: 'Total Products', value: totalCount, color: 'hsl(var(--primary))' },
                                 { label: 'Total Stock', value: `${totalStock} pcs`, color: 'hsl(var(--accent))' },
                                 { label: 'Inventory Value', value: `₹${totalValue.toLocaleString()}`, color: 'hsl(var(--success))' },
                             ].map(s => (
@@ -849,9 +899,9 @@ export default function ProductsPage() {
                                     onChange={(e) => { setStatusFilter(e.target.value); setProductsPage(1); }}
                                     style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                                 >
-                                    <option value="ALL">All Products ({products.length})</option>
-                                    <option value="ACTIVE">Active ({products.filter(p => p.is_active !== false).length})</option>
-                                    <option value="INACTIVE">Inactive ({products.filter(p => p.is_active === false).length})</option>
+                                    <option value="ALL">All Products ({allProductsData.length})</option>
+                                    <option value="ACTIVE">Active ({allProductsData.filter(p => p.is_active !== false).length})</option>
+                                    <option value="INACTIVE">Inactive ({allProductsData.filter(p => p.is_active === false).length})</option>
                                 </select>
                             </div>
 
@@ -887,58 +937,64 @@ export default function ProductsPage() {
                             </div>
 
                             {/* Sort */}
-                            <div style={{ minWidth: '180px' }}>
+                            <div style={{ minWidth: '180px', position: 'relative' }}>
                                 <select
                                     value={sortBy}
                                     onChange={e => setSortBy(e.target.value)}
-                                    className="admin-input-select"
+                                    className="admin-input"
+                                    style={{ width: '100%', paddingLeft: '1rem', paddingRight: '2.5rem', height: '42px', fontSize: '0.85rem', appearance: 'none', cursor: 'pointer' }}
                                 >
                                     <option value="newest">Newest First</option>
                                     <option value="low_stock">Low Stock First</option>
                                     <option value="high_price">Price: High to Low</option>
                                 </select>
+                                <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))', pointerEvents: 'none' }} />
                             </div>
 
-                            {/* View Toggle */}
-                            <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', borderRadius: 'var(--radius-sm)', padding: '3px' }}>
-                                <button
-                                    onClick={() => setViewMode('table')}
-                                    title="Table View"
-                                    style={{
-                                        padding: '0.45rem 0.8rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: 600,
-                                        background: viewMode === 'table' ? 'hsl(var(--primary))' : 'transparent',
-                                        color: viewMode === 'table' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-                                        transition: 'all 0.2s'
-                                    }}>
-                                    <List size={15} /> Table
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('card')}
-                                    title="Card View"
-                                    style={{
-                                        padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
-                                        background: viewMode === 'card' ? 'hsl(var(--primary))' : 'transparent',
-                                        color: viewMode === 'card' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-                                        transition: 'all 0.2s'
-                                    }}>
-                                    <LayoutGrid size={14} /> Cards
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('analytics')}
-                                    title="Analytics View"
-                                    style={{
-                                        padding: '0.4rem 0.6rem', border: 'none', borderRadius: '6px', cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', fontWeight: 600,
-                                        background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
-                                        color: viewMode === 'analytics' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
-                                        transition: 'all 0.2s'
-                                    }}>
-                                    <TrendingUp size={14} /> Analysis
-                                </button>
+                            {/* View Toggle & Showing Items */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'nowrap', whiteSpace: 'nowrap', marginLeft: '0.5rem' }}>
+                                <div style={{ display: 'flex', gap: '0.25rem', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px' }}>
+                                    <button
+                                        onClick={() => setViewMode('table')}
+                                        title="Table View"
+                                        style={{
+                                            padding: '0.45rem 0.85rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: 600,
+                                            background: viewMode === 'table' ? 'hsl(var(--primary))' : 'transparent',
+                                            color: viewMode === 'table' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                        <List size={15} /> Table
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('card')}
+                                        title="Card View"
+                                        style={{
+                                            padding: '0.45rem 0.85rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: 600,
+                                            background: viewMode === 'card' ? 'hsl(var(--primary))' : 'transparent',
+                                            color: viewMode === 'card' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                        <LayoutGrid size={14} /> Cards
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('analytics')}
+                                        title="Analytics View"
+                                        style={{
+                                            padding: '0.45rem 0.85rem', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', fontWeight: 600,
+                                            background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
+                                            color: viewMode === 'analytics' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                        <TrendingUp size={14} /> Analysis
+                                    </button>
+                                </div>
+                                <span style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginLeft: '0.25rem' }}>
+                                    Showing {totalCount > 0 ? (productsPage - 1) * PRODUCTS_PER_PAGE + 1 : 0} - {Math.min(productsPage * PRODUCTS_PER_PAGE, totalCount)} of {totalCount} items
+                                </span>
                             </div>
-                            <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{filtered.length} items</span>
                         </div>
 
                         {/* ─── ANALYTICS VIEW ─── */}
@@ -1424,7 +1480,12 @@ export default function ProductsPage() {
                                                                                 const formData = new FormData();
                                                                                 formData.append('file', file);
                                                                                 formData.append('checkOnly', 'true');
-                                                                                const detRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                                const token = localStorage.getItem('cast_prince_admin') || '';
+                                                                                 const detRes = await fetch('/api/admin/upload', {
+                                                                                     method: 'POST',
+                                                                                     headers: { 'Authorization': `Bearer ${token}` },
+                                                                                     body: formData
+                                                                                 });
                                                                                 const detData = await detRes.json();
 
                                                                                 const onProceedWithUpload = async (catId) => {
@@ -1434,7 +1495,12 @@ export default function ProductsPage() {
                                                                                     uploadData.append('catalogId', catId);
                                                                                     uploadData.append('requireClean', 'true');
                                                                                     uploadData.append('skipDetection', 'true');
-                                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
+                                                                                    const token = localStorage.getItem('cast_prince_admin') || '';
+                                                                                     const res = await fetch('/api/admin/upload', {
+                                                                                         method: 'POST',
+                                                                                         headers: { 'Authorization': `Bearer ${token}` },
+                                                                                         body: uploadData
+                                                                                     });
                                                                                     const data = await res.json();
 
                                                                                     const finalUrl = data.watermarkedUrl || data.url;
@@ -1521,7 +1587,12 @@ export default function ProductsPage() {
                                                                     formData.append('file', file);
                                                                     formData.append('skipDetection', 'true');
                                                                     formData.append('requireClean', 'false');
-                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                    const token = localStorage.getItem('cast_prince_admin') || '';
+                                                                     const res = await fetch('/api/admin/upload', {
+                                                                         method: 'POST',
+                                                                         headers: { 'Authorization': `Bearer ${token}` },
+                                                                         body: formData
+                                                                     });
                                                                     const data = await res.json();
                                                                     if (res.ok) uploadedUrls.push(data.url);
                                                                 }
@@ -1583,7 +1654,12 @@ export default function ProductsPage() {
                                                                                 const formData = new FormData();
                                                                                 formData.append('file', file);
                                                                                 formData.append('checkOnly', 'true');
-                                                                                const detRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                                                const token = localStorage.getItem('cast_prince_admin') || '';
+                                                                                 const detRes = await fetch('/api/admin/upload', {
+                                                                                     method: 'POST',
+                                                                                     headers: { 'Authorization': `Bearer ${token}` },
+                                                                                     body: formData
+                                                                                 });
                                                                                 const detData = await detRes.json();
 
                                                                                 const onProceedWithVariantUpload = async (catId) => {
@@ -1593,7 +1669,12 @@ export default function ProductsPage() {
                                                                                     uploadData.append('catalogId', catId);
                                                                                     uploadData.append('requireClean', 'true');
                                                                                     uploadData.append('skipDetection', 'true');
-                                                                                    const res = await fetch('/api/admin/upload', { method: 'POST', body: uploadData });
+                                                                                    const token = localStorage.getItem('cast_prince_admin') || '';
+                                                                                     const res = await fetch('/api/admin/upload', {
+                                                                                         method: 'POST',
+                                                                                         headers: { 'Authorization': `Bearer ${token}` },
+                                                                                         body: uploadData
+                                                                                     });
                                                                                     const data = await res.json();
                                                                                     if (!res.ok) throw new Error(data.error || 'Upload failed');
 
@@ -1956,7 +2037,12 @@ export default function ProductsPage() {
                                                     formData.append('requireClean', 'true');
                                                     formData.append('skipDetection', 'true');
 
-                                                    const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                                                    const token = localStorage.getItem('cast_prince_admin') || '';
+                                                     const uploadRes = await fetch('/api/admin/upload', {
+                                                         method: 'POST',
+                                                         headers: { 'Authorization': `Bearer ${token}` },
+                                                         body: formData
+                                                     });
                                                     const uploadData = await uploadRes.json();
 
                                                     if (!uploadRes.ok) throw new Error(uploadData.error || 'Watermarking failed');

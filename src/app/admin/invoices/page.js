@@ -13,7 +13,9 @@ export default function InvoicesPage() {
     const [invoiceItems, setInvoiceItems] = useState([]);
     const [notification, setNotification] = useState(null);
     const [invoicePage, setInvoicePage] = useState(1);
-    const INVOICES_PER_PAGE = 20;
+    const [totalCount, setTotalCount] = useState(0);
+    const [stats, setStats] = useState({ totalRevenue: 0, paidTotal: 0, unpaidTotal: 0 });
+    const INVOICES_PER_PAGE = 10;
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -29,25 +31,10 @@ export default function InvoicesPage() {
     });
 
     useEffect(() => {
-        const fetchInvoices = async () => {
-            setLoading(true);
-            try {
-                const { data } = await supabase
-                    .from('orders')
-                    .select('*')
-                    .neq('status', 'DRAFT')
-                    .order('created_at', { ascending: false });
-                setInvoices(data || []);
-            } catch (error) {
-                console.error('Error:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         const fetchSettings = async () => {
             try {
-                const { data } = await supabase.from('app_settings').select('*');
+                const { data, error } = await supabase.from('app_settings').select('*');
+                if (error) throw error;
                 if (data) {
                     const mapped = {};
                     data.forEach(item => mapped[item.key] = item.value);
@@ -58,12 +45,68 @@ export default function InvoicesPage() {
             }
         };
 
-        fetchInvoices();
+        const fetchStats = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('total_amount, status')
+                    .neq('status', 'DRAFT');
+                if (error) throw error;
+                if (data) {
+                    const activeOrders = data.filter(o => o.status !== 'CANCELLED');
+                    const totalRevenue = activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
+                    const paidInvoices = data.filter(o => ['PAID', 'DELIVERED', 'SHIPPED'].includes(o.status));
+                    const paidTotal = paidInvoices.reduce((s, o) => s + (o.total_amount || 0), 0);
+                    const unpaidTotal = totalRevenue - paidTotal;
+                    setStats({ totalRevenue, paidTotal, unpaidTotal });
+                }
+            } catch (err) {
+                console.error('Stats load error:', err);
+            }
+        };
+
         fetchSettings();
+        fetchStats();
     }, []);
 
-    // Reset page when search changes
-    useEffect(() => { setInvoicePage(1); }, [searchTerm]);
+    useEffect(() => {
+        const fetchInvoices = async () => {
+            setLoading(true);
+            try {
+                const from = (invoicePage - 1) * INVOICES_PER_PAGE;
+                const to = invoicePage * INVOICES_PER_PAGE - 1;
+
+                let query = supabase
+                    .from('orders')
+                    .select('*', { count: 'exact' })
+                    .neq('status', 'DRAFT');
+
+                if (searchTerm.trim()) {
+                    const term = searchTerm.trim();
+                    const isNumeric = /^\d+$/.test(term);
+                    if (isNumeric) {
+                        query = query.or(`id.eq.${term},customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%`);
+                    } else {
+                        query = query.or(`customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%`);
+                    }
+                }
+
+                const { data, count, error } = await query
+                    .order('created_at', { ascending: false })
+                    .range(from, to);
+
+                if (error) throw error;
+                setInvoices(data || []);
+                setTotalCount(count || 0);
+            } catch (error) {
+                console.error('Error fetching invoices:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchInvoices();
+    }, [invoicePage, searchTerm]);
 
     const formatAddress = (addr) => {
         if (!addr) return "";
@@ -100,11 +143,17 @@ export default function InvoicesPage() {
 
     const openInvoice = async (order) => {
         setSelectedInvoice(order);
-        const { data } = await supabase
-            .from('order_items')
-            .select('*')
-            .eq('order_id', order.id);
-        setInvoiceItems(data || []);
+        try {
+            const { data, error } = await supabase
+                .from('order_items')
+                .select('*')
+                .eq('order_id', order.id);
+            if (error) throw error;
+            setInvoiceItems(data || []);
+        } catch (error) {
+            console.error('Error fetching invoice items:', error);
+            setInvoiceItems([]);
+        }
     };
 
     const printInvoice = () => {
@@ -119,20 +168,7 @@ export default function InvoicesPage() {
         }
     };
 
-    const filteredInvoices = invoices.filter(inv =>
-        inv.id?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        inv.customer_phone?.includes(searchTerm)
-    );
-
-    const totalInvoicePages = Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE);
-    const paginatedInvoices = filteredInvoices.slice((invoicePage - 1) * INVOICES_PER_PAGE, invoicePage * INVOICES_PER_PAGE);
-
-    const activeOrders = invoices.filter(o => o.status !== 'CANCELLED');
-    const totalRevenue = activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
-    const paidInvoices = invoices.filter(o => ['PAID', 'DELIVERED', 'SHIPPED'].includes(o.status));
-    const paidTotal = paidInvoices.reduce((s, o) => s + (o.total_amount || 0), 0);
-    const unpaidTotal = totalRevenue - paidTotal;
+    const totalInvoicePages = Math.ceil(totalCount / INVOICES_PER_PAGE);
 
     if (loading && !selectedInvoice) {
         return (
@@ -175,15 +211,15 @@ export default function InvoicesPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
                     <div className="card" style={{ padding: '1.5rem' }}>
                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Billed</div>
-                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', fontFamily: 'var(--font-heading)', color: 'hsl(var(--text-main))' }}>₹{totalRevenue.toLocaleString()}</div>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', fontFamily: 'var(--font-heading)', color: 'hsl(var(--text-main))' }}>₹{(stats.totalRevenue || 0).toLocaleString()}</div>
                     </div>
                     <div className="card" style={{ padding: '1.5rem' }}>
                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--success))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Paid</div>
-                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', color: 'hsl(var(--success))', fontFamily: 'var(--font-heading)' }}>₹{paidTotal.toLocaleString()}</div>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', color: 'hsl(var(--success))', fontFamily: 'var(--font-heading)' }}>₹{(stats.paidTotal || 0).toLocaleString()}</div>
                     </div>
                     <div className="card" style={{ padding: '1.5rem' }}>
                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--warning))', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unpaid (COD)</div>
-                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', color: 'hsl(var(--warning))', fontFamily: 'var(--font-heading)' }}>₹{unpaidTotal.toLocaleString()}</div>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', color: 'hsl(var(--warning))', fontFamily: 'var(--font-heading)' }}>₹{(stats.unpaidTotal || 0).toLocaleString()}</div>
                     </div>
                 </div>
             )}
@@ -196,7 +232,7 @@ export default function InvoicesPage() {
                             <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                             <input
                                 type="text" placeholder="Search invoices..."
-                                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setInvoicePage(1); }}
                                 className="admin-input"
                                 style={{ paddingLeft: '2.75rem' }}
                             />
@@ -216,10 +252,10 @@ export default function InvoicesPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredInvoices.length === 0 ? (
+                             {invoices.length === 0 ? (
                                 <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
                             ) : (
-                                paginatedInvoices.map(inv => (
+                                invoices.map(inv => (
                                     <tr key={inv.id}>
                                         <td style={{ padding: '1rem 1.5rem' }}>
                                             <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>INV-{inv.id}</span>
@@ -308,16 +344,16 @@ export default function InvoicesPage() {
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                                         {settings.shop_logo ? (
-                                            <img src={settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`}
+                                            <img src={typeof settings.shop_logo === 'string' && (settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/')) ? settings.shop_logo : `/images/${settings.shop_logo}`}
                                                 alt="Logo"
                                                 style={{ height: '40px', objectFit: 'contain' }}
-                                                onError={(e) => { e.target.src = '/images/cp-logo.png'; }}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = '/images/cp-logo.png'; }}
                                             />
                                         ) : (
                                             <img src="/images/cp-logo.png"
                                                 alt="Logo"
                                                 style={{ height: '40px', objectFit: 'contain' }}
-                                                onError={(e) => { e.target.src = '/images/aiswarya-logo.png'; }}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = '/images/aiswarya-logo.png'; }}
                                             />
                                         )}
                                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', margin: 0, color: '#111827' }}>{settings.shop_name}</h1>
@@ -412,30 +448,30 @@ export default function InvoicesPage() {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.9rem' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <span style={{ color: '#6b7280' }}>Subtotal:</span>
-                                                <span style={{ fontWeight: 600 }}>₹{(selectedInvoice.subtotal || (selectedInvoice.total_amount - (selectedInvoice.tax_amount || 0) - (selectedInvoice.shipping_cost || 0))).toLocaleString()}</span>
+                                                <span style={{ fontWeight: 600 }}>₹{(selectedInvoice.subtotal || ((selectedInvoice.total_amount || 0) - (selectedInvoice.tax_amount || 0) - (selectedInvoice.shipping_cost || 0))).toLocaleString()}</span>
                                             </div>
                                             {selectedInvoice.cgst > 0 && (
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span style={{ color: '#6b7280' }}>CGST (2.5%):</span>
-                                                    <span style={{ fontWeight: 600 }}>₹{parseFloat(selectedInvoice.cgst).toLocaleString()}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{(parseFloat(selectedInvoice.cgst) || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             {selectedInvoice.sgst > 0 && (
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span style={{ color: '#6b7280' }}>SGST (2.5%):</span>
-                                                    <span style={{ fontWeight: 600 }}>₹{parseFloat(selectedInvoice.sgst).toLocaleString()}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{(parseFloat(selectedInvoice.sgst) || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             {selectedInvoice.igst > 0 && (
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span style={{ color: '#6b7280' }}>IGST (5%):</span>
-                                                    <span style={{ fontWeight: 600 }}>₹{parseFloat(selectedInvoice.igst).toLocaleString()}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{(parseFloat(selectedInvoice.igst) || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             {((!selectedInvoice.cgst && !selectedInvoice.sgst && !selectedInvoice.igst) && selectedInvoice.tax_amount > 0) && (
                                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <span style={{ color: '#6b7280' }}>Tax:</span>
-                                                    <span style={{ fontWeight: 600 }}>₹{parseFloat(selectedInvoice.tax_amount).toLocaleString()}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{(parseFloat(selectedInvoice.tax_amount) || 0).toLocaleString()}</span>
                                                 </div>
                                             )}
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>

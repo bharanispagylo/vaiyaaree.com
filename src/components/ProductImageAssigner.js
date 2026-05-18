@@ -49,7 +49,12 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
             const checkFormData = new FormData();
             checkFormData.append('file', fileCheck);
             checkFormData.append('checkOnly', 'true');
-            const detRes = await fetch('/api/admin/upload', { method: 'POST', body: checkFormData });
+            const token = localStorage.getItem('cast_prince_admin') || '';
+            const detRes = await fetch('/api/admin/upload', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: checkFormData
+            });
             const detData = await detRes.json();
 
             const onProceedWithUpload = async (catId) => {
@@ -63,7 +68,12 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                 uploadFormData.append('skipDetection', 'true');
                 uploadFormData.append('mode', 'product');
 
-                const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: uploadFormData });
+                const token = localStorage.getItem('cast_prince_admin') || '';
+                const uploadRes = await fetch('/api/admin/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: uploadFormData
+                });
                 const data = await uploadRes.json();
 
                 if (!uploadRes.ok) throw new Error(data.error || 'Upload failed');
