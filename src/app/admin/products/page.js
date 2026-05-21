@@ -443,19 +443,53 @@ export default function ProductsPage() {
         }
     }
 
-    const handleExportExcel = () => {
-        if (!products || products.length === 0) {
-            setResultModal({
-                title: 'Export Failed',
-                message: 'No products to export!',
-                type: 'error'
-            });
-            return;
-        }
-
+    const handleExportExcel = async () => {
         try {
+            setResultModal({
+                title: 'Exporting...',
+                message: 'Fetching products for export. Please wait...',
+                type: 'success'
+            });
+
+            // Fetch ALL products matching the current filters (ignoring pagination)
+            let query = supabase.from('products').select('*');
+
+            if (categoryFilter !== 'ALL') {
+                query = query.eq('category', categoryFilter);
+            }
+            if (groupFilter !== 'ALL') {
+                query = query.eq('product_group', groupFilter);
+            }
+            if (statusFilter !== 'ALL') {
+                query = query.eq('is_active', statusFilter === 'ACTIVE');
+            }
+            if (searchTerm.trim()) {
+                const term = searchTerm.trim();
+                query = query.or(`name.ilike.%${term}%,category.ilike.%${term}%,product_group.ilike.%${term}%`);
+            }
+
+            if (sortBy === 'low_stock') {
+                query = query.order('stock', { ascending: true });
+            } else if (sortBy === 'high_price') {
+                query = query.order('price', { ascending: false });
+            } else {
+                query = query.order('created_at', { ascending: false });
+            }
+
+            const { data: exportProducts, error } = await query;
+            if (error) throw error;
+
+            if (!exportProducts || exportProducts.length === 0) {
+                setResultModal({
+                    title: 'Export Failed',
+                    message: 'No products found to export!',
+                    type: 'error'
+                });
+                return;
+            }
+
             // Map products to the Excel format
-            const exportData = products.map(p => ({
+            const exportData = exportProducts.map(p => ({
                 'ID': p.id,
                 'Name': p.name || '',
                 'Category': p.category || '',
@@ -495,7 +529,7 @@ export default function ProductsPage() {
 
             setResultModal({
                 title: 'Export Successful',
-                message: `Exported ${products.length} products successfully!`,
+                message: `Exported ${exportProducts.length} products successfully!`,
                 type: 'success'
             });
         } catch (err) {

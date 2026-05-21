@@ -2,6 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import sharp from 'sharp';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { processOcr } from '@/lib/ocrProcessor';
+import path from 'path';
+
+// Load a fallback font to ensure text renders even in environments without system fonts
+try {
+    const fontPath = path.join(process.cwd(), 'node_modules', 'next', 'dist', 'compiled', '@vercel', 'og', 'noto-sans-v27-latin-regular.ttf');
+    GlobalFonts.registerFromPath(fontPath, 'FallbackSans');
+} catch (e) {
+    console.log('[SERVICE] Could not load fallback font:', e.message);
+}
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -84,7 +93,7 @@ export async function applyWatermark(buffer, code) {
 
         // 2. Setup font
         const fontSize = Math.max(22, Math.round(width * 0.045));
-        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.font = `bold ${fontSize}px "FallbackSans", Arial, sans-serif`;
 
         // 3. Measure pill
         const paddingX = Math.round(fontSize * 0.8);
@@ -92,7 +101,8 @@ export async function applyWatermark(buffer, code) {
         const margin = Math.round(width * 0.03);
 
         const textMetrics = ctx.measureText(text);
-        const badgeW = textMetrics.width + (paddingX * 2);
+        const textWidth = textMetrics.width || (fontSize * 0.6 * text.length); // Fallback if font still fails to measure
+        const badgeW = textWidth + (paddingX * 2);
         const badgeH = fontSize + (paddingY * 2);
 
         const x = width - badgeW - margin;
@@ -101,7 +111,17 @@ export async function applyWatermark(buffer, code) {
         // 4. Draw Pill Background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
         ctx.beginPath();
-        ctx.roundRect(x, y, badgeW, badgeH, badgeH / 2);
+        const radius = badgeH / 2;
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + badgeW - radius, y);
+        ctx.arcTo(x + badgeW, y, x + badgeW, y + radius, radius);
+        ctx.lineTo(x + badgeW, y + badgeH - radius);
+        ctx.arcTo(x + badgeW, y + badgeH, x + badgeW - radius, y + badgeH, radius);
+        ctx.lineTo(x + radius, y + badgeH);
+        ctx.arcTo(x, y + badgeH, x, y + badgeH - radius, radius);
+        ctx.lineTo(x, y + radius);
+        ctx.arcTo(x, y, x + radius, y, radius);
+        ctx.closePath();
         ctx.fill();
 
         // Subtle Border
