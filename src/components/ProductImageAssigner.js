@@ -66,6 +66,7 @@ export default function ProductImageAssigner({ products, onClose, onDone }) {
                 uploadFormData.append('catalogId', catId);
                 uploadFormData.append('requireClean', 'true');
                 uploadFormData.append('skipDetection', 'true');
+                uploadFormData.append('saveClean', rawImageUrl.startsWith('blob:') ? 'true' : 'false');
                 uploadFormData.append('mode', 'product');
 
                 const token = localStorage.getItem('cast_prince_admin') || '';

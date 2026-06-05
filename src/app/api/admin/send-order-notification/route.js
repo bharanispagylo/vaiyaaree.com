@@ -1,4 +1,4 @@
-import { sendText } from '@/services/whatsappService';
+import { sendText, sendRawMessage } from '@/services/whatsappService';
 import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '@/lib/emailService';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -187,7 +187,79 @@ export async function POST(request) {
                         `• Items: ${order.order_items?.length || 0} product(s)\n\n` +
                         `Thank you for shopping with Cast Printz! 💖`
                     );
-                await sendText(finalPhone, message);
+
+                // Fetch product images
+                const itemsWithImages = [];
+                if (order.order_items && order.order_items.length > 0) {
+                    for (const item of order.order_items) {
+                        try {
+                            const { data: product } = await supabase
+                                .from('products')
+                                .select('image_url')
+                                .eq('id', item.product_id)
+                                .single();
+                            
+                            const imgUrl = product?.image_url;
+                            if (imgUrl) {
+                                itemsWithImages.push({
+                                    ...item,
+                                    image_url: imgUrl
+                                });
+                            }
+                        } catch (err) {
+                            console.error('Error fetching product image:', err);
+                        }
+                    }
+                }
+
+                if (itemsWithImages.length > 0) {
+                    // Send first product image with the main message as the caption
+                    const firstItem = itemsWithImages[0];
+                    let caption = message;
+                    
+                    // If there is only 1 item in the order, append its details directly to the main caption
+                    if (order.order_items.length === 1) {
+                        caption += `\n\n🛍️ *Item:* ${firstItem.product_name}\n` +
+                            (firstItem.variant_name ? `🎨 *Option:* ${firstItem.variant_name}\n` : '') +
+                            `💵 *Price:* ₹${firstItem.price_at_time.toLocaleString()}\n` +
+                            `🔢 *Quantity:* ${firstItem.quantity}`;
+                    }
+
+                    await sendRawMessage(finalPhone, {
+                        messaging_product: "whatsapp",
+                        recipient_type: "individual",
+                        to: finalPhone,
+                        type: "image",
+                        image: {
+                            link: firstItem.image_url,
+                            caption: caption.substring(0, 1024)
+                        }
+                    });
+
+                    // Send remaining product images with their captions
+                    for (let i = 1; i < itemsWithImages.length; i++) {
+                        const item = itemsWithImages[i];
+                        const itemCaption = `🛍️ *Item:* ${item.product_name}\n` +
+                            (item.variant_name ? `🎨 *Option:* ${item.variant_name}\n` : '') +
+                            `💵 *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
+                            `🔢 *Quantity:* ${item.quantity}`;
+                        
+                        await sendRawMessage(finalPhone, {
+                            messaging_product: "whatsapp",
+                            recipient_type: "individual",
+                            to: finalPhone,
+                            type: "image",
+                            image: {
+                                link: item.image_url,
+                                caption: itemCaption.substring(0, 1024)
+                            }
+                        });
+                    }
+                } else {
+                    // Fallback to text message if no product images exist
+                    await sendText(finalPhone, message);
+                }
+
                 notifications.push(`WhatsApp (${finalPhone})`);
             } catch (whatsappErr) {
                 console.error('Failed to send WhatsApp notification:', whatsappErr);

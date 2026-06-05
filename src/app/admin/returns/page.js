@@ -12,6 +12,26 @@ import {
 } from 'lucide-react';
 
 export default function AdminReturnsPage() {
+    const formatDisplayPhoneNumber = (phone) => {
+        if (!phone) return '';
+        let cleaned = String(phone).replace(/\D/g, '');
+        if (cleaned.length === 12 && cleaned.startsWith('91')) {
+            const part1 = cleaned.substring(2, 7);
+            const part2 = cleaned.substring(7);
+            return `+91 ${part1} ${part2}`;
+        } else if (cleaned.length === 10) {
+            const part1 = cleaned.substring(0, 5);
+            const part2 = cleaned.substring(5);
+            return `+91 ${part1} ${part2}`;
+        } else if (cleaned.startsWith('91') && cleaned.length > 10) {
+            return `+${cleaned.substring(0, 2)} ${cleaned.substring(2)}`;
+        } else if (cleaned.length > 5) {
+            const part1 = cleaned.substring(0, 5);
+            const part2 = cleaned.substring(5);
+            return `${part1} ${part2}`;
+        }
+        return phone;
+    };
     const [returns, setReturns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -440,7 +460,7 @@ export default function AdminReturnsPage() {
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                 <span style={{ fontWeight: 600 }}>{request.customers?.name || 'N/A'}</span>
                                                 <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
-                                                    {request.customers?.phone}
+                                                    {formatDisplayPhoneNumber(request.customers?.phone)}
                                                 </span>
                                             </div>
                                         </td>
@@ -591,7 +611,7 @@ export default function AdminReturnsPage() {
                                         {selectedRequest.customers?.phone && (
                                             <div>
                                                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Phone</div>
-                                                <div style={{ fontWeight: 600 }}>{selectedRequest.customers.phone}</div>
+                                                <div style={{ fontWeight: 600 }}>{formatDisplayPhoneNumber(selectedRequest.customers.phone)}</div>
                                             </div>
                                         )}
                                         {selectedRequest.products && (

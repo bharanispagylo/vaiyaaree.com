@@ -468,6 +468,48 @@ export async function handleProductInquiry(to, catalogId) {
             );
         }
 
+        // --- CHECK IF ALREADY ORDERED BY THIS CUSTOMER ---
+        const normalizedPhone = normalizePhoneNumber(to);
+        const phoneVariations = [normalizedPhone];
+        if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+            phoneVariations.push(normalizedPhone.substring(2));
+        }
+
+        const { data: pastOrders } = await supabaseAdmin
+            .from('orders')
+            .select('*, order_items(*)')
+            .in('customer_phone', phoneVariations)
+            .neq('status', 'CANCELLED');
+
+        const matchingOrder = pastOrders?.find(o =>
+            o.order_items?.some(item => item.product_id === product.id)
+        );
+
+        const imgUrl = getPremiumImage(product);
+
+        if (matchingOrder) {
+            // Already ordered -> Show past order details
+            const orderDate = new Date(matchingOrder.created_at).toLocaleDateString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric'
+            });
+            const caption = 
+                `🛍️ *${product.name}*\n` +
+                `--------------------------\n` +
+                `You have already ordered this item in a past order! 💖\n\n` +
+                `• *Order ID:* #${matchingOrder.id}\n` +
+                `• *Order Date:* ${orderDate}\n` +
+                `• *Status:* *${matchingOrder.status}*\n` +
+                `• *Order Total:* ₹${matchingOrder.total_amount.toLocaleString()}\n\n` +
+                `Tap below to track your order details:`;
+
+            const buttons = [
+                { id: "menu_track", title: "Track Order" },
+                { id: `addcart_${product.id}`, title: "🛒 Buy Again" },
+                { id: "menu_main", title: "🏠 Main Menu" }
+            ];
+            return await sendImageButtons(to, imgUrl, caption, buttons);
+        }
+
         const stock = product.stock || 0;
         const alertThreshold = product.alert_threshold || 5;
         const stockStatus = stock <= 0
@@ -486,7 +528,6 @@ export async function handleProductInquiry(to, catalogId) {
             `💎 *₹${(product.price || 0).toLocaleString()}*\n` +
             `${stockStatus}${desc}`;
 
-        const imgUrl = getPremiumImage(product);
         const buttons = stock > 0
             ? [
                 { id: `addcart_${product.id}`, title: '🛒 Add to Cart' },
@@ -1221,6 +1262,40 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
         for (const targetPhone of targets) {
             try {
                 await sendText(targetPhone, message);
+
+                // Send product images and info
+                if (order.order_items && order.order_items.length > 0) {
+                    for (const item of order.order_items) {
+                        try {
+                            const { data: product } = await supabase
+                                .from('products')
+                                .select('image_url')
+                                .eq('id', item.product_id)
+                                .single();
+                            
+                            const imgUrl = product?.image_url;
+                            if (imgUrl) {
+                                const caption = `🛍️ *Item:* ${item.product_name}\n` +
+                                    (item.variant_name ? `🎨 *Option:* ${item.variant_name}\n` : '') +
+                                    `💵 *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
+                                    `🔢 *Quantity:* ${item.quantity}`;
+                                
+                                await sendRawMessage(targetPhone, {
+                                    messaging_product: "whatsapp",
+                                    recipient_type: "individual",
+                                    to: targetPhone,
+                                    type: "image",
+                                    image: {
+                                        link: imgUrl,
+                                        caption: caption
+                                    }
+                                });
+                            }
+                        } catch (err) {
+                            console.error('[WA-NOTIFY] Failed to send product image:', err);
+                        }
+                    }
+                }
 
                 if (invoiceUrl) {
                     // Small delay to ensure text arrives first

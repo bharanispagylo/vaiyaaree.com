@@ -6,6 +6,26 @@ import { supabase } from '@/lib/supabaseClient';
 import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck } from 'lucide-react';
 
 export default function AdminDashboard() {
+    const formatDisplayPhoneNumber = (phone) => {
+        if (!phone) return '';
+        let cleaned = String(phone).replace(/\D/g, '');
+        if (cleaned.length === 12 && cleaned.startsWith('91')) {
+            const part1 = cleaned.substring(2, 7);
+            const part2 = cleaned.substring(7);
+            return `+91 ${part1} ${part2}`;
+        } else if (cleaned.length === 10) {
+            const part1 = cleaned.substring(0, 5);
+            const part2 = cleaned.substring(5);
+            return `+91 ${part1} ${part2}`;
+        } else if (cleaned.startsWith('91') && cleaned.length > 10) {
+            return `+${cleaned.substring(0, 2)} ${cleaned.substring(2)}`;
+        } else if (cleaned.length > 5) {
+            const part1 = cleaned.substring(0, 5);
+            const part2 = cleaned.substring(5);
+            return `${part1} ${part2}`;
+        }
+        return phone;
+    };
     const [stats, setStats] = useState({ revenue: 0, orders: 0, customers: 0, pending: 0, shipped: 0, delivered: 0, whatsappOrders: 0, todayOrders: 0 });
     const [recentOrders, setRecentOrders] = useState([]);
     const [lowStockProducts, setLowStockProducts] = useState([]);
@@ -290,7 +310,7 @@ export default function AdminDashboard() {
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'WhatsApp Customer'}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(order.customer_phone)}</div>
                                         </td>
                                         <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>
                                             ₹{(order.total_amount || 0).toLocaleString()}

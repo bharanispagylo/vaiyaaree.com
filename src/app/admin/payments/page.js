@@ -27,6 +27,26 @@ const METHOD_ICONS = {
 };
 
 export default function PaymentGatewayPage() {
+    const formatDisplayPhoneNumber = (phone) => {
+        if (!phone) return '';
+        let cleaned = String(phone).replace(/\D/g, '');
+        if (cleaned.length === 12 && cleaned.startsWith('91')) {
+            const part1 = cleaned.substring(2, 7);
+            const part2 = cleaned.substring(7);
+            return `+91 ${part1} ${part2}`;
+        } else if (cleaned.length === 10) {
+            const part1 = cleaned.substring(0, 5);
+            const part2 = cleaned.substring(5);
+            return `+91 ${part1} ${part2}`;
+        } else if (cleaned.startsWith('91') && cleaned.length > 10) {
+            return `+${cleaned.substring(0, 2)} ${cleaned.substring(2)}`;
+        } else if (cleaned.length > 5) {
+            const part1 = cleaned.substring(0, 5);
+            const part2 = cleaned.substring(5);
+            return `${part1} ${part2}`;
+        }
+        return phone;
+    };
     const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'integration'
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -311,7 +331,7 @@ export default function PaymentGatewayPage() {
                                                             <td style={{ padding: '1rem 1.25rem' }}><code style={{ background: 'hsl(var(--bg-app))', padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>#{String(p.id).slice(0, 8)}</code></td>
                                                             <td style={{ padding: '1rem 1.25rem' }}>
                                                                 <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.customer_name || 'Unknown'}</div>
-                                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{p.customer_phone}</div>
+                                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(p.customer_phone)}</div>
                                                             </td>
                                                             <td style={{ padding: '1rem 1.25rem' }}><span style={{ fontWeight: 800, fontSize: '1rem' }}>₹{p.total_amount?.toLocaleString()}</span></td>
                                                             <td style={{ padding: '1rem 1.25rem' }}><span style={{ background: statusMeta.bg, color: statusMeta.color, padding: '0.3rem 0.8rem', borderRadius: 30, fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>{statusMeta.label}</span></td>
@@ -590,7 +610,7 @@ export default function PaymentGatewayPage() {
                                 </div>
                                 <div style={{ marginBottom: '1.5rem' }}>
                                     <p style={{ margin: '0 0 0.25rem', fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Phone Number</p>
-                                    <p style={{ margin: 0, fontWeight: 800 }}>{selectedPayment.customer_phone}</p>
+                                    <p style={{ margin: 0, fontWeight: 800 }}>{formatDisplayPhoneNumber(selectedPayment.customer_phone)}</p>
                                 </div>
                                 <div>
                                     <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Shipping Address</p>

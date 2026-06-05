@@ -118,6 +118,7 @@ export async function POST(request) {
         const skipDetection = formData.get('skipDetection') === 'true';
         const alreadyWatermarked = formData.get('alreadyWatermarked') === 'true';
         const requireClean = formData.get('requireClean') === 'true';
+        const saveClean = formData.get('saveClean') !== 'false';
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -161,16 +162,20 @@ export async function POST(request) {
         if (!hasWatermark && catalogId && requireClean) {
             // CASE 1: No watermark detected -> Store Clean AND Generate Watermark
             
-            // A. Save ORIGINAL (Clean) version
-            const cleanPath = `without-watermark/${fileName}`;
-            console.log(`[STORAGE] Saving CLEAN image to: ${cleanPath}`);
-            const { error: cleanErr } = await supabaseAdmin.storage
-                .from(BUCKET_NAME)
-                .upload(cleanPath, buffer, {
-                    contentType: file.type || 'image/jpeg',
-                    upsert: true
-                });
-            if (cleanErr) throw cleanErr;
+            // A. Save ORIGINAL (Clean) version (only if saveClean is true)
+            if (saveClean) {
+                const cleanPath = `without-watermark/${fileName}`;
+                console.log(`[STORAGE] Saving CLEAN image to: ${cleanPath}`);
+                const { error: cleanErr } = await supabaseAdmin.storage
+                    .from(BUCKET_NAME)
+                    .upload(cleanPath, buffer, {
+                        contentType: file.type || 'image/jpeg',
+                        upsert: true
+                    });
+                if (cleanErr) throw cleanErr;
+            } else {
+                console.log(`[STORAGE] Skipping saving clean version because saveClean is false`);
+            }
 
             // B. Generate Watermarked version
             console.log(`[PROCESS] Applying NEW watermark: ${finalId}`);

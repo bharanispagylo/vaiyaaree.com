@@ -2077,6 +2077,7 @@ export default function ProductsPage() {
                                                     formData.append('catalogId', newCatId);
                                                     formData.append('requireClean', 'true');
                                                     formData.append('skipDetection', 'true');
+                                                    formData.append('saveClean', 'false');
 
                                                     const token = localStorage.getItem('cast_prince_admin') || '';
                                                      const uploadRes = await fetch('/api/admin/upload', {

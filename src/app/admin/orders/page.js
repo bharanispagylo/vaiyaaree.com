@@ -105,6 +105,11 @@ export default function OrdersPage() {
     const [cancelReason, setCancelReason] = useState('');
     const [showResendEmailModal, setShowResendEmailModal] = useState(false);
     const [showResendWhatsAppModal, setShowResendWhatsAppModal] = useState(false);
+    const [showSendNotificationModal, setShowSendNotificationModal] = useState(false);
+    const [sendWhatsAppChecked, setSendWhatsAppChecked] = useState(true);
+    const [sendEmailChecked, setSendEmailChecked] = useState(true);
+    const [notificationPhone, setNotificationPhone] = useState('');
+    const [notificationEmail, setNotificationEmail] = useState('');
     const [statusConfirmModal, setStatusConfirmModal] = useState(null);
     const [returningItem, setReturningItem] = useState(null);
     const [returnQty, setReturnQty] = useState(1);
@@ -112,6 +117,29 @@ export default function OrdersPage() {
     const [couriers, setCouriers] = useState([]);
     const [selectedCourierId, setSelectedCourierId] = useState('');
     const [infoModalOrder, setInfoModalOrder] = useState(null);
+    const [isCourierFromTable, setIsCourierFromTable] = useState(false);
+    const [isCourierSaved, setIsCourierSaved] = useState(false);
+
+    const formatDisplayPhoneNumber = (phone) => {
+        if (!phone) return '';
+        let cleaned = String(phone).replace(/\D/g, '');
+        if (cleaned.length === 12 && cleaned.startsWith('91')) {
+            const part1 = cleaned.substring(2, 7);
+            const part2 = cleaned.substring(7);
+            return `+91 ${part1} ${part2}`;
+        } else if (cleaned.length === 10) {
+            const part1 = cleaned.substring(0, 5);
+            const part2 = cleaned.substring(5);
+            return `+91 ${part1} ${part2}`;
+        } else if (cleaned.startsWith('91') && cleaned.length > 10) {
+            return `+${cleaned.substring(0, 2)} ${cleaned.substring(2)}`;
+        } else if (cleaned.length > 5) {
+            const part1 = cleaned.substring(0, 5);
+            const part2 = cleaned.substring(5);
+            return `${part1} ${part2}`;
+        }
+        return phone;
+    };
 
     const [newOrder, setNewOrder] = useState({
         customer_name: '',
@@ -477,6 +505,20 @@ export default function OrdersPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const openCourierModal = (order, fromTable = false) => {
+        setSelectedOrder(order);
+        setIsCourierFromTable(fromTable);
+        setIsCourierSaved(false);
+        setShippingForm({
+            courier_name: order.courier_name || '',
+            tracking_number: order.tracking_number || '',
+            tracking_url: order.tracking_url || ''
+        });
+        const matched = couriers.find(c => c.name === order.courier_name);
+        setSelectedCourierId(matched ? matched.id : (order.courier_name ? 'CUSTOM' : ''));
+        setShowShippingForm(true);
     };
 
     if (!hasMounted) {
@@ -875,6 +917,63 @@ export default function OrdersPage() {
         }
     };
 
+    const handleSendManualNotifications = async () => {
+        if (!selectedOrder) return;
+        setLoading(true);
+        try {
+            const finalPhone = notificationPhone.trim();
+            const finalEmail = notificationEmail.trim();
+
+            if (sendWhatsAppChecked && !finalPhone) {
+                setNotification({ message: 'No phone number selected for WhatsApp.', type: 'error' });
+                setLoading(false);
+                return;
+            }
+            if (sendEmailChecked && !finalEmail) {
+                setNotification({ message: 'No email address selected for Email.', type: 'error' });
+                setLoading(false);
+                return;
+            }
+
+            const res = await fetch('/api/admin/send-order-notification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: selectedOrder.id,
+                    sendWhatsApp: sendWhatsAppChecked,
+                    sendEmail: sendEmailChecked,
+                    targetPhone: sendWhatsAppChecked ? finalPhone : undefined,
+                    targetEmail: sendEmailChecked ? finalEmail : undefined
+                })
+            });
+
+            if (res.ok) {
+                const sentList = [];
+                if (sendWhatsAppChecked) sentList.push('WhatsApp');
+                if (sendEmailChecked) sentList.push('Email');
+                
+                let toastMsg = 'Notifications sent successfully';
+                if (sentList.length === 2) {
+                    toastMsg = 'Notification sent to WhatsApp and Email';
+                } else if (sentList.length === 1) {
+                    toastMsg = `Notification sent to ${sentList[0]}`;
+                }
+                
+                setNotification({ message: toastMsg, type: 'success' });
+                setShowSendNotificationModal(false);
+            } else {
+                const data = await res.json();
+                setNotification({ message: `Failed: ${data.message || data.error}`, type: 'error' });
+            }
+        } catch (err) {
+            console.error('Send Notifications Error:', err);
+            setNotification({ message: 'Failed to send notifications', type: 'error' });
+        } finally {
+            setLoading(false);
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
 
 
     const saveOrderEdits = async () => {
@@ -900,7 +999,12 @@ export default function OrdersPage() {
             const { error: orderError } = await supabase.from('orders').update({
                 customer_name: selectedOrder.customer_name,
                 customer_phone: selectedOrder.customer_phone,
-                delivery_address: selectedOrder.delivery_address,
+                customer_email: selectedOrder.customer_email,
+                billing_email: selectedOrder.customer_email,
+                shipping_email: selectedOrder.customer_email,
+                delivery_address: selectedOrder.shipping_address || selectedOrder.billing_address || selectedOrder.delivery_address,
+                billing_address: selectedOrder.billing_address,
+                shipping_address: selectedOrder.shipping_address,
                 shipping_state: selectedOrder.shipping_state,
                 subtotal,
                 tax_amount: tax,
@@ -968,7 +1072,7 @@ export default function OrdersPage() {
                     <>
                     <div className="no-print">
                         {/* ─── MAIN LIST VIEW ─── */}
-                        {!selectedOrder && !isAddingOrder && (
+                        {(!selectedOrder || isCourierFromTable) && !isAddingOrder && (
                             <>
                                 {/* Header */}
                                 <div className="admin-header-row">
@@ -1290,7 +1394,7 @@ export default function OrdersPage() {
                                                                                 </td>
                                                                                 <td>
                                                                                     <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'Guest'}</div>
-                                                                                    <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{order.customer_phone}</div>
+                                                                                    <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(order.customer_phone)}</div>
                                                                                 </td>
 
                                                                                 <td style={{ textAlign: 'center' }}>
@@ -1315,8 +1419,7 @@ export default function OrdersPage() {
                                                                                             <button
                                                                                                 onClick={(e) => {
                                                                                                     e.stopPropagation();
-                                                                                                    setSelectedOrder(order);
-                                                                                                    openOrderDetail(order).then(() => setShowShippingForm(true));
+                                                                                                    openCourierModal(order, true);
                                                                                                 }}
                                                                                                 className="btn btn-secondary"
                                                                                                 style={{ padding: '0.35rem 0.5rem', color: 'hsl(var(--success))', borderColor: 'hsl(var(--success) / 0.3)', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}
@@ -1327,7 +1430,18 @@ export default function OrdersPage() {
                                                                                                 <button
                                                                                                     onClick={(e) => {
                                                                                                         e.stopPropagation();
-                                                                                                        handleSendNotifications(order);
+                                                                                                        setSelectedOrder(order);
+                                                                                                        setIsCourierFromTable(true);
+                                                                                                        const phoneToUse = order.customer_phone || (typeof order.billing_address === 'object' ? order.billing_address?.phone : null) || '';
+                                                                                                        const bEmail = order.billing_email || (typeof order.billing_address === 'object' ? order.billing_address?.email : null) || order.customer_email || '';
+                                                                                                        const sEmail = order.shipping_email || (typeof order.shipping_address === 'object' ? order.shipping_address?.email : null) || '';
+                                                                                                        const emailToUse = bEmail || sEmail;
+                                                                                                        
+                                                                                                        setNotificationPhone(formatDisplayPhoneNumber(phoneToUse));
+                                                                                                        setNotificationEmail(emailToUse);
+                                                                                                        setSendWhatsAppChecked(true);
+                                                                                                        setSendEmailChecked(true);
+                                                                                                        setShowSendNotificationModal(true);
                                                                                                     }}
                                                                                                     className="btn btn-secondary"
                                                                                                     style={{ padding: '0.35rem 0.5rem', color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.1)', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}
@@ -1406,7 +1520,7 @@ export default function OrdersPage() {
                             </>
                         )}
                         {/* ─── ORDER DETAILS PAGE ─── */}
-                        {selectedOrder && (
+                        {selectedOrder && !isCourierFromTable && (
                             <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                                 <div className="card shadow-premium" style={{
                                     width: '100%', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff', overflow: 'hidden'
@@ -1616,10 +1730,11 @@ export default function OrdersPage() {
                                             <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
                                                 {isEditingItems ? (
                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.65rem' }}>
+                                                        {/* Row 1: Name and Email */}
                                                         <div style={{ gridColumn: 'span 1' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                                                <User size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Customer Name</label>
+                                                                 <User size={14} style={{ color: 'hsl(var(--primary))' }} />
+                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Customer Name</label>
                                                             </div>
                                                             <input
                                                                 placeholder="Customer Name"
@@ -1631,45 +1746,25 @@ export default function OrdersPage() {
                                                             />
                                                         </div>
                                                         <div style={{ gridColumn: 'span 1' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                <Phone size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Phone Number</label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                                 <Mail size={14} style={{ color: 'hsl(var(--primary))' }} />
+                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Customer Email</label>
                                                             </div>
                                                             <input
-                                                                placeholder="Phone"
-                                                                value={selectedOrder.customer_phone || ''}
-                                                                onChange={e => setSelectedOrder({ ...selectedOrder, customer_phone: e.target.value })}
+                                                                placeholder="Customer Email"
+                                                                value={selectedOrder.customer_email || ''}
+                                                                onChange={e => setSelectedOrder({ ...selectedOrder, customer_email: e.target.value })}
                                                                 style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', transition: 'all 0.2s', outline: 'none' }}
                                                                 onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
                                                                 onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                                                             />
                                                         </div>
+
+                                                        {/* Row 2: Shipping and Billing Address */}
                                                         <div style={{ gridColumn: 'span 1' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                <MapPin size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Billing Address</label>
-                                                            </div>
-                                                            <textarea
-                                                                rows={4}
-                                                                placeholder="Billing Address Details..."
-                                                                value={(() => {
-                                                                    let addr = selectedOrder.billing_address || selectedOrder.delivery_address || '';
-                                                                    if (typeof addr === 'string' && addr.trim().startsWith('{')) { try { addr = JSON.parse(addr); } catch(e){} }
-                                                                    if (typeof addr === 'object' && addr !== null) {
-                                                                        return [addr.name || selectedOrder.customer_name, addr.mobile || addr.phone, addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
-                                                                    }
-                                                                    return String(addr);
-                                                                })()}
-                                                                onChange={e => setSelectedOrder({ ...selectedOrder, billing_address: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'vertical', minHeight: '100px', outline: 'none' }}
-                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
-                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                                                            />
-                                                        </div>
-                                                        <div style={{ gridColumn: 'span 1' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                <MapPin size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Shipping Address</label>
+                                                                 <MapPin size={14} style={{ color: 'hsl(var(--primary))' }} />
+                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Shipping Address</label>
                                                             </div>
                                                             <textarea
                                                                 rows={4}
@@ -1688,15 +1783,53 @@ export default function OrdersPage() {
                                                                 onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                                                             />
                                                         </div>
-                                                        <div style={{ gridColumn: 'span 2' }}>
+                                                        <div style={{ gridColumn: 'span 1' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                <Globe size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Shipping State</label>
+                                                                 <MapPin size={14} style={{ color: 'hsl(var(--primary))' }} />
+                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Billing Address</label>
+                                                            </div>
+                                                            <textarea
+                                                                rows={4}
+                                                                placeholder="Billing Address Details..."
+                                                                value={(() => {
+                                                                    let addr = selectedOrder.billing_address || selectedOrder.delivery_address || '';
+                                                                    if (typeof addr === 'string' && addr.trim().startsWith('{')) { try { addr = JSON.parse(addr); } catch(e){} }
+                                                                    if (typeof addr === 'object' && addr !== null) {
+                                                                        return [addr.name || selectedOrder.customer_name, addr.mobile || addr.phone, addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
+                                                                    }
+                                                                    return String(addr);
+                                                                })()}
+                                                                onChange={e => setSelectedOrder({ ...selectedOrder, billing_address: e.target.value })}
+                                                                style={{ width: '100%', padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'vertical', minHeight: '100px', outline: 'none' }}
+                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                            />
+                                                        </div>
+
+                                                        {/* Row 3: Phone Number and Shipping State */}
+                                                        <div style={{ gridColumn: 'span 1' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                                                 <Phone size={14} style={{ color: 'hsl(var(--primary))' }} />
+                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Phone Number</label>
+                                                            </div>
+                                                            <input
+                                                                placeholder="Phone"
+                                                                value={selectedOrder.customer_phone || ''}
+                                                                onChange={e => setSelectedOrder({ ...selectedOrder, customer_phone: e.target.value })}
+                                                                style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', transition: 'all 0.2s', outline: 'none' }}
+                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                            />
+                                                        </div>
+                                                        <div style={{ gridColumn: 'span 1' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                                                 <Globe size={14} style={{ color: 'hsl(var(--primary))' }} />
+                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Shipping State</label>
                                                             </div>
                                                             <select
                                                                 value={selectedOrder.shipping_state || 'Tamil Nadu'}
                                                                 onChange={e => setSelectedOrder({ ...selectedOrder, shipping_state: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
                                                                 onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
                                                                 onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                                                             >
@@ -1707,7 +1840,7 @@ export default function OrdersPage() {
                                                 ) : (
                                                     <>
                                                         <div style={{ fontWeight: 800, fontSize: '1rem', color: 'hsl(var(--text-main))' }}>{selectedOrder.customer_name}</div>
-                                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '2px', fontWeight: 500 }}>{selectedOrder.customer_phone}</div>
+                                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '2px', fontWeight: 500 }}>{formatDisplayPhoneNumber(selectedOrder.customer_phone)}</div>
                                                         {selectedOrder.customer_email && (
                                                             <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', wordBreak: 'break-word', marginTop: '2px' }}>{selectedOrder.customer_email}</div>
                                                         )}
@@ -1722,7 +1855,7 @@ export default function OrdersPage() {
                                                                         return (
                                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                                                                 <div style={{ fontWeight: 600 }}>{addr.name || selectedOrder.customer_name}</div>
-                                                                                <div style={{ color: 'hsl(var(--text-muted))' }}>{addr.mobile || addr.phone || selectedOrder.customer_phone}</div>
+                                                                                <div style={{ color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(addr.mobile || addr.phone || selectedOrder.customer_phone)}</div>
                                                                                 {(addr.email || selectedOrder.billing_email) && <div style={{ color: 'hsl(var(--text-muted))', wordBreak: 'break-word' }}>{addr.email || selectedOrder.billing_email}</div>}
                                                                                 <div style={{ marginTop: '4px' }}>{[addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}</div>
                                                                             </div>
@@ -1743,7 +1876,7 @@ export default function OrdersPage() {
                                                                         return (
                                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                                                                 <div style={{ fontWeight: 600 }}>{addr.name || selectedOrder.customer_name}</div>
-                                                                                <div style={{ color: 'hsl(var(--text-muted))' }}>{addr.mobile || addr.phone || selectedOrder.customer_phone}</div>
+                                                                                <div style={{ color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(addr.mobile || addr.phone || selectedOrder.customer_phone)}</div>
                                                                                 {(addr.email || selectedOrder.shipping_email) && <div style={{ color: 'hsl(var(--text-muted))', wordBreak: 'break-word' }}>{addr.email || selectedOrder.shipping_email}</div>}
                                                                                 <div style={{ marginTop: '4px' }}>{[addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}</div>
                                                                             </div>
@@ -1829,7 +1962,7 @@ export default function OrdersPage() {
                                                             // showCancelModal is an overlay, but good to reset if changing status
 
                                                             if (newStatus === 'SHIPPED') {
-                                                                setShowShippingForm(true);
+                                                                openCourierModal(selectedOrder, false);
                                                             } else if (newStatus === 'CANCELLED') {
                                                                 setShowCancelModal(true);
                                                             } else if (['PAID', 'PACKING', 'DELIVERED'].includes(newStatus)) {
@@ -1842,7 +1975,7 @@ export default function OrdersPage() {
                                                                 updateOrderStatus(selectedOrder.id, newStatus);
                                                             }
                                                         }}
-                                                        style={{ padding: '0.75rem', borderRadius: '8px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}
+                                                        style={{ padding: '0.75rem', borderRadius: '8px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}
                                                     >
                                                         {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                                                     </select>
@@ -1897,13 +2030,33 @@ export default function OrdersPage() {
                                                     {/* Shipping Actions Block */}
                                                     {['PLACED', 'PAID', 'PACKING', 'SHIPPED'].includes(selectedOrder.status) && (
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                                            <button onClick={() => setShowShippingForm(true)} className="btn btn-primary" style={{ width: '100%', background: '#0f172a' }}>
+                                                            <button onClick={() => openCourierModal(selectedOrder, false)} className="btn btn-primary" style={{ width: '100%', background: '#0f172a' }}>
                                                                 <Truck size={16} /> {selectedOrder.courier_name ? 'Update Courier' : 'Select Courier'}
                                                             </button>
                                                             
                                                             {selectedOrder.courier_name && (
                                                                 <button
-                                                                    onClick={() => handleSendNotifications(selectedOrder)}
+                                                                    onClick={() => {
+                                                                        const bPhone = selectedOrder.billing_phone || (typeof selectedOrder.billing_address === 'object' ? selectedOrder.billing_address?.phone : null) || selectedOrder.customer_phone || '';
+                                                                        const sPhone = selectedOrder.shipping_phone || (typeof selectedOrder.shipping_address === 'object' ? selectedOrder.shipping_address?.phone : null) || '';
+                                                                        const phoneToUse = bPhone || sPhone;
+
+                                                                        const bEmail = selectedOrder.billing_email || (typeof selectedOrder.billing_address === 'object' ? selectedOrder.billing_address?.email : null) || selectedOrder.customer_email || '';
+                                                                        const sEmail = selectedOrder.shipping_email || (typeof selectedOrder.shipping_address === 'object' ? selectedOrder.shipping_address?.email : null) || '';
+                                                                        const emailToUse = bEmail || sEmail;
+
+                                                                        setNotificationPhone(formatDisplayPhoneNumber(phoneToUse));
+                                                                        setNotificationEmail(emailToUse);
+                                                                        setSendWhatsAppChecked(true);
+                                                                        setSendEmailChecked(true);
+                                                                        setShowSendNotificationModal(true);
+
+                                                                        setShowResendWhatsAppModal(false);
+                                                                        setShowResendEmailModal(false);
+                                                                        setStatusConfirmModal(null);
+                                                                        setShowShippingForm(false);
+                                                                        setNotificationSelection(null);
+                                                                    }}
                                                                     disabled={loading}
                                                                     className="btn btn-primary"
                                                                     style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)' }}
@@ -1943,76 +2096,35 @@ export default function OrdersPage() {
                                                     >
                                                         <Trash2 size={15} /> Delete Order
                                                     </button>
-
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowResendWhatsAppModal(true);
-                                                                setShowResendEmailModal(false);
-                                                                setStatusConfirmModal(null);
-                                                                setShowShippingForm(false);
-                                                                setNotificationSelection(null);
-                                                            }}
-                                                            className="btn btn-secondary"
-                                                            style={{ width: '100%', background: '#e8fff3', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)' }}
-                                                        >
-                                                            <MessageCircle size={16} /> Send in WhatsApp
-                                                        </button>
-
-                                                        {/* Resend WhatsApp Modal */}
-                                                        {showResendWhatsAppModal && (
-                                                            <div className="animate-enter" style={{ marginBottom: '0.75rem', padding: '1rem', background: '#e8fff3', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <MessageCircle size={14} /> Send WhatsApp
-                                                                </div>
-                                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
-                                                                    Send order confirmation via WhatsApp?
-                                                                </p>
-                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                                    <button onClick={() => setShowResendWhatsAppModal(false)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                                    <button
-                                                                        onClick={() => handleResendWhatsApp()}
-                                                                        className="btn"
-                                                                        style={{ fontSize: '0.8rem', background: '#10b981', color: 'white' }}
-                                                                    >Send Message</button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        <button
-                                                            onClick={() => {
-                                                                setShowResendEmailModal(true);
-                                                                setShowResendWhatsAppModal(false);
-                                                                setStatusConfirmModal(null);
-                                                                setShowShippingForm(false);
-                                                                setNotificationSelection(null);
-                                                            }}
-                                                            className="btn btn-secondary"
-                                                            style={{ width: '100%' }}
-                                                        >
-                                                            <Mail size={16} /> Resend Email
-                                                        </button>
-
-                                                        {/* Resend Email Modal */}
-                                                        {showResendEmailModal && (
-                                                            <div className="animate-enter" style={{ marginBottom: '0.75rem', padding: '1rem', background: '#f0f9ff', borderRadius: '10px', border: '1px solid hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <Mail size={14} /> Resend Email
-                                                                </div>
-                                                                <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
-                                                                    Resend order confirmation email to customer?
-                                                                </p>
-                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                                                    <button onClick={() => setShowResendEmailModal(false)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
-                                                                    <button
-                                                                        onClick={() => handleResendEmail()}
-                                                                        className="btn btn-primary"
-                                                                        style={{ fontSize: '0.8rem' }}
-                                                                    >Send Email</button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    
+                                                    {!selectedOrder.courier_name && (
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const bPhone = selectedOrder.billing_phone || (typeof selectedOrder.billing_address === 'object' ? selectedOrder.billing_address?.phone : null) || selectedOrder.customer_phone || '';
+                                                                    const sPhone = selectedOrder.shipping_phone || (typeof selectedOrder.shipping_address === 'object' ? selectedOrder.shipping_address?.phone : null) || '';
+                                                                    const phoneToUse = bPhone || sPhone;
+                                                                    const bEmail = selectedOrder.billing_email || (typeof selectedOrder.billing_address === 'object' ? selectedOrder.billing_address?.email : null) || selectedOrder.customer_email || '';
+                                                                    const sEmail = selectedOrder.shipping_email || (typeof selectedOrder.shipping_address === 'object' ? selectedOrder.shipping_address?.email : null) || '';
+                                                                    const emailToUse = bEmail || sEmail;
+                                                                    setNotificationPhone(formatDisplayPhoneNumber(phoneToUse));
+                                                                    setNotificationEmail(emailToUse);
+                                                                    setSendWhatsAppChecked(true);
+                                                                    setSendEmailChecked(true);
+                                                                    setShowSendNotificationModal(true);
+                                                                    setShowResendWhatsAppModal(false);
+                                                                    setShowResendEmailModal(false);
+                                                                    setStatusConfirmModal(null);
+                                                                    setShowShippingForm(false);
+                                                                    setNotificationSelection(null);
+                                                                }}
+                                                                className="btn btn-secondary"
+                                                                style={{ width: '100%', gap: '8px', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', border: '1px solid hsl(var(--primary) / 0.2)' }}
+                                                            >
+                                                                <Send size={16} /> Send Info
+                                                            </button>
+                                                        </div>
+                                                    )}
 
                                                     {/* Notification Selection Modal (Multi-contact) */}
                                                     {notificationSelection && (
@@ -2135,7 +2247,7 @@ export default function OrdersPage() {
                                             </div>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Billing State</label>
-                                                <select value={newOrder.billing_state} onChange={e => setNewOrder({ ...newOrder, billing_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                                <select value={newOrder.billing_state} onChange={e => setNewOrder({ ...newOrder, billing_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}>
                                                     {["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"].map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
                                             </div>
@@ -2164,7 +2276,7 @@ export default function OrdersPage() {
                                                     </div>
                                                     <div>
                                                         <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Shipping State</label>
-                                                        <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                                        <select value={newOrder.shipping_state} onChange={e => setNewOrder({ ...newOrder, shipping_state: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}>
                                                             {["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"].map(s => <option key={s} value={s}>{s}</option>)}
                                                         </select>
                                                     </div>
@@ -2180,7 +2292,7 @@ export default function OrdersPage() {
                                             </div>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Send Notifications</label>
-                                                <select value={newOrder.send_notifications || 'both'} onChange={e => setNewOrder({ ...newOrder, send_notifications: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                                <select value={newOrder.send_notifications || 'both'} onChange={e => setNewOrder({ ...newOrder, send_notifications: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}>
                                                     <option value="both">WhatsApp & Email</option>
                                                     <option value="whatsapp">Only WhatsApp</option>
                                                     <option value="email">Only Email</option>
@@ -2189,7 +2301,7 @@ export default function OrdersPage() {
                                             </div>
                                             <div>
                                                 <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Payment Method</label>
-                                                <select value={newOrder.payment_method} onChange={e => setNewOrder({ ...newOrder, payment_method: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))' }}>
+                                                <select value={newOrder.payment_method} onChange={e => setNewOrder({ ...newOrder, payment_method: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}>
                                                     <option value="UPI">UPI / Online</option>
                                                     <option value="COD">Cash on Delivery</option>
                                                 </select>
@@ -2512,7 +2624,7 @@ export default function OrdersPage() {
 
             {notification && (
                 <div style={{
-                    position: 'fixed', top: '2rem', right: '2rem', zIndex: 3000,
+                    position: 'fixed', top: '2rem', right: '2rem', zIndex: 200000,
                     padding: '1rem 2.5rem', borderRadius: '15px',
                     background: (notification.type === 'success' || notification.type === 'info') ? 'hsl(142, 70%, 45%)' : 'hsl(0, 84%, 60%)',
                     color: 'white', fontWeight: 600, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
@@ -2718,7 +2830,7 @@ export default function OrdersPage() {
                     <div className="card animate-pop" style={{ width: '100%', maxWidth: '480px', background: 'white', padding: '2rem', borderRadius: '28px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900 }}>Select Courier Partner</h3>
-                            <button onClick={() => setShowShippingForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
+                            <button onClick={() => { setShowShippingForm(false); if (isCourierFromTable) { setSelectedOrder(null); } setIsCourierFromTable(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
@@ -2742,7 +2854,7 @@ export default function OrdersPage() {
                                             });
                                         }
                                     }}
-                                    style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
+                                    style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem', cursor: 'pointer' }}
                                 >
                                     <option value="">-- Select Courier --</option>
                                     {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -2784,86 +2896,186 @@ export default function OrdersPage() {
                                 />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Phone <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
-                                    <input
-                                        type="text"
-                                        placeholder="+91..."
-                                        required
-                                        value={shippingForm.courier_phone || ''}
-                                        onChange={e => setShippingForm({ ...shippingForm, courier_phone: e.target.value })}
-                                        style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                            <button onClick={() => { setShowShippingForm(false); if (isCourierFromTable) { setSelectedOrder(null); } setIsCourierFromTable(false); }} className="btn btn-secondary" style={{ padding: '0.8rem' }}>
+                                {isCourierSaved ? 'Close' : 'Cancel'}
+                            </button>
+                            {!isCourierSaved ? (
+                                <button
+                                    onClick={async () => {
+                                        if (!selectedOrder) return;
+                                        setSavingCourier(true);
+                                        try {
+                                            setNotification({ message: 'Saving courier details...', type: 'info' });
+                                            // Use the central update-status API to handle DB update, logging, and notifications
+                                            const token = localStorage.getItem('cast_prince_admin') || '';
+                                            const response = await fetch('/api/orders/update-status', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'Authorization': `Bearer ${token}`
+                                                },
+                                                body: JSON.stringify({
+                                                    orderId: selectedOrder.id,
+                                                    status: 'SHIPPED',
+                                                    courierName: shippingForm.courier_name,
+                                                    trackingNumber: shippingForm.tracking_number,
+                                                    trackingUrl: shippingForm.tracking_url,
+                                                    notes: `Shipped via ${shippingForm.courier_name}`
+                                                })
+                                            });
+
+                                            if (!response.ok) {
+                                                const errData = await response.json();
+                                                throw new Error(errData.error || 'Failed to update status');
+                                            }
+
+                                            setSelectedOrder(prev => ({
+                                                ...prev,
+                                                courier_name: shippingForm.courier_name,
+                                                tracking_number: shippingForm.tracking_number,
+                                                tracking_url: shippingForm.tracking_url,
+                                                status: 'SHIPPED'
+                                            }));
+
+                                            setNotification({ message: 'Tracking saved & Status updated to SHIPPED', type: 'success' });
+                                            setIsCourierSaved(true);
+                                            fetchOrders();
+                                        } catch (err) {
+                                            console.error('Courier save error:', err);
+                                            setNotification({ message: `Save failed: ${err.message || 'Unknown error'}`, type: 'error' });
+                                        } finally {
+                                            setSavingCourier(false);
+                                            setTimeout(() => setNotification(null), 3000);
+                                        }
+                                    }}
+                                    disabled={!shippingForm.courier_name || !shippingForm.tracking_number || savingCourier}
+                                    className="btn btn-primary"
+                                    style={{ padding: '0.8rem', background: 'hsl(var(--success))', border: 'none' }}
+                                >
+                                    {savingCourier ? <Loader2 size={16} className="animate-spin" /> : 'Save Courier Info'}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        setShowShippingForm(false);
+                                        const phoneToUse = selectedOrder.customer_phone || (typeof selectedOrder.billing_address === 'object' ? selectedOrder.billing_address?.phone : null) || '';
+                                        const bEmail = selectedOrder.billing_email || (typeof selectedOrder.billing_address === 'object' ? selectedOrder.billing_address?.email : null) || selectedOrder.customer_email || '';
+                                        const sEmail = selectedOrder.shipping_email || (typeof selectedOrder.shipping_address === 'object' ? selectedOrder.shipping_address?.email : null) || '';
+                                        const emailToUse = bEmail || sEmail;
+                                        
+                                        setNotificationPhone(formatDisplayPhoneNumber(phoneToUse));
+                                        setNotificationEmail(emailToUse);
+                                        setSendWhatsAppChecked(true);
+                                        setSendEmailChecked(true);
+                                        setShowSendNotificationModal(true);
+                                    }}
+                                    className="btn btn-primary animate-pop"
+                                    style={{ padding: '0.8rem', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                >
+                                    <Send size={16} /> Send Info
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showSendNotificationModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
+                    <div className="card animate-pop" style={{ width: '100%', maxWidth: '480px', background: 'white', padding: '2rem', borderRadius: '28px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Send size={20} style={{ color: 'hsl(var(--primary))' }} /> Send Notification
+                            </h3>
+                            <button onClick={() => { setShowSendNotificationModal(false); if (isCourierFromTable) { setSelectedOrder(null); } setIsCourierFromTable(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {/* WhatsApp Checkbox & input */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: 'hsl(var(--text-main))' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={sendWhatsAppChecked} 
+                                        onChange={(e) => setSendWhatsAppChecked(e.target.checked)} 
+                                        style={{ width: '18px', height: '18px', accentColor: '#10b981', cursor: 'pointer' }}
                                     />
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Email <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
-                                    <input
-                                        type="email"
-                                        placeholder="support@..."
-                                        required
-                                        value={shippingForm.courier_email || ''}
-                                        onChange={e => setShippingForm({ ...shippingForm, courier_email: e.target.value })}
-                                        style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <MessageCircle size={16} style={{ color: '#10b981' }} /> WhatsApp
+                                    </span>
+                                </label>
+                                {sendWhatsAppChecked && (
+                                    <input 
+                                        type="text" 
+                                        value={notificationPhone} 
+                                        onChange={(e) => setNotificationPhone(e.target.value)} 
+                                        placeholder="WhatsApp Phone Number"
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '0.75rem', 
+                                            background: '#f8fafc', 
+                                            border: '1px solid hsl(var(--border-subtle))', 
+                                            borderRadius: '12px', 
+                                            fontSize: '0.9rem',
+                                            color: 'hsl(var(--text-main))',
+                                            outline: 'none'
+                                        }}
                                     />
-                                </div>
+                                )}
+                            </div>
+
+                            {/* Email Checkbox & input */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: 'hsl(var(--text-main))' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={sendEmailChecked} 
+                                        onChange={(e) => setSendEmailChecked(e.target.checked)} 
+                                        style={{ width: '18px', height: '18px', accentColor: 'hsl(var(--primary))', cursor: 'pointer' }}
+                                    />
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <Mail size={16} style={{ color: 'hsl(var(--primary))' }} /> Email
+                                    </span>
+                                </label>
+                                {sendEmailChecked && (
+                                    <input 
+                                        type="text" 
+                                        value={notificationEmail} 
+                                        onChange={(e) => setNotificationEmail(e.target.value)} 
+                                        placeholder="Email Address"
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '0.75rem', 
+                                            background: '#f8fafc', 
+                                            border: '1px solid hsl(var(--border-subtle))', 
+                                            borderRadius: '12px', 
+                                            fontSize: '0.9rem',
+                                            color: 'hsl(var(--text-main))',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                )}
                             </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                            <button onClick={() => setShowShippingForm(false)} className="btn btn-secondary" style={{ padding: '0.8rem' }}>Cancel</button>
+                            <button onClick={() => { setShowSendNotificationModal(false); if (isCourierFromTable) { setSelectedOrder(null); } setIsCourierFromTable(false); }} className="btn btn-secondary" style={{ padding: '0.8rem' }}>Cancel</button>
                             <button
                                 onClick={async () => {
-                                    if (!selectedOrder) return;
-                                    setSavingCourier(true);
-                                    try {
-                                        setNotification({ message: 'Synchronizing details...', type: 'info' });
-                                        // Use the central update-status API to handle DB update, logging, and notifications
-                                        const token = localStorage.getItem('cast_prince_admin') || '';
-                                        const response = await fetch('/api/orders/update-status', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'Authorization': `Bearer ${token}`
-                                            },
-                                            body: JSON.stringify({
-                                                orderId: selectedOrder.id,
-                                                status: 'SHIPPED',
-                                                courierName: shippingForm.courier_name,
-                                                trackingNumber: shippingForm.tracking_number,
-                                                trackingUrl: shippingForm.tracking_url,
-                                                notes: `Shipped via ${shippingForm.courier_name}`
-                                            })
-                                        });
-
-                                        if (!response.ok) {
-                                            const errData = await response.json();
-                                            throw new Error(errData.error || 'Failed to update status');
-                                        }
-
-                                        setSelectedOrder(prev => ({
-                                            ...prev,
-                                            courier_name: shippingForm.courier_name,
-                                            tracking_number: shippingForm.tracking_number,
-                                            tracking_url: shippingForm.tracking_url,
-                                            status: 'SHIPPED'
-                                        }));
-
-                                        setNotification({ message: 'Tracking saved & Status updated to SHIPPED', type: 'success' });
-                                        setShowShippingForm(false);
-                                        fetchOrders();
-                                    } catch (err) {
-                                        console.error('Courier save error:', err);
-                                        setNotification({ message: `Save failed: ${err.message || 'Unknown error'}`, type: 'error' });
-                                    } finally {
-                                        setSavingCourier(false);
+                                    await handleSendManualNotifications();
+                                    if (isCourierFromTable) {
+                                        setSelectedOrder(null);
                                     }
+                                    setIsCourierFromTable(false);
                                 }}
-                                disabled={!shippingForm.courier_name || !shippingForm.tracking_number || !shippingForm.courier_phone || !shippingForm.courier_email || savingCourier}
                                 className="btn btn-primary"
-                                style={{ padding: '0.8rem', background: 'hsl(var(--success))', border: 'none' }}
+                                disabled={loading || (!sendWhatsAppChecked && !sendEmailChecked)}
+                                style={{ padding: '0.8rem', background: 'hsl(var(--primary))', border: 'none' }}
                             >
-                                {savingCourier ? <Loader2 size={16} className="animate-spin" /> : 'Save Courier Info'}
+                                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Send'}
                             </button>
                         </div>
                     </div>
@@ -2948,7 +3160,7 @@ export default function OrdersPage() {
                                 <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                     <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>Customer Overview</div>
                                     <div style={{ fontWeight: 700, fontSize: '1rem', wordBreak: 'break-word', color: 'hsl(var(--text-main))' }}>{infoModalOrder.customer_name || 'Guest'}</div>
-                                    <div style={{ fontSize: '0.85rem', marginTop: '6px', fontWeight: 500 }}>{infoModalOrder.customer_phone}</div>
+                                    <div style={{ fontSize: '0.85rem', marginTop: '6px', fontWeight: 500 }}>{formatDisplayPhoneNumber(infoModalOrder.customer_phone)}</div>
                                     <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', wordBreak: 'break-all', marginTop: '2px' }}>{infoModalOrder.customer_email || 'No email provided'}</div>
                                 </div>
                                 <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -3002,7 +3214,7 @@ export default function OrdersPage() {
                                             return (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     <div style={{ fontWeight: 700 }}>{addr.name || infoModalOrder.customer_name}</div>
-                                                    {(addr.mobile || addr.phone) && <div style={{ fontSize: '0.85rem' }}>Mobile: {addr.mobile || addr.phone}</div>}
+                                                    {(addr.mobile || addr.phone) && <div style={{ fontSize: '0.85rem' }}>Mobile: {formatDisplayPhoneNumber(addr.mobile || addr.phone)}</div>}
                                                     {addr.email && <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', wordBreak: 'break-all' }}>{addr.email}</div>}
                                                     <div style={{ marginTop: '0.5rem', lineHeight: '1.5', color: 'hsl(var(--text-main))' }}>
                                                         {[addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}
