@@ -49,7 +49,7 @@
   --radius-sm: 0.5rem;
   --radius: 0.75rem;
   --radius-lg: 1.25rem;
-  --sidebar-width: 20rem;
+  --sidebar-width: 16rem;
 
   /* ── Premium Effects ── */
   --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.05);
@@ -223,7 +223,7 @@ p {
 }
 
 .main-content {
-  padding: 2rem 2.5rem;
+  padding: 1rem 1.5rem;
   width: 100%;
 }
 

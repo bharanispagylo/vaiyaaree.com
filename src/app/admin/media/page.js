@@ -764,10 +764,9 @@ export default function MediaLibraryPage() {
                             </thead>
                             <tbody>
                                 {filteredFiles.map((file) => (
-                                    <tr key={file.id}>
+                                    <tr key={file.id} onClick={() => setZoomedImage(file)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td>
                                             <div
-                                                onClick={() => setZoomedImage(file)}
                                                 style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in' }}
                                                 title="Click to zoom"
                                             >
@@ -778,20 +777,21 @@ export default function MediaLibraryPage() {
                                         <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{(file.metadata.size / 1024).toFixed(1)} KB</td>
                                         <td style={{ minWidth: '180px' }}>
                                             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                                <button onClick={() => toggleHero(file.url)} className={`btn ${heroImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <button onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }} className={`btn ${heroImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <Star size={12} /> {heroImages.includes(file.url) ? 'In Hero' : 'To Hero'}
                                                 </button>
-                                                <button onClick={() => toggleGallery(file.url)} className={`btn ${galleryImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <button onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }} className={`btn ${galleryImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <Layout size={12} /> {galleryImages.includes(file.url) ? 'In Gallery' : 'To Gallery'}
                                                 </button>
                                             </div>
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                <button onClick={() => copyToClipboard(file.url)} className="btn btn-secondary" style={{ padding: '0.4rem' }}>
+                                                <button onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }} className="btn btn-secondary" style={{ padding: '0.4rem' }}>
                                                     <Copy size={14} />
                                                 </button>
-                                                <button onClick={() => {
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
                                                     const fullPath = file.folder && file.folder !== 'root'
                                                         ? `${file.folder}/${file.name}`
                                                         : file.name;

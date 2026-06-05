@@ -9,6 +9,12 @@ export default function InvoicesPage() {
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [invoiceItems, setInvoiceItems] = useState([]);
     const [notification, setNotification] = useState(null);
@@ -81,8 +87,8 @@ export default function InvoicesPage() {
                     .select('*', { count: 'exact' })
                     .neq('status', 'DRAFT');
 
-                if (searchTerm.trim()) {
-                    const term = searchTerm.trim();
+                if (debouncedSearchTerm.trim()) {
+                    const term = debouncedSearchTerm.trim();
                     const isNumeric = /^\d+$/.test(term);
                     if (isNumeric) {
                         query = query.or(`id.eq.${term},customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%`);
@@ -106,7 +112,11 @@ export default function InvoicesPage() {
         };
 
         fetchInvoices();
-    }, [invoicePage, searchTerm]);
+    }, [invoicePage, debouncedSearchTerm]);
+
+    useEffect(() => {
+        setInvoicePage(1);
+    }, [debouncedSearchTerm]);
 
     const formatAddress = (addr) => {
         if (!addr) return "";
@@ -170,13 +180,7 @@ export default function InvoicesPage() {
 
     const totalInvoicePages = Math.ceil(totalCount / INVOICES_PER_PAGE);
 
-    if (loading && !selectedInvoice) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: '0.75rem', color: 'hsl(var(--text-muted))' }}>
-                <Loader2 size={24} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> Loading Invoices...
-            </div>
-        );
-    }
+    // Top-level loading check removed so headers stay visible
 
     return (
         <div className="animate-enter">
@@ -232,15 +236,21 @@ export default function InvoicesPage() {
                             <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                             <input
                                 type="text" placeholder="Search invoices..."
-                                value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setInvoicePage(1); }}
+                                value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); }}
                                 className="admin-input"
                                 style={{ paddingLeft: '2.75rem' }}
                             />
                         </div>
                     </div>
 
-                    <table style={{ margin: 0 }}>
-                        <thead>
+                    {loading ? (
+                        <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+                            <Loader2 size={24} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> Loading Invoices...
+                        </div>
+                    ) : (
+                        <div style={{ overflowX: 'auto', width: '100%' }}>
+                            <table style={{ margin: 0, width: '100%' }}>
+                                <thead>
                             <tr>
                                 <th>Invoice #</th>
                                 <th>Customer</th>
@@ -256,7 +266,7 @@ export default function InvoicesPage() {
                                 <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
                             ) : (
                                 invoices.map(inv => (
-                                    <tr key={inv.id}>
+                                    <tr key={inv.id} onClick={() => openInvoice(inv)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td style={{ padding: '1rem 1.5rem' }}>
                                             <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>INV-{inv.id}</span>
                                         </td>
@@ -273,7 +283,7 @@ export default function InvoicesPage() {
                                             {new Date(inv.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </td>
                                         <td style={{ textAlign: 'right' }}>
-                                            <button onClick={() => openInvoice(inv)}
+                                            <button onClick={(e) => { e.stopPropagation(); openInvoice(inv); }}
                                                 className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Invoice">
                                                 <Eye size={15} />
                                             </button>
@@ -281,8 +291,10 @@ export default function InvoicesPage() {
                                     </tr>
                                 ))
                             )}
-                        </tbody>
-                    </table>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
 
                     {/* Pagination */}
                     {totalInvoicePages > 1 && (

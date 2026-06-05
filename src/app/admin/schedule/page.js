@@ -532,7 +532,7 @@ export default function SchedulePostPage() {
                                 const scheduledDate = new Date(post.scheduled_at);
                                 const isPast = scheduledDate <= new Date();
                                 return (
-                                    <tr key={post.id}>
+                                    <tr key={post.id} onClick={() => { setEditMode(true); setSelectedPost(post); setScheduleForm({ message: post.message, platforms: post.platforms || [], media: post.media_urls || [], scheduledTime: post.scheduled_for ? new Date(post.scheduled_for).toISOString().slice(0, 16) : '' }); setShowModal(true); }} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td style={{ padding: '0.75rem 1rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                 <div style={{ width: '45px', height: '45px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))' }}>

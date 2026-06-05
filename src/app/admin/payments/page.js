@@ -307,7 +307,7 @@ export default function PaymentGatewayPage() {
                                                     const statusMeta = STATUS_COLORS[p.status] || STATUS_COLORS.PENDING;
                                                     const methodMeta = METHOD_ICONS[p.payment_method] || { color: '#888', label: p.payment_method || 'N/A', icon: '💳' };
                                                     return (
-                                                        <tr key={p.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))' }}>
+                                                        <tr key={p.id} onClick={() => setSelectedPayment(p)} style={{ borderBottom: '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                                             <td style={{ padding: '1rem 1.25rem' }}><code style={{ background: 'hsl(var(--bg-app))', padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>#{String(p.id).slice(0, 8)}</code></td>
                                                             <td style={{ padding: '1rem 1.25rem' }}>
                                                                 <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.customer_name || 'Unknown'}</div>
@@ -318,7 +318,7 @@ export default function PaymentGatewayPage() {
                                                             <td style={{ padding: '1rem 1.25rem' }}><div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: methodMeta.color, fontWeight: 700, fontSize: '0.8rem' }}>{methodMeta.icon} {methodMeta.label}</div></td>
                                                             <td style={{ padding: '1rem 1.25rem' }}><code style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>{p.transaction_id || p.razorpay_payment_id || '-'}</code></td>
                                                             <td style={{ padding: '1rem 1.25rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{new Date(p.created_at).toLocaleDateString('en-IN')}</td>
-                                                            <td style={{ padding: '1rem 1.25rem' }}><button onClick={() => setSelectedPayment(p)} className="btn-icon primary"><Eye size={16} /></button></td>
+                                                            <td style={{ padding: '1rem 1.25rem' }}><button onClick={(e) => { e.stopPropagation(); setSelectedPayment(p); }} className="btn-icon primary"><Eye size={16} /></button></td>
                                                         </tr>
                                                     );
                                                 })}

@@ -283,7 +283,7 @@ export default function AdminDashboard() {
                                 <tr><td colSpan={4} style={{ padding: '3rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders yet.</td></tr>
                             ) : (
                                 recentOrders.map(order => (
-                                    <tr key={order.id}>
+                                    <tr key={order.id} onClick={() => window.location.href = `/admin/orders?id=${order.id}`} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td style={{ paddingLeft: '2rem' }}>
                                             <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>#{order.id}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{new Date(order.created_at).toLocaleDateString('en-IN')}</div>

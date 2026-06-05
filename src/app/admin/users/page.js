@@ -188,7 +188,7 @@ export default function UserManagementPage() {
                             </thead>
                             <tbody>
                                 {users.map(user => (
-                                    <tr key={user.id}>
+                                    <tr key={user.id} onClick={() => handleOpenModal(user)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td>
                                             <div className="user-info">
                                                 <div className="avatar">
@@ -212,10 +212,10 @@ export default function UserManagementPage() {
                                         <td>{user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div className="actions-group">
-                                                <button className="btn-icon" onClick={() => handleOpenModal(user)}>
+                                                <button className="btn-icon" onClick={(e) => { e.stopPropagation(); handleOpenModal(user); }}>
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button className="btn-icon danger" onClick={() => handleDeleteUser(user.id)}>
+                                                <button className="btn-icon danger" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.id); }}>
                                                     <Trash2 size={16} />
                                                 </button>
                                             </div>

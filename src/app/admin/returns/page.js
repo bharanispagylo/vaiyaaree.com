@@ -297,7 +297,7 @@ export default function AdminReturnsPage() {
     }, [searchTerm, statusFilter, requestTypeFilter]);
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{ width: '100%' }}>
             {/* Notification */}
             {notification && (
                 <div style={{
@@ -434,7 +434,7 @@ export default function AdminReturnsPage() {
                             </thead>
                             <tbody>
                                 {paginatedReturns.map((request) => (
-                                    <tr key={request.id}>
+                                    <tr key={request.id} onClick={() => { setSelectedRequest(request); setShowDetailModal(true); }} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td>#{request.order_id}</td>
                                         <td>
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -469,7 +469,7 @@ export default function AdminReturnsPage() {
                                         <td>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <button
-                                                    onClick={() => { setSelectedRequest(request); setShowDetailModal(true); }}
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedRequest(request); setShowDetailModal(true); }}
                                                     className="btn btn-secondary"
                                                     style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}
                                                 >
@@ -478,14 +478,14 @@ export default function AdminReturnsPage() {
                                                 {request.status === 'PENDING' && (
                                                     <>
                                                         <button
-                                                            onClick={() => handleProcessClick(request, 'approve', 'return')}
+                                                            onClick={(e) => { e.stopPropagation(); handleProcessClick(request, 'approve', 'return'); }}
                                                             className="btn btn-primary"
                                                             style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#2563eb' }}
                                                         >
                                                             Approve
                                                         </button>
                                                         <button
-                                                            onClick={() => handleProcessClick(request, 'reject', 'return')}
+                                                            onClick={(e) => { e.stopPropagation(); handleProcessClick(request, 'reject', 'return'); }}
                                                             className="btn btn-secondary"
                                                             style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', color: '#dc2626' }}
                                                         >
@@ -495,7 +495,7 @@ export default function AdminReturnsPage() {
                                                 )}
                                                 {request.status === 'APPROVED' && (
                                                     <button
-                                                        onClick={() => handleProcessClick(request, 'complete', 'return')}
+                                                        onClick={(e) => { e.stopPropagation(); handleProcessClick(request, 'complete', 'return'); }}
                                                         className="btn btn-primary"
                                                         style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#059669' }}
                                                     >

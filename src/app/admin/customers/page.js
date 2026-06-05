@@ -983,7 +983,7 @@ function CustomersPage() {
                                                     paginatedCustomers.map((customer, i) => {
                                                         const tier = getTierBadge(customer.totalSpent);
                                                         return (
-                                                            <tr key={customer.phone} onClick={() => openCustomerDetail(customer)}>
+                                                            <tr key={customer.phone} onClick={() => openCustomerDetail(customer)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                                                 <td style={{ padding: '1rem 1.5rem' }}>
                                                                     <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{customer.name}</div>
                                                                 </td>

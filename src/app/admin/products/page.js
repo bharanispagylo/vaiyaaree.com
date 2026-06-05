@@ -31,6 +31,12 @@ export default function ProductsPage() {
     const [isEditing, setIsEditing] = useState(false);
     const [currentProduct, setCurrentProduct] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
     const [categoryFilter, setCategoryFilter] = useState('ALL');
     const [sortBy, setSortBy] = useState('newest');
     const [groupFilter, setGroupFilter] = useState('ALL');
@@ -231,8 +237,8 @@ export default function ProductsPage() {
             if (statusFilter !== 'ALL') {
                 query = query.eq('is_active', statusFilter === 'ACTIVE');
             }
-            if (searchTerm.trim()) {
-                const term = searchTerm.trim();
+            if (debouncedSearchTerm.trim()) {
+                const term = debouncedSearchTerm.trim();
                 query = query.or(`name.ilike.%${term}%,category.ilike.%${term}%,product_group.ilike.%${term}%`);
             }
 
@@ -308,11 +314,11 @@ export default function ProductsPage() {
     // Reset to page 1 when search/filter changes
     useEffect(() => {
         setProductsPage(1);
-    }, [searchTerm, categoryFilter, groupFilter, statusFilter, sortBy]);
+    }, [debouncedSearchTerm, categoryFilter, groupFilter, statusFilter, sortBy]);
 
     useEffect(() => {
         fetchProducts();
-    }, [productsPage, searchTerm, categoryFilter, groupFilter, statusFilter, sortBy]);
+    }, [productsPage, debouncedSearchTerm, categoryFilter, groupFilter, statusFilter, sortBy]);
 
     if (!hasMounted) return null;
 
@@ -463,8 +469,8 @@ export default function ProductsPage() {
             if (statusFilter !== 'ALL') {
                 query = query.eq('is_active', statusFilter === 'ACTIVE');
             }
-            if (searchTerm.trim()) {
-                const term = searchTerm.trim();
+            if (debouncedSearchTerm.trim()) {
+                const term = debouncedSearchTerm.trim();
                 query = query.or(`name.ilike.%${term}%,category.ilike.%${term}%,product_group.ilike.%${term}%`);
             }
 
@@ -849,7 +855,7 @@ export default function ProductsPage() {
     const groups = ['ALL', ...new Set(allProductsData.map(p => p.product_group).filter(Boolean))];
 
     const statsFiltered = allProductsData.filter(p => {
-        const term = searchTerm.toLowerCase();
+        const term = debouncedSearchTerm.toLowerCase();
         const matchesSearch = (
             (p.name || '').toLowerCase().includes(term) ||
             (p.category || '').toLowerCase().includes(term) ||
@@ -1132,8 +1138,9 @@ export default function ProductsPage() {
                                                 {filtered.length === 0 ? (
                                                     <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
                                                 ) : paginatedProducts.map((product, idx) => (
-                                                    <tr key={product.id} style={{
-                                                        background: selectedProductIds.includes(product.id) ? 'hsl(var(--primary) / 0.02)' : 'transparent'
+                                                    <tr key={product.id} onClick={() => openEditModal(product)} style={{
+                                                        background: selectedProductIds.includes(product.id) ? 'hsl(var(--primary) / 0.02)' : 'transparent',
+                                                        cursor: 'pointer'
                                                     }}>
                                                         <td style={{ padding: '0.75rem 1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem', fontWeight: 600 }}>{(productsPage - 1) * PRODUCTS_PER_PAGE + idx + 1}</td>
                                                         <td style={{ textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleSelectItem(product.id); }}>
@@ -1145,7 +1152,7 @@ export default function ProductsPage() {
                                                             />
                                                         </td>
                                                         <td style={{ padding: '0.75rem 1.5rem' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', cursor: 'pointer' }} onClick={() => openEditModal(product)} title="Click to edit product">
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }} title="Click to edit product">
                                                                 <div style={{ width: '52px', height: '52px', borderRadius: '10px', overflow: 'hidden', background: 'hsl(var(--bg-app))', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))', position: 'relative' }}>
                                                                     {product.image_url ? (
                                                                         <>
@@ -1205,16 +1212,16 @@ export default function ProductsPage() {
                                                         </td>
                                                         <td style={{ textAlign: 'right' }}>
                                                             <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                                                                                                                                 <button onClick={() => window.open('/product/' + product.id, '_blank')} title="View Product Page" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
+                                                                <button onClick={(e) => { e.stopPropagation(); window.open('/product/' + product.id, '_blank'); }} title="View Product Page" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
                                                                     <Eye size={15} />
                                                                 </button>
-                                                                <button onClick={() => shareToStatus(product)} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
+                                                                <button onClick={(e) => { e.stopPropagation(); shareToStatus(product); }} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
                                                                     <Share2 size={15} />
                                                                 </button>
-                                                                <button onClick={() => fetchHistory(product)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Details">
+                                                                <button onClick={(e) => { e.stopPropagation(); fetchHistory(product); }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Details">
                                                                     <PackageIcon size={15} />
                                                                 </button>
-                                                                <button onClick={() => handleDelete(product.id)} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}><Trash2 size={15} /></button>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}><Trash2 size={15} /></button>
                                                             </div>
                                                         </td>
                                                     </tr>

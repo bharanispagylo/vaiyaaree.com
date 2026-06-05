@@ -260,7 +260,7 @@ export default function RefundsPage() {
     useEffect(() => { setRefundsPage(1); }, [searchTerm, statusFilter]);
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{ width: '100%' }}>
             {/* Notification */}
             {notification && (
                 <div style={{
@@ -382,7 +382,7 @@ export default function RefundsPage() {
                         </thead>
                         <tbody>
                             {paginatedRefunds.map((refund) => (
-                                <tr key={refund.id}>
+                                <tr key={refund.id} onClick={() => { setSelectedRefund(refund); setShowDetailModal(true); }} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                     <td>#{refund.order_id}</td>
                                     <td>
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -407,7 +407,7 @@ export default function RefundsPage() {
                                     <td>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                                             <button
-                                                onClick={() => { setSelectedRefund(refund); setShowDetailModal(true); }}
+                                                onClick={(e) => { e.stopPropagation(); setSelectedRefund(refund); setShowDetailModal(true); }}
                                                 className="btn btn-secondary"
                                                 style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}
                                             >
@@ -416,14 +416,14 @@ export default function RefundsPage() {
                                             {refund.status === 'REQUESTED' && (
                                                 <>
                                                     <button
-                                                        onClick={() => handleProcessClick(refund, 'approve')}
+                                                        onClick={(e) => { e.stopPropagation(); handleProcessClick(refund, 'approve'); }}
                                                         className="btn btn-primary"
                                                         style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#2563eb' }}
                                                     >
                                                         Approve
                                                     </button>
                                                     <button
-                                                        onClick={() => handleProcessClick(refund, 'reject')}
+                                                        onClick={(e) => { e.stopPropagation(); handleProcessClick(refund, 'reject'); }}
                                                         className="btn btn-secondary"
                                                         style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', color: '#dc2626' }}
                                                     >
@@ -433,7 +433,7 @@ export default function RefundsPage() {
                                             )}
                                             {refund.status === 'APPROVED' && (
                                                 <button
-                                                    onClick={() => handleProcessClick(refund, 'complete')}
+                                                    onClick={(e) => { e.stopPropagation(); handleProcessClick(refund, 'complete'); }}
                                                     className="btn btn-primary"
                                                     style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', background: '#059669' }}
                                                 >

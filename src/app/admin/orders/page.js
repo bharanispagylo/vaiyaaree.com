@@ -72,6 +72,12 @@ export default function OrdersPage() {
     const [loading, setLoading] = useState(true);
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     const [statusFilter, setStatusFilter] = useState('ALL');
 
@@ -150,8 +156,7 @@ export default function OrdersPage() {
     });
     const [timeRange, setTimeRange] = useState('MONTHLY'); // DAILY, MONTHLY, QUARTERLY, ALL
 
-    // Reset to page 1 on search or filter
-    useEffect(() => { setOrdersPage(1); }, [searchTerm, statusFilter, sourceFilter]);
+    // Reset to page 1 on search or filter (Moved down)
     const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [printingOrders, setPrintingOrders] = useState([]);
     const [printMode, setPrintMode] = useState('address'); // 'address' or 'id'
@@ -361,8 +366,8 @@ export default function OrdersPage() {
             }
 
             // 3. Search Term
-            if (searchTerm.trim()) {
-                const term = searchTerm.trim();
+            if (debouncedSearchTerm.trim()) {
+                const term = debouncedSearchTerm.trim();
                 const isNumeric = /^\d+$/.test(term);
                 if (isNumeric) {
                     query = query.or(`id.eq.${term},customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%`);
@@ -426,11 +431,11 @@ export default function OrdersPage() {
     }, []);
 
     // Reset to page 1 when filters change
-    useEffect(() => { setOrdersPage(1); }, [searchTerm, statusFilter, sourceFilter]);
+    useEffect(() => { setOrdersPage(1); }, [debouncedSearchTerm, statusFilter, sourceFilter]);
 
     useEffect(() => {
         fetchOrders();
-    }, [ordersPage, searchTerm, statusFilter, sourceFilter]);
+    }, [ordersPage, debouncedSearchTerm, statusFilter, sourceFilter]);
 
     // Re-run analytics when time range changes
     useEffect(() => {
@@ -948,7 +953,7 @@ export default function OrdersPage() {
         <>
             <div className="animate-enter">
 
-                {loading ? (
+                {false ? (
 
                     <div style={{ padding: '6rem 2rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>
 
@@ -1185,7 +1190,7 @@ export default function OrdersPage() {
 
                                                         value={searchTerm}
 
-                                                        onChange={(e) => { setSearchTerm(e.target.value); setOrdersPage(1); }}
+                                                        onChange={(e) => { setSearchTerm(e.target.value); }}
 
                                                         style={{
 
@@ -1266,6 +1271,7 @@ export default function OrdersPage() {
                                                                     return (
                                                                         <React.Fragment key={order.id}>
                                                                             <tr
+                                                                                onClick={() => openOrderDetail(order)}
                                                                                 style={{
                                                                                     cursor: 'pointer',
                                                                                     background: selectedOrder?.id === order.id ? 'hsl(var(--primary) / 0.05)' :
@@ -1273,7 +1279,7 @@ export default function OrdersPage() {
                                                                                     transition: 'background 0.2s'
                                                                                 }}
                                                                             >
-                                                                                <td onClick={() => openOrderDetail(order)} style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
+                                                                                <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
                                                                                 <td style={{ textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleSelectItem(order.id); }}>
                                                                                     <input
                                                                                         type="checkbox"
