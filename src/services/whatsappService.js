@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { processReturnRequest } from './returnService';
+import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
 
 // ─── 1. CONFIGURATION & CLIENTS ───────────────────────────────────────────────
 
@@ -270,6 +271,39 @@ export async function sendDocument(to, link, caption, filename) {
         messaging_product: "whatsapp", recipient_type: "individual", to, type: "document",
         document: { link: link, caption: caption, filename: filename }
     });
+}
+
+export async function sendPdfBuffer(to, pdfBuffer, filename, caption) {
+    if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) return { error: 'Missing credentials' };
+
+    const formData = new FormData();
+    formData.append('messaging_product', 'whatsapp');
+    formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), filename);
+
+    try {
+        const uploadRes = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/media`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}` },
+            body: formData
+        });
+
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok || !uploadData.id) return { error: 'Media Upload Failed' };
+
+        const payload = {
+            messaging_product: "whatsapp", recipient_type: "individual", to: normalizePhoneNumber(to), type: "document",
+            document: { id: uploadData.id, filename: filename, caption: caption }
+        };
+
+        const response = await fetch(`${WHATSAPP_API_URL}/${WHATSAPP_PHONE_ID}/messages`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        return await response.json();
+    } catch (e) {
+        return { error: 'Send PDF Failed' };
+    }
 }
 
 
@@ -732,8 +766,8 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
             await sendText(to, caption + "\n[Image failed, but you can Add to Bag]");
         }
 
-        // Slightly faster delay to stay within webhook response windows
-        await new Promise(r => setTimeout(r, 250));
+        // Wait to guarantee WhatsApp delivers images in order
+        await new Promise(r => setTimeout(r, 1000));
     }
 
     console.log(`[WA] Successfully finished sending ${prods.length} items to ${to}`);
@@ -1256,7 +1290,6 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
             `🛍️ *Items:*\n${itemsList}\n\n` +
             `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
             `🌐 *Shop Online:* ${baseUrl}\n\n` +
-            `📄 *Invoice/Bill:* ${invoiceUrl}\n\n` +
             `Generating your PDF bill...`;
 
         for (const targetPhone of targets) {
@@ -1290,6 +1323,8 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                                         caption: caption
                                     }
                                 });
+                                // Delay to guarantee ordered delivery of images
+                                await new Promise(r => setTimeout(r, 1000));
                             }
                         } catch (err) {
                             console.error('[WA-NOTIFY] Failed to send product image:', err);
@@ -1297,10 +1332,24 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                     }
                 }
 
-                if (invoiceUrl) {
-                    // Small delay to ensure text arrives first
+                try {
+                    let settings = { shop_name: 'Cast Printz', shop_phone: '7558189732', shop_email: 'castprintzofficial@gmail.com', shop_address: 'Premium Saree Collections' };
+                    try {
+                        const { data: settingsData } = await supabase.from('app_settings').select('*');
+                        if (settingsData) {
+                            settingsData.forEach(item => {
+                                if (item.key === 'shop_name') settings.shop_name = item.value;
+                                if (item.key === 'shop_phone' || item.key === 'business_phone') settings.shop_phone = item.value;
+                                if (item.key === 'shop_address') settings.shop_address = item.value;
+                            });
+                        }
+                    } catch (e) {}
+
+                    const pdfBuffer = await generateOrderPDFBuffer(order, settings);
                     await new Promise(r => setTimeout(r, 1000));
-                    await sendDocument(targetPhone, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
+                    await sendPdfBuffer(targetPhone, pdfBuffer, `Invoice_${orderId}.pdf`, `Invoice - Order #${orderId}`);
+                } catch (pdfErr) {
+                    console.error('[NOTIFY] Failed to generate/send PDF:', pdfErr);
                 }
 
                 await new Promise(r => setTimeout(r, 1200));
@@ -2347,10 +2396,29 @@ export async function processIncomingMessage(body) {
 
             if (matchedOrderId) {
                 console.log(`[WA] Detected order ID: ${matchedOrderId}`);
-                const { data: o } = await supabaseAdmin.from('orders').select('status').eq('id', matchedOrderId).maybeSingle();
+                const { data: o } = await supabaseAdmin.from('orders').select('*').eq('id', matchedOrderId).maybeSingle();
                 if (o) {
-                    if (o.status === 'DELIVERED') return await processReturnExchangeOrder(customer.id, matchedOrderId, from);
-                    return await processCancelOrder(from, matchedOrderId);
+                    const sourceLabel = o.source === 'WEBSITE' ? '🌐 Website' : '📱 WhatsApp';
+                    const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
+                    const canReturn = o.status === 'DELIVERED';
+                    
+                    const buttons = [{ id: "menu_main", title: "🏠 Main Menu" }];
+                    
+                    if (canCancel) {
+                        buttons.unshift({ id: `init_cancel_${o.id}`, title: "Cancel Order" });
+                    } else if (canReturn) {
+                        buttons.unshift({ id: `init_return_${o.id}`, title: "Return/Exchange" });
+                    }
+
+                    return await sendButtons(from,
+                        `🛒 *Order Details*\n\n` +
+                        `Order ID: *#${o.id}*\n` +
+                        `Source: *${sourceLabel}*\n` +
+                        `Status: *${o.status}*\n` +
+                        `Amount: *₹${o.total_amount?.toLocaleString()}*\n` +
+                        `Date: *${new Date(o.created_at).toLocaleDateString()}*`,
+                        buttons
+                    );
                 }
             }
 
@@ -2404,11 +2472,21 @@ export async function processIncomingMessage(body) {
                         } else if (order.payment_method === 'COD') {
                             await sendText(from, "📄 Generating your invoice...");
                             const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
-                            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-                            const invoiceUrl = `${baseUrl}/api/invoice/${orderId}`;
-
-                            if (invoiceUrl) {
-                                await sendDocument(from, invoiceUrl, `Invoice - Order #${orderId}`, `Invoice_${orderId}.pdf`);
+                            
+                            try {
+                                let settings = { shop_name: 'Cast Printz', shop_phone: '7558189732', shop_email: 'castprintzofficial@gmail.com', shop_address: 'Premium Saree Collections' };
+                                const { data: settingsData } = await supabase.from('app_settings').select('*');
+                                if (settingsData) {
+                                    settingsData.forEach(item => {
+                                        if (item.key === 'shop_name') settings.shop_name = item.value;
+                                        if (item.key === 'shop_phone' || item.key === 'business_phone') settings.shop_phone = item.value;
+                                        if (item.key === 'shop_address') settings.shop_address = item.value;
+                                    });
+                                }
+                                const pdfBuffer = await generateOrderPDFBuffer(fullOrder, settings);
+                                await sendPdfBuffer(from, pdfBuffer, `Invoice_${orderId}.pdf`, `Invoice - Order #${orderId}`);
+                            } catch (pdfErr) {
+                                console.error('[NOTIFY] Failed to send COD PDF:', pdfErr);
                             }
 
                             // Unify with bot flow by providing the same buttons
@@ -2543,6 +2621,15 @@ export async function processIncomingMessage(body) {
 
             if (id === 'menu_main') return await sendMainMenu(from);
             if (id === 'menu_cancel_order') return await handleCancelOrder(from);
+            
+            if (id.startsWith('init_cancel_')) {
+                const orderId = id.replace('init_cancel_', '');
+                return await processCancelOrder(from, orderId);
+            }
+            if (id.startsWith('init_return_')) {
+                const orderId = id.replace('init_return_', '');
+                return await processReturnExchangeOrder(customer.id, orderId, from);
+            }
             if (id.startsWith('confirm_cancel_')) {
                 const orderId = id.replace('confirm_cancel_', '');
                 return await confirmCancelOrder(from, orderId);

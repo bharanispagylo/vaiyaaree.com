@@ -176,25 +176,47 @@ export default function BroadcastPage() {
                     const customer = targetCustomers[i];
                     try {
                         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-                        const customerPhone = customer.phone;
+                        const customerPhone = String(customer.phone);
                         const shopUrl = `${baseUrl}/shop?phone=${encodeURIComponent(customerPhone)}`;
 
                         if (targetProducts.length > 0) {
                             for (const product of targetProducts) {
-                                let mergedMsg = message.replace('{{name}}', customer.name);
-                                mergedMsg += `\n\n*${product.name}*`;
-                                mergedMsg += `\n💰 ₹${product.price}`;
-                                if (product.variants && product.variants.length > 0) mergedMsg += `\n📦 Variants: ${product.variants.join(', ')}`;
+                                let mergedMsg = message.replace(/\{\{name\}\}/g, customer.name);
+                                const productUrl = `${shopUrl}&view=${product.id}`;
 
-                                const pUrl = `${shopUrl}&view=${product.id}`;
-                                mergedMsg += `\n\n*View & Buy Here:* ${pUrl}`;
+                                if (mergedMsg.includes('{{product.name}}')) {
+                                    mergedMsg = mergedMsg.replace(/\{\{product\.name\}\}/g, product.name);
+                                    mergedMsg = mergedMsg.replace(/\{\{product\.price\}\}/g, product.price);
+                                    mergedMsg = mergedMsg.replace(/\{\{product\.url\}\}/g, productUrl);
+                                } else {
+                                    mergedMsg += `\n\n*${product.name}*`;
+                                    mergedMsg += `\n💰 ₹${product.price}`;
+                                    
+                                    let variantText = '';
+                                    if (Array.isArray(product.variants) && product.variants.length > 0) {
+                                        variantText = `\n📦 Variants: ${product.variants.join(', ')}`;
+                                    } else if (typeof product.variants === 'string') {
+                                        try {
+                                            const parsed = JSON.parse(product.variants);
+                                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                                variantText = `\n📦 Variants: ${parsed.join(', ')}`;
+                                            }
+                                        } catch(e) {}
+                                    }
+                                    mergedMsg += variantText;
+                                    // mergedMsg += `\n\nView & Buy Here: ${productUrl}`;
+                                }
 
-                                const mediaUrl = product.images?.[0] || null;
+                                const mediaUrl = product.image_url || null;
 
+                                const token = localStorage.getItem('cast_prince_admin') || '';
                                 const res = await fetch('/api/admin/whatsapp/chat', {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ phone: customerPhone, message: mergedMsg, mediaUrl })
+                                    headers: { 
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}` 
+                                    },
+                                    body: JSON.stringify({ phone: customerPhone, message: mergedMsg, mediaUrl, productId: product.id })
                                 });
                                 if (!res.ok) throw new Error('Send failed');
                                 await new Promise(r => setTimeout(r, 800)); // Delay between products
@@ -203,9 +225,13 @@ export default function BroadcastPage() {
                             let mergedMsg = message.replace('{{name}}', customer.name);
                             mergedMsg += `\n\n*Visit our shop:* ${shopUrl}`;
 
+                            const token = localStorage.getItem('cast_prince_admin') || '';
                             const res = await fetch('/api/admin/whatsapp/chat', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}` 
+                                },
                                 body: JSON.stringify({ phone: customerPhone, message: mergedMsg })
                             });
                             if (!res.ok) throw new Error('Send failed');
@@ -520,10 +546,10 @@ export default function BroadcastPage() {
                                             transition: 'all 0.2s', focus: { borderColor: '#10b981' }
                                         }}
                                     />
-                                    <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                                        {['Hello {{name}}!', 'New Arrivals!', 'Special Discount just for you!'].map((suggest) => (
-                                            <button key={suggest} onClick={() => setMessage(suggest + '\n\n' + message)}
-                                                style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '0.75rem', cursor: 'pointer' }}>
+                                    <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {['{{name}}', '{{product.name}}', '{{product.price}}', '{{product.url}}'].map((suggest) => (
+                                            <button key={suggest} onClick={() => setMessage(message + (message.endsWith(' ') || message.length === 0 ? '' : ' ') + suggest)}
+                                                style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
                                                 + {suggest}
                                             </button>
                                         ))}
@@ -534,7 +560,12 @@ export default function BroadcastPage() {
                                     <h4 style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569' }}>WhatsApp Preview</h4>
                                     <div style={{ background: '#e5ddd5', borderRadius: '12px', padding: '10px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
                                         <div style={{ background: 'white', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', maxWidth: '90%', position: 'relative', boxShadow: '0 1px 1px rgba(0,0,0,0.1)' }}>
-                                            <div style={{ whiteSpace: 'pre-wrap' }}>{message.replace('{{name}}', 'Customer')}</div>
+                                            <div style={{ whiteSpace: 'pre-wrap' }}>
+                                                {message.replace(/\{\{name\}\}/g, 'Customer')
+                                                        .replace(/\{\{product\.name\}\}/g, 'Premium Saree')
+                                                        .replace(/\{\{product\.price\}\}/g, '1,999')
+                                                        .replace(/\{\{product\.url\}\}/g, 'https://shop.link/123')}
+                                            </div>
                                             <div style={{ fontSize: '0.65rem', color: '#999', textAlign: 'right', marginTop: '4px' }}>12:45 PM</div>
                                         </div>
                                     </div>
@@ -639,11 +670,31 @@ export default function BroadcastPage() {
 
                                 {completed && (
                                     <div style={{ textAlign: 'center' }}>
-                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#10b98120', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                                            <CheckCircle2 size={32} />
-                                        </div>
-                                        <h3 style={{ margin: '0 0 0.5rem', color: '#10b981' }}>Success!</h3>
-                                        <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Your campaign has been successfully broadcasted.</p>
+                                        {stats.failed === stats.total ? (
+                                            <>
+                                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'hsl(var(--destructive) / 0.1)', color: 'hsl(var(--destructive))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                                                    <Megaphone size={32} />
+                                                </div>
+                                                <h3 style={{ margin: '0 0 0.5rem', color: 'hsl(var(--destructive))' }}>Broadcast Failed</h3>
+                                                <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>None of the messages could be sent. Please check your WhatsApp API configuration or recipient numbers.</p>
+                                            </>
+                                        ) : stats.failed > 0 ? (
+                                            <>
+                                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#eab30820', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                                                    <CheckCircle2 size={32} />
+                                                </div>
+                                                <h3 style={{ margin: '0 0 0.5rem', color: '#eab308' }}>Partial Success</h3>
+                                                <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Successfully sent {stats.sent} messages. Failed to send {stats.failed} messages.</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#10b98120', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                                                    <CheckCircle2 size={32} />
+                                                </div>
+                                                <h3 style={{ margin: '0 0 0.5rem', color: '#10b981' }}>Success!</h3>
+                                                <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.5rem' }}>Your campaign has been successfully broadcasted.</p>
+                                            </>
+                                        )}
                                         <button onClick={() => { setCompleted(false); setActiveTab('PRODUCTS'); setSelectedProducts(new Set()); setSelectedCustomers(new Set()); }}
                                             className="btn btn-secondary" style={{ width: '100%' }}>Start New Campaign</button>
                                     </div>
@@ -657,9 +708,34 @@ export default function BroadcastPage() {
                     )}
                 </div>
             </div>
+
+            {/* Confirmation Modal */}
+            {confirmAction && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn 0.2s' }}>
+                    <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', width: '90%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+                        <h3 style={{ margin: '0 0 1rem', fontSize: '1.25rem', fontWeight: 800 }}>{confirmAction.title}</h3>
+                        <p style={{ margin: '0 0 1.5rem', color: 'hsl(var(--text-muted))', lineHeight: '1.5' }}>{confirmAction.message}</p>
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setConfirmAction(null)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem' }}>Cancel</button>
+                            <button onClick={confirmAction.onConfirm} className="btn btn-primary" style={{ padding: '0.6rem 1.25rem' }}>Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Notification */}
+            {notification && (
+                <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: notification.type === 'error' ? 'hsl(var(--destructive))' : 'hsl(var(--success))', color: 'white', padding: '1rem 1.5rem', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, animation: 'slideUp 0.3s', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {notification.type === 'error' ? <Megaphone size={18} /> : <CheckCircle2 size={18} />}
+                    <span style={{ fontWeight: 600 }}>{notification.message}</span>
+                    <button onClick={() => setNotification(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: '8px', opacity: 0.8 }}>✕</button>
+                </div>
+            )}
+
             <style jsx>{`
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             `}</style>
         </>
     );

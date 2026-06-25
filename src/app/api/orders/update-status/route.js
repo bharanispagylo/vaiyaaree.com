@@ -5,6 +5,8 @@ import { notifyOrderSuccess } from '@/services/whatsappService';
 import { supabase } from '@/lib/supabaseClient';
 import { sendOrderStatusEmail } from '@/lib/emailService';
 import { verifyAdmin } from '@/lib/auth';
+import { sendPdfBuffer } from '@/services/whatsappService';
+import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
 
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
@@ -75,8 +77,6 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `Total Paid: ₹${totalAmount.toLocaleString()}`,
                 `Method: ${order.payment_method || 'UPI/Online'}`,
                 ``,
-                `View Full Bill: ${invoiceUrl}`,
-                ``,
                 `Your order is being processed. Thank you!`,
                 `— ${brand}`
             ].join('\n');
@@ -124,7 +124,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
                 `🚚 *Shipping Details:*`,
                 `• Carrier: ${order.courier_name || 'N/A'}`,
                 `• Tracking: ${trackingNum || 'N/A'}`,
-                trackingUrl ? `• Track: ${trackingUrl}` : `• Details: ${invoiceUrl}`,
+                trackingUrl ? `• Track: ${trackingUrl}` : `• Details: ${appUrl}`,
                 ``,
                 `Thank you for shopping with us!`,
                 `— ${brand}`
@@ -241,6 +241,7 @@ export async function POST(request) {
 
         // 4. Determine Targets
         const finalOrder = updatedOrder || order;
+        finalOrder.order_items = items;
         
         // Find Phones
         const billPhone = finalOrder.billing_phone || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.phone || finalOrder.billing_address?.mobile : null) || finalOrder.customer_phone;
@@ -268,6 +269,28 @@ export async function POST(request) {
         // WhatsApp
         for (const phone of targetPhones) {
             await sendWhatsAppText(phone, message);
+            
+            if (status === 'PAID') {
+                try {
+                    let settings = { shop_name: 'Cast Printz', shop_phone: '7558189732', shop_email: 'castprintzofficial@gmail.com', shop_address: 'Premium Saree Collections' };
+                    try {
+                        const { data: settingsData } = await supabase.from('app_settings').select('*');
+                        if (settingsData) {
+                            settingsData.forEach(item => {
+                                if (item.key === 'shop_name') settings.shop_name = item.value;
+                                if (item.key === 'shop_phone' || item.key === 'business_phone') settings.shop_phone = item.value;
+                                if (item.key === 'shop_address') settings.shop_address = item.value;
+                            });
+                        }
+                    } catch (e) {}
+
+                    const pdfBuffer = await generateOrderPDFBuffer(finalOrder, settings);
+                    await new Promise(r => setTimeout(r, 1000));
+                    await sendPdfBuffer(phone, pdfBuffer, `Invoice_${orderId}.pdf`, `Invoice - Order #${orderId}`);
+                } catch (pdfErr) {
+                    console.error('Failed to generate/send PDF in update-status:', pdfErr);
+                }
+            }
         }
         
         // Email
