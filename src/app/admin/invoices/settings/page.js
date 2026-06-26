@@ -174,106 +174,153 @@ export default function InvoiceSettingsPage() {
 
                     <div style={{
                         background: 'white', width: '100%', maxWidth: '800px',
-                        boxShadow: '0 30px 80px rgba(0,0,0,0.2)', padding: '3.5rem',
-                        borderRadius: '2px', fontFamily: 'var(--font-body)', color: 'black'
+                        boxShadow: '0 30px 80px rgba(0,0,0,0.2)', padding: '10mm',
+                        borderRadius: '2px', color: 'black', fontFamily: 'Arial, sans-serif'
                     }}>
-                        {/* Bill Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #6366f1', paddingBottom: '2.5rem', marginBottom: '2.5rem' }}>
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
-                                    {settings.shop_logo ? (
-                                        <img src={settings.shop_logo} alt="Logo" style={{ height: '55px', objectFit: 'contain' }} />
-                                    ) : (
-                                        <div style={{ fontSize: '2.5rem' }}>💮</div>
-                                    )}
-                                    <h1 style={{ fontSize: '2rem', fontWeight: 900, margin: 0, color: '#111827', letterSpacing: '-0.02em' }}>{settings.shop_name}</h1>
+                        <div style={{ border: '1px solid black' }}>
+                            {/* Top Company Header */}
+                            <div style={{ display: 'flex', alignItems: 'center', padding: '15px', minHeight: '80px', gap: '20px' }}>
+                                {settings.shop_logo && (
+                                    <div style={{ flexShrink: 0 }}>
+                                        <img src={settings.shop_logo}
+                                            alt="Logo" style={{ maxHeight: '80px', maxWidth: '180px', objectFit: 'contain' }}
+                                        />
+                                    </div>
+                                )}
+                                <div style={{ flex: 1, textAlign: settings.shop_logo ? 'left' : 'center' }}>
+                                    <h1 style={{ margin: 0, fontSize: '2.2rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>{settings.shop_name}</h1>
+                                    {settings.shop_address && <div style={{ fontSize: '12px', marginTop: '4px', whiteSpace: 'pre-line' }}>{settings.shop_address}</div>}
+                                    <div style={{ fontSize: '12px', marginTop: '2px' }}>
+                                        {settings.shop_gstin && <span><strong>GSTIN:</strong> {settings.shop_gstin}</span>}
+                                    </div>
                                 </div>
-                                <p style={{ fontSize: '0.9rem', color: '#6b7280', margin: 0, maxWidth: '350px', lineHeight: 1.6 }}>{settings.shop_address || 'Handloom Hub, Artisan Square, Chennai'}</p>
-                                {settings.shop_gstin && <p style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: 700, marginTop: '0.6rem', letterSpacing: '0.05em' }}>GSTIN: {settings.shop_gstin}</p>}
                             </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <h2 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#6366f1', margin: 0, letterSpacing: '0.05em' }}>TAX INVOICE</h2>
-                                <p style={{ margin: '0.75rem 0 0', fontWeight: 800, fontSize: '1rem', color: '#1f2937' }}>#SAMPLE-9442</p>
-                                <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#6b7280' }}>Date: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+
+                            {/* TAX INVOICE Bar */}
+                            <div style={{ borderTop: '1px solid black', borderBottom: '1px solid black', background: '#f0f0f0', padding: '5px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px' }}>
+                                TAX INVOICE
+                            </div>
+
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <tbody>
+                                    {/* Info Row */}
+                                    <tr>
+                                        <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '5px' }}>
+                                                <div><strong>Invoice No</strong></div><div>: SAMPLE-9442</div>
+                                                <div><strong>Invoice Date</strong></div><div>: {new Date().toLocaleDateString('en-IN')}</div>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '5px' }}>
+                                                <div><strong>Payment Method</strong></div><div>: Prepaid (UPI)</div>
+                                                <div><strong>Order Status</strong></div><div>: SHIPPED</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    {/* Details Headers */}
+                                    <tr>
+                                        <td style={{ padding: '3px 5px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', fontWeight: 'bold', background: '#f9f9f9' }}>
+                                            Billing Address :
+                                        </td>
+                                        <td style={{ padding: '3px 5px', width: '50%', borderBottom: '1px solid black', fontWeight: 'bold', background: '#f9f9f9' }}>
+                                            Shipping Address :
+                                        </td>
+                                    </tr>
+
+                                    {/* Details Content */}
+                                    <tr>
+                                        <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '5px' }}>
+                                                <div><strong>Name</strong></div><div>: Ananya Iyer</div>
+                                                <div><strong>Address</strong></div><div>: Tower A, Olympus Residency, Anna Nagar, Chennai 600040</div>
+                                                <div><strong>Phone</strong></div><div>: +91 98400 12345</div>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '5px' }}>
+                                                <div><strong>Name</strong></div><div>: Ananya Iyer</div>
+                                                <div><strong>Address</strong></div><div>: Tower A, Olympus Residency, Anna Nagar, Chennai 600040</div>
+                                                <div><strong>Phone</strong></div><div>: +91 98400 12345</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Items Table */}
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <thead>
+                                    <tr style={{ background: '#f0f0f0' }}>
+                                        <th style={{ borderBottom: '1px solid black', borderRight: '1px solid black', padding: '5px', width: '5%', textAlign: 'center' }}>S.No</th>
+                                        <th style={{ borderBottom: '1px solid black', borderRight: '1px solid black', padding: '5px', width: '50%', textAlign: 'left' }}>Description</th>
+                                        <th style={{ borderBottom: '1px solid black', borderRight: '1px solid black', padding: '5px', width: '15%', textAlign: 'right' }}>Price</th>
+                                        <th style={{ borderBottom: '1px solid black', borderRight: '1px solid black', padding: '5px', width: '10%', textAlign: 'center' }}>Qty</th>
+                                        <th style={{ borderBottom: '1px solid black', padding: '5px', width: '20%', textAlign: 'right' }}>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center', verticalAlign: 'top' }}>1</td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', verticalAlign: 'top' }}>Handwoven Banarasi Silk Saree (Royal Blue)</td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', verticalAlign: 'top' }}>14999.00</td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center', verticalAlign: 'top' }}>1</td>
+                                        <td style={{ padding: '5px', textAlign: 'right', verticalAlign: 'top' }}>14999.00</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center', verticalAlign: 'top' }}>2</td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', verticalAlign: 'top' }}>Matching Designer Blouse Piece (Size 38)</td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', verticalAlign: 'top' }}>2500.00</td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center', verticalAlign: 'top' }}>1</td>
+                                        <td style={{ padding: '5px', textAlign: 'right', verticalAlign: 'top' }}>2500.00</td>
+                                    </tr>
+                                    {Array.from({ length: 6 }).map((_, i) => (
+                                        <tr key={`empty-${i}`}>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', color: 'transparent' }}>.</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ padding: '5px' }}></td>
+                                        </tr>
+                                    ))}
+
+                                    {/* Total Row */}
+                                    <tr style={{ borderTop: '1px solid black', borderBottom: '1px solid black' }}>
+                                        <td colSpan={3} style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>Total</td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center', fontWeight: 'bold' }}>2</td>
+                                        <td style={{ padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>17499.00</td>
+                                    </tr>
+
+                                    {/* Amount in words */}
+                                    <tr style={{ borderBottom: '1px solid black' }}>
+                                        <td colSpan={5} style={{ padding: '5px' }}>
+                                            <strong>Amount Chargeable (in words): </strong> 
+                                            Rupees Seventeen Thousand Four Hundred and Ninety Nine Only
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Footer sections */}
+                            <div style={{ display: 'flex' }}>
+                                <div style={{ width: '50%', borderRight: '1px solid black', padding: '5px' }}>
+                                    <div style={{ paddingBottom: '2px', marginBottom: '5px', fontWeight: 'bold' }}>
+                                        Terms & Conditions / Declarations :
+                                    </div>
+                                    <div style={{ fontSize: '11px', whiteSpace: 'pre-line' }}>
+                                        {settings.bill_terms || "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct."}
+                                    </div>
+                                </div>
+                                <div style={{ width: '50%', padding: '5px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'center' }}>
+                                    <div style={{ fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>For {settings.shop_name}</div>
+                                    <div style={{ marginTop: '50px', fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>Authorized Signatory</div>
+                                </div>
                             </div>
                         </div>
-
-                        {/* Customer Details section */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '3rem', marginBottom: '3rem' }}>
-                            <div>
-                                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.1em' }}>Billed To</div>
-                                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#111827' }}>Ananya Iyer</div>
-                                <div style={{ fontSize: '0.9rem', color: '#4b5563', marginTop: '0.4rem', fontWeight: 500 }}>+91 98400 12345</div>
-                                <div style={{ fontSize: '0.9rem', color: '#4b5563', marginTop: '0.6rem', lineHeight: 1.6 }}>Tower A, Olympus Residency,<br />Anna Nagar, Chennai 600040</div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.1em' }}>Order Context</div>
-                                <div style={{ fontSize: '0.9rem', color: '#1f2937' }}>Payment: <strong>Prepaid (UPI)</strong></div>
-                                <div style={{ fontSize: '0.9rem', marginTop: '0.5rem', color: '#1f2937' }}>Mode: <strong>Express Shipping</strong></div>
-                                <div style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Status: <span style={{ background: '#10b981', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800 }}>SHIPPED</span></div>
-                            </div>
-                        </div>
-
-                        {/* Items table */}
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem', marginBottom: '3rem' }}>
-                            <thead>
-                                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #6366f1' }}>
-                                    <th style={{ textAlign: 'left', padding: '1rem' }}>Description</th>
-                                    <th style={{ textAlign: 'center', padding: '1rem' }}>Qty</th>
-                                    <th style={{ textAlign: 'right', padding: '1rem' }}>Unit Price</th>
-                                    <th style={{ textAlign: 'right', padding: '1rem' }}>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '1.25rem 1rem' }}>
-                                        <div style={{ fontWeight: 700, color: '#1f2937' }}>Handwoven Banarasi Silk Saree</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.25rem' }}>SKU: SILK-BAN-001 • Color: Royal Blue</div>
-                                    </td>
-                                    <td style={{ textAlign: 'center', padding: '1.25rem 1rem' }}>1</td>
-                                    <td style={{ textAlign: 'right', padding: '1.25rem 1rem' }}>₹14,999</td>
-                                    <td style={{ textAlign: 'right', padding: '1.25rem 1rem', fontWeight: 800 }}>₹14,999</td>
-                                </tr>
-                                <tr>
-                                    <td style={{ padding: '1.25rem 1rem' }}>
-                                        <div style={{ fontWeight: 700, color: '#1f2937' }}>Matching Designer Blouse Piece</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.25rem' }}>Custom Stitched • Size: 38</div>
-                                    </td>
-                                    <td style={{ textAlign: 'center', padding: '1.25rem 1rem' }}>1</td>
-                                    <td style={{ textAlign: 'right', padding: '1.25rem 1rem' }}>₹2,500</td>
-                                    <td style={{ textAlign: 'right', padding: '1.25rem 1rem', fontWeight: 800 }}>₹2,500</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        {/* Calculations */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4rem' }}>
-                            <div style={{ width: '300px', background: '#f8fafc', padding: '2rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.9rem', color: '#4b5563' }}>
-                                    <span>Subtotal</span><span>₹17,499</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.9rem', color: '#4b5563' }}>
-                                    <span>Shipping</span><span>₹0 (Free)</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', pt: '1rem', borderTop: '2px solid #e2e8f0', fontWeight: 900, fontSize: '1.25rem', color: '#6366f1', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
-                                    <span>Total Amount</span><span>₹17,499</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Footer (Terms & Branding) */}
-                        <div style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '2.5rem', display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '3rem' }}>
-                            <div>
-                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>Terms & Conditions</div>
-                                <div style={{ fontSize: '0.8rem', color: '#6b7280', lineHeight: 1.8, whiteSpace: 'pre-line' }}>{settings.bill_terms || '• Terms not configured yet'}</div>
-                            </div>
-                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                                <p style={{ fontSize: '1rem', fontWeight: 800, color: '#1f2937', margin: '0 0 0.4rem 0' }}>{settings.bill_footer}</p>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem', color: '#6366f1', fontWeight: 700, fontSize: '0.85rem' }}>
-                                    <MessageSquare size={14} /> +{settings.business_phone}
-                                </div>
-                                <p style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '0.5rem', fontWeight: 600 }}>Digitally generated on behalf of {settings.shop_name}</p>
-                            </div>
+                        
+                        <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                            {settings.bill_footer}
                         </div>
                     </div>
                 </div>

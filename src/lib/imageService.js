@@ -108,29 +108,19 @@ export async function applyWatermark(buffer, code) {
         const x = width - badgeW - margin;
         const y = height - badgeH - margin;
 
-        // 4. Draw Pill Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.beginPath();
-        const radius = badgeH / 2;
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + badgeW - radius, y);
-        ctx.arcTo(x + badgeW, y, x + badgeW, y + radius, radius);
-        ctx.lineTo(x + badgeW, y + badgeH - radius);
-        ctx.arcTo(x + badgeW, y + badgeH, x + badgeW - radius, y + badgeH, radius);
-        ctx.lineTo(x + radius, y + badgeH);
-        ctx.arcTo(x, y + badgeH, x, y + badgeH - radius, radius);
-        ctx.lineTo(x, y + radius);
-        ctx.arcTo(x, y, x + radius, y, radius);
-        ctx.closePath();
-        ctx.fill();
+        // 4. Draw White Rectangular Background (Optimized for OCR)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'; // Almost solid white
+        
+        // Simple sharp rectangle avoids OCR confusing curved borders with letters like 'C' or 'O'
+        ctx.fillRect(x, y, badgeW, badgeH);
 
-        // Subtle Border
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        // Subtle dark border to ensure contrast on white sarees
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, badgeW, badgeH);
 
-        // 5. Draw Text
-        ctx.fillStyle = '#ffffff';
+        // 5. Draw Text in stark Black for maximum OCR accuracy
+        ctx.fillStyle = '#000000';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, x + (badgeW / 2), y + (badgeH / 2) + (fontSize * 0.05));

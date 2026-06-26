@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 
-import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Edit2, Check, X, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, Filter, Users, ShoppingCart } from 'lucide-react';
+import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Edit2, Check, X, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, Filter, Users, ShoppingCart, Plus } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area } from 'recharts';
 
 
@@ -46,6 +46,11 @@ function CustomersPage() {
         unorderedCustomers: 0
     });
     const CUSTOMERS_PER_PAGE = 10;
+    
+    // Add Customer State
+    const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+    const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '' });
+    const [isCreating, setIsCreating] = useState(false);
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -233,6 +238,62 @@ function CustomersPage() {
             setAnalyticsData({ tierData, repeatData, growthData });
         } catch (err) {
             console.error('Analytics load error:', err);
+        }
+    };
+
+    const handleCreateCustomer = async () => {
+        try {
+            if (!newCustomer.name?.trim() || !newCustomer.phone?.trim()) {
+                setNotification({ type: 'error', message: 'Name and Phone are required' });
+                setTimeout(() => setNotification(null), 3000);
+                return;
+            }
+
+            setIsCreating(true);
+
+            // Normalize phone
+            let normalizedPhone = newCustomer.phone.replace(/\D/g, '');
+            if (normalizedPhone.length === 10) {
+                normalizedPhone = '91' + normalizedPhone;
+            }
+
+            // Check if exists
+            const { data: existing, error: checkError } = await supabase
+                .from('customers')
+                .select('id')
+                .eq('phone', normalizedPhone);
+
+            if (checkError) throw checkError;
+
+            if (existing && existing.length > 0) {
+                setNotification({ type: 'error', message: 'Customer with this phone already exists' });
+                setTimeout(() => setNotification(null), 3000);
+                setIsCreating(false);
+                return;
+            }
+
+            const { error: insertError } = await supabase.from('customers').insert({
+                name: newCustomer.name.trim(),
+                phone: normalizedPhone,
+                address: newCustomer.address.trim()
+            });
+
+            if (insertError) throw insertError;
+
+            setNotification({ type: 'success', message: 'Customer added successfully!' });
+            setTimeout(() => setNotification(null), 3000);
+            setIsAddingCustomer(false);
+            setNewCustomer({ name: '', phone: '', address: '' });
+            
+            // Refresh data
+            fetchCustomers();
+            fetchOverallStats();
+        } catch (error) {
+            console.error('Error adding customer:', error);
+            setNotification({ type: 'error', message: 'Failed to add customer: ' + error.message });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsCreating(false);
         }
     };
 
@@ -558,6 +619,79 @@ function CustomersPage() {
                         </div>
                     )}
 
+                    {/* Add Customer Modal */}
+                    {isAddingCustomer && (
+                        <div style={{
+                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            animation: 'fadeIn 0.2s ease'
+                        }}>
+                            <div className="card shadow-premium animate-enter" style={{
+                                width: '100%', maxWidth: '500px', padding: '2rem',
+                                position: 'relative', margin: '1rem'
+                            }}>
+                                <button
+                                    onClick={() => setIsAddingCustomer(false)}
+                                    style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))' }}
+                                >
+                                    <X size={20} />
+                                </button>
+                                
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Users size={20} color="hsl(var(--primary))" /> Add New Customer
+                                </h3>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', marginBottom: '0.5rem', color: 'hsl(var(--text-muted))' }}>Full Name *</label>
+                                        <input
+                                            type="text"
+                                            value={newCustomer.name}
+                                            onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                                            className="admin-input"
+                                            placeholder="e.g. John Doe"
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', marginBottom: '0.5rem', color: 'hsl(var(--text-muted))' }}>Phone Number *</label>
+                                        <input
+                                            type="text"
+                                            value={newCustomer.phone}
+                                            onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                                            className="admin-input"
+                                            placeholder="e.g. 9876543210"
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 700, display: 'block', marginBottom: '0.5rem', color: 'hsl(var(--text-muted))' }}>Address (Optional)</label>
+                                        <textarea
+                                            value={newCustomer.address}
+                                            onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                                            className="admin-input"
+                                            placeholder="Full shipping address"
+                                            style={{ width: '100%', minHeight: '80px', resize: 'vertical' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                                        <button onClick={() => setIsAddingCustomer(false)} className="btn btn-secondary" disabled={isCreating}>
+                                            Cancel
+                                        </button>
+                                        <button onClick={handleCreateCustomer} className="btn btn-primary" disabled={isCreating}>
+                                            {isCreating ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
+                                            {isCreating ? 'Saving...' : 'Save Customer'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {selectedCustomer ? (
                         <div className="animate-enter">
                             {/* Inline Detail/Edit View */}
@@ -759,7 +893,9 @@ function CustomersPage() {
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                                    {/* Toolbar controls moved to the list card header for a more contextual experience */}
+                                    <button onClick={() => setIsAddingCustomer(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Plus size={16} /> Add Customer
+                                    </button>
                                 </div>
                             </div>
 

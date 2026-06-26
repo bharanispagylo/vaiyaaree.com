@@ -414,7 +414,7 @@ async function deductStock(orderId) {
                 await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
 
                 // 4. Low Stock Alert (with unified main/variant check)
-                const alertThreshold = (table === 'product_variants') 
+                const alertThreshold = (table === 'product_variants')
                     ? (await supabase.from('products').select('alert_threshold').eq('id', item.product_id).single()).data?.alert_threshold
                     : current.alert_threshold;
 
@@ -451,7 +451,7 @@ function getCatalogIdVariants(catalogId) {
     };
 
     const variants = new Set();
-    
+
     // Recursive function to generate all permutations of confusable characters
     function generatePermutations(currentStr, index) {
         if (index === code.length) {
@@ -482,6 +482,28 @@ function getCatalogIdVariants(catalogId) {
     return [...variants];
 }
 
+// Helper for fuzzy string matching (Levenshtein distance)
+function levenshteinDistance(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1) // insertion, deletion
+                );
+            }
+        }
+    }
+    return matrix[b.length][a.length];
+}
 
 export async function handleProductInquiry(to, catalogId) {
     try {
@@ -494,6 +516,45 @@ export async function handleProductInquiry(to, catalogId) {
                 .ilike('product_catalog_image_id', variant)
                 .eq('is_active', true).single();
             if (data) { product = data; break; }
+        }
+
+        // FUZZY MATCHING FALLBACK
+        // If exact match fails (e.g. OCR read AMBI instead of AMB6I), find the closest match
+        if (!product) {
+            console.log(`[WA-DEBUG] Exact match failed for ${catalogId}, attempting fuzzy match...`);
+            const { data: allProducts } = await supabase
+                .from('products').select('id, product_catalog_image_id')
+                .eq('is_active', true);
+
+            if (allProducts && allProducts.length > 0) {
+                // Strip "CAT-" to compare just the base alphanumeric codes
+                const searchCode = catalogId.replace(/[^A-Z0-9]/gi, '').replace(/^CAT/i, '').toUpperCase();
+                let bestMatch = null;
+                let lowestDistance = 999;
+
+                for (const p of allProducts) {
+                    if (!p.product_catalog_image_id) continue;
+                    const dbCode = p.product_catalog_image_id.replace(/[^A-Z0-9]/gi, '').replace(/^CAT/i, '').toUpperCase();
+
+                    const dist = levenshteinDistance(searchCode, dbCode);
+                    if (dist < lowestDistance) {
+                        lowestDistance = dist;
+                        bestMatch = p;
+                    }
+                }
+
+                // Allow a distance of up to 2 (e.g., missed a character, or swapped one character)
+                // Minimum search code length of 3 to avoid accidentally matching tiny garbage strings
+                if (bestMatch && lowestDistance <= 2 && searchCode.length >= 3) {
+                    console.log(`[WA-DEBUG] Fuzzy match found! '${searchCode}' matched with DB code (Distance: ${lowestDistance})`);
+                    const { data: fuzzyData } = await supabase
+                        .from('products').select('*')
+                        .eq('id', bestMatch.id).single();
+                    if (fuzzyData) {
+                        product = fuzzyData;
+                    }
+                }
+            }
         }
 
         if (!product) {
@@ -526,7 +587,7 @@ export async function handleProductInquiry(to, catalogId) {
             const orderDate = new Date(matchingOrder.created_at).toLocaleDateString('en-IN', {
                 day: '2-digit', month: 'short', year: 'numeric'
             });
-            const caption = 
+            const caption =
                 `🛍️ *${product.name}*\n` +
                 `--------------------------\n` +
                 `You have already ordered this item in a past order! 💖\n\n` +
@@ -1305,14 +1366,14 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                                 .select('image_url')
                                 .eq('id', item.product_id)
                                 .single();
-                            
+
                             const imgUrl = product?.image_url;
                             if (imgUrl) {
                                 const caption = `🛍️ *Item:* ${item.product_name}\n` +
                                     (item.variant_name ? `🎨 *Option:* ${item.variant_name}\n` : '') +
                                     `💵 *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
                                     `🔢 *Quantity:* ${item.quantity}`;
-                                
+
                                 await sendRawMessage(targetPhone, {
                                     messaging_product: "whatsapp",
                                     recipient_type: "individual",
@@ -1343,7 +1404,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                                 if (item.key === 'shop_address') settings.shop_address = item.value;
                             });
                         }
-                    } catch (e) {}
+                    } catch (e) { }
 
                     const pdfBuffer = await generateOrderPDFBuffer(order, settings);
                     await new Promise(r => setTimeout(r, 1000));
@@ -1372,6 +1433,10 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
 
 // Finalize Order
 export async function finalizeOrder(to, method, orderId) {
+    if (method === 'COD') {
+        await sendText(to, "order processing...");
+    }
+
     const { data: currentOrder } = await supabase.from('orders').select('status').eq('id', orderId).single();
 
     // Determine target status
@@ -1633,7 +1698,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
                     await supabase.from('products')
                         .update({ stock: newStock })
                         .eq('id', item.product_id);
-                    
+
                     // Add to ledger
                     await supabase.from('product_history').insert({
                         product_id: item.product_id,
@@ -2134,25 +2199,41 @@ async function analyzeImageForCatalogId(mediaId) {
 
         console.log('[OCR] Detected text:', detectedText.substring(0, 300));
 
-        // Step 5: Flexible pattern matching — handles:
-        // CAT-KY028   CAT KY028   CATKY028   cat-ky028   KY028 etc.
-        const patterns = [
-            /CAT[-\s]?([A-Z0-9]{5})/i,   // CAT-KY028 or CAT KY028 or CATKY028
-            /([A-Z]{2,3})[-\s]([A-Z0-9]{3,5})/i,  // XX-YYYY or XXX-YYY
-            /([A-Z0-9]{5})/i, // Last resort: just any 5 chars
-        ];
-
+        // Step 5: Flexible pattern matching
         let catalogId = null;
-        for (const pattern of patterns) {
-            const m = detectedText.match(pattern);
-            if (m) {
-                // Extract the alphanumeric part (5-8 chars)
-                const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '').toUpperCase();
-                if (code.length >= 4) {
-                    // Pass the raw extracted code to handleProductInquiry (it will use getCatalogIdVariants)
-                    catalogId = code;
-                    console.log('[OCR] ✅ Extracted code:', catalogId);
-                    break;
+
+        // 1. STRONGEST MATCH: Process line by line to avoid gluing unrelated words (like "Reply" on a new line)
+        // Remove spaces/hyphens per line and look for CAT + 4 to 8 chars.
+        const lines = detectedText.split('\n');
+        for (const line of lines) {
+            const cleanLine = line.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+            const strictMatch = cleanLine.match(/CAT([A-Z0-9]{4,8})/);
+            if (strictMatch) {
+                catalogId = strictMatch[1];
+                console.log('[OCR] ✅ Extracted code via strict CAT match:', catalogId);
+                break;
+            }
+        }
+
+        if (catalogId) {
+            // Already found it
+        } else {
+            // 2. FALLBACK MATCHES: If no CAT prefix is found, try original patterns
+            const patterns = [
+                /([A-Z]{2,3})[-\s]([A-Z0-9]{3,5})/i,  // XX-YYYY or XXX-YYY
+                /([A-Z0-9]{5})/i, // Last resort: just any 5 chars
+            ];
+
+            for (const pattern of patterns) {
+                const m = detectedText.match(pattern);
+                if (m) {
+                    const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '').toUpperCase();
+                    // Prevent extracting the brand name if it accidentally matches fallback
+                    if (code.length >= 4 && !code.includes('HAA') && !code.includes('MAHAA')) {
+                        catalogId = code;
+                        console.log('[OCR] ✅ Extracted code via fallback:', catalogId);
+                        break;
+                    }
                 }
             }
         }
@@ -2401,9 +2482,9 @@ export async function processIncomingMessage(body) {
                     const sourceLabel = o.source === 'WEBSITE' ? '🌐 Website' : '📱 WhatsApp';
                     const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
                     const canReturn = o.status === 'DELIVERED';
-                    
+
                     const buttons = [{ id: "menu_main", title: "🏠 Main Menu" }];
-                    
+
                     if (canCancel) {
                         buttons.unshift({ id: `init_cancel_${o.id}`, title: "Cancel Order" });
                     } else if (canReturn) {
@@ -2470,9 +2551,9 @@ export async function processIncomingMessage(body) {
                                 { id: `paid_confirm_${orderId}`, title: "✅ I Have Paid" }
                             ]);
                         } else if (order.payment_method === 'COD') {
-                            await sendText(from, "📄 Generating your invoice...");
+                            await sendText(from, "💵 Cash on delivery selected, order processing...");
                             const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
-                            
+
                             try {
                                 let settings = { shop_name: 'Cast Printz', shop_phone: '7558189732', shop_email: 'castprintzofficial@gmail.com', shop_address: 'Premium Saree Collections' };
                                 const { data: settingsData } = await supabase.from('app_settings').select('*');
@@ -2621,7 +2702,7 @@ export async function processIncomingMessage(body) {
 
             if (id === 'menu_main') return await sendMainMenu(from);
             if (id === 'menu_cancel_order') return await handleCancelOrder(from);
-            
+
             if (id.startsWith('init_cancel_')) {
                 const orderId = id.replace('init_cancel_', '');
                 return await processCancelOrder(from, orderId);

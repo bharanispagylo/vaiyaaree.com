@@ -611,6 +611,12 @@ export default function CheckoutPage() {
                         </div>
                     </div>
 
+                    {placing && checkoutForm.paymentMethod === 'COD' && (
+                        <div style={{ marginBottom: '1rem', padding: '12px', background: '#f0fdf4', color: '#166534', borderRadius: '8px', fontSize: '14px', textAlign: 'center', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <strong>Cash on Delivery Selected</strong>
+                            <span>Order is processing, please do not close the window...</span>
+                        </div>
+                    )}
                     <button className={styles.placeOrderBtn} onClick={handlePlaceOrder} disabled={placing}>
                         {placing ? 'Processing...' : 'Place Order'}
                     </button>
