@@ -42,13 +42,6 @@ export default function HomePage() {
     const [galleryIndex, setGalleryIndex] = useState(0);
 
     useEffect(() => {
-        // Redirect if admin is authenticated
-        const isAdmin = document.cookie.includes('admin_session=authenticated');
-        if (isAdmin) {
-            router.push('/admin');
-            return;
-        }
-
         const fetchPageData = async () => {
             try {
                 const { data } = await supabase
@@ -206,7 +199,7 @@ export default function HomePage() {
             <div style={{ padding: '6rem 2rem 4rem', maxWidth: '900px', margin: '0 auto' }}>
                 <div 
                     className="cms-content"
-                    dangerouslySetInnerHTML={{ __html: page.content.replace(/Aiswarya Sarees/gi, 'Cast Printz') }}
+                    dangerouslySetInnerHTML={{ __html: page.content }}
                     style={{ fontSize: '1.4rem', lineHeight: 1.8, textAlign: 'center', color: '#555' }}
                 />
             </div>

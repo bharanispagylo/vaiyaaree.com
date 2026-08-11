@@ -307,15 +307,19 @@ export function ShopProvider({ children }) {
         const subtotal = cartTotal;
         let cgst = 0, sgst = 0, igst = 0;
         
-        // Determine shipping state and city
+        // Determine shipping country, state and city
+        const shippingCountry = (checkoutForm.sameAsBilling ? checkoutForm.billingCountry : checkoutForm.shippingCountry) || 'India';
+        const isInternational = shippingCountry.trim().toLowerCase() !== 'india' && shippingCountry.trim().toLowerCase() !== 'in';
         const shippingState = checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState;
         const shippingCity = checkoutForm.sameAsBilling ? checkoutForm.billingCity : checkoutForm.shippingCity;
         
-        // Calculate tax based on shipping state
+        // Calculate tax based on location
         const normalizedFormState = (shippingState || '').trim().toLowerCase();
         const normalizedBizState = (businessState || 'Tamil Nadu').trim().toLowerCase();
         
-        if (normalizedFormState === normalizedBizState) {
+        if (isInternational) {
+            igst = Math.round(subtotal * 0.05);
+        } else if (normalizedFormState === normalizedBizState) {
             cgst = Math.round(subtotal * 0.025);
             sgst = Math.round(subtotal * 0.025);
         } else {
@@ -325,20 +329,27 @@ export function ShopProvider({ children }) {
         let shipping = 0;
         let activeZone = null;
         
-        // Find shipping zone
-        const districtMapping = zoneMappings.find(m => 
-            m.state_name === shippingState && 
-            m.district_name?.toLowerCase() === (shippingCity || '').trim().toLowerCase()
-        );
-        
-        if (districtMapping) {
-            activeZone = shippingZones.find(z => z.id === districtMapping.zone_id);
+        if (isInternational) {
+            activeZone = shippingZones.find(z => z.is_international);
         } else {
-            const stateMapping = zoneMappings.find(m => m.state_name === shippingState && !m.district_name);
-            if (stateMapping) {
-                activeZone = shippingZones.find(z => z.id === stateMapping.zone_id);
+            const domesticZones = shippingZones.filter(z => !z.is_international);
+            const domesticZoneIds = new Set(domesticZones.map(z => z.id));
+
+            const districtMapping = zoneMappings.find(m => 
+                domesticZoneIds.has(m.zone_id) &&
+                m.state_name === shippingState && 
+                m.district_name?.toLowerCase() === (shippingCity || '').trim().toLowerCase()
+            );
+
+            if (districtMapping) {
+                activeZone = domesticZones.find(z => z.id === districtMapping.zone_id);
             } else {
-                activeZone = shippingZones.find(z => !z.is_international);
+                const stateMapping = zoneMappings.find(m => domesticZoneIds.has(m.zone_id) && m.state_name === shippingState && !m.district_name);
+                if (stateMapping) {
+                    activeZone = domesticZones.find(z => z.id === stateMapping.zone_id);
+                } else {
+                    activeZone = domesticZones[0] || null;
+                }
             }
         }
 
@@ -347,12 +358,12 @@ export function ShopProvider({ children }) {
             const threshold = parseFloat(activeZone.free_threshold || 0);
             if (threshold > 0 && subtotal >= threshold) shipping = 0;
         } else {
-            shipping = 100; // Default shipping
+            shipping = isInternational ? 1500 : 100;
         }
 
         const totalOrder = subtotal + cgst + sgst + igst + shipping;
         return { cgst, sgst, igst, shipping, totalOrder, activeZone };
-    }, [cartTotal, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
+    }, [cartTotal, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.billingCountry, checkoutForm.shippingCountry, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
 
     async function placeOrder() {
         const shippingState = checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState;

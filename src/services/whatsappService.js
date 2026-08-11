@@ -511,10 +511,10 @@ export async function handleProductInquiry(to, catalogId) {
         const variants = getCatalogIdVariants(catalogId);
         let product = null;
         for (const variant of variants) {
-            const { data } = await supabase
+            const { data } = await supabaseAdmin
                 .from('products').select('*')
                 .ilike('product_catalog_image_id', variant)
-                .eq('is_active', true).single();
+                .eq('is_active', true).maybeSingle();
             if (data) { product = data; break; }
         }
 
@@ -522,7 +522,7 @@ export async function handleProductInquiry(to, catalogId) {
         // If exact match fails (e.g. OCR read AMBI instead of AMB6I), find the closest match
         if (!product) {
             console.log(`[WA-DEBUG] Exact match failed for ${catalogId}, attempting fuzzy match...`);
-            const { data: allProducts } = await supabase
+            const { data: allProducts } = await supabaseAdmin
                 .from('products').select('id, product_catalog_image_id')
                 .eq('is_active', true);
 
@@ -547,9 +547,9 @@ export async function handleProductInquiry(to, catalogId) {
                 // Minimum search code length of 3 to avoid accidentally matching tiny garbage strings
                 if (bestMatch && lowestDistance <= 2 && searchCode.length >= 3) {
                     console.log(`[WA-DEBUG] Fuzzy match found! '${searchCode}' matched with DB code (Distance: ${lowestDistance})`);
-                    const { data: fuzzyData } = await supabase
+                    const { data: fuzzyData } = await supabaseAdmin
                         .from('products').select('*')
-                        .eq('id', bestMatch.id).single();
+                        .eq('id', bestMatch.id).maybeSingle();
                     if (fuzzyData) {
                         product = fuzzyData;
                     }
@@ -2391,11 +2391,11 @@ export async function processIncomingMessage(body) {
             if (['catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees', 'show sarees'].includes(messageText)) return await sendCatalogueCategories(from);
 
             // ── CATALOG ID LOOKUP: customer reads CAT-XXXXX code from product image ──
-            // Matches patterns like: CAT-AB12X, cat ab12x, CAT12345, or just AB12X (5-8 chars)
-            // Use a more flexible regex for direct typing
-            const catalogMatch = message.text.body.trim().match(/^(CAT[-\s]?)?([A-Z0-9]{4,12})$/i);
+            // Matches patterns like: CAT-AB12X, cat ab12x, CAT_C3FNP, CAT12345, or just AB12X (4-12 chars)
+            const rawBodyText = message.text.body.trim();
+            const catalogMatch = rawBodyText.match(/CAT[-\s_]?([A-Z0-9]{4,12})/i) || rawBodyText.match(/^([A-Z0-9]{4,12})$/i);
             if (catalogMatch) {
-                const catalogId = catalogMatch[2].toUpperCase();
+                const catalogId = catalogMatch[1] ? catalogMatch[1].toUpperCase() : catalogMatch[0].toUpperCase();
                 return await handleProductInquiry(from, catalogId);
             }
 
@@ -2692,8 +2692,32 @@ export async function processIncomingMessage(body) {
                 return await askState(from, draft.id);
             }
 
-            // ─── STEP 3: Default fallback — show main menu ───
-            return await sendMainMenu(from);
+            // ─── STEP 3: Fallback for non-matching messages (DO NOT send Welcome Card) ───
+            // Try searching products by name or catalog ID before giving up
+            const searchTerms = messageText.split(/\s+/).filter(w => w.length >= 3);
+            for (const term of searchTerms) {
+                const cleanTerm = term.replace(/[^A-Z0-9]/gi, '');
+                if (cleanTerm.length >= 4) {
+                    const { data: p } = await supabaseAdmin
+                        .from('products')
+                        .select('product_catalog_image_id')
+                        .or(`product_catalog_image_id.ilike.%${cleanTerm}%,name.ilike.%${term}%`)
+                        .eq('is_active', true)
+                        .limit(1)
+                        .maybeSingle();
+                    if (p?.product_catalog_image_id) {
+                        return await handleProductInquiry(from, p.product_catalog_image_id);
+                    }
+                }
+            }
+
+            return await sendText(from,
+                `🌸 Thank you for reaching out to *Cast Printz*!\n\n` +
+                `We couldn't find a product matching *"${rawBodyText}"*.\n\n` +
+                `📌 *Tips:*\n` +
+                `• Send a product code (e.g. *CAT-C3FNP*)\n` +
+                `• Or send *Hi* to view our main menu & catalogue!`
+            );
         }
 
         if (msgType === 'interactive') {

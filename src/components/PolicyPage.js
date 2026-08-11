@@ -49,7 +49,7 @@ export default function PolicyPage({ slug, title: fallbackTitle }) {
                 <h1 style={{ fontSize: '3rem', fontWeight: 500, marginBottom: '3rem', color: '#000' }}>{page.title}</h1>
                 <div 
                     className="cms-content"
-                    dangerouslySetInnerHTML={{ __html: page.content.replace(/Aiswarya Sarees/gi, 'Cast Printz') }} 
+                    dangerouslySetInnerHTML={{ __html: page.content }} 
                     style={{ 
                         fontSize: '1.1rem', 
                         lineHeight: 1.8, 

@@ -329,7 +329,7 @@ export default function CMSPage() {
                                                             <Edit size={16} />
                                                         </button>
                                                         <a
-                                                            href={`/page/${page.slug}`}
+                                                            href={page.slug === 'home' ? '/' : `/page/${page.slug}`}
                                                             target="_blank"
                                                             className="btn btn-secondary"
                                                             style={{ padding: '0.4rem', border: '1px solid hsl(var(--border-subtle))' }}
@@ -618,6 +618,35 @@ export default function CMSPage() {
                     box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
                 }
             `}</style>
+
+            {/* Live Preview Modal */}
+            {showPreview && (
+                <ModalPortal>
+                    <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999 }} onClick={() => setShowPreview(false)}>
+                        <div className="modal-box" style={{ maxWidth: '1000px', width: '95%', height: '90vh', background: '#fff', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 0 }} onClick={e => e.stopPropagation()}>
+                            <div style={{ padding: '1rem 2rem', background: '#111', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Live Page Preview</div>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#fff' }}>{document.querySelector('input[name="title"]')?.value || currentPage?.title || 'Untitled Page'}</h3>
+                                </div>
+                                <button onClick={() => setShowPreview(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Close Preview ✕</button>
+                            </div>
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem', background: '#fff' }}>
+                                <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '2rem', color: '#111' }}>
+                                        {document.querySelector('input[name="title"]')?.value || currentPage?.title}
+                                    </h1>
+                                    <div 
+                                        className="cms-content"
+                                        dangerouslySetInnerHTML={{ __html: document.querySelector('textarea[name="content"]')?.value || currentPage?.content || '<p style="color: #999;">No content written yet...</p>' }}
+                                        style={{ fontSize: '1.1rem', lineHeight: 1.8, color: '#333' }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </ModalPortal>
+            )}
 
             {/* Confirm Modal */}
             {confirmAction && (

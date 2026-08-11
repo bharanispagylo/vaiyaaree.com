@@ -222,100 +222,111 @@ export default function ShippingAdminPage() {
                                 <p>Set rates and assign geographical regions to this group.</p>
                             </div>
 
-                            <div className="settings-row">
-                                <div className="setting-input">
-                                    <label>Price Group Title</label>
-                                    <div className="input-prefix no-icon">
-                                        <input
-                                            type="text"
-                                            value={selectedZone.name}
-                                            onChange={e => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
-                                            placeholder="e.g. South India Express"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="setting-input">
-                                    <label>Shipping Rate</label>
-                                    <div className="input-prefix">
-                                        <IndianRupee size={14} />
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={selectedZone.rate}
-                                            onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
-                                            onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="setting-input">
-                                    <label>Free Threshold</label>
-                                    <div className="input-prefix">
-                                        <IndianRupee size={14} />
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={selectedZone.free_threshold}
-                                            onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
-                                            onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="type-toggle">
+                            <div className="type-toggle" style={{ marginBottom: '2rem' }}>
                                 <button className={!selectedZone.is_international ? 'active' : ''} onClick={() => handleUpdateZone(selectedZone.id, 'is_international', false)}>Domestic</button>
                                 <button className={selectedZone.is_international ? 'active' : ''} onClick={() => handleUpdateZone(selectedZone.id, 'is_international', true)}>International</button>
                             </div>
 
-                            {!selectedZone.is_international && (
-                                <div className="region-manager">
-                                    <div className="regions-header">
-                                        <h3>Assigned Regions</h3>
-                                        <p>Click on states below to add them to this group.</p>
-                                    </div>
-
-                                    <div className="tags-container">
-                                        {mappings.filter(m => m.zone_id === selectedZone.id).map((m, i) => (
-                                            <div key={i} className="region-tag">
-                                                {m.state_name}
-                                                <button onClick={() => removeMapping(mappings.indexOf(m))}><X size={12} /></button>
+                            {!selectedZone.is_international ? (
+                                <div className="domestic-settings">
+                                    <div className="settings-row" style={{ marginBottom: '2rem' }}>
+                                        <div className="setting-input">
+                                            <label>Price Group Title</label>
+                                            <div className="input-prefix no-icon">
+                                                <input
+                                                    type="text"
+                                                    value={selectedZone.name}
+                                                    onChange={e => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
+                                                    placeholder="e.g. South India Express"
+                                                />
                                             </div>
-                                        ))}
-                                        {mappings.filter(m => m.zone_id === selectedZone.id).length === 0 && (
-                                            <div className="empty-regions">No regions assigned. Select from below.</div>
-                                        )}
+                                        </div>
+                                        <div className="setting-input">
+                                            <label>Domestic Shipping Rate</label>
+                                            <div className="input-prefix">
+                                                <IndianRupee size={14} />
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={selectedZone.rate}
+                                                    onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
+                                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="setting-input">
+                                            <label>Free Threshold</label>
+                                            <div className="input-prefix">
+                                                <IndianRupee size={14} />
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={selectedZone.free_threshold}
+                                                    onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
+                                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <div className="state-picker">
-                                        <div className="picker-search">
-                                            <Search size={16} />
-                                            <input placeholder="Search Indian States..." value={stateSearch} onChange={e => setStateSearch(e.target.value)} />
+                                    <div className="region-manager">
+                                        <div className="regions-header">
+                                            <h3>Assigned Regions</h3>
+                                            <p>Click on states below to add them to this group.</p>
                                         </div>
-                                        <div className="state-grid">
-                                            {filteredStates.map(s => {
-                                                const isAssigned = mappings.find(m => m.state_name === s && m.zone_id === selectedZone.id);
-                                                const isInOther = mappings.find(m => m.state_name === s && m.zone_id !== selectedZone.id);
 
-                                                return (
-                                                    <button
-                                                        key={s}
-                                                        className={`state-btn ${isAssigned ? 'assigned' : ''} ${isInOther ? 'other' : ''}`}
-                                                        onClick={() => addLocation(s)}
-                                                    >
-                                                        {s}
-                                                        {isAssigned && <CheckCircle2 size={12} />}
-                                                        {isInOther && <Info size={12} title="Assigned elsewhere" />}
-                                                    </button>
-                                                );
-                                            })}
+                                        <div className="tags-container">
+                                            {mappings.filter(m => m.zone_id === selectedZone.id).map((m, i) => (
+                                                <div key={i} className="region-tag">
+                                                    {m.state_name}
+                                                    <button onClick={() => removeMapping(mappings.indexOf(m))}><X size={12} /></button>
+                                                </div>
+                                            ))}
+                                            {mappings.filter(m => m.zone_id === selectedZone.id).length === 0 && (
+                                                <div className="empty-regions">No regions assigned. Select from below.</div>
+                                            )}
+                                        </div>
+
+                                        <div className="state-picker">
+                                            <div className="picker-search">
+                                                <Search size={16} />
+                                                <input placeholder="Search Indian States..." value={stateSearch} onChange={e => setStateSearch(e.target.value)} />
+                                            </div>
+                                            <div className="state-grid">
+                                                {filteredStates.map(s => {
+                                                    const isAssigned = mappings.find(m => m.state_name === s && m.zone_id === selectedZone.id);
+                                                    const isInOther = mappings.find(m => m.state_name === s && m.zone_id !== selectedZone.id);
+
+                                                    return (
+                                                        <button
+                                                            key={s}
+                                                            className={`state-btn ${isAssigned ? 'assigned' : ''} ${isInOther ? 'other' : ''}`}
+                                                            onClick={() => addLocation(s)}
+                                                        >
+                                                            {s}
+                                                            {isAssigned && <CheckCircle2 size={12} />}
+                                                            {isInOther && <Info size={12} title="Assigned elsewhere" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            )}
-
-                            {selectedZone.is_international && (
+                            ) : (
                                 <div className="intl-settings">
-                                    <div className="settings-row two-col">
+                                    <div className="settings-row" style={{ marginBottom: '2rem' }}>
+                                        <div className="setting-input">
+                                            <label>Price Group Title</label>
+                                            <div className="input-prefix no-icon">
+                                                <input
+                                                    type="text"
+                                                    value={selectedZone.name}
+                                                    onChange={e => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
+                                                    placeholder="e.g. International Standard"
+                                                />
+                                            </div>
+                                        </div>
                                         <div className="setting-input">
                                             <label>International Shipping Rate</label>
                                             <div className="input-prefix">
@@ -345,6 +356,7 @@ export default function ShippingAdminPage() {
                                             </div>
                                         </div>
                                     </div>
+
                                     <div className="intl-info">
                                         <Globe size={24} />
                                         <div>
