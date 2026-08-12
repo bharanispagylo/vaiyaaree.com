@@ -13,8 +13,8 @@ export async function POST(req) {
         // 1. Try to find in admin_users table (Modern approach)
         const { data: user, error: userError } = await supabase
             .from('admin_users')
-            .select('role, password')
-            .eq('username', username)
+            .select('*')
+            .or(`username.eq.${username},email.eq.${username}`)
             .eq('is_active', true)
             .maybeSingle();
 
@@ -40,17 +40,33 @@ export async function POST(req) {
             if (isValid) {
                 const token = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
                 await supabase.from('admin_users').update({ last_login: new Date().toISOString() }).eq('username', username);
-                return NextResponse.json({ success: true, role: user.role || 'admin', token, source: 'db_users' });
+                return NextResponse.json({
+                    success: true,
+                    role: user.role || 'Admin',
+                    username: user.username || username,
+                    email: user.email || '',
+                    full_name: user.full_name || user.username || 'Admin User',
+                    token,
+                    source: 'db_users'
+                });
             } else {
                 return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
             }
         }
 
         // 2. Fallback to settings mechanism
-        const { admin_username, admin_password } = await getAdminSettings();
-        if (username === admin_username && password === admin_password) {
+        const { admin_username, admin_password, admin_email } = await getAdminSettings();
+        if ((username === admin_username || (admin_email && username === admin_email)) && password === admin_password) {
             const token = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
-            return NextResponse.json({ success: true, role: 'admin', token, source: 'db_settings' });
+            return NextResponse.json({
+                success: true,
+                role: 'Super Admin',
+                username: admin_username || 'admin',
+                email: admin_email || '',
+                full_name: 'Administrator',
+                token,
+                source: 'db_settings'
+            });
         }
 
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });

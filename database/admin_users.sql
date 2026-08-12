@@ -6,6 +6,7 @@
 CREATE TABLE IF NOT EXISTS admin_users (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
+    email TEXT,
     password TEXT NOT NULL,
     full_name TEXT,
     role TEXT DEFAULT 'admin', -- 'super_admin', 'admin', 'manager'
@@ -14,6 +15,9 @@ CREATE TABLE IF NOT EXISTS admin_users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Ensure email column exists on existing installations
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- Index for fast lookup by username
 CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);

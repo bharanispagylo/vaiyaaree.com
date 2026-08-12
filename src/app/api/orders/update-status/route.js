@@ -200,15 +200,13 @@ export async function POST(request) {
             });
         }
 
-        // 2. Fetch order items if we're sending a detailed receipt (PAID status)
+        // 2. Fetch order items for status notifications (PAID, SHIPPED, PACKING, DELIVERED)
         let items = [];
-        if (status === 'PAID') {
-            const { data: itemData } = await supabase
-                .from('order_items')
-                .select('*')
-                .eq('order_id', orderId);
-            items = itemData || [];
-        }
+        const { data: itemData } = await supabase
+            .from('order_items')
+            .select('*')
+            .eq('order_id', orderId);
+        items = itemData || [];
 
         // 3. Update the order status and shipping info
         const updatePayload = { status };

@@ -18,6 +18,7 @@ export default function UserManagementPage() {
     const [editingUser, setEditingUser] = useState(null);
     const [formData, setFormData] = useState({
         username: '',
+        email: '',
         password: '',
         full_name: '',
         role: 'admin',
@@ -58,6 +59,7 @@ export default function UserManagementPage() {
             setEditingUser(user);
             setFormData({
                 username: user.username,
+                email: user.email || '',
                 password: user.password,
                 full_name: user.full_name || '',
                 role: user.role || 'admin',
@@ -67,6 +69,7 @@ export default function UserManagementPage() {
             setEditingUser(null);
             setFormData({
                 username: '',
+                email: '',
                 password: '',
                 full_name: '',
                 role: 'admin',
@@ -80,39 +83,70 @@ export default function UserManagementPage() {
         e.preventDefault();
         setSaving(true);
         try {
+            const payload = {
+                username: formData.username,
+                email: formData.email,
+                password: formData.password,
+                full_name: formData.full_name,
+                role: formData.role,
+                is_active: formData.is_active
+            };
+
+            let isEmailSupported = true;
+
             if (editingUser) {
-                const { error } = await supabase
+                let { error } = await supabase
                     .from('admin_users')
                     .update({
-                        username: formData.username,
-                        password: formData.password,
-                        full_name: formData.full_name,
-                        role: formData.role,
-                        is_active: formData.is_active,
+                        ...payload,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', editingUser.id);
 
-                if (error) throw error;
-                setNotification({ message: 'User updated successfully!', type: 'success' });
-            } else {
-                const { error } = await supabase
-                    .from('admin_users')
-                    .insert([{
-                        username: formData.username,
-                        password: formData.password,
-                        full_name: formData.full_name,
-                        role: formData.role,
-                        is_active: formData.is_active
-                    }]);
+                if (error && (error.message?.includes('email') || error.message?.includes('schema cache'))) {
+                    console.warn('[ADMIN-USERS] email column missing in admin_users table. Saving without email...');
+                    isEmailSupported = false;
+                    delete payload.email;
+                    const fallback = await supabase
+                        .from('admin_users')
+                        .update({
+                            ...payload,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', editingUser.id);
+                    error = fallback.error;
+                }
 
                 if (error) throw error;
-                setNotification({ message: 'New user added successfully!', type: 'success' });
+                setNotification({ 
+                    message: isEmailSupported ? 'User updated successfully!' : 'User updated! Run SQL migration in Supabase to enable email field.', 
+                    type: 'success' 
+                });
+            } else {
+                let { error } = await supabase
+                    .from('admin_users')
+                    .insert([payload]);
+
+                if (error && (error.message?.includes('email') || error.message?.includes('schema cache'))) {
+                    console.warn('[ADMIN-USERS] email column missing in admin_users table. Saving without email...');
+                    isEmailSupported = false;
+                    delete payload.email;
+                    const fallback = await supabase
+                        .from('admin_users')
+                        .insert([payload]);
+                    error = fallback.error;
+                }
+
+                if (error) throw error;
+                setNotification({ 
+                    message: isEmailSupported ? 'New user added successfully!' : 'New user added! Run SQL migration in Supabase to enable email field.', 
+                    type: 'success' 
+                });
             }
             
             setShowModal(false);
             fetchUsers();
-            setTimeout(() => setNotification(null), 3000);
+            setTimeout(() => setNotification(null), 4000);
         } catch (err) {
             console.error('Save error:', err);
             setNotification({ message: 'Error saving user: ' + err.message, type: 'error' });
@@ -179,6 +213,7 @@ export default function UserManagementPage() {
                             <thead>
                                 <tr>
                                     <th>Username</th>
+                                    <th>Email</th>
                                     <th>Full Name</th>
                                     <th>Role</th>
                                     <th>Status</th>
@@ -197,6 +232,7 @@ export default function UserManagementPage() {
                                                 <strong>{user.username}</strong>
                                             </div>
                                         </td>
+                                        <td>{user.email || '—'}</td>
                                         <td>{user.full_name || '—'}</td>
                                         <td>
                                             <span className={`badge badge-${user.role}`}>
@@ -260,6 +296,18 @@ export default function UserManagementPage() {
                                             value={formData.password}
                                             onChange={e => setFormData({...formData, password: e.target.value})}
                                             placeholder="••••••••"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="field-group full-width">
+                                    <label>Email Address</label>
+                                    <div className="input-with-icon">
+                                        <Mail size={16} />
+                                        <input 
+                                            type="email" 
+                                            value={formData.email}
+                                            onChange={e => setFormData({...formData, email: e.target.value})}
+                                            placeholder="admin@example.com"
                                         />
                                     </div>
                                 </div>

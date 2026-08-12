@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, Mail, MapPin, Phone, MessageCircle } from 'lucide-react';
+import { User, Mail, MapPin, Phone, MessageCircle, Save } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import styles from './profile.module.css';
 
@@ -144,132 +144,141 @@ export default function ProfilePage() {
             </div>
 
             <div className={styles.profileLayout}>
-                <section className={styles.profileSection}>
-                    <h3 className={styles.sectionTitle}>Account Information</h3>
-                    <form onSubmit={handleUpdateProfile} className={styles.profileForm}>
-                        <div className={styles.formGrid}>
-                            <div className={styles.formGroup}>
-                                <label><User size={14} /> FULL NAME</label>
-                                <input name="name" defaultValue={user.name} required placeholder="Your name" />
-                            </div>
-                            <div className={styles.formGroup}>
-                                <label><Mail size={14} /> EMAIL</label>
-                                <input name="email" defaultValue={user.email} type="email" placeholder="email@example.com" />
-                            </div>
-                        </div>
-
-                        <div className={styles.formGroupFull} style={{ marginTop: '2rem' }}>
-                            <label><MapPin size={14} /> DEFAULT SHIPPING ADDRESS</label>
-                            <textarea name="address" defaultValue={user.address} rows={3} placeholder="Flat/House No, Street, Area..." />
-                        </div>
-
-                        <div className={styles.formGrid3} style={{ marginTop: '1.5rem' }}>
-                            <div className={styles.formGroup}>
-                                <label>CITY</label>
-                                <input name="city" defaultValue={user.city} placeholder="City" />
-                            </div>
-                            <div className={styles.formGroup}>
-                                <label>STATE</label>
-                                <input name="state" defaultValue={user.state} placeholder="State" />
-                            </div>
-                            <div className={styles.formGroup}>
-                                <label>PINCODE</label>
-                                <input name="pincode" defaultValue={user.pincode} placeholder="6-digit PIN" />
-                            </div>
-                        </div>
-
-                        <button type="submit" className={styles.saveBtn} disabled={saving}>
-                            {saving ? 'Saving Changes...' : <><Save size={18} /> Save Settings</>}
-                        </button>
-                    </form>
-                </section>
-
-                <section className={styles.profileSection} style={{ marginTop: '2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h3 className={styles.sectionTitle} style={{ margin: 0 }}>Address Book</h3>
-                        <button 
-                            onClick={() => setShowAddressForm(!showAddressForm)} 
-                            style={{ padding: '0.5rem 1rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
-                        >
-                            {showAddressForm ? 'Cancel' : '+ Add New Address'}
-                        </button>
-                    </div>
-
-                    {showAddressForm && (
-                        <form onSubmit={handleAddAddress} style={{ background: '#f9fafb', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e5e7eb', marginBottom: '2rem' }}>
+                <div className={styles.profileMain}>
+                    <section className={styles.profileSection}>
+                        <h3 className={styles.sectionTitle}>Account Information</h3>
+                        <form onSubmit={handleUpdateProfile} className={styles.profileForm}>
                             <div className={styles.formGrid}>
                                 <div className={styles.formGroup}>
-                                    <label>TITLE (e.g. Home, Office)</label>
-                                    <input name="title" required placeholder="Home" />
+                                    <label><User size={14} /> FULL NAME</label>
+                                    <input name="name" defaultValue={user.name} required placeholder="Your name" />
                                 </div>
                                 <div className={styles.formGroup}>
-                                    <label>FULL NAME</label>
-                                    <input name="full_name" defaultValue={user.name} required />
-                                </div>
-                                <div className={styles.formGroup}>
-                                    <label>PHONE</label>
-                                    <input name="phone" defaultValue={user.phone} required />
-                                </div>
-                                <div className={styles.formGroup}>
-                                    <label>PINCODE</label>
-                                    <input name="pincode" required />
+                                    <label><Mail size={14} /> EMAIL</label>
+                                    <input name="email" defaultValue={user.email} type="email" placeholder="email@example.com" />
                                 </div>
                             </div>
-                            <div className={styles.formGroupFull} style={{ marginTop: '1rem' }}>
-                                <label>ADDRESS LINE</label>
-                                <textarea name="address_line" rows={2} required placeholder="Flat, Street, Area" />
+
+                            <div className={styles.formGroupFull} style={{ marginTop: '2rem' }}>
+                                <label><MapPin size={14} /> DEFAULT SHIPPING ADDRESS</label>
+                                <textarea name="address" defaultValue={user.address} rows={3} placeholder="Flat/House No, Street, Area..." />
                             </div>
-                            <div className={styles.formGrid} style={{ marginTop: '1rem' }}>
+
+                            <div className={styles.formGrid3} style={{ marginTop: '1.5rem' }}>
                                 <div className={styles.formGroup}>
                                     <label>CITY</label>
-                                    <input name="city" required />
+                                    <input name="city" defaultValue={user.city} placeholder="City" />
                                 </div>
                                 <div className={styles.formGroup}>
                                     <label>STATE</label>
-                                    <input name="state" defaultValue="Tamil Nadu" required />
+                                    <input name="state" defaultValue={user.state} placeholder="State" />
+                                </div>
+                                <div className={styles.formGroup}>
+                                    <label>PINCODE</label>
+                                    <input name="pincode" defaultValue={user.pincode} placeholder="6-digit PIN" />
                                 </div>
                             </div>
-                            <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <input type="checkbox" name="is_default" id="is_default" />
-                                <label htmlFor="is_default" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Set as default address</label>
-                            </div>
-                            <button type="submit" className={styles.btnPrimary} style={{ marginTop: '1.5rem', width: 'auto' }}>Save Address</button>
-                        </form>
-                    )}
 
-                    {loadingAddresses ? (
-                        <p>Loading addresses...</p>
-                    ) : addresses.length === 0 ? (
-                        <p style={{ color: '#6b7280', textAlign: 'center', padding: '2rem', background: '#f9fafb', borderRadius: '8px' }}>
-                            No saved addresses yet.
-                        </p>
-                    ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-                            {addresses.map(addr => (
-                                <div key={addr.id} style={{ padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '12px', background: '#fff', position: 'relative' }}>
-                                    {addr.is_default && <span style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#ebfdf5', color: '#059669', fontSize: '0.7rem', padding: '0.25rem 0.5rem', borderRadius: '4px', fontWeight: 700 }}>DEFAULT</span>}
-                                    <h4 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <MapPin size={16} color="#6b7280"/> {addr.title}
-                                    </h4>
-                                    <p style={{ margin: '0 0 0.25rem 0', fontWeight: 600 }}>{addr.full_name}</p>
-                                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.9rem', color: '#4b5563' }}>{addr.address_line}</p>
-                                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#4b5563' }}>{addr.city}, {addr.state} {addr.pincode}</p>
-                                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: '#4b5563' }}>📞 +{addr.phone}</p>
-                                    <button onClick={() => deleteAddress(addr.id)} style={{ color: '#ef4444', background: 'none', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-                                        Delete
-                                    </button>
-                                </div>
-                            ))}
+                            <button type="submit" className={styles.saveBtn} disabled={saving}>
+                                {saving ? 'Saving Changes...' : <><Save size={18} /> Save Settings</>}
+                            </button>
+                        </form>
+                    </section>
+
+                    <section className={styles.profileSection}>
+                        <div className={styles.sectionHeader}>
+                            <h3 className={styles.sectionTitle}>Address Book</h3>
+                            <button 
+                                type="button"
+                                onClick={() => setShowAddressForm(!showAddressForm)} 
+                                className={styles.addAddressBtn}
+                            >
+                                {showAddressForm ? 'Cancel' : '+ Add New Address'}
+                            </button>
                         </div>
-                    )}
-                </section>
+
+                        {showAddressForm && (
+                            <form onSubmit={handleAddAddress} className={styles.addressForm}>
+                                <div className={styles.formGrid}>
+                                    <div className={styles.formGroup}>
+                                        <label>TITLE (e.g. Home, Office)</label>
+                                        <input name="title" required placeholder="Home" />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label>FULL NAME</label>
+                                        <input name="full_name" defaultValue={user.name} required />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label>PHONE</label>
+                                        <input name="phone" defaultValue={user.phone} required />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label>PINCODE</label>
+                                        <input name="pincode" required />
+                                    </div>
+                                </div>
+                                <div className={styles.formGroupFull} style={{ marginTop: '1rem' }}>
+                                    <label>ADDRESS LINE</label>
+                                    <textarea name="address_line" rows={2} required placeholder="Flat, Street, Area" />
+                                </div>
+                                <div className={styles.formGrid} style={{ marginTop: '1rem' }}>
+                                    <div className={styles.formGroup}>
+                                        <label>CITY</label>
+                                        <input name="city" required />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label>STATE</label>
+                                        <input name="state" defaultValue="Tamil Nadu" required />
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <input type="checkbox" name="is_default" id="is_default" />
+                                    <label htmlFor="is_default" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Set as default address</label>
+                                </div>
+                                <button type="submit" className={styles.btnPrimary} style={{ marginTop: '1.5rem', width: 'auto' }}>Save Address</button>
+                            </form>
+                        )}
+
+                        {loadingAddresses ? (
+                            <div className={styles.loadingState}>Loading addresses...</div>
+                        ) : addresses.length === 0 ? (
+                            <div className={styles.emptyAddressState}>
+                                <MapPin size={32} className={styles.emptyIcon} />
+                                <p>No saved addresses yet.</p>
+                                <span>Add an address to speed up checkout.</span>
+                            </div>
+                        ) : (
+                            <div className={styles.addressGrid}>
+                                {addresses.map(addr => (
+                                    <div key={addr.id} className={styles.addressCard}>
+                                        {addr.is_default && <span className={styles.defaultBadge}>DEFAULT</span>}
+                                        <h4 className={styles.addressTitle}>
+                                            <MapPin size={16} /> {addr.title}
+                                        </h4>
+                                        <p className={styles.addressName}>{addr.full_name}</p>
+                                        <p className={styles.addressLine}>{addr.address_line}</p>
+                                        <p className={styles.addressLocation}>{addr.city}, {addr.state} {addr.pincode}</p>
+                                        <p className={styles.addressPhone}>📞 +{addr.phone}</p>
+                                        <button type="button" onClick={() => deleteAddress(addr.id)} className={styles.deleteAddressBtn}>
+                                            Delete Address
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                </div>
 
                 <aside className={styles.profileSidebar}>
                     <div className={styles.sidebarCard}>
+                        <div className={styles.helpIconWrapper}>
+                            <MessageCircle size={24} />
+                        </div>
                         <h4>Need Help?</h4>
-                        <p>If you have any issues with your account or orders, feel free to reach out.</p>
-                        <a href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} target="_blank" className={styles.supportBtn}>
-                            <MessageCircle size={18} /> Chat with Support
+                        <p>If you have any issues with your account or orders, feel free to reach out to our support team.</p>
+                        <a href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} target="_blank" rel="noopener noreferrer" className={styles.supportBtn}>
+                            <MessageCircle size={18} />
+                            <span>Chat with Support</span>
                         </a>
                     </div>
                 </aside>

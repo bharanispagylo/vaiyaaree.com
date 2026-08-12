@@ -3,14 +3,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import styles from '../page.module.css';
-import { MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings } from 'lucide-react';
-
-
+import { MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings, Upload, Trash2, FileImage, Link as LinkIcon, Paperclip } from 'lucide-react';
 
 export default function WhatsAppSettingsPage() {
     const [settings, setSettings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploadingKey, setUploadingKey] = useState(null);
     const [hasMounted, setHasMounted] = useState(false);
     const [notification, setNotification] = useState(null);
 
@@ -18,6 +17,38 @@ export default function WhatsAppSettingsPage() {
         setHasMounted(true);
         fetchSettings();
     }, []);
+
+    async function handleImageUpload(key, file) {
+        if (!file) return;
+        setUploadingKey(key);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('skipDetection', 'true');
+
+            const token = typeof window !== 'undefined' ? (localStorage.getItem('cast_prince_admin') || '') : '';
+            const res = await fetch('/api/admin/upload', {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.url) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            handleChange(key, data.url);
+            setNotification({ message: 'Image attached successfully!', type: 'success' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            console.error('[WhatsApp Image Upload] Error:', err);
+            setNotification({ message: 'Failed to upload image: ' + err.message, type: 'error' });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setUploadingKey(null);
+        }
+    }
 
     async function fetchSettings() {
         setLoading(true);
@@ -123,26 +154,115 @@ export default function WhatsAppSettingsPage() {
                         </div>
 
                         {setting.key.includes('image') ? (
-                            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {/* File Upload Box */}
+                                <div style={{
+                                    border: '2px dashed #cbd5e1',
+                                    borderRadius: '16px',
+                                    padding: '1.5rem',
+                                    background: '#f8fafc',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '1.5rem',
+                                    flexWrap: 'wrap',
+                                    transition: 'all 0.2s ease'
+                                }}>
+                                    {/* Image Preview */}
+                                    {setting.value ? (
+                                        <div style={{ position: 'relative', width: '110px', height: '110px', borderRadius: '14px', overflow: 'hidden', border: '1px solid #cbd5e1', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', flexShrink: 0, background: '#ffffff' }}>
+                                            <img src={setting.value} alt="Attached Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleChange(setting.key, '')}
+                                                title="Remove Image"
+                                                style={{
+                                                    position: 'absolute', top: '6px', right: '6px',
+                                                    width: '24px', height: '24px', borderRadius: '50%',
+                                                    background: 'rgba(239, 68, 68, 0.9)', color: '#ffffff',
+                                                    border: 'none', cursor: 'pointer', display: 'flex',
+                                                    alignItems: 'center', justifyContent: 'center',
+                                                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                                                }}
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            width: '110px', height: '110px', borderRadius: '14px',
+                                            border: '1px dashed #94a3b8', background: '#ffffff',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center',
+                                            justifyContent: 'center', color: '#64748b', gap: '6px', flexShrink: 0
+                                        }}>
+                                            <FileImage size={28} />
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 600 }}>No Image</span>
+                                        </div>
+                                    )}
+
+                                    {/* Control Info & Attach Button */}
+                                    <div style={{ flex: 1, minWidth: '220px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <div>
+                                            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0f172a' }}>
+                                                {setting.value ? 'Attached Welcome Image' : 'Attach Image File'}
+                                            </div>
+                                            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0 0', lineHeight: 1.4 }}>
+                                                {setting.value ? 'Image file uploaded & attached. Click below to replace or update.' : 'Upload an image file (PNG, JPG, WEBP) to attach to automated welcome messages.'}
+                                            </p>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <label style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                                                padding: '0.65rem 1.25rem', borderRadius: '10px',
+                                                background: uploadingKey === setting.key ? '#cbd5e1' : 'hsl(var(--primary))',
+                                                color: uploadingKey === setting.key ? '#475569' : '#ffffff',
+                                                fontWeight: 700, fontSize: '0.85rem', cursor: uploadingKey === setting.key ? 'not-allowed' : 'pointer',
+                                                boxShadow: uploadingKey === setting.key ? 'none' : '0 4px 14px hsl(var(--primary) / 0.25)',
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                {uploadingKey === setting.key ? (
+                                                    <><Loader2 size={16} className="animate-spin" /> Uploading...</>
+                                                ) : (
+                                                    <><Upload size={16} /> {setting.value ? 'Change Image File' : 'Attach Image File'}</>
+                                                )}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingKey === setting.key}
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) handleImageUpload(setting.key, file);
+                                                        e.target.value = '';
+                                                    }}
+                                                />
+                                            </label>
+
+                                            {setting.value && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleChange(setting.key, '')}
+                                                    className="btn btn-secondary"
+                                                    style={{
+                                                        padding: '0.65rem 1rem', borderRadius: '10px',
+                                                        color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)',
+                                                        fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px'
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} /> Remove Attachment
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Attachment Link Info */}
                                 {setting.value && (
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e5e7eb', background: '#f9fafb', flexShrink: 0 }}>
-                                        <img src={setting.value} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: '#64748b', background: '#f1f5f9', padding: '0.5rem 0.85rem', borderRadius: '8px' }}>
+                                        <LinkIcon size={13} style={{ flexShrink: 0, color: 'hsl(var(--primary))' }} />
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontFamily: 'monospace' }}>{setting.value}</span>
                                     </div>
                                 )}
-                                <div style={{ flex: 1, position: 'relative' }}>
-                                    <ImageIcon size={16} style={{ position: 'absolute', right: '1rem', top: '1rem', color: '#9ca3af' }} />
-                                    <input
-                                        type="text"
-                                        value={setting.value}
-                                        onChange={(e) => handleChange(setting.key, e.target.value)}
-                                        placeholder="https://..."
-                                        style={{
-                                            width: '100%', padding: '1rem 3rem 1rem 1rem', borderRadius: '12px',
-                                            border: '1px solid #d1d5db',
-                                            background: '#ffffff', color: '#111111', outline: 'none'
-                                        }}
-                                    />
-                                </div>
                             </div>
                         ) : (
                             <textarea

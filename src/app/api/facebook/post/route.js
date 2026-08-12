@@ -3,13 +3,15 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
     try {
-        const { imageUrl, name, price, description, pageId, accessToken } = await request.json();
+        const { imageUrl, name, price, description, hashtags, pageId, accessToken } = await request.json();
 
         if (!imageUrl || !pageId || !accessToken) {
             return NextResponse.json({ error: 'Missing required Facebook parameters' }, { status: 400 });
         }
 
-        const message = `🌸 New Arrival: ${name}\n\nPrice: ₹${price.toLocaleString()}\n\n${description || ''}\n\nShop now: ${process.env.NEXT_PUBLIC_APP_URL || 'https://castprintz.vercel.app'}`;
+        const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://castprintz.vercel.app';
+        const baseCaption = description || `🌸 New Arrival: ${name}\n\nPrice: ₹${(price || 0).toLocaleString()}\n\nShop now: ${shopUrl}`;
+        const message = hashtags ? `${baseCaption}\n\n${hashtags}` : baseCaption;
 
         const fbUrl = `https://graph.facebook.com/v21.0/${pageId}/photos`;
 

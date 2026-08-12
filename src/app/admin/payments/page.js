@@ -178,7 +178,7 @@ export default function PaymentGatewayPage() {
     };
 
     // Shared Styles
-    const sStyle = { padding: '0.6rem 0.85rem', borderRadius: 10, background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' };
+    const sStyle = { padding: '0.6rem 2.2rem 0.6rem 0.85rem', borderRadius: 10, backgroundColor: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' };
     const labelStyle = { fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', marginBottom: '0.5rem' };
 
     return (

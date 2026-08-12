@@ -14,7 +14,7 @@ const supabase = createClient(
 // Admin client for bypass RLS on customers and orders
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';

@@ -1,14 +1,14 @@
 .profileContainer {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 4rem 2rem 5rem;
+    padding: 3rem 2rem 5rem;
 }
 
 .profileHeader {
     display: flex;
     align-items: center;
     gap: 2rem;
-    margin-bottom: 3rem;
+    margin-bottom: 2.5rem;
     padding: 2.5rem 3rem;
     background: linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--text-main) / 0.04));
     border-radius: 24px;
@@ -17,49 +17,220 @@
 }
 
 .avatarLarge {
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
     border-radius: 50%;
     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: hsl(var(--text-on-primary));
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.5rem;
+    font-size: 2.25rem;
     font-weight: 800;
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
 }
 
 .headerInfo h2 {
-    font-size: 2rem;
+    font-size: 1.85rem;
     font-weight: 800;
     color: hsl(var(--text-main));
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
 }
 
 .userPhone {
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: hsl(var(--text-muted));
 }
 
 .profileLayout {
     display: flex;
-    gap: 3rem;
+    gap: 2.5rem;
+    align-items: flex-start;
+}
+
+.profileMain {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    min-width: 0;
 }
 
 .profileSection {
-    flex: 2;
     background: hsl(var(--text-main) / 0.03);
     border: 1px solid hsl(var(--text-main) / 0.05);
     border-radius: 20px;
-    padding: 3rem;
+    padding: 2.5rem;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .sectionTitle {
     font-size: 1.25rem;
     font-weight: 800;
     color: hsl(var(--text-main));
-    margin-bottom: 2.5rem;
     letter-spacing: -0.01em;
+    margin: 0 0 2rem 0;
+}
+
+.sectionHeader .sectionTitle {
+    margin: 0;
+}
+
+.addAddressBtn {
+    padding: 0.65rem 1.25rem;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
+    color: hsl(var(--text-on-primary));
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px hsl(var(--primary) / 0.25);
+    white-space: nowrap;
+}
+
+.addAddressBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px hsl(var(--primary) / 0.35);
+}
+
+.addressForm {
+    background: hsl(var(--text-main) / 0.02);
+    padding: 1.75rem;
+    border-radius: 16px;
+    border: 1px solid hsl(var(--text-main) / 0.08);
+    margin-bottom: 2rem;
+}
+
+.loadingState {
+    padding: 2rem;
+    text-align: center;
+    color: hsl(var(--text-muted));
+    font-weight: 500;
+}
+
+.emptyAddressState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    background: hsl(var(--text-main) / 0.02);
+    border: 2px dashed hsl(var(--text-main) / 0.1);
+    border-radius: 16px;
+    text-align: center;
+}
+
+.emptyIcon {
+    opacity: 0.3;
+    margin-bottom: 0.75rem;
+    color: hsl(var(--text-main));
+}
+
+.emptyAddressState p {
+    font-weight: 700;
+    font-size: 1rem;
+    color: hsl(var(--text-main));
+    margin-bottom: 0.25rem;
+}
+
+.emptyAddressState span {
+    font-size: 0.85rem;
+    color: hsl(var(--text-muted));
+}
+
+.addressGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.addressCard {
+    padding: 1.5rem;
+    border: 1px solid hsl(var(--text-main) / 0.08);
+    border-radius: 16px;
+    background: hsl(var(--card-bg, #fff));
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.2s ease;
+}
+
+.addressCard:hover {
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 4px 20px hsl(var(--text-main) / 0.05);
+}
+
+.defaultBadge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: hsl(142deg 70% 92%);
+    color: hsl(142deg 72% 29%);
+    font-size: 0.65rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+}
+
+.addressTitle {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 0.75rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: hsl(var(--text-main));
+}
+
+.addressName {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: hsl(var(--text-main));
+    margin: 0 0 0.35rem 0;
+}
+
+.addressLine,
+.addressLocation,
+.addressPhone {
+    font-size: 0.875rem;
+    color: hsl(var(--text-muted));
+    margin: 0 0 0.25rem 0;
+    line-height: 1.5;
+}
+
+.addressPhone {
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.deleteAddressBtn {
+    margin-top: auto;
+    color: hsl(0deg 84% 60%);
+    background: hsl(0deg 84% 97%);
+    border: 1px solid hsl(0deg 84% 90%);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    align-self: flex-start;
+    transition: all 0.2s ease;
+}
+
+.deleteAddressBtn:hover {
+    background: hsl(0deg 84% 94%);
+    color: hsl(0deg 84% 50%);
 }
 
 .formGrid {
@@ -133,7 +304,10 @@
 }
 
 .profileSidebar {
-    flex: 1;
+    width: 320px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 2rem;
 }
 
 .sidebarCard {
@@ -141,18 +315,34 @@
     border: 1px solid hsl(var(--text-main) / 0.05);
     border-radius: 20px;
     padding: 2rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.helpIconWrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.25rem;
 }
 
 .sidebarCard h4 {
-    margin-bottom: 1rem;
-    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: hsl(var(--text-main));
 }
 
 .sidebarCard p {
     font-size: 0.9rem;
     color: hsl(var(--text-muted));
     line-height: 1.6;
-    margin-bottom: 2rem;
+    margin-bottom: 1.75rem;
 }
 
 .supportBtn {
@@ -160,12 +350,22 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    background: hsl(var(--primary));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: hsl(var(--text-on-primary));
     text-decoration: none;
-    padding: 1rem;
+    padding: 0.9rem 1.5rem;
     border-radius: 12px;
     font-weight: 700;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
+}
+
+.supportBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    filter: brightness(1.08);
 }
 
 .loginPrompt {
@@ -199,8 +399,24 @@
     filter: brightness(1.1);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 992px) {
     .profileLayout {
         flex-direction: column;
+    }
+    
+    .profileSidebar {
+        width: 100%;
+        position: static;
+    }
+}
+
+@media (max-width: 640px) {
+    .formGrid,
+    .formGrid3 {
+        grid-template-columns: 1fr;
+    }
+    
+    .profileSection {
+        padding: 1.5rem;
     }
 }

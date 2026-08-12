@@ -259,7 +259,7 @@ export default function OrdersPage() {
                 const counts = {
                     ALL: data.length,
                     PLACED: data.filter(o => o.status === 'PLACED').length,
-                    'AWAITING_PAYMENT': data.filter(o => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING').length,
+                    'AWAITING_PAYMENT': data.filter(o => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING' || o.status === 'PENDING_VERIFICATION').length,
                     PAID: data.filter(o => o.status === 'PAID').length,
                     PACKING: data.filter(o => o.status === 'PACKING').length,
                     SHIPPED: data.filter(o => o.status === 'SHIPPED').length,
@@ -270,7 +270,7 @@ export default function OrdersPage() {
                 setStatusCounts(counts);
             }
         } catch (err) {
-            console.error('Counts fetch error:', err);
+            console.warn('Counts fetch warning:', err?.message || err?.details || err);
         }
     };
 
@@ -416,7 +416,7 @@ export default function OrdersPage() {
             // Fetch total status counts dynamically
             fetchOrderCounts();
         } catch (error) {
-            console.error('Error fetching orders:', error);
+            console.warn('Error fetching orders:', error?.message || error?.details || error);
         } finally {
             setLoading(false);
         }
@@ -1099,7 +1099,7 @@ export default function OrdersPage() {
                                             <select
                                                 value={statusFilter}
                                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                                style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                                style={{ padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                                             >
                                                 {Object.entries(orderCounts).map(([status, count]) => (
                                                     <option key={status} value={status}>
@@ -1117,7 +1117,7 @@ export default function OrdersPage() {
                                             <select
                                                 value={sourceFilter}
                                                 onChange={(e) => setSourceFilter(e.target.value)}
-                                                style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                                style={{ padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                                             >
                                                 {SOURCE_FILTERS.map(src => (
                                                     <option key={src} value={src}>

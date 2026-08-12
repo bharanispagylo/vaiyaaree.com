@@ -280,3 +280,68 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
         return { success: false, error };
     }
 }
+
+export async function sendAdminPasswordResetOTP(toEmail, otp) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.log(`[ADMIN-OTP-DEV] SMTP not configured. Verification OTP for ${toEmail} is: ${otp}`);
+        return { success: true, message: 'SMTP not configured. OTP logged to server logs.' };
+    }
+
+    const mailOptions = {
+        from: process.env.SMTP_FROM || '"Cast Printz Security" <security@castprintz.com>',
+        to: toEmail,
+        subject: `Password Reset Verification Code - Cast Printz Admin`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f8fafc; border-radius: 12px;">
+                <div style="background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">🔐</div>
+                    <h2 style="color: #1e293b; margin-top: 0; font-size: 22px;">Admin Password Reset</h2>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.5;">We received a request to reset your Cast Printz Admin Password. Use the verification OTP below to proceed:</p>
+                    <div style="background: #f1f5f9; padding: 16px 28px; border-radius: 10px; display: inline-block; margin: 20px 0; border: 1px dashed #cbd5e1;">
+                        <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #4f46e5;">${otp}</span>
+                    </div>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 0;">This code is valid for <strong>10 minutes</strong>. If you did not request this, please ignore this email.</p>
+                </div>
+            </div>
+        `
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        return { success: true };
+    } catch (error) {
+        console.error('[ADMIN-OTP-ERROR] Failed to send email:', error);
+        throw error;
+    }
+}
+
+export async function sendAdminPasswordResetSuccessEmail(toEmail) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.log(`[ADMIN-OTP-DEV] Password reset notification logged for ${toEmail}`);
+        return { success: true };
+    }
+
+    const mailOptions = {
+        from: process.env.SMTP_FROM || '"Cast Printz Security" <security@castprintz.com>',
+        to: toEmail,
+        subject: `Your Admin Password Was Reset - Cast Printz`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f8fafc; border-radius: 12px;">
+                <div style="background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">✅</div>
+                    <h2 style="color: #1e293b; margin-top: 0; font-size: 22px;">Password Reset Successful</h2>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.5;">Your Cast Printz Admin password has been updated successfully on <strong>${new Date().toLocaleString('en-IN')}</strong>.</p>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 0;">If you did not perform this change, please contact system administration immediately.</p>
+                </div>
+            </div>
+        `
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        return { success: true };
+    } catch (error) {
+        console.error('[ADMIN-OTP-SUCCESS-ERROR] Failed to send email:', error);
+        return { success: false };
+    }
+}

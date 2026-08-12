@@ -17,7 +17,6 @@ export default function SchedulePostPage() {
     const [fbConfig, setFbConfig] = useState({ pageId: '', accessToken: '', pageName: '' });
 
     // Form state
-    const [showForm, setShowForm] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [caption, setCaption] = useState('');
     const [hashtags, setHashtags] = useState('');
@@ -34,11 +33,45 @@ export default function SchedulePostPage() {
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [notification, setNotification] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null); // { type: 'delete'|'postnow', payload }
+    const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
         setHasMounted(true);
         fetchAll();
+        triggerScheduleProcess();
+
+        const interval = setInterval(() => {
+            triggerScheduleProcess();
+        }, 30000);
+
+        return () => clearInterval(interval);
     }, []);
+
+    const triggerScheduleProcess = async (manual = false) => {
+        if (manual) setProcessing(true);
+        try {
+            const res = await fetch('/api/schedule/process', { method: 'POST' });
+            const data = await res.json();
+            if (data.processed > 0 || data.posted > 0) {
+                await fetchAll();
+                if (manual) {
+                    setNotification({ message: `Successfully processed due posts. Posted: ${data.posted || 0}`, type: 'success' });
+                    setTimeout(() => setNotification(null), 3000);
+                }
+            } else if (manual) {
+                setNotification({ message: 'No due scheduled posts to process.', type: 'info' });
+                setTimeout(() => setNotification(null), 3000);
+            }
+        } catch (err) {
+            console.error('Schedule process error:', err);
+            if (manual) {
+                setNotification({ message: 'Error processing scheduled posts.', type: 'error' });
+                setTimeout(() => setNotification(null), 3000);
+            }
+        } finally {
+            if (manual) setProcessing(false);
+        }
+    };
 
     const fetchAll = async () => {
         setLoading(true);
@@ -129,7 +162,7 @@ export default function SchedulePostPage() {
             }
 
             // Reset form
-            setShowForm(false);
+            setShowCreator(false);
             setSelectedProduct(null);
             setCaption('');
             setScheduleDate('');
@@ -154,7 +187,8 @@ export default function SchedulePostPage() {
         setScheduleDate(dt.toISOString().split('T')[0]);
         setScheduleTime(`${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`);
         setEditingId(post.id);
-        setShowForm(true);
+        if (post.platform) setPlatform(post.platform);
+        setShowCreator(true);
     };
 
     // Delete scheduled post
@@ -194,6 +228,7 @@ export default function SchedulePostPage() {
                     name: post.product_name,
                     price: post.product_price,
                     description: post.caption,
+                    hashtags: post.hashtags,
                     pageId: fbConfig.pageId,
                     accessToken: fbConfig.accessToken
                 })
@@ -463,9 +498,14 @@ export default function SchedulePostPage() {
                             <h1>Schedule Posts</h1>
                             <p>Schedule product posts to Facebook & Instagram</p>
                         </div>
-                        <button onClick={() => { setShowCreator(true); setEditingId(null); setSelectedProduct(null); setCaption(''); setScheduleDate(''); setScheduleTime(''); setPlatform('facebook'); }} className="btn btn-primary">
-                            <Clock size={18} /> New Scheduled Post
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <button onClick={() => triggerScheduleProcess(true)} disabled={processing} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {processing ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={16} />} {processing ? 'Checking Due Posts...' : 'Run Scheduler Now'}
+                            </button>
+                            <button onClick={() => { setShowCreator(true); setEditingId(null); setSelectedProduct(null); setCaption(''); setScheduleDate(''); setScheduleTime(''); setPlatform('facebook'); }} className="btn btn-primary">
+                                <Clock size={18} /> New Scheduled Post
+                            </button>
+                        </div>
                     </div>
 
             {/* FB Connection Warning */}
@@ -532,7 +572,7 @@ export default function SchedulePostPage() {
                                 const scheduledDate = new Date(post.scheduled_at);
                                 const isPast = scheduledDate <= new Date();
                                 return (
-                                    <tr key={post.id} onClick={() => { setEditMode(true); setSelectedPost(post); setScheduleForm({ message: post.message, platforms: post.platforms || [], media: post.media_urls || [], scheduledTime: post.scheduled_for ? new Date(post.scheduled_for).toISOString().slice(0, 16) : '' }); setShowModal(true); }} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+                                    <tr key={post.id} onClick={() => handleEdit(post)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                         <td style={{ padding: '0.75rem 1rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                 <div style={{ width: '45px', height: '45px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9', flexShrink: 0, border: '1px solid hsl(var(--border-subtle))' }}>
@@ -564,7 +604,7 @@ export default function SchedulePostPage() {
                                                 {post.hashtags || '#NoTags'}
                                             </div>
                                         </td>
-                                        <td style={{ cursor: 'pointer' }} onClick={() => handleEdit(post)}>
+                                        <td style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleEdit(post); }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <Facebook size={16} color={post.platform === 'facebook' || post.platform === 'both' ? "#1877F2" : "#ccc"} />
                                                 <Instagram size={16} color={post.platform === 'instagram' || post.platform === 'both' ? "#E1306C" : "#ccc"} />
@@ -586,23 +626,23 @@ export default function SchedulePostPage() {
                                             <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'flex-end' }}>
                                                 {post.status === 'PENDING' && (
                                                     <>
-                                                        <button onClick={() => handlePostNow(post)} title="Post Now" className="btn btn-secondary" style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: 'hsl(var(--success))' }}>
+                                                        <button onClick={(e) => { e.stopPropagation(); handlePostNow(post); }} title="Post Now" className="btn btn-secondary" style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: 'hsl(var(--success))' }}>
                                                             <Play size={13} /> Post Now
                                                         </button>
-                                                        <button onClick={() => handleEdit(post)} title="Edit" className="btn btn-secondary" style={{ padding: '0.35rem' }}>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleEdit(post); }} title="Edit" className="btn btn-secondary" style={{ padding: '0.35rem' }}>
                                                             <Edit size={13} />
                                                         </button>
-                                                        <button onClick={() => handleCancel(post.id)} title="Cancel" className="btn btn-secondary" style={{ padding: '0.35rem', color: 'hsl(var(--warning))' }}>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleCancel(post.id); }} title="Cancel" className="btn btn-secondary" style={{ padding: '0.35rem', color: 'hsl(var(--warning))' }}>
                                                             <Pause size={13} />
                                                         </button>
                                                     </>
                                                 )}
                                                 {(post.status === 'FAILED' || post.status === 'CANCELLED') && (
-                                                    <button onClick={() => handleEdit(post)} title="Reschedule" className="btn btn-secondary" style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem' }}>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleEdit(post); }} title="Reschedule" className="btn btn-secondary" style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem' }}>
                                                         <Clock size={13} /> Reschedule
                                                     </button>
                                                 )}
-                                                <button onClick={() => handleDelete(post.id)} title="Delete" className="btn btn-secondary" style={{ padding: '0.35rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDelete(post.id); }} title="Delete" className="btn btn-secondary" style={{ padding: '0.35rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}>
                                                     <Trash2 size={13} />
                                                 </button>
                                             </div>
@@ -628,7 +668,7 @@ export default function SchedulePostPage() {
                 <div style={{
                     position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 5000,
                     padding: '1rem 1.5rem', borderRadius: '14px',
-                    background: notification.type === 'success' ? 'hsl(142 70% 40%)' : 'hsl(var(--danger))',
+                    background: notification.type === 'success' ? 'hsl(142 70% 40%)' : (notification.type === 'info' ? '#1877F2' : 'hsl(var(--danger))'),
                     color: 'white', fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
                     display: 'flex', alignItems: 'center', gap: '0.75rem',
                     animation: 'slideUp 0.3s ease'

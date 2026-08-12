@@ -78,11 +78,22 @@ export default function HomePage() {
                     if (catData) {
                         const uniqueCats = [];
                         const catMap = new Map();
+                        const catCountMap = new Map();
                         for (const p of catData) {
-                            if (p.category && !catMap.has(p.category)) {
-                                catMap.set(p.category, p.image_url ? p.image_url.split(',')[0] : 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80');
-                                uniqueCats.push({ name: p.category, image: catMap.get(p.category) });
+                            if (p.category) {
+                                catCountMap.set(p.category, (catCountMap.get(p.category) || 0) + 1);
+                                if (!catMap.has(p.category)) {
+                                    const rawImg = p.image_url ? p.image_url.split(',')[0].trim() : '';
+                                    catMap.set(p.category, rawImg || 'https://images.unsplash.com/photo-1610030469983-98e550d6153c?w=1200&q=85');
+                                }
                             }
+                        }
+                        for (const [name, image] of catMap.entries()) {
+                            uniqueCats.push({
+                                name,
+                                image,
+                                count: catCountMap.get(name) || 0
+                            });
                         }
                         setAllCategories(uniqueCats.slice(0, 6)); // Top 6 categories
                     }
@@ -261,40 +272,156 @@ export default function HomePage() {
                 </div>
             )}
 
-            {/* Shop by Category - New Section */}
+            {/* Shop by Category - Redesigned High Clarity & Modern Card Layout */}
             {allCategories.length > 0 && (
-                <div style={{ padding: '6rem 2rem', background: '#fcfcfc', borderTop: '1px solid #f0f0f0' }}>
-                    <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-                        <h2 style={{ fontSize: '3rem', fontWeight: 400, fontFamily: 'var(--font-body)', position: 'relative', width: 'fit-content', margin: '0 auto', paddingBottom: '15px' }}>
-                            Shop by Category
-                            <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '60px', height: '1px', background: '#5d0821' }}></div>
-                        </h2>
-                    </div>
-                    <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
-                        {allCategories.map((cat, idx) => (
-                            <Link key={cat.name} href={`/shop?category=${encodeURIComponent(cat.name)}`} style={{ textDecoration: 'none' }}>
-                                <div style={{ 
-                                    position: 'relative', height: '300px', borderRadius: '12px', overflow: 'hidden', 
-                                    boxShadow: '0 10px 40px rgba(0,0,0,0.08)', cursor: 'pointer', background: '#000',
-                                    transition: 'transform 0.4s'
-                                }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-10px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                    <div style={{ 
-                                        position: 'absolute', inset: 0, 
-                                        background: `url(${cat.image}) center/cover`, 
-                                        filter: 'blur(2px) grayscale(20%)', opacity: 0.6,
-                                        transition: 'all 0.5s'
-                                    }}></div>
-                                    <div style={{ 
-                                        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
-                                    }}>
-                                        <h3 style={{ color: '#fff', fontSize: '2rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>{cat.name}</h3>
+                <section style={{ padding: '5rem 2rem 6rem', background: '#faf9f6', borderTop: '1px solid #eaeaea' }}>
+                    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+                            <span style={{ 
+                                color: '#5d0821', 
+                                fontSize: '0.85rem', 
+                                fontWeight: 700, 
+                                letterSpacing: '0.2em', 
+                                textTransform: 'uppercase', 
+                                display: 'block', 
+                                marginBottom: '0.75rem' 
+                            }}>
+                                Curated Collections
+                            </span>
+                            <h2 style={{ 
+                                fontSize: '2.75rem', 
+                                fontWeight: 400, 
+                                fontFamily: 'var(--font-body)', 
+                                position: 'relative', 
+                                width: 'fit-content', 
+                                margin: '0 auto', 
+                                paddingBottom: '12px',
+                                color: '#1a1a1a'
+                            }}>
+                                Shop by Category
+                                <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '50px', height: '2px', background: '#5d0821' }}></div>
+                            </h2>
+                            <p style={{ color: '#666', fontSize: '1rem', marginTop: '1rem', maxWidth: '600px', marginInline: 'auto' }}>
+                                Explore handcrafted weaves, rich silks, and everyday elegance in our exclusive saree ranges.
+                            </p>
+                        </div>
+
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+                            gap: '2rem' 
+                        }}>
+                            {allCategories.map((cat) => (
+                                <Link key={cat.name} href={`/shop?category=${encodeURIComponent(cat.name)}`} style={{ textDecoration: 'none' }}>
+                                    <div 
+                                        style={{ 
+                                            position: 'relative', 
+                                            height: '380px', 
+                                            borderRadius: '16px', 
+                                            overflow: 'hidden', 
+                                            boxShadow: '0 12px 35px rgba(0,0,0,0.07)', 
+                                            cursor: 'pointer', 
+                                            background: '#f0f0f0',
+                                            transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                                        }} 
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-8px)';
+                                            e.currentTarget.style.boxShadow = '0 20px 45px rgba(93, 8, 33, 0.15)';
+                                            const img = e.currentTarget.querySelector('.cat-bg-img');
+                                            if (img) img.style.transform = 'scale(1.08)';
+                                            const cta = e.currentTarget.querySelector('.cat-cta-btn');
+                                            if (cta) {
+                                                cta.style.background = '#5d0821';
+                                                cta.style.color = '#ffffff';
+                                            }
+                                        }} 
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = '0 12px 35px rgba(0,0,0,0.07)';
+                                            const img = e.currentTarget.querySelector('.cat-bg-img');
+                                            if (img) img.style.transform = 'scale(1)';
+                                            const cta = e.currentTarget.querySelector('.cat-cta-btn');
+                                            if (cta) {
+                                                cta.style.background = 'rgba(255, 255, 255, 0.9)';
+                                                cta.style.color = '#1a1a1a';
+                                            }
+                                        }}
+                                    >
+                                        {/* Crisp, Crystal-Clear Unblurred Image Container */}
+                                        <div 
+                                            className="cat-bg-img"
+                                            style={{ 
+                                                position: 'absolute', 
+                                                inset: 0, 
+                                                backgroundImage: `url(${cat.image})`,
+                                                backgroundPosition: 'center center',
+                                                backgroundSize: 'cover',
+                                                backgroundRepeat: 'no-repeat',
+                                                filter: 'none',
+                                                opacity: 1,
+                                                transition: 'transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)'
+                                            }} 
+                                        />
+
+                                        {/* Subtle Soft Bottom Overlay for Perfect Contrast */}
+                                        <div style={{ 
+                                            position: 'absolute', 
+                                            inset: 0, 
+                                            background: 'linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.2) 50%, transparent 100%)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justify: 'flex-end',
+                                            padding: '2rem 1.5rem',
+                                        }}>
+                                            <div>
+                                                <h3 style={{ 
+                                                    color: '#ffffff', 
+                                                    fontSize: '1.6rem', 
+                                                    fontWeight: 700, 
+                                                    letterSpacing: '0.06em', 
+                                                    textTransform: 'uppercase',
+                                                    margin: 0,
+                                                    fontFamily: 'var(--font-body)',
+                                                    textShadow: '0 2px 10px rgba(0,0,0,0.4)'
+                                                }}>
+                                                    {cat.name}
+                                                </h3>
+                                                
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.75rem' }}>
+                                                    <span style={{ 
+                                                        color: 'rgba(255, 255, 255, 0.88)', 
+                                                        fontSize: '0.85rem', 
+                                                        fontWeight: 500,
+                                                        letterSpacing: '0.05em' 
+                                                    }}>
+                                                        {cat.count > 0 ? `${cat.count} Saree${cat.count > 1 ? 's' : ''}` : 'View Collection'}
+                                                    </span>
+                                                    <div 
+                                                        className="cat-cta-btn"
+                                                        style={{ 
+                                                            padding: '0.45rem 1rem', 
+                                                            borderRadius: '20px', 
+                                                            background: 'rgba(255, 255, 255, 0.9)', 
+                                                            color: '#1a1a1a',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 700,
+                                                            letterSpacing: '0.08em',
+                                                            textTransform: 'uppercase',
+                                                            backdropFilter: 'blur(4px)',
+                                                            transition: 'all 0.3s ease'
+                                                        }}
+                                                    >
+                                                        Explore &rarr;
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </Link>
-                        ))}
+                                </Link>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                </section>
             )}
 
             {/* Mudhra Collection - Original Styles */}

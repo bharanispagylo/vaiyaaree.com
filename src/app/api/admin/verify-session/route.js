@@ -1,12 +1,22 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/auth';
+import { getAdminSettings } from '@/lib/settings';
 
 export async function GET(request) {
     try {
         const auth = await verifyAdmin(request);
         
         if (auth.authorized) {
-            return NextResponse.json({ success: true });
+            const settings = await getAdminSettings();
+            return NextResponse.json({
+                success: true,
+                admin: {
+                    username: settings.admin_username || 'admin',
+                    email: settings.admin_email || 'admin@castprintz.com',
+                    full_name: settings.admin_full_name || settings.admin_username || 'Admin',
+                    role: 'Super Admin'
+                }
+            });
         } else {
             return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
         }

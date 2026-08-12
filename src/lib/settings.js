@@ -10,7 +10,7 @@ export async function getAdminSettings() {
         const { data, error } = await supabase
             .from('app_settings')
             .select('*')
-            .in('key', ['admin_username', 'admin_password', 'admin_recovery_pin']);
+            .in('key', ['admin_username', 'admin_password', 'admin_recovery_pin', 'admin_email']);
 
         if (error) throw error;
 
@@ -23,14 +23,16 @@ export async function getAdminSettings() {
         return {
             admin_username: settings.admin_username || process.env.ADMIN_USERNAME,
             admin_password: settings.admin_password || process.env.ADMIN_PASSWORD,
-            admin_recovery_pin: settings.admin_recovery_pin || process.env.ADMIN_RECOVERY_PIN
+            admin_recovery_pin: settings.admin_recovery_pin || process.env.ADMIN_RECOVERY_PIN,
+            admin_email: settings.admin_email || process.env.ADMIN_EMAIL
         };
     } catch (err) {
         console.error('Error in getAdminSettings:', err);
         return {
             admin_username: process.env.ADMIN_USERNAME,
             admin_password: process.env.ADMIN_PASSWORD,
-            admin_recovery_pin: process.env.ADMIN_RECOVERY_PIN
+            admin_recovery_pin: process.env.ADMIN_RECOVERY_PIN,
+            admin_email: process.env.ADMIN_EMAIL
         };
     }
 }

@@ -84,6 +84,10 @@ export default function CMSPage() {
         setSaving(true);
 
         const form = document.querySelector('#cms-page-form');
+        if (!form) {
+            setSaving(false);
+            return;
+        }
         const formData = new FormData(form);
 
         const pageData = {

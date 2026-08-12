@@ -675,9 +675,9 @@ tr:hover td {
 
 .admin-input-select {
   appearance: none;
-  background: hsl(var(--bg-input));
+  background-color: hsl(var(--bg-input));
   border: 1px solid hsl(var(--border-subtle));
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 2.2rem 0.75rem 1rem;
   border-radius: 8px;
   color: hsl(var(--text-main));
   font-family: inherit;
@@ -690,6 +690,23 @@ tr:hover td {
 .admin-input-select:focus {
   border-color: hsl(var(--primary));
   box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+}
+
+/* ── Universal Select Dropdown Custom Arrow & Inward Position Fix ── */
+select {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.85rem center !important;
+  background-size: 12px 12px !important;
+  padding-right: 2.2rem !important;
+  cursor: pointer !important;
+}
+
+select::-ms-expand {
+  display: none !important;
 }
 
 /* ── Hydration Safe Container ── */

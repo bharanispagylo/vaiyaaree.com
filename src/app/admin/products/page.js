@@ -922,7 +922,7 @@ export default function ProductsPage() {
                                 <select
                                     value={categoryFilter}
                                     onChange={(e) => setCategoryFilter(e.target.value)}
-                                    style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                    style={{ padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                                 >
                                     {categories.map(cat => (
                                         <option key={cat} value={cat}>{cat === 'ALL' ? 'All Collections' : cat}</option>
@@ -937,7 +937,7 @@ export default function ProductsPage() {
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => { setStatusFilter(e.target.value); setProductsPage(1); }}
-                                    style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                    style={{ padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                                 >
                                     <option value="ALL">All Products ({allProductsData.length})</option>
                                     <option value="ACTIVE">Active ({allProductsData.filter(p => p.is_active !== false).length})</option>
@@ -952,7 +952,7 @@ export default function ProductsPage() {
                                 <select
                                     value={groupFilter}
                                     onChange={(e) => setGroupFilter(e.target.value)}
-                                    style={{ padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                                    style={{ padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                                 >
                                     {groups.map(g => (
                                         <option key={g} value={g}>{g === 'ALL' ? 'All Groups' : g}</option>

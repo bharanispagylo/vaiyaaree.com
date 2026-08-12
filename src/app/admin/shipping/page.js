@@ -90,11 +90,19 @@ export default function ShippingAdminPage() {
             if (zoneIds.length > 0) {
                 await supabase.from('shipping_zone_states').delete().in('zone_id', zoneIds);
                 if (mappings.length > 0) {
-                    const { error: insError } = await supabase.from('shipping_zone_states').insert(mappings.map(m => ({
-                        zone_id: m.zone_id,
-                        state_name: m.state_name
-                    })));
-                    if (insError) throw new Error(insError.message || insError.details || JSON.stringify(insError));
+                    // Deduplicate mappings by state_name to avoid unique constraint violations
+                    const uniqueMappingsMap = new Map();
+                    mappings.forEach(m => {
+                        if (m.zone_id && m.state_name) {
+                            uniqueMappingsMap.set(m.state_name, { zone_id: m.zone_id, state_name: m.state_name });
+                        }
+                    });
+                    const uniqueMappings = Array.from(uniqueMappingsMap.values());
+                    
+                    if (uniqueMappings.length > 0) {
+                        const { error: insError } = await supabase.from('shipping_zone_states').insert(uniqueMappings);
+                        if (insError) throw new Error(insError.message || insError.details || JSON.stringify(insError));
+                    }
                 }
             }
 

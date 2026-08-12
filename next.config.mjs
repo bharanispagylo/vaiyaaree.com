@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['sharp', '@napi-rs/canvas'],
+  serverExternalPackages: ['sharp', '@napi-rs/canvas', 'jspdf', 'pdfkit', 'pdfmake', 'xlsx'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
@@ -10,8 +10,19 @@ const nextConfig = {
     minimumCacheTTL: 3600,
   },
  
+
+
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
+  },
+
+  turbopack: {},
+
+  webpack: (config) => {
+    // Disable persistent disk pack file caching to prevent PackFileCacheStrategy
+    // from exceeding V8 ArrayBuffer / Zone memory limits during dev & build
+    config.cache = false;
+    return config;
   },
  
   async headers() {
