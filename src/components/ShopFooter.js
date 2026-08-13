@@ -13,7 +13,7 @@ const ShopFooter = () => {
                 {/* Column 1: Logo & Info */}
                 <div className={styles.footerColumn}>
                     <div className={styles.footerLogo}>
-                        <span className={styles.logoBrandName}>CAST PRINTZ</span>
+                        <span className={styles.logoBrandName}>VAIYAAREE</span>
                     </div>
                     <div className={styles.contactInfo}>
                         <div className={styles.infoItem}>
@@ -22,7 +22,7 @@ const ShopFooter = () => {
                         </div>
                         <div className={styles.infoItem}>
                             <Mail size={18} className={styles.infoIcon} />
-                            <p>castprintzcbe@gmail.com</p>
+                            <p>vaiyaaree.cbe@gmail.com</p>
                         </div>
                     </div>
                 </div>
@@ -57,7 +57,7 @@ const ShopFooter = () => {
             </div>
 
             <div className={styles.copyrightBar}>
-                <p>&copy; {currentYear} — Cast Printz. All Rights Reserved.</p>
+                <p>&copy; {currentYear} — Vaiyaaree. All Rights Reserved.</p>
             </div>
             
             <button className={styles.scrollToTop} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>

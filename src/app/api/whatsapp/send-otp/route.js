@@ -49,7 +49,7 @@ export async function POST(request) {
         });
 
         // 5. Send via WhatsApp
-        const message = `🔐 *Order Cancellation - Cast Printz*\n\n` +
+        const message = `🔐 *Order Cancellation - Vaiyaaree*\n\n` +
             `Your verification code for order #${orderId} is:\n\n` +
             `*${otp}*\n\n` +
             `This code is valid for 10 minutes.`;

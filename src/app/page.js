@@ -53,7 +53,7 @@ export default function HomePage() {
 
                 if (data) {
                     setPage(data);
-                    document.title = `${data.seo_title || data.title} | Cast Printz`;
+                    document.title = `${data.seo_title || data.title} | Vaiyaaree`;
 
                     const { data: prods } = await supabase
                         .from('products')
@@ -440,7 +440,7 @@ export default function HomePage() {
                 <div style={{ background: 'url(/images/block-print-saree.png) center/cover no-repeat' }}></div>
             </div>
 
-            {/* WhatsApp Section - Highlighted with Cast Printz Color */}
+            {/* WhatsApp Section - Highlighted with Vaiyaaree Color */}
             <div style={{ padding: '6rem 2rem', background: '#5d0821', color: '#fff' }}>
                 <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1fr', gap: '3rem', alignItems: 'center' }}>
                     <div>

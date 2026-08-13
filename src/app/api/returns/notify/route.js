@@ -64,7 +64,7 @@ export async function POST(request) {
         const orderId = req.order_id;
         const type = req.request_type; // 'RETURN' or 'EXCHANGE'
         const productName = req.products?.name || 'Product';
-        const brand = 'Cast Printz';
+        const brand = 'Vaiyaaree';
 
         let message = '';
         if (status === 'APPROVED') {

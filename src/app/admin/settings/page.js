@@ -143,7 +143,7 @@ export default function SettingsPage() {
                                 </div>
                                 <div>
                                     <label className="label">Support Email</label>
-                                    <input className="input-field" defaultValue="castprintzofficial@gmail.com" />
+                                    <input className="input-field" defaultValue="vaiyaaree.official@gmail.com" />
                                 </div>
                                 <div style={{ marginTop: '1rem' }}>
                                     <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Instagram size={14} /> Instagram Profile URL</label>

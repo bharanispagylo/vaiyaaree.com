@@ -113,7 +113,7 @@ export default function AdminTopBar({ onMenuClick }) {
     const displayName = (rawName && rawName !== 'Administrator') ? rawName : (adminUser?.username || user?.username || 'Admin');
     const displayUsername = adminUser?.username ? `@${adminUser.username}` : (user?.username ? `@${user.username}` : '@admin');
     const displayRole = adminUser?.role || user?.role || 'Super Admin';
-    const displayEmail = adminUser?.email || user?.email || 'admin@castprintz.com';
+    const displayEmail = adminUser?.email || user?.email || 'admin@vaiyaaree.com';
     const initial = displayName ? displayName.charAt(0).toUpperCase() : 'A';
 
     return (

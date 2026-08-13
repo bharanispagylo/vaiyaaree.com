@@ -10,6 +10,6 @@ Or in the images folder:
 The invoice generator will automatically use the local logo instead of fetching from URL.
 
 To download your current logo:
-1. Go to: https://castprintz.com/wp-content/uploads/2023/09/castprintz_logo_round_small.png
+1. Go to: https://vaiyaaree.com/wp-content/uploads/2023/09/vaiyaaree_logo_round_small.png
 2. Save it as "logo.png" in this folder (d:\aiswarya\public\)
 3. Restart the server

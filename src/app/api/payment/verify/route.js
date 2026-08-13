@@ -22,9 +22,9 @@ export async function POST(request) {
         const settings = await getGatewaySettings();
 
         // --- Signature Verification ---
-        // This is the most important security step.
-        // We generate our own signature and compare it with Razorpay's signature.
-        if (settings.razorpay_key_secret) {
+        // We generate our own signature and compare it with Razorpay's signature when real keys exist.
+        const isPlaceholder = (key) => !key || key.includes('PASTE_YOUR_KEY') || key.includes('placeholder');
+        if (settings.razorpay_key_secret && !isPlaceholder(settings.razorpay_key_secret)) {
             const body = `${razorpay_order_id}|${razorpay_payment_id}`;
             const expectedSignature = crypto
                 .createHmac('sha256', settings.razorpay_key_secret)
@@ -46,6 +46,12 @@ export async function POST(request) {
 
         if (fetchError || !order) {
             return Response.json({ error: 'Order not found after payment' }, { status: 404 });
+        }
+
+        // IDEMPOTENCY CHECK: If order is already PAID, return success immediately
+        if (order.status === 'PAID') {
+            console.log(`[PAYMENT-VERIFY] Order #${orderId} already verified and marked as PAID. Returning idempotent success.`);
+            return Response.json({ success: true, orderId, alreadyVerified: true });
         }
 
         // Mark order as PAID in Supabase

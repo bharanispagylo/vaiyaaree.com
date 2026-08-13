@@ -41,7 +41,7 @@ export default function InvoicesPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [invoicePage]);
     const [settings, setSettings] = useState({
-        shop_name: 'Cast Printz',
+        shop_name: 'Vaiyaaree',
         shop_logo: '',
         shop_address: '',
         shop_gstin: '',
@@ -206,7 +206,7 @@ export default function InvoicesPage() {
                 }}>
                     <div>
                         <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800 }}>Invoices</h1>
-                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Manage and generate professional invoices for Cast Printz orders</p>
+                        <p style={{ margin: '0.25rem 0 0 0', color: 'hsl(var(--text-muted))' }}>Manage and generate professional invoices for Vaiyaaree orders</p>
                     </div>
                     <Link
                         href="/admin/invoices/settings"

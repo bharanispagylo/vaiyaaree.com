@@ -61,7 +61,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
     const totalAmount = order.total_amount || 0;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://mathematically-foliaged-palmer.ngrok-free.dev');
     const invoiceUrl = `${appUrl}/api/invoice/${orderId}`;
-    const brand = 'Cast Printz';
+    const brand = 'Vaiyaaree';
 
     switch (status) {
         case 'PAID':
@@ -270,7 +270,7 @@ export async function POST(request) {
             
             if (status === 'PAID') {
                 try {
-                    let settings = { shop_name: 'Cast Printz', shop_phone: '7558189732', shop_email: 'castprintzofficial@gmail.com', shop_address: 'Premium Saree Collections' };
+                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '7558189732', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
                     try {
                         const { data: settingsData } = await supabase.from('app_settings').select('*');
                         if (settingsData) {

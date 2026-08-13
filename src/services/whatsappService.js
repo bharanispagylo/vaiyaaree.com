@@ -1,4 +1,4 @@
-//  Cast Printz — WHATSAPP BUSINESS BOT (Premium Edition)
+//  Vaiyaaree — WHATSAPP BUSINESS BOT (Premium Edition)
 
 import { createClient } from '@supabase/supabase-js';
 import { processReturnRequest } from './returnService';
@@ -200,7 +200,12 @@ export async function sendRawMessage(to, payload) {
             console.error(`❌ [WA-ERROR][${response.status}] ${errorMsg} (Code: ${errorCode})`);
 
             if (errorCode === 131030) {
-                console.error('💡 TIP: This usually means the 24-hour window is closed. The customer must message the bot first.');
+                console.error('💡 TIP: This usually means the 24-hour customer window is closed. The customer must message the bot first.');
+            } else if (errorCode === 131005 || response.status === 403) {
+                console.error('💡 TIP [ERROR 131005 Access Denied]:');
+                console.error('   1. Expired Access Token? Meta 24-hour Temporary Access Tokens expire daily. Refresh WHATSAPP_ACCESS_TOKEN in .env');
+                console.error('   2. Test Recipient Missing? If using Sandbox Number (15551678232), add recipient phone to "To" list in Meta Developer Console -> WhatsApp -> API Setup.');
+                console.error('   3. Missing Permissions? Ensure your Token/System User has "whatsapp_business_messaging" & "whatsapp_business_management" permissions.');
             }
 
             return { error: errorMsg, code: errorCode, full: data.error, status: response.status };
@@ -241,7 +246,7 @@ export async function sendButtons(to, bodyText, buttons) {
     });
 }
 
-export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Cast Printz • Premium Collection") {
+export async function sendList(to, headerText, bodyText, buttonLabel, sections, footerText = "Vaiyaaree • Premium Collection") {
     const finalSections = Array.isArray(sections) && sections[0].rows ? sections : [{ title: "Options", rows: sections }];
 
     // Truncate sections for WhatsApp limits
@@ -582,6 +587,12 @@ export async function handleProductInquiry(to, catalogId) {
 
         const imgUrl = getPremiumImage(product);
 
+        const catNo = product.product_catalog_image_id
+            ? (product.product_catalog_image_id.toUpperCase().startsWith('CAT-') ? product.product_catalog_image_id.toUpperCase() : `CAT-${product.product_catalog_image_id.toUpperCase()}`)
+            : (catalogId ? (catalogId.toUpperCase().startsWith('CAT-') ? catalogId.toUpperCase() : `CAT-${catalogId.toUpperCase()}`) : null);
+
+        const catalogLine = catNo ? `🆔 *Product Catalogue No:* ${catNo}\n` : '';
+
         if (matchingOrder) {
             // Already ordered -> Show past order details
             const orderDate = new Date(matchingOrder.created_at).toLocaleDateString('en-IN', {
@@ -589,6 +600,7 @@ export async function handleProductInquiry(to, catalogId) {
             });
             const caption =
                 `🛍️ *${product.name}*\n` +
+                catalogLine +
                 `--------------------------\n` +
                 `You have already ordered this item in a past order! 💖\n\n` +
                 `• *Order ID:* #${matchingOrder.id}\n` +
@@ -619,6 +631,7 @@ export async function handleProductInquiry(to, catalogId) {
 
         const caption =
             `📦 *${product.name}*\n` +
+            catalogLine +
             (product.category ? `🏷️ ${product.category}\n` : '') +
             `💎 *₹${(product.price || 0).toLocaleString()}*\n` +
             `${stockStatus}${desc}`;
@@ -642,7 +655,7 @@ export async function handleProductInquiry(to, catalogId) {
 
 export async function sendMainMenu(to) {
     // Build shop URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprintz.vercel.app');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.vercel.app');
     const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
     // Fetch dynamic welcome message
@@ -653,7 +666,7 @@ export async function sendMainMenu(to) {
 
     // Ensure it's absolute URL so WhatsApp can display it
     if (welcomeImg && !welcomeImg.startsWith('http')) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://castprintz.vercel.app');
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.vercel.app');
         welcomeImg = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (welcomeImg.startsWith('/') ? '' : '/') + welcomeImg;
     }
 
@@ -799,8 +812,12 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
         const effectiveStock = p.stock - (p.alert_threshold || 0);
         const stockStatus = effectiveStock <= 0 ? "❌ OUT OF STOCK" : effectiveStock <= 5 ? `⚠️ Only ${effectiveStock} left!` : "✅ In Stock";
+        const catNo = p.product_catalog_image_id
+            ? (p.product_catalog_image_id.toUpperCase().startsWith('CAT-') ? p.product_catalog_image_id.toUpperCase() : `CAT-${p.product_catalog_image_id.toUpperCase()}`)
+            : null;
+        const catalogLine = catNo ? `\n🆔 *Product Catalogue No:* ${catNo}` : '';
         const groupTag = p.product_group ? `\n🏷️ ${p.product_group}` : '';
-        const caption = `📖 *${p.name}*\n${p.description || ''}${groupTag}\n\n💎 *₹${p.price.toLocaleString()}*\n${stockStatus}`;
+        const caption = `📖 *${p.name}*${catalogLine}\n${p.description || ''}${groupTag}\n\n💎 *₹${p.price.toLocaleString()}*\n${stockStatus}`;
 
         // Variable Product Logic: Change button label
         const isVariable = p.type === 'variant';
@@ -1344,7 +1361,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
         const statusText = isPaid ? 'Payment Confirmed! Thank you!' : 'Hi ' + (order.customer_name || 'Customer') + '! Your order has been placed successfully.';
 
         const message =
-            `${statusEmoji} *Order Confirmed — Cast Printz* ${statusEmoji}\n\n` +
+            `${statusEmoji} *Order Confirmed — Vaiyaaree* ${statusEmoji}\n\n` +
             `${statusText}\n\n` +
             `📦 *Order ID:* #${orderId}\n` +
             `💰 *Grand Total:* ₹${total}\n` +
@@ -1363,13 +1380,18 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                         try {
                             const { data: product } = await supabase
                                 .from('products')
-                                .select('image_url')
+                                .select('image_url, product_catalog_image_id')
                                 .eq('id', item.product_id)
                                 .single();
+
+                            const catNo = product?.product_catalog_image_id
+                                ? (product.product_catalog_image_id.toUpperCase().startsWith('CAT-') ? product.product_catalog_image_id.toUpperCase() : `CAT-${product.product_catalog_image_id.toUpperCase()}`)
+                                : null;
 
                             const imgUrl = product?.image_url;
                             if (imgUrl) {
                                 const caption = `🛍️ *Item:* ${item.product_name}\n` +
+                                    (catNo ? `🆔 *Product Catalogue No:* ${catNo}\n` : '') +
                                     (item.variant_name ? `🎨 *Option:* ${item.variant_name}\n` : '') +
                                     `💵 *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
                                     `🔢 *Quantity:* ${item.quantity}`;
@@ -1394,7 +1416,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                 }
 
                 try {
-                    let settings = { shop_name: 'Cast Printz', shop_phone: '7558189732', shop_email: 'castprintzofficial@gmail.com', shop_address: 'Premium Saree Collections' };
+                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '7558189732', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
                     try {
                         const { data: settingsData } = await supabase.from('app_settings').select('*');
                         if (settingsData) {
@@ -1415,7 +1437,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
 
                 await new Promise(r => setTimeout(r, 1200));
 
-                await sendButtons(targetPhone, "Thank you for shopping with *Cast Printz*!\n\nTap below to manage your order:", [
+                await sendButtons(targetPhone, "Thank you for shopping with *Vaiyaaree*!\n\nTap below to manage your order:", [
                     { id: "menu_track", title: "Track Order" },
                     { id: "menu_my_orders", title: "View Order" },
                     { id: `menu_cancel_order`, title: "Cancel Order" }
@@ -1483,7 +1505,7 @@ export async function finalizeOrder(to, method, orderId) {
             // Build UPI deep link — opens GPay / PhonePe / any UPI app with amount pre-filled
             const rawAmount = order?.total_amount || 0;
             const upiId = 'samypranesh@okicici';
-            const payeeName = 'Cast Printz Sarees';
+            const payeeName = 'Vaiyaaree Sarees';
             const note = `Order+${orderId}`;
             const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${rawAmount}&cu=INR&tn=${note}`;
 
@@ -2086,6 +2108,39 @@ export async function confirmRefundOrder(to, orderId, reason) {
     return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.`, [{ id: "menu_main", title: "Main Menu" }]);
 }
 
+async function getOrderCatalogNumbers(orderId) {
+    try {
+        const { data: items } = await supabaseAdmin
+            .from('order_items')
+            .select('product_id')
+            .eq('order_id', orderId);
+
+        if (!items || items.length === 0) return '';
+
+        const productIds = [...new Set(items.map(i => i.product_id).filter(Boolean))];
+        if (productIds.length === 0) return '';
+
+        const { data: prods } = await supabaseAdmin
+            .from('products')
+            .select('product_catalog_image_id')
+            .in('id', productIds);
+
+        if (!prods || prods.length === 0) return '';
+
+        const catalogCodes = prods
+            .map(p => p.product_catalog_image_id)
+            .filter(Boolean)
+            .map(code => code.toUpperCase().startsWith('CAT-') ? code.toUpperCase() : `CAT-${code.toUpperCase()}`);
+
+        if (catalogCodes.length === 0) return '';
+
+        return [...new Set(catalogCodes)].join(', ');
+    } catch (err) {
+        console.error('[WA] getOrderCatalogNumbers error:', err);
+        return '';
+    }
+}
+
 export async function handleTrackOrder(to) {
     // Normalize phone number to handle both formats (with/without country code)
     const normalizedPhone = normalizePhoneNumber(to);
@@ -2125,9 +2180,13 @@ export async function handleTrackOrder(to) {
         buttons.unshift({ id: "menu_cancel_order", title: "Cancel Order" });
     }
 
+    const catalogNoStr = await getOrderCatalogNumbers(o.id);
+    const catalogNoLine = catalogNoStr ? `Product Catalogue No: *${catalogNoStr}*\n` : '';
+
     await sendButtons(to,
         `🛒 *Latest Order Details*\n\n` +
         `Order ID: *#${o.id}*\n` +
+        catalogNoLine +
         `Source: *${sourceLabel}*\n` +
         `Status: *${o.status}*\n` +
         `Amount: *₹${o.total_amount?.toLocaleString()}*\n` +
@@ -2137,7 +2196,7 @@ export async function handleTrackOrder(to) {
 }
 
 export async function handleContact(to) {
-    const contactMsg = await getConfig('wa_contact_message', `📞 *Contact Support*\n\nFor assistance, please call us at:\n+${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '91 75581 89732'}\n\nOr email:\ncastprintzofficial@gmail.com`);
+    const contactMsg = await getConfig('wa_contact_message', `📞 *Contact Support*\n\nFor assistance, please call us at:\n+${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '91 75581 89732'}\n\nOr email:\nvaiyaaree.official@gmail.com`);
     await sendText(to, contactMsg);
 }
 
@@ -2491,9 +2550,13 @@ export async function processIncomingMessage(body) {
                         buttons.unshift({ id: `init_return_${o.id}`, title: "Return/Exchange" });
                     }
 
+                    const catalogNoStr = await getOrderCatalogNumbers(o.id);
+                    const catalogNoLine = catalogNoStr ? `Product Catalogue No: *${catalogNoStr}*\n` : '';
+
                     return await sendButtons(from,
                         `🛒 *Order Details*\n\n` +
                         `Order ID: *#${o.id}*\n` +
+                        catalogNoLine +
                         `Source: *${sourceLabel}*\n` +
                         `Status: *${o.status}*\n` +
                         `Amount: *₹${o.total_amount?.toLocaleString()}*\n` +
@@ -2555,7 +2618,7 @@ export async function processIncomingMessage(body) {
                             const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
 
                             try {
-                                let settings = { shop_name: 'Cast Printz', shop_phone: '7558189732', shop_email: 'castprintzofficial@gmail.com', shop_address: 'Premium Saree Collections' };
+                                let settings = { shop_name: 'Vaiyaaree', shop_phone: '7558189732', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
                                 const { data: settingsData } = await supabase.from('app_settings').select('*');
                                 if (settingsData) {
                                     settingsData.forEach(item => {
@@ -2712,7 +2775,7 @@ export async function processIncomingMessage(body) {
             }
 
             return await sendText(from,
-                `🌸 Thank you for reaching out to *Cast Printz*!\n\n` +
+                `🌸 Thank you for reaching out to *Vaiyaaree*!\n\n` +
                 `We couldn't find a product matching *"${rawBodyText}"*.\n\n` +
                 `📌 *Tips:*\n` +
                 `• Send a product code (e.g. *CAT-C3FNP*)\n` +

@@ -144,15 +144,15 @@ export async function POST(request) {
                 // SECURITY: Conditional Update (Atomic)
                 // We only update IF the stock is still >= qty. 
                 // This prevents race conditions where another order took the stock 1ms ago.
-                const { error: finalError, count } = await supabase
+                const { data: updatedRows, error: finalError } = await supabase
                     .from(table)
                     .update({ stock: current.stock - item.qty })
                     .eq('id', id)
                     .gte('stock', item.qty) // THE GUARD
-                    .select();
+                    .select('id, stock');
 
-                if (finalError || !count || count === 0) {
-                    throw new Error(`Stock race condition for ${item.name}. Please try again.`);
+                if (finalError || !updatedRows || updatedRows.length === 0) {
+                    throw new Error(`Item "${item.name}" is out of stock or was just purchased by another customer.`);
                 }
             }
 

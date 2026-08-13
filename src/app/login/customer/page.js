@@ -66,7 +66,7 @@ export default function CustomerLoginPage() {
             <div className={styles.card}>
                 <div className={styles.logo}>
                     <div className={styles.logoIcon}>💮</div>
-                    <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Cast Printz</h1>
+                    <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Vaiyaaree</h1>
                     <p className={styles.subtitle}>Welcome Back!</p>
                 </div>
 

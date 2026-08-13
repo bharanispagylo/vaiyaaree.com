@@ -12,7 +12,7 @@ export async function GET(request) {
                 success: true,
                 admin: {
                     username: settings.admin_username || 'admin',
-                    email: settings.admin_email || 'admin@castprintz.com',
+                    email: settings.admin_email || 'admin@vaiyaaree.com',
                     full_name: settings.admin_full_name || settings.admin_username || 'Admin',
                     role: 'Super Admin'
                 }

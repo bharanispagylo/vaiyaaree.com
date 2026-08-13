@@ -72,7 +72,7 @@ export async function POST(request) {
         const phone = refund.orders.customer_phone;
         const orderId = refund.order_id;
         const amount = refund.amount || 0;
-        const brand = 'Cast Printz';
+        const brand = 'Vaiyaaree';
 
         let message = '';
         if (status === 'APPROVED') {

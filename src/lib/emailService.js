@@ -58,13 +58,13 @@ export async function sendOrderConfirmationEmail(order) {
 
     // Fetch settings for the PDF
     let settings = {
-        shop_name: 'Cast Printz',
+        shop_name: 'Vaiyaaree',
         shop_phone: '7558189732',
-        shop_email: 'castprintzofficial@gmail.com',
+        shop_email: 'vaiyaaree.official@gmail.com',
         shop_address: 'Premium Saree Collections',
         shop_gstin: '',
         bill_terms: 'All sales are final. Returns accepted within 7 days of delivery.',
-        bill_footer: 'Thank you for shopping with Cast Printz!'
+        bill_footer: 'Thank you for shopping with Vaiyaaree!'
     };
 
     try {
@@ -85,7 +85,7 @@ export async function sendOrderConfirmationEmail(order) {
     }
 
     const mailOptions = {
-        from: process.env.SMTP_FROM || '"Cast Printz" <orders@castprintz.com>',
+        from: process.env.SMTP_FROM || '"Vaiyaaree" <orders@vaiyaaree.com>',
         to: order.customer_email || order.customer_phone,
         subject: `Order Confirmation - ${order.id}`,
         attachments: [],
@@ -93,7 +93,7 @@ export async function sendOrderConfirmationEmail(order) {
             <div style="font-family: 'Roboto', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
                 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
-                    ${shopLogo ? `<img src="${shopLogo}" alt="Cast Printz" style="max-height: 80px; margin-bottom: 20px;">` : ''}
+                    ${shopLogo ? `<img src="${shopLogo}" alt="Vaiyaaree" style="max-height: 80px; margin-bottom: 20px;">` : ''}
                     <h2 style="color: #333; margin-bottom: 20px;">Thank you for your order!</h2>
                     
                     <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
@@ -202,13 +202,13 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
     
     // Fetch settings for PDF branding
     let settingsUI = {
-        shop_name: 'Cast Printz',
+        shop_name: 'Vaiyaaree',
         shop_phone: '7558189732',
-        shop_email: 'castprintzofficial@gmail.com',
+        shop_email: 'vaiyaaree.official@gmail.com',
         shop_address: 'Premium Saree Collections',
         shop_gstin: '',
         bill_terms: 'All sales are final. Returns accepted within 7 days of delivery.',
-        bill_footer: 'Thank you for shopping with Cast Printz!'
+        bill_footer: 'Thank you for shopping with Vaiyaaree!'
     };
 
     try {
@@ -230,7 +230,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
 
     const shipping = order.shipping_cost || order.shipping_amount || order.shipping || 0;
     const mailOptions = {
-        from: process.env.SMTP_FROM || '"Cast Printz" <orders@castprintz.com>',
+        from: process.env.SMTP_FROM || '"Vaiyaaree" <orders@vaiyaaree.com>',
         to: toEmails,
         subject: `${config.title} - ${order.id}`,
         attachments: [],
@@ -238,7 +238,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
             <div style="font-family: 'Roboto', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9;">
                 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
                 <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center;">
-                    ${shopLogo ? `<img src="${shopLogo}" alt="Cast Printz" style="max-height: 80px; margin-bottom: 20px;">` : ''}
+                    ${shopLogo ? `<img src="${shopLogo}" alt="Vaiyaaree" style="max-height: 80px; margin-bottom: 20px;">` : ''}
                     <h2 style="color: #333; margin-bottom: 15px;">${config.title}</h2>
                     <p style="color: #555; line-height: 1.6; margin-bottom: 25px;">${config.body}</p>
                     
@@ -288,15 +288,15 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
     }
 
     const mailOptions = {
-        from: process.env.SMTP_FROM || '"Cast Printz Security" <security@castprintz.com>',
+        from: process.env.SMTP_FROM || '"Vaiyaaree Security" <security@vaiyaaree.com>',
         to: toEmail,
-        subject: `Password Reset Verification Code - Cast Printz Admin`,
+        subject: `Password Reset Verification Code - Vaiyaaree Admin`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f8fafc; border-radius: 12px;">
                 <div style="background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center;">
                     <div style="font-size: 40px; margin-bottom: 10px;">🔐</div>
                     <h2 style="color: #1e293b; margin-top: 0; font-size: 22px;">Admin Password Reset</h2>
-                    <p style="color: #64748b; font-size: 14px; line-height: 1.5;">We received a request to reset your Cast Printz Admin Password. Use the verification OTP below to proceed:</p>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.5;">We received a request to reset your Vaiyaaree Admin Password. Use the verification OTP below to proceed:</p>
                     <div style="background: #f1f5f9; padding: 16px 28px; border-radius: 10px; display: inline-block; margin: 20px 0; border: 1px dashed #cbd5e1;">
                         <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #4f46e5;">${otp}</span>
                     </div>
@@ -322,15 +322,15 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
     }
 
     const mailOptions = {
-        from: process.env.SMTP_FROM || '"Cast Printz Security" <security@castprintz.com>',
+        from: process.env.SMTP_FROM || '"Vaiyaaree Security" <security@vaiyaaree.com>',
         to: toEmail,
-        subject: `Your Admin Password Was Reset - Cast Printz`,
+        subject: `Your Admin Password Was Reset - Vaiyaaree`,
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #f8fafc; border-radius: 12px;">
                 <div style="background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center;">
                     <div style="font-size: 40px; margin-bottom: 10px;">✅</div>
                     <h2 style="color: #1e293b; margin-top: 0; font-size: 22px;">Password Reset Successful</h2>
-                    <p style="color: #64748b; font-size: 14px; line-height: 1.5;">Your Cast Printz Admin password has been updated successfully on <strong>${new Date().toLocaleString('en-IN')}</strong>.</p>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.5;">Your Vaiyaaree Admin password has been updated successfully on <strong>${new Date().toLocaleString('en-IN')}</strong>.</p>
                     <p style="color: #94a3b8; font-size: 13px; margin-bottom: 0;">If you did not perform this change, please contact system administration immediately.</p>
                 </div>
             </div>

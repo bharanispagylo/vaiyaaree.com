@@ -7,7 +7,7 @@ function buildStatusMessage(order, status, orderId) {
     const totalAmount = order.total_amount || 0;
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
     const invoiceUrl = `${appUrl}/shop/invoice?oid=${orderId}`;
-    const brand = 'Cast Printz';
+    const brand = 'Vaiyaaree';
     const items = order.order_items || [];
     const itemsList = items.map(i => `• ${i.product_name} (x${i.quantity})`).join('\n');
     
@@ -178,14 +178,14 @@ export async function POST(request) {
                 const message = statusOverride
                     ? buildStatusMessage(order, statusOverride, orderId)
                     : (
-                        `✅ *Order Confirmed — Cast Printz* 🎉\n\n` +
+                        `✅ *Order Confirmed — Vaiyaaree* 🎉\n\n` +
                         `Dear ${order.customer_name},\n\n` +
                         `Your order #${orderId} has been placed successfully.\n\n` +
                         `📦 *Order Details:*\n` +
                         `• Total Amount: ₹${order.total_amount?.toLocaleString() || '0'}\n` +
                         `• Payment Method: ${order.payment_method || 'N/A'}\n` +
                         `• Items: ${order.order_items?.length || 0} product(s)\n\n` +
-                        `Thank you for shopping with Cast Printz! 💖`
+                        `Thank you for shopping with Vaiyaaree! 💖`
                     );
 
                 // Fetch product images

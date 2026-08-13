@@ -29,28 +29,29 @@ export async function POST(request) {
         }
 
         // --- Amazon-style Security: Server-side Price Verification ---
-        // Verify that the total_amount in the order matches the actual product prices in our DB.
-        // This prevents users from manipulating the 'total_amount' via the browser console.
-        let calculatedTotal = 0;
+        // Verify that the total_amount matches actual product prices + taxes/shipping from DB.
+        let calculatedItemsTotal = 0;
         for (const item of order.order_items) {
-            // Fetch actual price from products or variants table
             if (item.variant_id) {
                 const { data: variant } = await supabase.from('product_variants').select('price').eq('id', item.variant_id).single();
-                calculatedTotal += (variant?.price || 0) * item.quantity;
+                calculatedItemsTotal += (variant?.price || 0) * item.quantity;
             } else {
                 const { data: product } = await supabase.from('products').select('price').eq('id', item.product_id).single();
-                calculatedTotal += (product?.price || 0) * item.quantity;
+                calculatedItemsTotal += (product?.price || 0) * item.quantity;
             }
         }
 
-        // Add shipping/taxes if applicable (assuming tax is already in order.total_amount for simplicity)
-        // For a full audit, we'd recalculate taxes here too.
-        // For now, we check if calculatedTotal > order.total_amount (to allow discounts but prevent underpaying)
-        if (calculatedTotal > order.total_amount + 10) { // +10 for small rounding differences or shipping
-            console.error(`[FRAUD-ALERT] Price mismatch for order ${orderId}. Expected: ${calculatedTotal}, Received: ${order.total_amount}`);
+        const expectedTotal = calculatedItemsTotal + (order.tax_amount || 0) + (order.shipping_cost || 0);
+        const diff = Math.abs(expectedTotal - order.total_amount);
+
+        if (diff > 5) { // Allow max ₹5 tolerance for rounding
+            console.error(`[FRAUD-ALERT] Price mismatch for order ${orderId}. Expected: ${expectedTotal}, Received: ${order.total_amount}`);
             return Response.json({ error: 'Order verification failed. Pricing mismatch detected.' }, { status: 403 });
         }
         // --- End Price Verification ---
+
+        // ALWAYS use the server-verified expectedTotal for Razorpay initialization
+        const finalPayableAmount = expectedTotal > 0 ? expectedTotal : order.total_amount;
 
         // Detect if keys are placeholders or missing
         const isPlaceholder = (key) => !key || key.includes('PASTE_YOUR_KEY');
@@ -60,7 +61,7 @@ export async function POST(request) {
             console.log('Using Razorpay Test Mode Fallback');
             return Response.json({
                 razorpayOrderId: `order_test_${Date.now()}`,
-                amount: Math.round(order.total_amount * 100),
+                amount: Math.round(finalPayableAmount * 100),
                 currency: 'INR',
                 keyId: 'rzp_test_placeholder',
                 orderDetails: order,
@@ -73,9 +74,9 @@ export async function POST(request) {
             key_secret: settings.razorpay_key_secret,
         });
 
-        // Create Razorpay order
+        // Create Razorpay order using server-verified payable amount
         const rzpOrder = await razorpay.orders.create({
-            amount: Math.round(order.total_amount * 100), // amount in paise
+            amount: Math.round(finalPayableAmount * 100), // amount in paise
             currency: 'INR',
             receipt: `receipt_${orderId}`,
             notes: {

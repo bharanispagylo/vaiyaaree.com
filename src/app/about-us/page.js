@@ -10,7 +10,7 @@ export default function AboutUsPage() {
 
     useEffect(() => {
         setMounted(true);
-        document.title = 'About Us | Cast Printz';
+        document.title = 'About Us | Vaiyaaree';
     }, []);
 
     if (!mounted) {
@@ -38,19 +38,19 @@ export default function AboutUsPage() {
                     {/* Left Column: Brand Story */}
                     <div>
                         <div style={{ marginBottom: '1.8rem' }}>
-                            <h2 style={{ fontSize: '1.6rem', fontWeight: 600, color: '#111', margin: '0 0 0.25rem 0' }}>Cast Printz</h2>
-                            <p style={{ fontSize: '0.95rem', color: '#666', margin: 0, fontWeight: 400 }}>A Castprintz company</p>
+                            <h2 style={{ fontSize: '1.6rem', fontWeight: 600, color: '#111', margin: '0 0 0.25rem 0' }}>Vaiyaaree</h2>
+                            <p style={{ fontSize: '0.95rem', color: '#666', margin: 0, fontWeight: 400 }}>A Vaiyaaree company</p>
                         </div>
 
                         <div style={{ fontSize: '1.05rem', lineHeight: '1.85', color: '#444', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                             <p style={{ margin: 0 }}>
-                                Cast Printz sarees aims at offering a fantastic blend of style, fashion, colours and quality. Our journey began with a simple idea – to create a platform where saree lovers could find the most exquisite and authentic collection of sarees from all over India.
+                                Vaiyaaree sarees aims at offering a fantastic blend of style, fashion, colours and quality. Our journey began with a simple idea – to create a platform where saree lovers could find the most exquisite and authentic collection of sarees from all over India.
                             </p>
                             <p style={{ margin: 0 }}>
                                 Started as an Instagram-based business with South cotton printed sarees, we have been committed to promoting traditional Indian textiles and craftsmanship.
                             </p>
                             <p style={{ margin: 0 }}>
-                                Cast Printz sarees grew as a well trusted brand, well-received by its 100K+ Instagram followers, stands a testimony.
+                                Vaiyaaree sarees grew as a well trusted brand, well-received by its 100K+ Instagram followers, stands a testimony.
                             </p>
                             <p style={{ margin: 0 }}>
                                 We are passionate about providing our customers with a seamless shopping experience. Our team is always ready to assist you with any queries or concerns you may have. We pride ourselves on our customer-centric approach and our commitment to making every customer feel special. Our goal is to be your go-to destination for all your saree needs.
@@ -63,7 +63,7 @@ export default function AboutUsPage() {
                         {/* Sign-off */}
                         <div style={{ marginTop: '2.5rem', color: '#222', fontSize: '1.05rem', lineHeight: '1.6' }}>
                             <p style={{ margin: 0, color: '#555' }}>Yours</p>
-                            <p style={{ margin: 0, fontWeight: 600, color: '#111' }}>Cast Printz Sarees</p>
+                            <p style={{ margin: 0, fontWeight: 600, color: '#111' }}>Vaiyaaree Sarees</p>
                         </div>
 
                         {/* Social Icons */}
@@ -120,7 +120,7 @@ export default function AboutUsPage() {
                         }}>
                             <img
                                 src="/images/about-us-saree.jpg"
-                                alt="Cast Printz About Us Saree"
+                                alt="Vaiyaaree About Us Saree"
                                 style={{
                                     width: '100%',
                                     height: 'auto',

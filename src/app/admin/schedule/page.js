@@ -103,9 +103,9 @@ export default function SchedulePostPage() {
     // Generate default caption
     const generateCaption = (product) => {
         if (!product) return { caption: '', hashtags: '' };
-        const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://castprintz.vercel.app';
+        const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vaiyaaree.vercel.app';
         const cap = `✨ ${product.name}\n\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\n🛍️ Shop now: ${shopUrl}/shop?pid=${product.id}`;
-        const tags = `#CastPrintz #Sarees #IndianFashion #EthnicWear #SareeLove #NewArrivals`;
+        const tags = `#Vaiyaaree #Sarees #IndianFashion #EthnicWear #SareeLove #NewArrivals`;
         return { caption: cap, hashtags: tags };
     };
 

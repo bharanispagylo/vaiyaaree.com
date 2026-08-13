@@ -19,7 +19,7 @@ export default function PolicyPage({ slug, title: fallbackTitle }) {
                     .single();
                 if (data) {
                     setPage(data);
-                    document.title = `${data.seo_title || data.title} | Cast Printz`;
+                    document.title = `${data.seo_title || data.title} | Vaiyaaree`;
                 }
             } catch (err) {
                 console.error(`Error fetching CMS page (${slug}):`, err);
