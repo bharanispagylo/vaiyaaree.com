@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Mail, Phone, MapPin, ArrowLeft, ArrowRight, MessageSquare, Check } from 'lucide-react';
 import Link from 'next/link';
+import { getProductUrl } from '@/lib/productUrl';
 import ShopHeader from '@/components/ShopHeader';
 import ShopFooter from '@/components/ShopFooter';
 import WhatsAppMockup from '@/components/WhatsAppMockup';
@@ -227,7 +228,7 @@ export default function HomePage() {
                     <div style={{ position: 'relative', overflow: 'hidden' }}>
                         <div style={{ display: 'flex', transition: 'transform 0.5s ease', transform: `translateX(-${sliderIndex * (100 / Math.min(4, featuredProducts.length))}%)`, gap: '1.5rem' }}>
                             {featuredProducts.map(product => (
-                                <Link key={product.id} href={`/product/${product.id}`} style={{ flex: '0 0 calc(25% - 1.2rem)', minWidth: '280px', textDecoration: 'none', color: 'inherit' }}>
+                                <Link key={product.id} href={getProductUrl(product)} style={{ flex: '0 0 calc(25% - 1.2rem)', minWidth: '280px', textDecoration: 'none', color: 'inherit' }}>
                                     <div style={{ textAlign: 'center' }}>
                                         <div style={{ aspectRatio: '3/4', marginBottom: '1rem', overflow: 'hidden', borderRadius: '4px', boxShadow: '0 5px 15px rgba(0,0,0,0.05)', background: '#fff', position: 'relative' }}>
                                             <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url?.split(',')[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>
@@ -255,7 +256,7 @@ export default function HomePage() {
                     <div style={{ position: 'relative', overflow: 'hidden' }}>
                         <div style={{ display: 'flex', transition: 'transform 0.5s ease', transform: `translateX(-${exploreSliderIndex * (100 / Math.min(4, exploreProducts.length))}%)`, gap: '2rem' }}>
                             {exploreProducts.map(product => (
-                                <Link key={product.id} href={`/product/${product.id}`} style={{ flex: '0 0 calc(25% - 1.5rem)', minWidth: '300px', textDecoration: 'none', color: 'inherit' }}>
+                                <Link key={product.id} href={getProductUrl(product)} style={{ flex: '0 0 calc(25% - 1.5rem)', minWidth: '300px', textDecoration: 'none', color: 'inherit' }}>
                                     <div style={{ textAlign: 'center' }}>
                                         <div style={{ aspectRatio: '3/4', marginBottom: '1.5rem', overflow: 'hidden', borderRadius: '4px', boxShadow: '0 10px 40px rgba(0,0,0,0.08)', background: '#fff', position: 'relative' }}>
                                             <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${product.image_url?.split(',')[0]})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }}></div>

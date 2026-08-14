@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Plus, Edit, Trash2, Search, Loader2, Image as ImageIcon, LayoutGrid, List,
     Share2, Link as LinkIcon, Check, Package as PackageIcon, ShoppingCart,
-    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Instagram
+    Filter, Facebook, History, MoreHorizontal, FileDown, Upload, X, TrendingUp, Trophy, Eye, AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, ChevronDown, Instagram, BarChart3, ThumbsUp, MessageSquare, Heart
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
@@ -18,6 +18,7 @@ import MediaPicker from '@/components/MediaPicker';
 import ProductImageAssigner from '@/components/ProductImageAssigner';
 import ImageZoom from '@/components/ImageZoom';
 import ModalPortal from '@/components/ModalPortal';
+import { getProductUrl } from '@/lib/productUrl';
 
 // Consolidated image services used via API route
 
@@ -116,20 +117,23 @@ export default function ProductsPage() {
         }
     };
 
-    const getShopUrl = (pid) => {
+    const getShopUrl = (product) => {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-        return `${baseUrl}/shop?pid=${pid}`;
+        if (product && typeof product === 'object') {
+            return `${baseUrl}${getProductUrl(product)}`;
+        }
+        return `${baseUrl}/product/${product}/`;
     };
 
     const copyLink = (product) => {
-        const url = getShopUrl(product.id);
+        const url = getShopUrl(product);
         navigator.clipboard.writeText(url);
         setCopiedId(product.id);
         setTimeout(() => setCopiedId(null), 2000);
     };
 
     const shareToStatus = (product) => {
-        const url = getShopUrl(product.id);
+        const url = getShopUrl(product);
         const text = encodeURIComponent(`Checkout this beautiful ${product.name}!\n\nView details & Order here: ${url}`);
         window.open(`https://wa.me/?text=${text}`, '_self');
     };
@@ -206,15 +210,21 @@ export default function ProductsPage() {
 
     const fetchStatsAndAnalytics = async () => {
         try {
-            const { data, error } = await supabase
+            let res = await supabase
                 .from('products')
-                .select('id, name, price, stock, category, product_group, is_active, alert_threshold, product_catalog_image_id');
-            if (error) throw error;
-            const list = data || [];
+                .select('id, name, price, stock, category, product_group, is_active, alert_threshold, product_catalog_image_id, sku');
+            
+            if (res.error) {
+                res = await supabase
+                    .from('products')
+                    .select('id, name, price, stock, category, product_group, is_active, alert_threshold, product_catalog_image_id');
+            }
+
+            const list = res.data || [];
             setAllProductsData(list);
             fetchAnalytics(list);
         } catch (err) {
-            console.error('Stats and analytics fetch error:', err);
+            console.error('Stats and analytics fetch error:', err?.message || err);
         }
     };
 
@@ -494,15 +504,23 @@ export default function ProductsPage() {
                 return;
             }
 
-            // Map products to the Excel format
-            const exportData = exportProducts.map(p => ({
-                'ID': p.id,
-                'Name': p.name || '',
-                'Category': p.category || '',
-                'Price': p.price || 0,
-                'Stock': p.stock || 0,
-                'Description': p.description || ''
-            }));
+            // Sort ascending by created_at to assign continuous Product Nos
+            const sortedProducts = [...exportProducts].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+
+            // Map products to the Excel format including Product No
+            const exportData = sortedProducts.map((p, idx) => {
+                const prodNo = p.product_no || (p.sku ? parseInt(p.sku) : null) || (1000 + idx);
+                return {
+                    'Product No': prodNo,
+                    'Catalog ID': p.product_catalog_image_id || '',
+                    'Name': p.name || '',
+                    'Category': p.category || '',
+                    'Price': p.price || 0,
+                    'Stock': p.stock || 0,
+                    'Description': p.description || '',
+                    'ID': p.id
+                };
+            });
 
             // Create a new workbook and add the data
             const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -511,14 +529,17 @@ export default function ProductsPage() {
 
             // Set column widths for better readability
             const colWidths = [
-                { wch: 36 }, // ID (UUID length)
+                { wch: 14 }, // Product No
+                { wch: 16 }, // Catalog ID
                 { wch: 40 }, // Name
                 { wch: 20 }, // Category
                 { wch: 10 }, // Price
                 { wch: 10 }, // Stock
                 { wch: 50 }, // Description
+                { wch: 36 }, // ID
             ];
             worksheet['!cols'] = colWidths;
+
 
             // Generate file buffer and trigger download
             const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
@@ -638,11 +659,30 @@ export default function ProductsPage() {
                 }
             } else {
                 // INSERT
-                // Initialize total_added with the initial stock
-                const insertData = { ...productData, total_added: productData.stock || 0 };
-                const { data, error } = await supabase.from('products').insert([insertData]).select();
-                if (error) throw error;
+                let maxNo = 999;
+                (allProductsData || []).forEach(p => {
+                    const num = p.product_no || (p.sku ? parseInt(p.sku) : null);
+                    if (num && !isNaN(num) && num > maxNo) maxNo = num;
+                });
+                const nextNo = maxNo + 1;
+
+                // Initialize total_added with initial stock & assign next sequential Product No
+                const insertData = {
+                    ...productData,
+                    total_added: productData.stock || 0,
+                    product_no: nextNo,
+                    sku: String(nextNo)
+                };
+
+                let { data, error } = await supabase.from('products').insert([insertData]).select();
+                if (error) {
+                    delete insertData.product_no;
+                    const fallbackRes = await supabase.from('products').insert([insertData]).select();
+                    if (fallbackRes.error) throw fallbackRes.error;
+                    data = fallbackRes.data;
+                }
                 savedProduct = data?.[0];
+
 
                 // Initial stock entry in history
                 if (savedProduct && savedProduct.stock > 0) {
@@ -889,8 +929,8 @@ export default function ProductsPage() {
                                 <p>Manage your premium product collection • {totalCount} items</p>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button onClick={() => setImportModal(true)} className="btn btn-secondary">
-                                    <FileDown size={18} /> Import Excel
+                                <button onClick={() => setImportedProductsForImage([])} className="btn btn-secondary">
+                                    <Upload size={18} /> Image Upload / Import
                                 </button>
                                 <button onClick={handleExportExcel} className="btn btn-secondary">
                                     <FileDown size={18} style={{ transform: 'rotate(180deg)' }} /> Export Excel
@@ -1127,6 +1167,7 @@ export default function ProductsPage() {
                                                             style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                                                         />
                                                     </th>
+                                                    <th>Product No</th>
                                                     <th>Product</th>
                                                     <th>Category</th>
                                                     <th style={{ textAlign: 'right' }}>Price</th>
@@ -1136,7 +1177,7 @@ export default function ProductsPage() {
                                             </thead>
                                             <tbody>
                                                 {filtered.length === 0 ? (
-                                                    <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
+                                                    <tr><td colSpan={8} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No products found.</td></tr>
                                                 ) : paginatedProducts.map((product, idx) => (
                                                     <tr key={product.id} onClick={() => openEditModal(product)} style={{
                                                         background: selectedProductIds.includes(product.id) ? 'hsl(var(--primary) / 0.02)' : 'transparent',
@@ -1150,6 +1191,11 @@ export default function ProductsPage() {
                                                                 onChange={() => { }}
                                                                 style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                                                             />
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                                                            <span style={{ fontSize: '0.82rem', fontWeight: 900, background: 'hsl(var(--primary) / 0.08)', color: 'hsl(var(--primary))', padding: '4px 10px', borderRadius: '8px', fontFamily: 'monospace', letterSpacing: '0.02em' }}>
+                                                                #{product.product_no || (product.sku ? parseInt(product.sku) : null) || (1000 + (productsPage - 1) * PRODUCTS_PER_PAGE + idx)}
+                                                            </span>
                                                         </td>
                                                         <td style={{ padding: '0.75rem 1.5rem' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }} title="Click to edit product">
@@ -1212,7 +1258,7 @@ export default function ProductsPage() {
                                                         </td>
                                                         <td style={{ textAlign: 'right' }}>
                                                             <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                                                                <button onClick={(e) => { e.stopPropagation(); window.open('/product/' + product.id, '_blank'); }} title="View Product Page" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
+                                                                <button onClick={(e) => { e.stopPropagation(); window.open(getProductUrl(product), '_blank'); }} title="View Product Page" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
                                                                     <Eye size={15} />
                                                                 </button>
                                                                 <button onClick={(e) => { e.stopPropagation(); shareToStatus(product); }} title="Share to Status" className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}>
@@ -1286,18 +1332,6 @@ export default function ProductsPage() {
                                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                                 onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
                                                                 onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
-                                                            {/* Catalog ID Badge */}
-                                                            {/* {product.product_catalog_image_id && (
-                                                                <div style={{
-                                                                    position: 'absolute', bottom: '10px', left: '10px',
-                                                                    background: 'hsl(var(--accent))', color: 'white',
-                                                                    fontSize: '0.65rem', fontWeight: 700, padding: '4px 8px',
-                                                                    borderRadius: '6px', fontFamily: 'var(--font-roboto)',
-                                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                                                                }}> */}
-                                                                    {/* {product.product_catalog_image_id} */}
-                                                                {/* </div>
-                                                            )} */}
                                                         </>
                                                     ) : (
                                                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>
@@ -1330,7 +1364,7 @@ export default function ProductsPage() {
                                                     <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'hsl(var(--primary))', marginBottom: '12px' }}>₹{(product.price || 0).toLocaleString()}</div>
                                                     {/* Actions */}
                                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                        <button onClick={() => window.open('/product/' + product.id, '_blank')}
+                                                        <button onClick={() => window.open(getProductUrl(product), '_blank')}
                                                             className="btn btn-secondary" style={{ padding: '0.5rem', color: 'hsl(var(--primary))' }} title="View Product Page">
                                                             <Eye size={13} />
                                                         </button>
@@ -1895,7 +1929,7 @@ export default function ProductsPage() {
                         <div className="card shadow-premium" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', padding: 0, border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: '#ffffff' }}>
                             <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff' }}>
                                 <div>
-                                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>📊 Stock History</h2>
+                                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><BarChart3 size={20} color="hsl(var(--primary))" /> Stock History</h2>
                                     <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: '4px 0 0' }}>{selectedProductForHistory.name}</p>
                                 </div>
                                 <button onClick={() => setShowHistory(false)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Products</button>
@@ -2127,12 +2161,14 @@ export default function ProductsPage() {
                 )}
 
 
-                {/* PRODUCT IMAGE ASSIGNER (Post-Excel Import) */}
+                {/* PRODUCT IMAGE ASSIGNER & SPREADSHEET UPLOAD PAGE */}
                 {
-                    importedProductsForImage && importedProductsForImage.length > 0 && (
+                    importedProductsForImage !== null && (
                         <ModalPortal>
                             <ProductImageAssigner
-                                products={importedProductsForImage}
+                                products={importedProductsForImage || []}
+                                existingProducts={allProductsData || []}
+                                initialMaxProductNo={Math.max(999, ...allProductsData.map(p => p.product_no || (p.sku ? parseInt(p.sku) : 0)))}
                                 onClose={() => setImportedProductsForImage(null)}
                                 onDone={() => {
                                     fetchProducts();
@@ -2229,7 +2265,9 @@ export default function ProductsPage() {
                                                     </div>
                                                 )}
                                                 <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#65676B', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ThumbsUp size={14} /> Like</span>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MessageSquare size={14} /> Comment</span>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Share2 size={14} /> Share</span>
                                                 </div>
                                             </div>
                                         )}
@@ -2247,7 +2285,9 @@ export default function ProductsPage() {
                                                     </div>
                                                 )}
                                                 <div style={{ padding: '12px' }}>
-                                                    <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', fontSize: '1rem' }}>❤️ 💬 ↗️</div>
+                                                    <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', color: '#262626' }}>
+                                                        <Heart size={18} /> <MessageSquare size={18} /> <Share2 size={18} />
+                                                    </div>
                                                     <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
                                                         <span style={{ fontWeight: 700 }}>aiswaryasaree</span>{' '}
                                                         {(() => {

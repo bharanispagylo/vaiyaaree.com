@@ -325,7 +325,7 @@ export default function PaymentGatewayPage() {
                                             <tbody>
                                                 {filtered.map((p) => {
                                                     const statusMeta = STATUS_COLORS[p.status] || STATUS_COLORS.PENDING;
-                                                    const methodMeta = METHOD_ICONS[p.payment_method] || { color: '#888', label: p.payment_method || 'N/A', icon: '💳' };
+                                                    const methodMeta = METHOD_ICONS[p.payment_method] || { color: '#888', label: p.payment_method || 'N/A', icon: '' };
                                                     return (
                                                         <tr key={p.id} onClick={() => setSelectedPayment(p)} style={{ borderBottom: '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                                             <td style={{ padding: '1rem 1.25rem' }}><code style={{ background: 'hsl(var(--bg-app))', padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.8rem', color: 'hsl(var(--primary))' }}>#{String(p.id).slice(0, 8)}</code></td>

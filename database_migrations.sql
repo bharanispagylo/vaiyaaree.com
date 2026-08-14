@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS public.customer_addresses (
 -- 4. Product Tags (For Task 21)
 -- Adding a tags array column to the existing products table
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS product_no INTEGER;
+
 
 -- 5. Return / Exchange Requests (For Task 23)
 CREATE TABLE IF NOT EXISTS public.return_requests (

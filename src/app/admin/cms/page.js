@@ -20,10 +20,10 @@ const TABS = [
 ];
 
 const CONTENT_BLOCKS = [
-    { name: '✨ Hero Banner', content: '<section style="padding: 60px 20px; text-align: center; background: hsl(var(--primary) / 0.05); border-radius: 20px; margin: 20px 0;">\n  <h1 style="font-size: 3rem; color: hsl(var(--primary)); margin-bottom: 20px;">Welcome to Our Story</h1>\n  <p style="font-size: 1.2rem; color: hsl(var(--text-muted)); max-width: 600px; margin: 0 auto;">Discover the finest handwoven sarees crafted with love and tradition.</p>\n</section>' },
-    { name: '🖼️ Image with Text', content: '<div style="display: flex; gap: 30px; align-items: center; margin: 40px 0; flex-wrap: wrap;">\n  <div style="flex: 1; min-width: 300px;">\n    <img src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800" style="width: 100%; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);" />\n  </div>\n  <div style="flex: 1; min-width: 300px;">\n    <h2 style="font-size: 2rem; color: hsl(var(--text-main));">Our Heritage</h2>\n    <p style="font-size: 1.1rem; color: hsl(var(--text-muted)); line-height: 1.8;">Each weave tells a story of centuries-old craftsmanship passed down through generations...</p>\n  </div>\n</div>' },
-    { name: '📋 FAQ Section', content: '<div style="margin: 40px 0;">\n  <h2 style="text-align: center; margin-bottom: 30px; color: hsl(var(--text-main));">Common Questions</h2>\n  <details style="padding: 15px; border: 1px solid hsl(var(--border-subtle)); border-radius: 10px; margin-bottom: 10px;">\n    <summary style="font-weight: 700; cursor: pointer; color: hsl(var(--text-main));">How long does shipping take?</summary>\n    <p style="margin-top: 10px; color: hsl(var(--text-muted));">We usually ship within 2-3 business days.</p>\n  </details>\n</div>' },
-    { name: '🛍️ Special Feature', content: '<div style="background: hsl(var(--text-main)); color: white; padding: 40px; border-radius: 20px; text-align: center;">\n  <h3 style="color: white;">Exclusive Collection</h3>\n  <p style="color: rgba(255,255,255,0.8);">Available for a limited time only. Don\'t miss out!</p>\n  <button style="background: hsl(var(--primary)); color: white; border: none; padding: 12px 25px; border-radius: 30px; font-weight: 700; margin-top: 20px; cursor: pointer;">Shop Now</button>\n</div>' }
+    { name: 'Hero Banner', content: '<section style="padding: 60px 20px; text-align: center; background: hsl(var(--primary) / 0.05); border-radius: 20px; margin: 20px 0;">\n  <h1 style="font-size: 3rem; color: hsl(var(--primary)); margin-bottom: 20px;">Welcome to Our Story</h1>\n  <p style="font-size: 1.2rem; color: hsl(var(--text-muted)); max-width: 600px; margin: 0 auto;">Discover the finest handwoven sarees crafted with love and tradition.</p>\n</section>' },
+    { name: 'Image with Text', content: '<div style="display: flex; gap: 30px; align-items: center; margin: 40px 0; flex-wrap: wrap;">\n  <div style="flex: 1; min-width: 300px;">\n    <img src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800" style="width: 100%; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);" />\n  </div>\n  <div style="flex: 1; min-width: 300px;">\n    <h2 style="font-size: 2rem; color: hsl(var(--text-main));">Our Heritage</h2>\n    <p style="font-size: 1.1rem; color: hsl(var(--text-muted)); line-height: 1.8;">Each weave tells a story of centuries-old craftsmanship passed down through generations...</p>\n  </div>\n</div>' },
+    { name: 'FAQ Section', content: '<div style="margin: 40px 0;">\n  <h2 style="text-align: center; margin-bottom: 30px; color: hsl(var(--text-main));">Common Questions</h2>\n  <details style="padding: 15px; border: 1px solid hsl(var(--border-subtle)); border-radius: 10px; margin-bottom: 10px;">\n    <summary style="font-weight: 700; cursor: pointer; color: hsl(var(--text-main));">How long does shipping take?</summary>\n    <p style="margin-top: 10px; color: hsl(var(--text-muted));">We usually ship within 2-3 business days.</p>\n  </details>\n</div>' },
+    { name: 'Special Feature', content: '<div style="background: hsl(var(--text-main)); color: white; padding: 40px; border-radius: 20px; text-align: center;">\n  <h3 style="color: white;">Exclusive Collection</h3>\n  <p style="color: rgba(255,255,255,0.8);">Available for a limited time only. Don\'t miss out!</p>\n  <button style="background: hsl(var(--primary)); color: white; border: none; padding: 12px 25px; border-radius: 30px; font-weight: 700; margin-top: 20px; cursor: pointer;">Shop Now</button>\n</div>' }
 ];
 
 export default function CMSPage() {
@@ -115,7 +115,7 @@ export default function CMSPage() {
             } else {
                 const { error } = await supabase.from('cms_pages').insert([pageData]);
                 if (error) throw error;
-                showNotification('New page created! ✨');
+                showNotification('New page created successfully!');
             }
             setIsEditing(false);
             setCurrentPage(null);
@@ -134,7 +134,7 @@ export default function CMSPage() {
     const handleDelete = async (id) => {
         setConfirmAction({
             title: 'Delete Page?',
-            message: '🚨 Are you sure you want to delete this page? This will permanently remove all its content and SEO data.',
+            message: 'Are you sure you want to delete this page? This will permanently remove all its content and SEO data.',
             onConfirm: async () => {
                 setConfirmAction(null);
                 try {
@@ -265,8 +265,8 @@ export default function CMSPage() {
                                 <p style={{ fontSize: '1.1rem', fontWeight: 500 }}>Hydrating content engine...</p>
                             </div>
                         ) : filteredPages.length === 0 ? (
-                            <div style={{ padding: '6rem 3rem', textAlign: 'center' }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
+                            <div style={{ padding: '6rem 3rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <FileText size={48} style={{ color: 'hsl(var(--text-muted))', marginBottom: '1rem' }} />
                                 <h3 style={{ fontSize: '1.5rem' }}>No pages found</h3>
                                 <p style={{ color: 'hsl(var(--text-muted))' }}>{searchTerm ? 'Try adjusting your search filters' : 'Start building your store content by adding your first page!'}</p>
                             </div>

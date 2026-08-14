@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Clock, Package, Send, Loader2, Search, Trash2, Edit,
     CheckCircle2, AlertCircle, Calendar, Play, Pause,
-    Facebook, Instagram, Eye, ChevronDown, ArrowLeft
+    Facebook, Instagram, Eye, ChevronDown, ArrowLeft, ThumbsUp, MessageSquare, Share2, Heart
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import ModalPortal from '@/components/ModalPortal';
@@ -450,7 +450,9 @@ export default function SchedulePostPage() {
                                                 <img src={selectedProduct.image_url} alt="" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
                                             )}
                                             <div style={{ padding: '8px 12px', fontSize: '0.8rem', fontWeight: 700, color: '#65676B', borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ThumbsUp size={14} /> Like</span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MessageSquare size={14} /> Comment</span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Share2 size={14} /> Share</span>
                                             </div>
                                         </div>
                                     </div>
@@ -476,7 +478,9 @@ export default function SchedulePostPage() {
                                                 <div style={{ width: '300px', height: '300px', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.85rem' }}>No image</div>
                                             )}
                                             <div style={{ padding: '10px 12px' }}>
-                                                <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', fontSize: '1.1rem' }}>❤️ 💬 ↗️</div>
+                                                <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', color: '#262626' }}>
+                                                    <Heart size={18} /> <MessageSquare size={18} /> <Share2 size={18} />
+                                                </div>
                                                 <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
                                                     <span style={{ fontWeight: 700 }}>aiswaryasaree</span>{' '}
                                                     <span style={{ whiteSpace: 'pre-wrap' }}>{caption}</span>

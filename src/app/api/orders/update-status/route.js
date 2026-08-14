@@ -241,9 +241,24 @@ export async function POST(request) {
         const finalOrder = updatedOrder || order;
         finalOrder.order_items = items;
         
+        // Helper to normalize phone numbers so deduplication in Set works properly
+        const cleanPhoneForDedupe = (p) => {
+            if (!p) return '';
+            let cleaned = String(p).replace(/\D/g, '');
+            if (cleaned.length === 10 && /^[6789]/.test(cleaned)) {
+                cleaned = '91' + cleaned;
+            }
+            return cleaned;
+        };
+
+        const cleanEmailForDedupe = (e) => {
+            if (!e || typeof e !== 'string') return '';
+            return e.trim().toLowerCase();
+        };
+        
         // Find Phones
-        const billPhone = finalOrder.billing_phone || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.phone || finalOrder.billing_address?.mobile : null) || finalOrder.customer_phone;
-        const shipPhone = finalOrder.shipping_phone || (typeof finalOrder.shipping_address === 'object' ? finalOrder.shipping_address?.phone || finalOrder.shipping_address?.mobile : null);
+        const billPhone = cleanPhoneForDedupe(finalOrder.billing_phone || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.phone || finalOrder.billing_address?.mobile : null) || finalOrder.customer_phone);
+        const shipPhone = cleanPhoneForDedupe(finalOrder.shipping_phone || (typeof finalOrder.shipping_address === 'object' ? finalOrder.shipping_address?.phone || finalOrder.shipping_address?.mobile : null));
         
         const targetPhones = new Set();
         if (billPhone) targetPhones.add(billPhone);
@@ -252,8 +267,8 @@ export async function POST(request) {
         }
 
         // Find Emails
-        const billEmail = finalOrder.billing_email || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.email : null) || finalOrder.customer_email;
-        const shipEmail = finalOrder.shipping_email || (typeof finalOrder.shipping_address === 'object' ? finalOrder.shipping_address?.email : null);
+        const billEmail = cleanEmailForDedupe(finalOrder.billing_email || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.email : null) || finalOrder.customer_email);
+        const shipEmail = cleanEmailForDedupe(finalOrder.shipping_email || (typeof finalOrder.shipping_address === 'object' ? finalOrder.shipping_address?.email : null));
         
         const targetEmails = new Set();
         if (billEmail && billEmail.includes('@')) targetEmails.add(billEmail);

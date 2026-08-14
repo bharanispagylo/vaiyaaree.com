@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ShoppingCart, CheckCircle, X, ZoomIn } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
+import { findProductBySlugOrId, getProductSlug } from '@/lib/productUrl';
 import styles from './product.module.css';
 
 export default function ProductDetailsPage() {
@@ -21,8 +22,45 @@ export default function ProductDetailsPage() {
     const [currentImageIdx, setCurrentImageIdx] = useState(0);
 
     useEffect(() => {
-        if (!productsLoading && products.length > 0) {
-            const found = products.find(p => String(p.id) === String(id));
+        async function loadProductDetails() {
+            if (!id) return;
+            setLoading(true);
+
+            // 1. Try finding in loaded products list
+            let found = findProductBySlugOrId(id, products);
+
+            // 2. If not found in memory products list, query Supabase DB directly
+            if (!found && supabase) {
+                const rawParam = decodeURIComponent(String(id)).trim().replace(/\/$/, '');
+
+                // A. Direct ID / UUID query
+                let { data: directData } = await supabase.from('products').select('*').eq('id', rawParam).maybeSingle();
+                if (directData) found = directData;
+
+                // B. Trailing identifier match (Product No / SKU / ID)
+                if (!found) {
+                    const lastHyphen = rawParam.lastIndexOf('-');
+                    if (lastHyphen !== -1) {
+                        const identifier = rawParam.substring(lastHyphen + 1);
+                        if (/^\d+$/.test(identifier)) {
+                            const { data: byNo } = await supabase.from('products').select('*').or(`sku.eq.${identifier}`).maybeSingle();
+                            if (byNo) found = byNo;
+                        } else {
+                            const { data: byId } = await supabase.from('products').select('*').eq('id', identifier).maybeSingle();
+                            if (byId) found = byId;
+                        }
+                    }
+                }
+
+                // C. Full list fallback match by slug
+                if (!found) {
+                    const { data: allP } = await supabase.from('products').select('*');
+                    if (allP) {
+                        found = findProductBySlugOrId(id, allP);
+                    }
+                }
+            }
+
             if (found) {
                 setProduct(found);
                 if (found.type === 'variant') {
@@ -30,11 +68,13 @@ export default function ProductDetailsPage() {
                 } else {
                     setLoading(false);
                 }
-            } else {
+            } else if (!productsLoading) {
                 setLoading(false);
             }
         }
-    }, [id, products, productsLoading]);
+
+        loadProductDetails();
+    }, [id, products, productsLoading, supabase]);
 
     useEffect(() => {
         if (product && products.length > 0) {

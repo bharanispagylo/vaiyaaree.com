@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
 
-import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Edit2, Check, X, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, Filter, Users, ShoppingCart, Plus } from 'lucide-react';
+import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Edit2, Check, X, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, Filter, Users, ShoppingCart, Plus, IndianRupee } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area } from 'recharts';
 
 
@@ -1006,9 +1006,9 @@ function CustomersPage() {
                                     <div className="admin-grid-3">
 
                                         {[
-                                            { label: 'Total Customers', value: stats.totalCustomers, icon: '👥', color: 'hsl(var(--primary))' },
-                                            { label: 'Average Spend', value: `₹${stats.averageSpend.toLocaleString()}`, icon: '💰', color: 'hsl(var(--success))' },
-                                            { label: 'Repeat Customers', value: stats.repeatCustomers, icon: '🔄', color: 'hsl(var(--warning))' },
+                                            { label: 'Total Customers', value: stats.totalCustomers, icon: Users, color: 'hsl(var(--primary))' },
+                                            { label: 'Average Spend', value: `₹${stats.averageSpend.toLocaleString()}`, icon: IndianRupee, color: 'hsl(var(--success))' },
+                                            { label: 'Repeat Customers', value: stats.repeatCustomers, icon: RefreshCw, color: 'hsl(var(--warning))' },
                                         ].map((stat, i) => (
 
                                             <div key={i} className="card" style={{
@@ -1027,13 +1027,13 @@ function CustomersPage() {
 
                                                 <div style={{
 
-                                                    fontSize: '1.5rem', width: '48px', height: '48px', borderRadius: '50%',
+                                                    width: '48px', height: '48px', borderRadius: '50%',
 
                                                     background: `hsl(from ${stat.color} h s l / 0.1)`, color: stat.color,
 
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center'
 
-                                                }}>{stat.icon}</div>
+                                                }}><stat.icon size={22} color={stat.color} /></div>
 
                                             </div>
 

@@ -10,7 +10,7 @@ import {
     Search, Eye, ChevronDown, rotateCcw, ChevronLeft, ChevronRight,
     Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package,
     Mail, XCircle, AlertCircle, CheckCircle, Send, Save, X, Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee, Info,
-    User, Phone, MapPin, Globe
+    User, Phone, MapPin, Globe, ShieldAlert, FileText
 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import OrderLabelPrint from '@/components/OrderLabelPrint';
@@ -2162,38 +2162,38 @@ export default function OrdersPage() {
 
                                             {/* Transaction ID & Payment Info */}
                                             {(selectedOrder.transaction_id || selectedOrder.payment_gateway) && (
-                                                <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>💳 Payment Info</h4>
-                                                    {selectedOrder.transaction_id && (
-                                                        <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-                                                            <span style={{ color: 'hsl(var(--text-muted))' }}>Transaction ID:</span>
-                                                            <span style={{ fontFamily: 'var(--font-roboto)', marginLeft: '0.5rem' }}>{selectedOrder.transaction_id}</span>
-                                                        </div>
-                                                    )}
-                                                    {selectedOrder.payment_gateway && (
-                                                        <div style={{ fontSize: '0.85rem' }}>
-                                                            <span style={{ color: 'hsl(var(--text-muted))' }}>Gateway:</span>
-                                                            <span style={{ marginLeft: '0.5rem', textTransform: 'uppercase' }}>{selectedOrder.payment_gateway}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
+                                                 <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                     <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><CreditCard size={14} /> Payment Info</h4>
+                                                     {selectedOrder.transaction_id && (
+                                                         <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                                                             <span style={{ color: 'hsl(var(--text-muted))' }}>Transaction ID:</span>
+                                                             <span style={{ fontFamily: 'var(--font-roboto)', marginLeft: '0.5rem' }}>{selectedOrder.transaction_id}</span>
+                                                         </div>
+                                                     )}
+                                                     {selectedOrder.payment_gateway && (
+                                                         <div style={{ fontSize: '0.85rem' }}>
+                                                             <span style={{ color: 'hsl(var(--text-muted))' }}>Gateway:</span>
+                                                             <span style={{ marginLeft: '0.5rem', textTransform: 'uppercase' }}>{selectedOrder.payment_gateway}</span>
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                             )}
 
-                                            {/* Admin Notes Display */}
-                                            {selectedOrder.admin_notes && (
-                                                <div className="card-sub" style={{ padding: '1.25rem', background: '#fef2f2', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ef4444', marginBottom: '0.5rem' }}>👨‍💻 Admin Notes</h4>
-                                                    <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.admin_notes}</p>
-                                                </div>
-                                            )}
+                                             {/* Admin Notes Display */}
+                                             {selectedOrder.admin_notes && (
+                                                 <div className="card-sub" style={{ padding: '1.25rem', background: '#fef2f2', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                                     <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ef4444', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><ShieldAlert size={14} /> Admin Notes</h4>
+                                                     <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.admin_notes}</p>
+                                                 </div>
+                                             )}
 
-                                            {/* Customer Notes */}
-                                            {selectedOrder.customer_notes && (
-                                                <div className="card-sub" style={{ padding: '1.25rem', background: '#f0f9ff', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
-                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--primary))', marginBottom: '0.5rem' }}>📝 Customer Notes</h4>
-                                                    <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.customer_notes}</p>
-                                                </div>
-                                            )}
+                                             {/* Customer Notes */}
+                                             {selectedOrder.customer_notes && (
+                                                 <div className="card-sub" style={{ padding: '1.25rem', background: '#f0f9ff', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
+                                                     <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--primary))', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><FileText size={14} /> Customer Notes</h4>
+                                                     <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-main))', margin: 0 }}>{selectedOrder.customer_notes}</p>
+                                                 </div>
+                                             )}
 
 
 

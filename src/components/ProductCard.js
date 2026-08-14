@@ -4,6 +4,7 @@ import { ShoppingCart, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
 import { useCompare } from '@/context/CompareContext';
+import { getProductUrl } from '@/lib/productUrl';
 import styles from './ProductCard.module.css';
 
 export default function ProductCard({ product, gridView = true }) {
@@ -15,7 +16,7 @@ export default function ProductCard({ product, gridView = true }) {
         return (
             <div className={styles.productCardList}>
                 <div className={styles.productImageWrap}>
-                    <Link href={`/product/${product.id}`}>
+                    <Link href={getProductUrl(product)}>
                         <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${firstImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }} />
                         <img
                             src={firstImage}
@@ -32,7 +33,7 @@ export default function ProductCard({ product, gridView = true }) {
                 </div>
                 <div className={styles.productInfo}>
                     <div className={styles.productCategory}>{product.category}</div>
-                    <Link href={`/product/${product.id}`} className={styles.link}>
+                    <Link href={getProductUrl(product)} className={styles.link}>
                         <h3 className={styles.productName}>{product.name}</h3>
                     </Link>
                     <p className={styles.productDescription}>{product.description?.slice(0, 150)}...</p>
@@ -52,7 +53,7 @@ export default function ProductCard({ product, gridView = true }) {
     return (
         <div className={styles.productCard}>
             <div className={styles.productImageWrap}>
-                <Link href={`/product/${product.id}`}>
+                <Link href={getProductUrl(product)}>
                     <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${firstImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }} />
                     <img
                         src={firstImage}
@@ -82,7 +83,7 @@ export default function ProductCard({ product, gridView = true }) {
             </div>
             <div className={styles.productInfo}>
                 <div className={styles.productCategory}>{product.category}</div>
-                <Link href={`/product/${product.id}`} className={styles.link}>
+                <Link href={getProductUrl(product)} className={styles.link}>
                     <h3 className={styles.productName}>{product.name}</h3>
                 </Link>
                 <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
