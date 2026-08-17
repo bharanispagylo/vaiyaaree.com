@@ -23,6 +23,7 @@ const menuItems = [
         icon: Package, 
         children: [
             { name: 'Orders', href: '/admin/orders' },
+            { name: 'Order Analysis', href: '/admin/orders/analysis' },
             { name: 'Return Requests', href: '/admin/returns' },
             { name: 'Refund Requests', href: '/admin/refunds' }
         ]

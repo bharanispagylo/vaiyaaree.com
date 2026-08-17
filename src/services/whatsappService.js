@@ -199,7 +199,14 @@ export async function sendRawMessage(to, payload) {
             const errorCode = data.error?.code || 'No Code';
             console.error(`❌ [WA-ERROR][${response.status}] ${errorMsg} (Code: ${errorCode})`);
 
-            if (errorCode === 131030) {
+            if (errorCode === 190 || response.status === 401) {
+                console.error('💡 TIP [ERROR 190 / 401 Authentication Error]:');
+                console.error('   Your Meta WHATSAPP_ACCESS_TOKEN has expired or is invalid.');
+                console.error('   1. Go to Meta Developer Dashboard (developers.facebook.com) -> WhatsApp -> API Setup.');
+                console.error('   2. Click "Generate Token" and copy the new temporary access token.');
+                console.error('   3. Replace WHATSAPP_ACCESS_TOKEN in your .env file with the new token.');
+                console.error('   4. Restart your Next.js dev server.');
+            } else if (errorCode === 131030) {
                 console.error('💡 TIP: This usually means the 24-hour customer window is closed. The customer must message the bot first.');
             } else if (errorCode === 131005 || response.status === 403) {
                 console.error('💡 TIP [ERROR 131005 Access Denied]:');

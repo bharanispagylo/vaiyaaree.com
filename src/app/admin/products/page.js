@@ -573,6 +573,20 @@ export default function ProductsPage() {
         e.preventDefault();
         const formData = new FormData(e.target);
 
+        const sellingPriceInput = formData.get('price');
+        const sellingPriceVal = sellingPriceInput ? Number(sellingPriceInput) : 0;
+        const comparePriceInput = formData.get('compare_price') || formData.get('regular_price');
+        const comparePriceVal = comparePriceInput ? Number(comparePriceInput) : null;
+
+        // Parse user tags and manage mrp tag
+        let userTags = formData.get('tags_input') 
+            ? formData.get('tags_input').split(',').map(t => t.trim()).filter(t => Boolean(t) && !t.toLowerCase().startsWith('mrp:')) 
+            : [];
+        
+        if (comparePriceVal && comparePriceVal > sellingPriceVal) {
+            userTags.push(`mrp:${comparePriceVal}`);
+        }
+
         const productData = {
             name: formData.get('name'),
             category: formData.get('category'),
@@ -582,37 +596,37 @@ export default function ProductsPage() {
             tax_class: formData.get('tax_class') || 'GST_5',
             is_active: formData.get('is_active') === 'on',
             is_featured: formData.get('is_featured') === 'on',
-            tags: formData.get('tags_input') ? formData.get('tags_input').split(',').map(t => t.trim()).filter(Boolean) : [],
+            tags: userTags,
             gallery_image: Array.isArray(galleryImageUrl) ? galleryImageUrl : (galleryImageUrl ? galleryImageUrl.split(',').filter(Boolean) : [])
         };
 
-        // For simple products, we take price/stock/image from main fields
         if (productType === 'simple') {
-            productData.price = Number(formData.get('price'));
+            productData.price = sellingPriceVal;
             productData.stock = Number(formData.get('stock'));
             productData.alert_threshold = Number(formData.get('alert_threshold')) || 0;
+            productData.image_url = productImageUrl || '';
 
-            // Image URL comes from React state (set after upload/library pick)
-            const imageUrl = productImageUrl || '';
-            productData.image_url = imageUrl;
-
-            // Preserve existing catalog ID if editing, otherwise generate a new one
-            // Priority: currentProduct state (updated by upload/library pick) > existing product data
             const existingCatalogId = currentProduct?.product_catalog_image_id || '';
             productData.product_catalog_image_id = existingCatalogId;
-
-            // Generate a random one ONLY if we have an image but NO id yet (edge case)
             if (productData.image_url && !productData.product_catalog_image_id) {
                 productData.product_catalog_image_id = `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
             }
         } else {
-            // For variants, we take price/stock/image from the first variant as "representative" for the list view
             if (variants.length > 0) {
                 productData.price = variants[0].price;
                 productData.stock = variants.reduce((acc, v) => acc + (v.stock || 0), 0);
                 productData.alert_threshold = Number(formData.get('alert_threshold')) || 0;
                 productData.image_url = variants[0].image_url;
             }
+        }
+
+        // Validate: If Regular Price (MRP) is entered, it must be higher than Compare Price (Selling Price)
+        if (productType === 'simple' && comparePriceVal && comparePriceVal < sellingPriceVal) {
+            setErrorModal({
+                title: 'Invalid Price Setup',
+                message: `Regular Price (Original MRP: ₹${comparePriceVal}) cannot be less than Compare Price (Selling Price: ₹${sellingPriceVal}). Regular Price (MRP) must be higher than Compare Price (Selling Price) (e.g. Regular Price MRP: ₹1,600, Compare Price Selling: ₹1,400).`
+            });
+            return;
         }
 
         // Validate: Product image is mandatory
@@ -635,12 +649,53 @@ export default function ProductsPage() {
             let savedProduct = null;
             const isNew = !currentProduct?.id;
 
-            if (!isNew) {
-                // UPDATE
-                const { data, error } = await supabase.from('products').update(productData).eq('id', currentProduct.id).select();
-                if (error) throw error;
-                savedProduct = data?.[0];
+            // Helper function to perform update/insert with automatic missing column fallback
+            const executeProductSave = async (dataToSave) => {
+                if (!isNew) {
+                    let res = await supabase.from('products').update(dataToSave).eq('id', currentProduct.id).select();
+                    if (res.error) {
+                        const safeData = { ...dataToSave };
+                        delete safeData.compare_price;
+                        delete safeData.original_price;
+                        res = await supabase.from('products').update(safeData).eq('id', currentProduct.id).select();
+                    }
+                    if (res.error) {
+                        throw new Error(res.error.message || res.error.details || 'Failed to update product in database.');
+                    }
+                    return res.data?.[0];
+                } else {
+                    let maxNo = 999;
+                    (allProductsData || []).forEach(p => {
+                        const num = p.product_no || (p.sku ? parseInt(p.sku) : null);
+                        if (num && !isNaN(num) && num > maxNo) maxNo = num;
+                    });
+                    const nextNo = maxNo + 1;
 
+                    const insertData = {
+                        ...dataToSave,
+                        total_added: dataToSave.stock || 0,
+                        product_no: nextNo,
+                        sku: String(nextNo)
+                    };
+
+                    let res = await supabase.from('products').insert([insertData]).select();
+                    if (res.error) {
+                        const safeInsert = { ...insertData };
+                        delete safeInsert.product_no;
+                        delete safeInsert.compare_price;
+                        delete safeInsert.original_price;
+                        res = await supabase.from('products').insert([safeInsert]).select();
+                    }
+                    if (res.error) {
+                        throw new Error(res.error.message || res.error.details || 'Failed to insert product into database.');
+                    }
+                    return res.data?.[0];
+                }
+            };
+
+            savedProduct = await executeProductSave(productData);
+
+            if (!isNew && savedProduct) {
                 // Check for stock change
                 const oldStock = currentProduct.stock || 0;
                 const newStock = productData.stock || 0;
@@ -657,48 +712,21 @@ export default function ProductsPage() {
                         await supabase.rpc('increment_total_added', { prod_id: savedProduct.id, qty: diff });
                     }
                 }
-            } else {
-                // INSERT
-                let maxNo = 999;
-                (allProductsData || []).forEach(p => {
-                    const num = p.product_no || (p.sku ? parseInt(p.sku) : null);
-                    if (num && !isNaN(num) && num > maxNo) maxNo = num;
-                });
-                const nextNo = maxNo + 1;
-
-                // Initialize total_added with initial stock & assign next sequential Product No
-                const insertData = {
-                    ...productData,
-                    total_added: productData.stock || 0,
-                    product_no: nextNo,
-                    sku: String(nextNo)
-                };
-
-                let { data, error } = await supabase.from('products').insert([insertData]).select();
-                if (error) {
-                    delete insertData.product_no;
-                    const fallbackRes = await supabase.from('products').insert([insertData]).select();
-                    if (fallbackRes.error) throw fallbackRes.error;
-                    data = fallbackRes.data;
-                }
-                savedProduct = data?.[0];
-
-
+            } else if (savedProduct && savedProduct.stock > 0) {
                 // Initial stock entry in history
-                if (savedProduct && savedProduct.stock > 0) {
-                    await supabase.from('product_history').insert({
-                        product_id: savedProduct.id,
-                        change_type: 'ADD',
-                        quantity_change: savedProduct.stock,
-                        new_stock: savedProduct.stock,
-                        reason: 'Initial Stock Entry'
-                    });
-                }
+                await supabase.from('product_history').insert({
+                    product_id: savedProduct.id,
+                    change_type: 'ADD',
+                    quantity_change: savedProduct.stock,
+                    new_stock: savedProduct.stock,
+                    reason: 'Initial Stock Entry'
+                });
             }
 
             if (productType === 'variant' && savedProduct) {
-                // 1. Delete removed variants (not simple, but easy)
-                await supabase.from('product_variants').delete().eq('product_id', savedProduct.id);
+                // 1. Delete removed variants
+                const { error: delErr } = await supabase.from('product_variants').delete().eq('product_id', savedProduct.id);
+                if (delErr) console.warn('Variant delete note:', delErr);
 
                 // 2. Insert/Update variants
                 if (variants.length > 0) {
@@ -706,10 +734,24 @@ export default function ProductsPage() {
                         product_id: savedProduct.id,
                         name: v.name,
                         price: Math.max(0, parseFloat(v.price || '0')),
+                        compare_price: v.compare_price ? Math.max(0, parseFloat(v.compare_price)) : null,
                         stock: Math.max(0, parseInt(v.stock || '0')),
                         image_url: v.image_url
                     }));
-                    await supabase.from('product_variants').insert(variantsToInsert);
+                    let { error: insErr } = await supabase.from('product_variants').insert(variantsToInsert);
+                    if (insErr && (insErr.message.includes('compare_price') || insErr.message.includes('schema cache'))) {
+                        const safeVariants = variantsToInsert.map(v => {
+                            const copy = { ...v };
+                            delete copy.compare_price;
+                            return copy;
+                        });
+                        const fallbackRes = await supabase.from('product_variants').insert(safeVariants);
+                        insErr = fallbackRes.error;
+                    }
+                    if (insErr) {
+                        console.error('Variant insert error:', insErr);
+                        throw new Error(insErr.message || insErr.details || 'Failed to save product variants');
+                    }
                 }
             }
 
@@ -766,10 +808,12 @@ export default function ProductsPage() {
             setPostToFacebook(false);
             setPostToInstagram(false);
         } catch (error) {
-            console.error(error);
+            console.error('Save product exception:', error);
+            const errorMsg = error?.message || error?.details || error?.hint || (typeof error === 'object' && Object.keys(error).length > 0 ? JSON.stringify(error) : String(error));
+            const displayMsg = (errorMsg && errorMsg !== '{}' && errorMsg !== '[object Object]') ? errorMsg : 'An unexpected database operation error occurred.';
             setErrorModal({
                 title: 'Save Failed',
-                message: 'Failed to save product: ' + error.message
+                message: 'Failed to save product: ' + displayMsg
             });
         }
     };
@@ -791,7 +835,7 @@ export default function ProductsPage() {
     };
 
     const addVariant = () => {
-        setVariants([...variants, { name: '', price: currentProduct?.price || 0, stock: 10, image_url: (productImageUrl || '').split(',')[0] || '' }]);
+        setVariants([...variants, { name: '', price: currentProduct?.price || 0, compare_price: '', stock: 10, image_url: (productImageUrl || '').split(',')[0] || '' }]);
     };
 
     const updateVariant = (index, field, value) => {
@@ -1503,14 +1547,43 @@ export default function ProductsPage() {
                                             <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</div>
                                             Product Details (Single Item)
                                         </h3>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Price (₹) *</label>
-                                                <input type="number" name="price" defaultValue={currentProduct?.price} required min="0" placeholder="e.g. 12500" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Regular Price (Original MRP ₹)</label>
+                                                <input 
+                                                    type="number" 
+                                                    name="compare_price" 
+                                                    defaultValue={(() => {
+                                                        const tagList = Array.isArray(currentProduct?.tags) 
+                                                            ? currentProduct?.tags 
+                                                            : (typeof currentProduct?.tags === 'string' ? currentProduct?.tags.split(',') : []);
+                                                        const mrpTag = tagList.map(t => String(t).trim()).find(t => t.toLowerCase().startsWith('mrp:'));
+                                                        return mrpTag ? mrpTag.split(':')[1] : (currentProduct?.compare_price || currentProduct?.original_price || '');
+                                                    })()} 
+                                                    min="0" 
+                                                    placeholder="e.g. 1600 (Original MRP)" 
+                                                    className="admin-input" 
+                                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} 
+                                                />
+                                                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block', fontWeight: 600 }}>Optional Strikethrough Price (e.g. ~~₹1,600~~)</span>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Compare Price (Selling Price ₹) *</label>
+                                                <input 
+                                                    type="number" 
+                                                    name="price" 
+                                                    defaultValue={currentProduct?.price} 
+                                                    required 
+                                                    min="0" 
+                                                    placeholder="e.g. 1400 (Selling Price)" 
+                                                    className="admin-input" 
+                                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} 
+                                                />
+                                                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block', fontWeight: 600 }}>Actual Price Customer Pays (Mandatory)</span>
                                             </div>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Stock Qty *</label>
-                                                        <input type="number" name="stock" defaultValue={currentProduct?.stock} required min="0" placeholder="e.g. 10" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                <input type="number" name="stock" defaultValue={currentProduct?.stock} required min="0" placeholder="e.g. 20" className="admin-input" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                             </div>
                                         </div>
                                         <div style={{ marginTop: '1.25rem', display: 'flex', gap: '1.25rem' }}>
@@ -1592,12 +1665,12 @@ export default function ProductsPage() {
                                                                                 };
 
                                                                                 if (detData.hasWatermark) {
-                                                                                    setWatermarkModal({
-                                                                                        type: 'existing',
-                                                                                        detectedCode: detData.catalogId || 'CAT-CODE',
-                                                                                        url: base64,
-                                                                                        onProceed: () => onProceedWithUpload(detData.catalogId)
+                                                                                    setErrorModal({
+                                                                                        title: 'Watermarked Image Blocked',
+                                                                                        message: `This uploaded image already contains an existing product watermark (${detData.catalogId || 'CAT-CODE'}). Images with existing product watermarks cannot be selected or uploaded as product images.`
                                                                                     });
+                                                                                    resolve();
+                                                                                    return;
                                                                                 } else {
                                                                                     const newCatId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
                                                                                     setWatermarkModal({
@@ -1692,20 +1765,83 @@ export default function ProductsPage() {
                                     <div style={{ marginBottom: '1.5rem' }}>
                                         <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'hsl(var(--primary))', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</div>
-                                            Manage Variants (Multiple Colors/Options)
+                                            Manage Variants (Saree Blouse Sizes & Colors)
                                         </h3>
                                         <div style={{ padding: '1.25rem', background: '#f1f5f9', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Create different versions:</span>
+                                            {/* Quick Add Size Presets Toolbar */}
+                                            <div style={{ marginBottom: '1.25rem', background: '#ffffff', padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                                    <span>⚡ Quick Add Size Presets (Saree Blouse & Apparel):</span>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => {
+                                                            const defaultPrice = currentProduct?.price || 0;
+                                                            const blouseSizes = ['32', '34', '36', '38', '40', '42', 'Unstitched'];
+                                                            const newEntries = blouseSizes
+                                                                .filter(sz => !variants.some(v => String(v.name || '').trim().toLowerCase() === sz.toLowerCase()))
+                                                                .map(sz => ({ name: sz, price: defaultPrice, stock: 10, image_url: (productImageUrl || '').split(',')[0] || '' }));
+                                                            setVariants([...variants, ...newEntries]);
+                                                        }}
+                                                        style={{ background: '#5d0821', color: '#ffffff', border: 'none', padding: '0.35rem 0.75rem', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}
+                                                    >
+                                                        + Add All Saree Blouse Sizes (32 - 42, Unstitched)
+                                                    </button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                                                    {['32', '34', '36', '38', '40', '42', '44', 'Unstitched', 'Free Size', 'S', 'M', 'L', 'XL', 'XXL'].map(sz => {
+                                                        const exists = variants.some(v => String(v.name || '').trim().toLowerCase() === sz.toLowerCase());
+                                                        return (
+                                                            <button
+                                                                key={sz}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (!exists) {
+                                                                        setVariants([...variants, { name: sz, price: currentProduct?.price || 0, stock: 10, image_url: (productImageUrl || '').split(',')[0] || '' }]);
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    background: exists ? '#e2e8f0' : '#f8fafc',
+                                                                    color: exists ? '#64748b' : '#0f172a',
+                                                                    border: '1px solid #cbd5e1',
+                                                                    padding: '0.3rem 0.65rem',
+                                                                    borderRadius: '20px',
+                                                                    fontSize: '0.75rem',
+                                                                    fontWeight: 700,
+                                                                    cursor: exists ? 'default' : 'pointer'
+                                                                }}
+                                                                disabled={exists}
+                                                            >
+                                                                + {sz}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Variant List:</span>
                                                 <button type="button" onClick={addVariant} className="btn btn-secondary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem' }}>
-                                                    <Plus size={14} /> Add Variant
+                                                    <Plus size={14} /> Add Custom Variant
                                                 </button>
                                             </div>
+
+                                            {/* Column Header Titles */}
+                                            {variants.length > 0 && (
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.1fr 1.1fr 0.9fr 2fr auto', gap: '0.6rem', marginBottom: '0.4rem', padding: '0 4px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    <div>Size / Option Name</div>
+                                                    <div>Regular Price (MRP ₹)</div>
+                                                    <div>Compare Price (Selling Price ₹) *</div>
+                                                    <div>Stock Qty *</div>
+                                                    <div>Variant Image</div>
+                                                    <div>Action</div>
+                                                </div>
+                                            )}
+
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                                 {variants.map((v, i) => (
-                                                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'center' }}>
-                                                        <input placeholder="Color" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                        <input type="number" placeholder="Price" value={v.price} min="0" onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.1fr 1.1fr 0.9fr 2fr auto', gap: '0.6rem', alignItems: 'center' }}>
+                                                        <input placeholder="Size (e.g. 38, Unstitched)" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} className="admin-input" style={{ padding: '0.5rem' }} />
+                                                        <input type="number" placeholder="MRP (Optional)" value={v.compare_price || ''} min="0" onChange={e => updateVariant(i, 'compare_price', e.target.value ? Number(e.target.value) : '')} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                        <input type="number" placeholder="Selling Price" value={v.price} min="0" required onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <input type="number" placeholder="Stock" value={v.stock} min="0" onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                             {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setZoomedImage(v.image_url)} title="Click to zoom" />}
@@ -1761,12 +1897,11 @@ export default function ProductsPage() {
                                                                                 };
 
                                                                                 if (detData.hasWatermark) {
-                                                                                    setWatermarkModal({
-                                                                                        type: 'existing',
-                                                                                        detectedCode: detData.catalogId || 'CAT-CODE',
-                                                                                        url: base64,
-                                                                                        onProceed: () => onProceedWithVariantUpload(detData.catalogId)
+                                                                                    setErrorModal({
+                                                                                        title: 'Watermarked Image Blocked',
+                                                                                        message: `This uploaded image already contains an existing product watermark (${detData.catalogId || 'CAT-CODE'}). Images with existing product watermarks cannot be assigned to variants.`
                                                                                     });
+                                                                                    return;
                                                                                 } else {
                                                                                     const newCatId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
                                                                                     setWatermarkModal({
@@ -1800,22 +1935,21 @@ export default function ProductsPage() {
 
                                 <div style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Tax Class (GST)</label>
-                                        <select name="tax_class" defaultValue={currentProduct?.tax_class || 'GST_5'} className="admin-input-select">
-                                            <option value="GST_0">GST 0% (Exempt)</option>
-                                            <option value="GST_5">GST 5% (Default)</option>
-                                            <option value="GST_12">GST 12%</option>
-                                            <option value="GST_18">GST 18%</option>
-                                            <option value="GST_28">GST 28%</option>
-                                        </select>
-                                    </div>
-                                    <div>
                                         <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Group</label>
                                         <input name="product_group" defaultValue={currentProduct?.product_group || ''} className="admin-input" placeholder="e.g. Bestsellers" />
                                     </div>
-                                    <div style={{ gridColumn: '1 / -1' }}>
+                                    <div>
                                         <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Product Tags (Keywords)</label>
-                                        <input name="tags_input" defaultValue={(currentProduct?.tags || []).join(', ')} className="admin-input" placeholder="e.g. silk, pure, heavy work (comma separated)" />
+                                        <input 
+                                            name="tags_input" 
+                                            defaultValue={(Array.isArray(currentProduct?.tags) ? currentProduct?.tags : (typeof currentProduct?.tags === 'string' ? currentProduct?.tags.split(',') : []))
+                                                .map(t => String(t).trim())
+                                                .filter(t => Boolean(t) && !t.toLowerCase().startsWith('mrp:'))
+                                                .join(', ')
+                                            } 
+                                            className="admin-input" 
+                                            placeholder="e.g. silk, pure, heavy work (comma separated)" 
+                                        />
                                     </div>
                                 </div>
 
@@ -1831,79 +1965,6 @@ export default function ProductsPage() {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
                                         <input id="is_active_toggle" name="is_active" type="checkbox" defaultChecked={currentProduct ? currentProduct.is_active !== false : true} />
                                         <label htmlFor="is_active_toggle" style={{ fontSize: '0.9rem', fontWeight: 700 }}>Product Status (Active)</label>
-                                    </div>
-                                </div>
-
-                                {/* Facebook & Instagram Integration */}
-                                <div style={{ marginTop: '1.5rem', padding: '1.25rem', background: '#f1f5f9', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.2)' }}>
-                                    <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Social Media Integration</div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                        {/* Facebook */}
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'white', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                                                    <Facebook size={16} />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Facebook</div>
-                                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Post to page</div>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <button type="button" onClick={() => {
-                                                    const name = document.querySelector('input[name="name"]')?.value;
-                                                    const price = document.querySelector('input[name="price"]')?.value;
-                                                    const desc = document.querySelector('textarea[name="description"]')?.value;
-                                                    setPreviewModal({
-                                                        product: { name, price, image_url: (productImageUrl || '').split(',')[0] },
-                                                        caption: generateCaption({ name, price, description: desc, id: currentProduct?.id || 'new' }),
-                                                        platform: 'facebook'
-                                                    });
-                                                }} className="btn btn-secondary" style={{ padding: '0.3rem 0.5rem' }} title="Preview Facebook Post">
-                                                    <Eye size={14} />
-                                                </button>
-                                                <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
-                                                    <input type="checkbox" checked={postToFacebook} onChange={e => setPostToFacebook(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: postToFacebook ? '#1877F2' : '#ccc', borderRadius: '20px' }}>
-                                                        <span style={{ position: 'absolute', height: '14px', width: '14px', left: postToFacebook ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%' }}></span>
-                                                    </span>
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        {/* Instagram */}
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'white', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                                                    <Instagram size={16} />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>Instagram</div>
-                                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))' }}>Post to feed</div>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <button type="button" onClick={() => {
-                                                    const name = document.querySelector('input[name="name"]')?.value;
-                                                    const price = document.querySelector('input[name="price"]')?.value;
-                                                    const desc = document.querySelector('textarea[name="description"]')?.value;
-                                                    setPreviewModal({
-                                                        product: { name, price, image_url: (productImageUrl || '').split(',')[0] },
-                                                        caption: generateCaption({ name, price, description: desc, id: currentProduct?.id || 'new' }),
-                                                        platform: 'instagram'
-                                                    });
-                                                }} className="btn btn-secondary" style={{ padding: '0.3rem 0.5rem' }} title="Preview Instagram Post">
-                                                    <Eye size={14} />
-                                                </button>
-                                                <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px', cursor: 'pointer' }}>
-                                                    <input type="checkbox" checked={postToInstagram} onChange={e => setPostToInstagram(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                                                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: postToInstagram ? '#E1306C' : '#ccc', borderRadius: '20px' }}>
-                                                        <span style={{ position: 'absolute', height: '14px', width: '14px', left: postToInstagram ? '23px' : '3px', bottom: '3px', backgroundColor: 'white', borderRadius: '50%' }}></span>
-                                                    </span>
-                                                </label>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -2050,7 +2111,38 @@ export default function ProductsPage() {
                                 try {
                                     if (activeImageField?.type === 'gallery') {
                                         const urls = Array.isArray(value) ? value : [value];
-                                        setGalleryImageUrl(prev => Array.from(new Set([...urls, ...prev])));
+                                        setLoadingOverlayText('Checking Gallery Images...');
+                                        setOcrLoading(true);
+                                        setShowMediaPicker(false);
+
+                                        let validUrls = [];
+                                        let blockedCount = 0;
+
+                                        for (const url of urls) {
+                                            const detRes = await fetch('/api/admin/watermark-detect', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ imageUrl: url })
+                                            });
+                                            const detData = await detRes.json();
+                                            if (detData.hasWatermark) {
+                                                blockedCount++;
+                                            } else {
+                                                validUrls.push(url);
+                                            }
+                                        }
+
+                                        if (blockedCount > 0) {
+                                            setErrorModal({
+                                                title: 'Watermarked Images Blocked',
+                                                message: `${blockedCount} image(s) already contained existing product watermarks and were blocked. Images with existing product watermarks cannot be added to gallery images.`
+                                            });
+                                        }
+
+                                        if (validUrls.length > 0) {
+                                            setGalleryImageUrl(prev => Array.from(new Set([...validUrls, ...prev])));
+                                        }
+                                        setOcrLoading(false);
                                         return;
                                     }
 
@@ -2082,13 +2174,13 @@ export default function ProductsPage() {
                                     };
 
                                     if (detData.hasWatermark) {
-                                        // Case A: Image ALREADY has a watermark
-                                        setWatermarkModal({
-                                            type: 'existing',
-                                            detectedCode: detData.catalogId || 'CAT-CODE',
-                                            url: url,
-                                            onProceed: () => onConfirmSelection(url, detData.catalogId)
+                                        // Case A: Image ALREADY has a watermark -> BLOCK SELECTION!
+                                        setErrorModal({
+                                            title: 'Watermarked Image Blocked',
+                                            message: `This image already contains an existing product watermark (${detData.catalogId || 'CAT-CODE'}). Images with existing product watermarks cannot be selected for product features, gallery images, or variants.`
                                         });
+                                        setOcrLoading(false);
+                                        return;
                                     } else {
                                         // Case B: Clean Image - needs to be watermarked
                                         const newCatId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -2099,15 +2191,11 @@ export default function ProductsPage() {
                                             url: url,
                                             onProceed: async () => {
                                                 try {
-                                                    setLoadingOverlayText("Processing..."); setOcrLoading(true);
+                                                    setLoadingOverlayText("Watermarking Image..."); setOcrLoading(true);
                                                     setWatermarkModal(null);
 
-                                                    const response = await fetch(url);
-                                                    const blob = await response.blob();
-                                                    const file = new File([blob], `wm-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
                                                     const formData = new FormData();
-                                                    formData.append('file', file);
+                                                    formData.append('imageUrl', url);
                                                     formData.append('catalogId', newCatId);
                                                     formData.append('requireClean', 'true');
                                                     formData.append('skipDetection', 'true');

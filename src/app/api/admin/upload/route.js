@@ -113,6 +113,7 @@ export async function POST(request) {
         
         const formData = await request.formData();
         const file = formData.get('file');
+        const imageUrlParam = formData.get('imageUrl');
         const catalogId = formData.get('catalogId');
         const checkOnly = formData.get('checkOnly') === 'true';
         const skipDetection = formData.get('skipDetection') === 'true';
@@ -120,13 +121,27 @@ export async function POST(request) {
         const requireClean = formData.get('requireClean') === 'true';
         const saveClean = formData.get('saveClean') !== 'false';
 
-        if (!file) {
-            return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-        }
+        let buffer;
+        let fileExt = 'jpg';
+        let fileNameHint = 'image.jpg';
 
-        const arrayBuffer = await file.arrayBuffer();
-        let buffer = Buffer.from(arrayBuffer);
-        const fileExt = file.name.split('.').pop() || 'jpg';
+        if (file && typeof file.arrayBuffer === 'function') {
+            const arrayBuffer = await file.arrayBuffer();
+            buffer = Buffer.from(arrayBuffer);
+            fileExt = file.name ? (file.name.split('.').pop() || 'jpg') : 'jpg';
+            fileNameHint = file.name || 'image.jpg';
+        } else if (imageUrlParam) {
+            console.log(`[UPLOAD] Fetching image from URL server-side: ${imageUrlParam}`);
+            const imgRes = await fetch(imageUrlParam);
+            if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imgRes.statusText}`);
+            const arrayBuffer = await imgRes.arrayBuffer();
+            buffer = Buffer.from(arrayBuffer);
+            const cleanUrl = imageUrlParam.split('?')[0];
+            fileExt = cleanUrl.split('.').pop() || 'jpg';
+            fileNameHint = cleanUrl.split('/').pop() || 'image.jpg';
+        } else {
+            return NextResponse.json({ error: 'No file or imageUrl provided' }, { status: 400 });
+        }
 
         // 1. Watermark Detection / Skip logic
         let hasWatermark = false;
@@ -136,8 +151,8 @@ export async function POST(request) {
             hasWatermark = alreadyWatermarked;
             console.log(`[UPLOAD] Skipping detection, hasWatermark: ${hasWatermark}`);
         } else {
-            console.log(`[UPLOAD] Running detection for ${file.name}...`);
-            const detection = await detectWatermark(buffer, file.name);
+            console.log(`[UPLOAD] Running detection for ${fileNameHint}...`);
+            const detection = await detectWatermark(buffer, fileNameHint);
             hasWatermark = detection.hasWatermark;
             detectedCatalogId = detection.catalogId;
         }

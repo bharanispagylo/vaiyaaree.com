@@ -10,6 +10,7 @@ const PAGE_TITLES = {
     '/admin': 'Dashboard',
     '/admin/products': 'Products',
     '/admin/orders': 'Orders',
+    '/admin/orders/analysis': 'Order Analysis',
     '/admin/customers': 'Customers',
     '/admin/invoices': 'Invoices',
     '/admin/broadcast': 'Broadcast',

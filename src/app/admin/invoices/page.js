@@ -47,7 +47,13 @@ export default function InvoicesPage() {
         shop_gstin: '',
         bill_terms: '',
         bill_footer: 'Thank you for shopping with us!',
-        business_phone: '15551678232'
+        business_phone: '15551678232',
+        company_vat_tin: '33132028969',
+        company_cst_no: '1091562',
+        company_pan_no: 'AAIFG6568K',
+        bank_name: 'INDIAN OVERSEAS BANK',
+        bank_account: '170902000000962',
+        bank_ifsc: 'IOBA0001709'
     });
 
     useEffect(() => {
@@ -116,7 +122,24 @@ export default function InvoicesPage() {
                     .range(from, to);
 
                 if (error) throw error;
-                setInvoices(data || []);
+
+                const enrichedData = await Promise.all((data || []).map(async (inv) => {
+                    if (inv.invoice_no) return inv;
+
+                    const { count: c } = await supabase
+                        .from('orders')
+                        .select('id', { count: 'exact', head: true })
+                        .neq('status', 'DRAFT')
+                        .lte('created_at', inv.created_at);
+
+                    const seqNum = c || 1;
+                    return {
+                        ...inv,
+                        invoice_no: `INV-${String(seqNum).padStart(4, '0')}`
+                    };
+                }));
+
+                setInvoices(enrichedData);
                 setTotalCount(count || 0);
             } catch (error) {
                 console.error('Error fetching invoices:', error);
@@ -279,31 +302,38 @@ export default function InvoicesPage() {
                              {invoices.length === 0 ? (
                                 <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
                             ) : (
-                                invoices.map(inv => (
-                                    <tr key={inv.id} onClick={() => openInvoice(inv)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                                        <td style={{ padding: '1rem 1.5rem' }}>
-                                            <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>INV-{inv.id}</span>
-                                        </td>
-                                        <td>
-                                            <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{inv.customer_name || 'WhatsApp Customer'}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{inv.customer_phone}</div>
-                                        </td>
-                                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{(inv.total_amount || 0).toLocaleString()}</td>
-                                        <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{inv.payment_method || '—'}</td>
-                                        <td style={{ textAlign: 'center' }}>
-                                            <span className={`badge ${getStatusReference(inv.status)}`}>{inv.status}</span>
-                                        </td>
-                                        <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-                                            {new Date(inv.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        </td>
-                                        <td style={{ textAlign: 'right' }}>
-                                            <button onClick={(e) => { e.stopPropagation(); openInvoice(inv); }}
-                                                className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Invoice">
-                                                <Eye size={15} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                invoices.map((inv) => {
+                                    const seqNum = inv.invoice_no || 'INV-0001';
+
+                                    return (
+                                        <tr key={inv.id} onClick={() => openInvoice(inv)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+                                            <td style={{ padding: '1rem 1.5rem' }}>
+                                                <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</span>
+                                                <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginTop: '2px' }}>
+                                                    Order ID: #{inv.id}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{inv.customer_name || 'WhatsApp Customer'}</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{inv.customer_phone}</div>
+                                            </td>
+                                            <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{(inv.total_amount || 0).toLocaleString()}</td>
+                                            <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{inv.payment_method || '—'}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <span className={`badge ${getStatusReference(inv.status)}`}>{inv.status}</span>
+                                            </td>
+                                            <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
+                                                {new Date(inv.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </td>
+                                            <td style={{ textAlign: 'right' }}>
+                                                <button onClick={(e) => { e.stopPropagation(); openInvoice(inv); }}
+                                                    className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Invoice">
+                                                    <Eye size={15} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                                 </tbody>
                             </table>
@@ -371,11 +401,11 @@ export default function InvoicesPage() {
                                     {settings.shop_logo && (
                                         <div style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)' }}>
                                             <img src={typeof settings.shop_logo === 'string' && (settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/')) ? settings.shop_logo : `/images/${settings.shop_logo}`}
-                                                alt="Logo" style={{ maxHeight: '80px', maxWidth: '180px', objectFit: 'contain' }}
+                                                alt="Logo" style={{ maxHeight: '75px', maxWidth: '160px', objectFit: 'contain' }}
                                             />
                                         </div>
                                     )}
-                                    <div style={{ textAlign: 'center', width: '100%', maxWidth: '60%' }}>
+                                    <div style={{ textAlign: 'center', width: '100%', paddingLeft: settings.shop_logo ? '160px' : '0', paddingRight: settings.shop_logo ? '160px' : '0' }}>
                                         <h1 style={{ margin: 0, fontSize: '2.2rem', fontWeight: 'bold', letterSpacing: '1px' }}>{settings.shop_name}</h1>
                                         {settings.shop_address && <div style={{ fontSize: '12px', marginTop: '4px', whiteSpace: 'pre-line' }}>{settings.shop_address}</div>}
                                         <div style={{ fontSize: '12px', marginTop: '2px' }}>
@@ -393,16 +423,17 @@ export default function InvoicesPage() {
                                     <tbody>
                                         {/* Info Row */}
                                         <tr>
-                                            <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', verticalAlign: 'top' }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '5px' }}>
-                                                    <div><strong>Invoice No</strong></div><div>: {selectedInvoice.id}</div>
-                                                    <div><strong>Invoice Date</strong></div><div>: {new Date(selectedInvoice.created_at).toLocaleDateString('en-IN')}</div>
+                                            <td style={{ padding: '6px 8px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', verticalAlign: 'top' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '4px' }}>
+                                                    <div><strong>Invoice No:</strong></div><div>{selectedInvoice.invoice_no || 'INV-0001'}</div>
+                                                    <div><strong>Order ID:</strong></div><div>{selectedInvoice.id}</div>
+                                                    <div><strong>Invoice Date:</strong></div><div>{new Date(selectedInvoice.created_at).toLocaleDateString('en-IN')}</div>
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', verticalAlign: 'top' }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '5px' }}>
-                                                    <div><strong>Payment Method</strong></div><div>: {selectedInvoice.payment_method || 'N/A'}</div>
-                                                    <div><strong>Order Status</strong></div><div>: {selectedInvoice.status}</div>
+                                            <td style={{ padding: '6px 8px', width: '50%', borderBottom: '1px solid black', verticalAlign: 'top' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px' }}>
+                                                    <div><strong>Payment Method:</strong></div><div>{selectedInvoice.payment_method || 'COD'}</div>
+                                                    <div><strong>Order Status:</strong></div><div>{selectedInvoice.status}</div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -463,7 +494,7 @@ export default function InvoicesPage() {
                                         ))}
 
                                         {/* Empty space filler */}
-                                        {Array.from({ length: Math.max(0, 8 - invoiceItems.length) }).map((_, i) => (
+                                        {Array.from({ length: Math.max(0, 1 - invoiceItems.length) }).map((_, i) => (
                                             <tr key={`empty-${i}`}>
                                                 <td style={{ borderRight: '1px solid black', padding: '5px', color: 'transparent' }}>.</td>
                                                 <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
@@ -543,6 +574,38 @@ export default function InvoicesPage() {
                                     </tbody>
                                 </table>
 
+                                {/* Company & Bank Details Section */}
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', borderBottom: '1px solid black' }}>
+                                    <thead>
+                                        <tr style={{ background: '#f0f0f0', borderBottom: '1px solid black' }}>
+                                            <th style={{ borderRight: '1px solid black', padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
+                                                Company Details
+                                            </th>
+                                            <th style={{ padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
+                                                Bank Details
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td style={{ borderRight: '1px solid black', padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '70px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
+                                                    <div><strong>VAT TIN</strong></div><div>:</div><div>{settings.company_vat_tin || '33132028969'}</div>
+                                                    <div><strong>CST NO</strong></div><div>:</div><div>{settings.company_cst_no || '1091562'}</div>
+                                                    <div><strong>PAN NO</strong></div><div>:</div><div>{settings.company_pan_no || 'AAIFG6568K'}</div>
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '130px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
+                                                    <div><strong>Bank Name</strong></div><div>:</div><div>{settings.bank_name || 'INDIAN OVERSEAS BANK'}</div>
+                                                    <div><strong>Bank A/C</strong></div><div>:</div><div>{settings.bank_account || '170902000000962'}</div>
+                                                    <div><strong>Branch & IFSC Code</strong></div><div>:</div><div>{settings.bank_ifsc || 'IOBA0001709'}</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
                                 {/* Footer sections */}
                                 <div style={{ display: 'flex' }}>
                                     <div style={{ width: '50%', borderRight: '1px solid black', padding: '5px' }}>
@@ -604,7 +667,7 @@ export default function InvoicesPage() {
 
                     @page {
                         size: A4;
-                        margin: 10mm;
+                        margin: 5mm;
                     }
                 }
             `}</style>

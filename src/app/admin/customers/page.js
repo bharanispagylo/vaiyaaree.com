@@ -180,62 +180,76 @@ function CustomersPage() {
 
             const customerList = Object.values(customerMap);
 
-            const tiers = { VIP: 0, Gold: 0, Silver: 0, Regular: 0 };
-            customerList.forEach(c => {
-                if (c.totalSpent >= 15000) tiers.VIP++;
-                else if (c.totalSpent >= 7000) tiers.Gold++;
-                else if (c.totalSpent >= 2000) tiers.Silver++;
-                else if (c.totalSpent > 0) tiers.Regular++;
-            });
-            const tierData = [
-                { name: 'VIP', value: tiers.VIP, color: '#f59e0b' },
-                { name: 'Gold', value: tiers.Gold, color: '#fbbf24' },
-                { name: 'Silver', value: tiers.Silver, color: '#94a3b8' },
-                { name: 'Regular', value: tiers.Regular, color: '#cbd5e1' }
-            ].filter(t => t.value > 0);
+            const now = new Date();
+            const filteredCustomers = customerList.filter(c => {
+                let joinedDate = c.lastOrder ? new Date(c.lastOrder) : new Date();
+                if (c.orders && c.orders.length > 0) {
+                    c.orders.forEach(o => {
+                        const oDate = new Date(o.created_at);
+                        if (oDate < joinedDate) joinedDate = oDate;
+                    });
+                }
+                c._firstDate = joinedDate;
 
-            const repeatCount = customerList.filter(c => c.totalOrders > 1).length;
-            const activeCount = customerList.filter(c => c.totalOrders > 0).length;
-            const repeatData = [
-                { name: 'Repeat', value: repeatCount, color: 'hsl(var(--primary))' },
-                { name: 'Single', value: activeCount - repeatCount, color: 'hsl(var(--accent))' }
-            ];
+                if (timeRange === 'DAILY') {
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(now.getDate() - 30);
+                    return joinedDate >= thirtyDaysAgo;
+                } else if (timeRange === 'MONTHLY') {
+                    const twelveMonthsAgo = new Date();
+                    twelveMonthsAgo.setMonth(now.getMonth() - 12);
+                    return joinedDate >= twelveMonthsAgo;
+                } else if (timeRange === 'QUARTERLY') {
+                    const twoYearsAgo = new Date();
+                    twoYearsAgo.setFullYear(now.getFullYear() - 2);
+                    return joinedDate >= twoYearsAgo;
+                }
+                return true; // ALL
+            });
 
             const growthMap = new Map();
-            customerList.forEach(c => {
-                try {
-                    let joinedDate = new Date(c.lastOrder); 
-                    if (c.orders && c.orders.length > 0) {
-                        c.orders.forEach(o => {
-                            const oDate = new Date(o.created_at);
-                            if (oDate < joinedDate) joinedDate = oDate;
-                        });
-                    }
+            const sortKeys = new Map();
 
-                    const month = joinedDate.toLocaleString('en-US', { month: 'short' });
-                    const year = joinedDate.getFullYear().toString().slice(-2);
-                    const label = `${month} ${year}`;
-                    growthMap.set(label, (growthMap.get(label) || 0) + 1);
-                } catch (e) {
-                    console.error(e);
+            filteredCustomers.forEach(c => {
+                const d = c._firstDate;
+                let label = '';
+                let sortVal = d.getTime();
+
+                if (timeRange === 'DAILY') {
+                    label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    sortVal = `${year}-${month}-${day}`;
+                } else if (timeRange === 'QUARTERLY') {
+                    const q = Math.floor(d.getMonth() / 3) + 1;
+                    const y = d.getFullYear().toString().slice(-2);
+                    label = `Q${q} '${y}`;
+                    sortVal = `${d.getFullYear()}-Q${q}`;
+                } else {
+                    // MONTHLY or ALL
+                    const month = d.toLocaleString('en-US', { month: 'short' });
+                    const y = d.getFullYear().toString().slice(-2);
+                    label = `${month} ${y}`;
+                    const mStr = String(d.getMonth() + 1).padStart(2, '0');
+                    sortVal = `${d.getFullYear()}-${mStr}`;
+                }
+
+                growthMap.set(label, (growthMap.get(label) || 0) + 1);
+                if (!sortKeys.has(label)) {
+                    sortKeys.set(label, sortVal);
                 }
             });
 
             const growthData = Array.from(growthMap.entries())
-                .map(([name, value]) => ({ name, value }))
-                .sort((a, b) => {
-                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    const [mA, yA] = a.name.split(' ');
-                    const [mB, yB] = b.name.split(' ');
-                    if (yA !== yB) return parseInt(yA) - parseInt(yB);
-                    return months.indexOf(mA) - months.indexOf(mB);
-                });
+                .map(([name, value]) => ({ name, value, sortKey: sortKeys.get(name) }))
+                .sort((a, b) => String(a.sortKey).localeCompare(String(b.sortKey)));
 
             if (growthData.length === 0) {
                 growthData.push({ name: 'No Data', value: 0 });
             }
 
-            setAnalyticsData({ tierData, repeatData, growthData });
+            setAnalyticsData({ growthData });
         } catch (err) {
             console.error('Analytics load error:', err);
         }
@@ -309,45 +323,36 @@ function CustomersPage() {
                 return clean.startsWith('91') ? clean : (clean.length === 10 ? `91${clean}` : clean);
             };
 
-            // 1. Fetch all customer phones and order phones to determine matching IDs
-            const { data: custPhones } = await supabase.from('customers').select('id, phone');
-            const { data: ords } = await supabase.from('orders').select('customer_phone').neq('status', 'DRAFT');
-
-            const orderedPhonesSet = new Set((ords || []).map(o => normalizePhone(o.customer_phone)).filter(Boolean));
-
-            const orderedCustIds = [];
-            const unorderedCustIds = [];
-
-            (custPhones || []).forEach(c => {
-                const norm = normalizePhone(c.phone);
-                if (norm && orderedPhonesSet.has(norm)) {
-                    orderedCustIds.push(c.id);
-                } else {
-                    unorderedCustIds.push(c.id);
-                }
-            });
-
-            // 2. Build the query
             let query = supabase
                 .from('customers')
                 .select('*', { count: 'exact' });
 
-            if (filterMode === 'ORDERED') {
-                if (orderedCustIds.length === 0) {
+            if (filterMode === 'ORDERED' || filterMode === 'UNORDERED') {
+                const { data: ords } = await supabase.from('orders').select('customer_phone').neq('status', 'DRAFT');
+                const orderedPhonesSet = new Set((ords || []).map(o => normalizePhone(o.customer_phone)).filter(Boolean));
+
+                const { data: custPhones } = await supabase.from('customers').select('id, phone');
+                const matchedIds = (custPhones || [])
+                    .filter(c => {
+                        const norm = normalizePhone(c.phone);
+                        const isOrdered = norm && orderedPhonesSet.has(norm);
+                        return filterMode === 'ORDERED' ? isOrdered : !isOrdered;
+                    })
+                    .map(c => c.id);
+
+                if (matchedIds.length === 0) {
                     setCustomers([]);
                     setTotalCount(0);
                     setLoading(false);
                     return;
                 }
-                query = query.in('id', orderedCustIds);
-            } else if (filterMode === 'UNORDERED') {
-                if (unorderedCustIds.length === 0) {
-                    setCustomers([]);
-                    setTotalCount(0);
-                    setLoading(false);
-                    return;
+
+                if (matchedIds.length <= 150) {
+                    query = query.in('id', matchedIds);
+                } else {
+                    const slicedIds = matchedIds.slice(from, to + 1);
+                    query = query.in('id', slicedIds);
                 }
-                query = query.in('id', unorderedCustIds);
             }
 
             if (searchTerm.trim()) {
@@ -365,7 +370,6 @@ function CustomersPage() {
 
             let pageOrders = [];
             if (pagePhones.length > 0) {
-                // To support both normalized and raw formats in the database query
                 const phonesToQuery = [];
                 pagePhones.forEach(p => {
                     phonesToQuery.push(p);
@@ -429,9 +433,9 @@ function CustomersPage() {
             const customerList = Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
 
             setCustomers(customerList);
-            setTotalCount(count || 0);
+            setTotalCount(count || customerList.length || 0);
 
-            // Trigger background fetches
+            // Trigger background fetches safely
             fetchOverallStats();
             if (viewMode === 'analytics') {
                 fetchAnalyticsData();
@@ -446,7 +450,7 @@ function CustomersPage() {
                 }
             }
         } catch (err) {
-            console.error('Customer Load Error:', err);
+            console.error('Customer Load Error:', err?.message || err?.details || (typeof err === 'object' && Object.keys(err).length > 0 ? JSON.stringify(err) : String(err)));
         } finally {
             setLoading(false);
         }
@@ -924,55 +928,7 @@ function CustomersPage() {
                                         ))}
                                     </div>
 
-                                    <div className="admin-grid-2" style={{ marginBottom: '1.5rem' }}>
-                                        {/* Tier Distribution */}
-                                        <div className="card shadow-premium" style={{ padding: '2rem' }}>
-                                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <Award size={20} color="#f59e0b" /> Loyalty Segmentation
-                                            </h3>
-                                            <div style={{ height: '300px' }}>
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <PieChart>
-                                                        <Pie
-                                                            data={analyticsData.tierData}
-                                                            innerRadius={70}
-                                                            outerRadius={100}
-                                                            paddingAngle={5}
-                                                            dataKey="value"
-                                                        >
-                                                            {analyticsData.tierData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                                                        </Pie>
-                                                        <Tooltip />
-                                                        <Legend />
-                                                    </PieChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </div>
 
-                                        {/* Repeat vs New */}
-                                        <div className="card shadow-premium" style={{ padding: '2rem' }}>
-                                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <TrendingUp size={20} color="hsl(var(--primary))" /> Repeat Purchase Rate
-                                            </h3>
-                                            <div style={{ height: '300px' }}>
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <PieChart>
-                                                        <Pie
-                                                            data={analyticsData.repeatData}
-                                                            innerRadius={70}
-                                                            outerRadius={100}
-                                                            paddingAngle={5}
-                                                            dataKey="value"
-                                                        >
-                                                            {analyticsData.repeatData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                                                        </Pie>
-                                                        <Tooltip />
-                                                        <Legend />
-                                                    </PieChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </div>
-                                    </div>
 
                                     {/* Growth Chart */}
                                     <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
@@ -981,14 +937,20 @@ function CustomersPage() {
                                         </h3>
                                         <div style={{ height: '300px' }}>
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart data={analyticsData.growthData}>
+                                                <BarChart data={analyticsData.growthData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
                                                     <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border-subtle))" />
-                                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
-                                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
+                                                    <XAxis 
+                                                        dataKey="name" 
+                                                        axisLine={false} 
+                                                        tickLine={false} 
+                                                        tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} 
+                                                        interval={timeRange === 'DAILY' ? 'preserveStartEnd' : 0}
+                                                    />
+                                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} allowDecimals={false} />
                                                     <Tooltip
                                                         contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}
                                                     />
-                                                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} barSize={50} />
+                                                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} barSize={timeRange === 'DAILY' ? 24 : 45} />
                                                 </BarChart>
                                             </ResponsiveContainer>
                                         </div>

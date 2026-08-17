@@ -27,9 +27,7 @@ export default function ProductCard({ product, gridView = true }) {
                         />
                     </Link>
 
-                    {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
-
-
+                    {product.stock <= 0 && <div className={styles.outOfStockOverlay}>Saree Not Available</div>}
                 </div>
                 <div className={styles.productInfo}>
                     <div className={styles.productCategory}>{product.category}</div>
@@ -40,10 +38,10 @@ export default function ProductCard({ product, gridView = true }) {
                     <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
                     <button
                         onClick={() => addToCart(product)}
-                        disabled={product.stock === 0}
-                        className={`${styles.addToCartBtn} ${product.stock === 0 ? styles.addToCartDisabled : ''}`}
+                        disabled={product.stock <= 0}
+                        className={`${styles.addToCartBtn} ${product.stock <= 0 ? styles.addToCartDisabled : ''}`}
                     >
-                        {product.stock === 0 ? 'Out of Stock' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
+                        {product.stock <= 0 ? 'Saree Not Available' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
                     </button>
                 </div>
             </div>
@@ -64,7 +62,7 @@ export default function ProductCard({ product, gridView = true }) {
                     />
                 </Link>
 
-                {product.stock === 0 && <div className={styles.outOfStockOverlay}>Sold Out</div>}
+                {product.stock <= 0 && <div className={styles.outOfStockOverlay}>Saree Not Available</div>}
                 {product.type === 'variant' && <div className={styles.variantBadge}>✨ Variants Available</div>}
 
 
@@ -86,7 +84,33 @@ export default function ProductCard({ product, gridView = true }) {
                 <Link href={getProductUrl(product)} className={styles.link}>
                     <h3 className={styles.productName}>{product.name}</h3>
                 </Link>
-                <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
+                {(() => {
+                    const tagList = Array.isArray(product.tags)
+                        ? product.tags
+                        : (typeof product.tags === 'string' ? product.tags.split(',') : []);
+
+                    const mrpTag = tagList.map(t => String(t).trim()).find(t => t.toLowerCase().startsWith('mrp:'));
+                    const mrpVal = mrpTag ? Number(mrpTag.split(':')[1]) : (product.compare_price || product.original_price || product.mrp);
+
+                    const hasDiscount = mrpVal && !isNaN(mrpVal) && mrpVal > (product.price || 0);
+                    const discountPercent = hasDiscount ? Math.round(((mrpVal - product.price) / mrpVal) * 100) : 0;
+
+                    return (
+                        <div className={styles.productPriceRow} style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                            <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
+                            {hasDiscount && (
+                                <>
+                                    <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.82rem', fontWeight: 600 }}>
+                                        ₹{Number(mrpVal).toLocaleString()}
+                                    </span>
+                                    <span style={{ color: '#e11d48', fontSize: '0.72rem', fontWeight: 800, background: '#fff1f2', border: '1px solid #fecdd3', padding: '1px 5px', borderRadius: '4px' }}>
+                                        {discountPercent}% OFF
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                    );
+                })()}
             </div>
         </div>
     );

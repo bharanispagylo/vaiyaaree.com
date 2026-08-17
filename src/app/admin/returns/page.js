@@ -8,7 +8,7 @@ import {
     ArrowLeft, RefreshCcw, Clock, CheckCircle, XCircle, AlertCircle, 
     Package, User, Phone, Calendar, Search, Filter,
     ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink, 
-    RotateCcw, DollarSign, ShoppingCart, TrendingUp, ChevronLeft, ChevronRight
+    RotateCcw, IndianRupee, ShoppingCart, TrendingUp, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 export default function AdminReturnsPage() {

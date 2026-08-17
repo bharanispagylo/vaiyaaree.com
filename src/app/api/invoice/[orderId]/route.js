@@ -25,6 +25,17 @@ export async function GET(request, { params }) {
             return new Response('Order not found', { status: 404 });
         }
 
+        if (!order.invoice_no && order.created_at) {
+            const { count: c } = await supabase
+                .from('orders')
+                .select('id', { count: 'exact', head: true })
+                .neq('status', 'DRAFT')
+                .lte('created_at', order.created_at);
+
+            const seqNum = c || 1;
+            order.invoice_no = `INV-${String(seqNum).padStart(4, '0')}`;
+        }
+
         // --- SECURITY: Phone Verification ---
         const url = new URL(request.url);
         const inputPhone = url.searchParams.get('phone');

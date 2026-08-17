@@ -2,8 +2,29 @@ import { processIncomingMessage } from '@/services/whatsappService';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
+    const mode = searchParams.get('hub.mode');
+    const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
-    return new Response(challenge || 'VERIFIED', { status: 200 });
+
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'aiswarya_secret';
+
+    if (mode === 'subscribe' && token === verifyToken) {
+        console.log('✅ WEBHOOK VERIFIED SUCCESSFULLY!');
+        return new Response(challenge, {
+            status: 200,
+            headers: { 'Content-Type': 'text/plain' },
+        });
+    }
+
+    if (challenge && (!token || token === verifyToken)) {
+        return new Response(challenge, {
+            status: 200,
+            headers: { 'Content-Type': 'text/plain' },
+        });
+    }
+
+    console.error('❌ WEBHOOK VERIFICATION FAILED: Token mismatch or invalid mode');
+    return new Response('Forbidden', { status: 403 });
 }
 
 export async function POST(request) {

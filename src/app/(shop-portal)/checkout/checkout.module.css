@@ -147,52 +147,65 @@
 .summaryCard {
     background: var(--bg-card);
     border: 1px solid hsl(var(--border-subtle));
+    border-radius: 16px;
     padding: 0;
     position: sticky;
-    top: 100px;
+    top: 80px;
     z-index: 10;
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+    box-shadow: var(--shadow-sm);
 }
 
 @media (max-width: 1024px) {
     .summaryCard {
         position: static;
         margin-top: 2rem;
+        max-height: none;
     }
 }
 
 .summaryHeader {
-    padding: 1.5rem 2rem;
+    padding: 0.9rem 1.25rem;
     border-bottom: 1px solid hsl(var(--text-main) / 0.05);
+    background: #ffffff;
 }
 
 .summaryHeader h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 700;
     color: hsl(var(--text-main));
 }
 
 .summaryBody {
-    padding: 2rem;
+    padding: 1rem 1.25rem;
 }
 
 .tableHeader {
     display: flex;
     justify-content: space-between;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
     color: hsl(var(--text-dim));
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.itemList {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 0.5rem;
+    padding-right: 4px;
 }
 
 .summaryItem {
     display: flex;
     justify-content: space-between;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     color: hsl(var(--text-muted));
-    margin-bottom: 1.5rem;
-    line-height: 1.4;
+    margin-bottom: 0.6rem;
+    line-height: 1.35;
 }
 
 .summaryItem span:last-child {
@@ -204,15 +217,15 @@
 .summaryDivider {
     height: 1px;
     background: hsl(var(--text-main) / 0.05);
-    margin: 1.5rem 0;
+    margin: 0.75rem 0;
 }
 
 .summaryRow {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     color: hsl(var(--text-main));
-    font-size: 0.95rem;
+    font-size: 0.88rem;
 }
 
 .summaryRow span:first-child {
@@ -223,20 +236,20 @@
 .summaryTotalRow {
     display: flex;
     justify-content: space-between;
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid hsl(var(--text-main) / 0.05);
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid hsl(var(--text-main) / 0.08);
 }
 
 .summaryTotalRow span {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: hsl(var(--text-main));
 }
 
 .totalPrice {
     font-size: 1.1rem;
-    font-weight: 700;
+    font-weight: 800;
     color: hsl(var(--primary));
 }
 
@@ -252,20 +265,22 @@
 }
 
 .placeOrderBtn {
-    width: calc(100% - 4rem);
-    margin: 0 2rem 2rem;
+    width: calc(100% - 2.5rem);
+    margin: 0 1.25rem 1.25rem;
     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
     color: #fff;
     border: none;
-    padding: 1.1rem;
+    padding: 0.9rem;
     border-radius: 12px;
     font-weight: 800;
     font-size: 0.9rem;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
+    position: relative;
+    z-index: 20;
 }
 
 .placeOrderBtn:hover:not(:disabled) {
@@ -627,4 +642,41 @@
 
 .disabledInput:hover {
     border-color: hsl(var(--border-subtle)) !important;
+}
+
+.requiredStar {
+    color: #ef4444;
+    font-weight: 800;
+    margin-left: 3px;
+}
+
+.billingIncompleteNotice {
+    background: #f0f9ff;
+    border: 1.5px dashed #0284c7;
+    color: #0369a1;
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-top: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    line-height: 1.5;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08);
+}
+
+.unlockedSection {
+    animation: fadeInSlide 0.4s ease-out forwards;
+}
+
+@keyframes fadeInSlide {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

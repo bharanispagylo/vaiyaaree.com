@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import ModalPortal from '@/components/ModalPortal';
 import { 
     ArrowLeft, RefreshCcw, Clock, CheckCircle, XCircle, AlertCircle, 
-    DollarSign, Package, User, Phone, Calendar, Search, Filter,
+    IndianRupee, Package, User, Phone, Calendar, Search, Filter,
     ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -323,7 +323,7 @@ export default function RefundsPage() {
                     { label: 'Total Requests', value: statusCounts.total, icon: RefreshCcw, color: '#6b7280' },
                     { label: 'Pending', value: statusCounts.pending, icon: Clock, color: '#d97706' },
                     { label: 'Approved', value: statusCounts.approved, icon: CheckCircle, color: '#2563eb' },
-                    { label: 'Completed', value: statusCounts.completed, icon: DollarSign, color: '#059669' }
+                    { label: 'Completed', value: statusCounts.completed, icon: IndianRupee, color: '#059669' }
                 ].map((stat, i) => (
                     <div key={i} style={{
                         padding: '1.5rem', background: 'hsl(var(--bg-card))', borderRadius: '12px',
@@ -641,7 +641,7 @@ export default function RefundsPage() {
                                         className="btn btn-primary"
                                         style={{ background: '#059669' }}
                                     >
-                                        <DollarSign size={18} /> Mark Complete
+                                        <IndianRupee size={18} /> Mark Complete
                                     </button>
                                 )}
                             </div>
@@ -669,7 +669,7 @@ export default function RefundsPage() {
                             <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 {processAction === 'approve' && <><CheckCircle size={24} color="#2563eb" /> Approve Refund</>}
                                 {processAction === 'reject' && <><XCircle size={24} color="#dc2626" /> Reject Refund</>}
-                                {processAction === 'complete' && <><DollarSign size={24} color="#059669" /> Complete Refund</>}
+                                {processAction === 'complete' && <><IndianRupee size={24} color="#059669" /> Complete Refund</>}
                             </h3>
                             
                             <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>

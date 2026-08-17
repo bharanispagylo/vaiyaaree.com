@@ -10,11 +10,35 @@ import styles from './ShopHeader.module.css';
 
 export default function ShopHeader() {
     const pathname = usePathname();
-    const { user, cartCount, wishlist, handleLogout } = useShop();
+    const { user, cartCount, wishlist, handleLogout, openCart, setIsCartOpen } = useShop();
     const { compareItems } = useCompare();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isCartAlerting, setIsCartAlerting] = useState(false);
+    const prevCartCountRef = useRef(cartCount);
     const profileRef = useRef(null);
+
+    const handleOpenCart = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (typeof openCart === 'function') {
+            openCart();
+        } else if (typeof setIsCartOpen === 'function') {
+            setIsCartOpen(true);
+        }
+    };
+
+    // Trigger cart alert animation on item count increase
+    useEffect(() => {
+        if (cartCount > prevCartCountRef.current) {
+            setIsCartAlerting(true);
+            const timer = setTimeout(() => setIsCartAlerting(false), 1200);
+            return () => clearTimeout(timer);
+        }
+        prevCartCountRef.current = cartCount;
+    }, [cartCount]);
 
     // Auto-close dropdown when clicking outside
     useEffect(() => {
@@ -74,12 +98,23 @@ export default function ShopHeader() {
                         </form>
 
                         <div className={styles.headerActions}>
-                            <Link href="/cart" className={styles.cartIconBtn}>
+                            <button
+                                type="button"
+                                onClick={handleOpenCart}
+                                className={styles.cartIconBtn}
+                                title="View Cart"
+                                aria-label="Open Cart Drawer"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            >
                                 <div className={styles.cartIconWrapper}>
                                     <ShoppingCart size={22} strokeWidth={1.5} />
-                                    {cartCount > 0 && <span className={styles.cartCountBadge}>{cartCount}</span>}
+                                    {cartCount > 0 && (
+                                        <span className={`${styles.cartCountBadge} ${isCartAlerting ? styles.cartAlertPing : ''}`}>
+                                            {cartCount}
+                                        </span>
+                                    )}
                                 </div>
-                            </Link>
+                            </button>
 
                             <div className={styles.profileContainer} ref={profileRef}>
                                 {user ? (

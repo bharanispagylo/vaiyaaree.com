@@ -26,7 +26,12 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
         shop_name: "Vaiyaaree",
         shop_address: "Premium Handwoven Textiles",
         shop_gstin: "",
-        shop_pan: "", // Add if possible
+        company_vat_tin: "33132028969",
+        company_cst_no: "1091562",
+        company_pan_no: "AAIFG6568K",
+        bank_name: "INDIAN OVERSEAS BANK",
+        bank_account: "170902000000962",
+        bank_ifsc: "IOBA0001709",
         business_phone: ""
     };
 
@@ -34,7 +39,7 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
         const { data } = await supabase.from('app_settings').select('*');
         if (data) {
             data.forEach(item => {
-                if (branding.hasOwnProperty(item.key)) branding[item.key] = item.value;
+                branding[item.key] = item.value;
                 if (item.key === 'shop_logo') branding.shop_logo = item.value;
             });
         }
@@ -69,22 +74,26 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
     doc.line(10, 35, 200, 35);
 
     // Section 1: Business Information
-    let y = 45;
-    doc.setFontSize(14);
+    let y = 43;
+    doc.setFontSize(13);
     doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
     doc.text("1. BUSINESS INFORMATION", 10, y);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
 
-    y += 8;
+    y += 6;
     doc.text(`Shop Name: ${branding.shop_name}`, 15, y);
-    y += 6;
+    y += 5;
     doc.text(`Address: ${branding.shop_address}`, 15, y);
-    y += 6;
-    doc.text(`GST Registration: ${branding.shop_gstin || 'Not Provided'}`, 15, y);
-    y += 6;
-    doc.text(`Contact: ${branding.business_phone || 'N/A'}`, 15, y);
+    y += 5;
+    doc.text(`GSTIN: ${branding.shop_gstin || 'N/A'} | Contact: ${branding.business_phone || 'N/A'}`, 15, y);
+    y += 5;
+    doc.setFont("helvetica", "bold"); doc.text("Company Details:", 15, y);
+    doc.setFont("helvetica", "normal"); doc.text(`VAT TIN: ${branding.company_vat_tin || '33132028969'} | CST NO: ${branding.company_cst_no || '1091562'} | PAN NO: ${branding.company_pan_no || 'AAIFG6568K'}`, 48, y);
+    y += 5;
+    doc.setFont("helvetica", "bold"); doc.text("Bank Details:", 15, y);
+    doc.setFont("helvetica", "normal"); doc.text(`${branding.bank_name || 'INDIAN OVERSEAS BANK'} | A/C: ${branding.bank_account || '170902000000962'} | IFSC: ${branding.bank_ifsc || 'IOBA0001709'}`, 42, y);
 
     // Section 2: Sales Summary
     y += 15;
@@ -102,7 +111,7 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
     y += 8;
     doc.text(`Total Gross Revenue:`, 15, y);
     doc.setFont("helvetica", "bold");
-    doc.text(`Rs. ${metrics.totalRevenue.toLocaleString()}`, 100, y);
+    doc.text(`INR ${metrics.totalRevenue.toLocaleString()}`, 100, y);
     doc.setFont("helvetica", "normal");
 
     y += 8;
@@ -111,7 +120,7 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
 
     y += 8;
     doc.text(`Average Invoice Value:`, 15, y);
-    doc.text(`Rs. ${metrics.avgTicket.toFixed(2)}`, 100, y);
+    doc.text(`INR ${metrics.avgTicket.toFixed(2)}`, 100, y);
 
     // Tax Breakdown (Estimated)
     const totalCGST = orders.reduce((sum, o) => sum + (parseFloat(o.cgst) || 0), 0);
@@ -126,14 +135,14 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
     doc.setFont("helvetica", "normal");
 
     y += 8;
-    doc.text(`Total CGST: Rs. ${totalCGST.toLocaleString()}`, 15, y);
+    doc.text(`Total CGST: INR ${totalCGST.toLocaleString()}`, 15, y);
     y += 6;
-    doc.text(`Total SGST: Rs. ${totalSGST.toLocaleString()}`, 15, y);
+    doc.text(`Total SGST: INR ${totalSGST.toLocaleString()}`, 15, y);
     y += 6;
-    doc.text(`Total IGST: Rs. ${totalIGST.toLocaleString()}`, 15, y);
+    doc.text(`Total IGST: INR ${totalIGST.toLocaleString()}`, 15, y);
     y += 6;
     doc.setFont("helvetica", "bold");
-    doc.text(`Total Tax Collected: Rs. ${(totalCGST + totalSGST + totalIGST).toLocaleString()}`, 15, y);
+    doc.text(`Total Tax Collected: INR ${(totalCGST + totalSGST + totalIGST).toLocaleString()}`, 15, y);
     doc.setFont("helvetica", "normal");
 
     // Section 3: Inventory Status
@@ -150,7 +159,7 @@ export async function generateAuditPDF({ timeframe, orders, products, metrics })
     y += 8;
     doc.text(`Total Saree Inventory Count: ${totalItems} units`, 15, y);
     y += 6;
-    doc.text(`Estimated Inventory Value (at Selling Price): Rs. ${totalInventoryValue.toLocaleString()}`, 15, y);
+    doc.text(`Estimated Inventory Value (at Selling Price): INR ${totalInventoryValue.toLocaleString()}`, 15, y);
 
     // footer
     doc.setFont("helvetica", "italic");

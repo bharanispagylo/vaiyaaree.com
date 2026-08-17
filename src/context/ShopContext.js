@@ -3,7 +3,22 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
-const ShopContext = createContext();
+const defaultContextValue = {
+    products: [], cart: [], loading: false, user: null, setUser: () => { },
+    shippingZones: [], zoneMappings: [], businessState: 'Tamil Nadu',
+    checkoutForm: { 
+        billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
+        shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '',
+        sameAsBilling: true, paymentMethod: 'COD' 
+    },
+    setCheckoutForm: () => { }, addToCart: () => { }, removeFromCart: () => { }, updateQty: () => { },
+    handleLogout: () => { }, showToast: () => { }, toast: { show: false, message: '', type: 'success' },
+    cartTotal: 0, cartCount: 0, taxDetails: { cgst: 0, sgst: 0, igst: 0, shipping: 0, totalOrder: 0 },
+    supabase: null, placeOrder: () => { },
+    isCartOpen: false, setIsCartOpen: () => { }, openCart: () => { }, closeCart: () => { }, toggleCart: () => { }
+};
+
+const ShopContext = createContext(defaultContextValue);
 const SESSION_EXPIRY_DAYS = 7; // Auto-logout after 7 days
 
 
@@ -249,22 +264,34 @@ export function ShopProvider({ children }) {
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
     }
 
+    const [isCartOpen, setIsCartOpen] = useState(false);
+
+    const openCart = () => setIsCartOpen(true);
+    const closeCart = () => setIsCartOpen(false);
+    const toggleCart = () => setIsCartOpen(prev => !prev);
+
     function addToCart(product, variant = null, quantity = 1) {
-        const itemStock = variant ? variant.stock : product.stock;
+        const itemStock = variant ? (variant.stock ?? 0) : (product.stock ?? 0);
+        if (itemStock <= 0) {
+            showToast('Saree Not Available (Out of Stock)', 'error');
+            return;
+        }
         if (itemStock < quantity) {
-            showToast(`Only ${itemStock} items available in stock`, 'error');
+            showToast(`Saree Not Available in requested quantity. Only ${itemStock} in stock.`, 'error');
             return;
         }
 
+        let isBlocked = false;
         setCart(prev => {
             const existing = prev.find(i => (variant ? i.variantId === variant.id : i.id === product.id));
             if (existing) {
                 const totalRequested = existing.qty + quantity;
                 if (totalRequested > itemStock) {
-                    showToast(`Cannot add more. Only ${itemStock} in stock.`, 'error');
+                    showToast(`Saree Not Available for higher quantity. Maximum ${itemStock} in stock.`, 'error');
+                    isBlocked = true;
                     return prev;
                 }
-                return prev.map(i => (variant ? i.variantId === variant.id : i.id === product.id) ? { ...i, qty: totalRequested } : i);
+                return prev.map(i => (variant ? i.variantId === variant.id : i.id === product.id) ? { ...i, qty: totalRequested, stock: itemStock } : i);
             }
 
             const newEntry = {
@@ -272,23 +299,37 @@ export function ShopProvider({ children }) {
                 price: variant ? variant.price : product.price,
                 image_url: (variant && variant.image_url) ? variant.image_url : product.image_url,
                 qty: quantity,
+                stock: itemStock,
                 variantId: variant?.id,
                 variantName: variant?.name
             };
             return [...prev, newEntry];
         });
 
-        showToast(`✨ ${quantity}x ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
+        if (!isBlocked) {
+            setIsCartOpen(true);
+            showToast(`✨ ${quantity}x ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
+        }
     }
 
     function updateQty(index, delta) {
         setCart(prev => {
             const newCart = [...prev];
-            const item = { ...newCart[index] };
-            item.qty = Math.max(0, item.qty + delta);
+            const item = newCart[index];
+            if (!item) return prev;
 
-            if (item.qty > 0) {
-                newCart[index] = item;
+            const itemStock = item.stock !== undefined && item.stock !== null ? item.stock : 999;
+            const targetQty = item.qty + delta;
+
+            if (delta > 0 && targetQty > itemStock) {
+                showToast(`Saree Not Available for higher quantity. Maximum ${itemStock} in stock.`, 'error');
+                return prev;
+            }
+
+            const updatedItem = { ...item, qty: Math.max(0, targetQty) };
+
+            if (updatedItem.qty > 0) {
+                newCart[index] = updatedItem;
                 return newCart;
             } else {
                 return newCart.filter((_, i) => i !== index);
@@ -567,7 +608,8 @@ export function ShopProvider({ children }) {
         <ShopContext.Provider value={{
             products, cart, loading, user, setUser, shippingZones, zoneMappings, businessState,
             checkoutForm, setCheckoutForm, addToCart, removeFromCart, updateQty,
-            handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, supabase, placeOrder
+            handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, supabase, placeOrder,
+            isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart
         }}>
             {children}
         </ShopContext.Provider>
@@ -576,20 +618,8 @@ export function ShopProvider({ children }) {
 
 export const useShop = () => {
     const context = useContext(ShopContext);
-    if (context === undefined) {
-        return {
-            products: [], cart: [], loading: false, user: null, setUser: () => { },
-            shippingZones: [], zoneMappings: [], businessState: 'Tamil Nadu',
-            checkoutForm: { 
-                billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
-                shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '',
-                sameAsBilling: true, paymentMethod: 'COD' 
-            },
-            setCheckoutForm: () => { }, addToCart: () => { }, removeFromCart: () => { }, updateQty: () => { },
-            handleLogout: () => { }, showToast: () => { }, toast: { show: false, message: '', type: 'success' },
-            cartTotal: 0, cartCount: 0, taxDetails: { cgst: 0, sgst: 0, igst: 0, shipping: 0, totalOrder: 0 },
-            supabase: null, placeOrder: () => { }
-        };
+    if (!context || typeof context.openCart !== 'function') {
+        return defaultContextValue;
     }
     return context;
 };

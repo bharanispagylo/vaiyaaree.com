@@ -103,7 +103,13 @@ export async function generateInvoicePDF(order) {
         shop_address: "Premium Handwoven Textiles",
         shop_gstin: "",
         bill_footer: "Thank you for your business!",
-        business_phone: ""
+        business_phone: "",
+        company_vat_tin: "33132028969",
+        company_cst_no: "1091562",
+        company_pan_no: "AAIFG6568K",
+        bank_name: "INDIAN OVERSEAS BANK",
+        bank_account: "170902000000962",
+        bank_ifsc: "IOBA0001709"
     };
 
     try {
@@ -114,7 +120,7 @@ export async function generateInvoicePDF(order) {
                     branding.shop_name = item.value;
                 } else if (item.key === 'shop_logo') {
                     branding.shop_logo = item.value;
-                } else if (branding.hasOwnProperty(item.key)) {
+                } else {
                     branding[item.key] = item.value;
                 }
             });
@@ -140,26 +146,28 @@ export async function generateInvoicePDF(order) {
             if (logoBase64) {
                 const imgProps = doc.getImageProperties(logoBase64);
                 const aspect = imgProps.width / imgProps.height;
-                const targetHeight = 22;
-                const targetWidth = targetHeight * aspect;
-                doc.addImage(logoBase64, 'PNG', 15, currentY - 2, targetWidth, targetHeight, undefined, 'FAST');
+                const targetHeight = 20;
+                const targetWidth = Math.min(targetHeight * aspect, 40);
+                doc.addImage(logoBase64, 'PNG', 12, currentY - 1, targetWidth, targetHeight, undefined, 'FAST');
             }
         } catch (e) {
             console.error("Logo injection failed:", e);
         }
     }
 
+    const centerX = 105; // Exact center of A4 page content box (10mm margin + 190mm width / 2)
+
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text(branding.shop_name || "Vaiyaaree", 115, currentY + 5, { align: "center" });
+    doc.text(branding.shop_name || "Vaiyaaree", centerX, currentY + 5, { align: "center" });
 
     currentY += 11;
     
     if (branding.shop_address) {
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        const addrLines = doc.splitTextToSize(branding.shop_address.replace(/\n/g, ', '), 120);
-        doc.text(addrLines, 115, currentY, { align: "center" });
+        const addrLines = doc.splitTextToSize(branding.shop_address.replace(/\n/g, ', '), 140);
+        doc.text(addrLines, centerX, currentY, { align: "center" });
         currentY += (addrLines.length * 4) + 1;
     }
 
@@ -169,11 +177,11 @@ export async function generateInvoicePDF(order) {
     if (contactStr) {
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.text(contactStr, 115, currentY, { align: "center" });
+        doc.text(contactStr, centerX, currentY, { align: "center" });
         currentY += 5;
     }
 
-    currentY += 4;
+    currentY += 3;
     y = currentY;
 
     // TAX INVOICE Bar
@@ -186,31 +194,38 @@ export async function generateInvoicePDF(order) {
     y += 8;
 
     // Info Row
-    doc.rect(margin, y, 190, 15);
-    doc.line(105, y, 105, y + 15);
+    doc.rect(margin, y, 190, 18);
+    doc.line(105, y, 105, y + 18);
     
+    const displayInvoiceNo = order.invoice_no || `INV-0001`;
+
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text("Invoice No:", margin + 2, y + 6);
+    doc.text("Invoice No:", margin + 2, y + 5);
     doc.setFont("helvetica", "normal");
-    doc.text(order.id ? order.id.toString() : 'N/A', margin + 25, y + 6);
+    doc.text(displayInvoiceNo, margin + 25, y + 5);
     
     doc.setFont("helvetica", "bold");
-    doc.text("Invoice Date:", margin + 2, y + 11);
+    doc.text("Order ID:", margin + 2, y + 10);
     doc.setFont("helvetica", "normal");
-    doc.text(new Date(order.created_at || Date.now()).toLocaleDateString('en-IN'), margin + 25, y + 11);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("Payment Method:", 107, y + 6);
-    doc.setFont("helvetica", "normal");
-    doc.text(order.payment_method || 'N/A', 137, y + 6);
+    doc.text(order.id ? order.id.toString() : 'N/A', margin + 25, y + 10);
 
     doc.setFont("helvetica", "bold");
-    doc.text("Order Status:", 107, y + 11);
+    doc.text("Invoice Date:", margin + 2, y + 15);
     doc.setFont("helvetica", "normal");
-    doc.text(order.status || 'N/A', 137, y + 11);
+    doc.text(new Date(order.created_at || Date.now()).toLocaleDateString('en-IN'), margin + 25, y + 15);
     
-    y += 15;
+    doc.setFont("helvetica", "bold");
+    doc.text("Payment Method:", 107, y + 5);
+    doc.setFont("helvetica", "normal");
+    doc.text(order.payment_method || 'N/A', 137, y + 5);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Order Status:", 107, y + 10);
+    doc.setFont("helvetica", "normal");
+    doc.text(order.status || 'N/A', 137, y + 10);
+    
+    y += 18;
 
     // Billing & Shipping Headers
     doc.setFillColor(249, 249, 249);
@@ -320,8 +335,8 @@ export async function generateInvoicePDF(order) {
         });
     }
 
-    if (y < itemsStartY + 30) {
-        y = itemsStartY + 30; // minimum height
+    if (y < itemsStartY + 12) {
+        y = itemsStartY + 12; // minimum height
     }
 
     // Additional charges
@@ -376,6 +391,48 @@ export async function generateInvoicePDF(order) {
     doc.text(amountInWords(Math.round(order.total_amount || 0)), 65, y + 5);
     
     y += 8;
+
+    // Company Details & Bank Details Header Bar
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y, 190, 6, "FD");
+    doc.line(105, y, 105, y + 6);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Company Details", 57, y + 4.5, { align: "center" });
+    doc.text("Bank Details", 152, y + 4.5, { align: "center" });
+
+    y += 6;
+
+    // Company Details & Bank Details Content Box
+    const compBoxHeight = 16;
+    doc.rect(margin, y, 190, compBoxHeight);
+    doc.line(105, y, 105, y + compBoxHeight);
+
+    doc.setFontSize(8);
+    // Company Details (Left)
+    doc.setFont("helvetica", "bold"); doc.text("VAT TIN", margin + 2, y + 4.5);
+    doc.text(":", margin + 24, y + 4.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.company_vat_tin || "33132028969", margin + 27, y + 4.5);
+
+    doc.setFont("helvetica", "bold"); doc.text("CST NO", margin + 2, y + 9.5);
+    doc.text(":", margin + 24, y + 9.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.company_cst_no || "1091562", margin + 27, y + 9.5);
+
+    doc.setFont("helvetica", "bold"); doc.text("PAN NO", margin + 2, y + 14.5);
+    doc.text(":", margin + 24, y + 14.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.company_pan_no || "AAIFG6568K", margin + 27, y + 14.5);
+
+    // Bank Details (Right)
+    doc.setFont("helvetica", "bold"); doc.text("Bank Name", 107, y + 4.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.bank_name || "INDIAN OVERSEAS BANK", 142, y + 4.5);
+
+    doc.setFont("helvetica", "bold"); doc.text("Bank A/C", 107, y + 9.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.bank_account || "170902000000962", 142, y + 9.5);
+
+    doc.setFont("helvetica", "bold"); doc.text("Branch & IFSC Code", 107, y + 14.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.bank_ifsc || "IOBA0001709", 142, y + 14.5);
+
+    y += compBoxHeight;
 
     // Footer terms and signatures
     doc.rect(margin, y, 190, 25);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, ChevronLeft, Download, XCircle, AlertTriangle, CheckCircle, Globe } from 'lucide-react';
+import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, ChevronLeft, Download, XCircle, AlertTriangle, CheckCircle, Globe, ShoppingBag } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
 import styles from './orders.module.css';
@@ -26,36 +26,80 @@ export default function MyOrdersPage() {
     const [returnRequests, setReturnRequests] = useState([]);
 
     useEffect(() => {
-        if (user?.phone) {
+        if (!supabase) return;
+        if (user) {
             fetchUserOrders();
+        } else {
+            // Give session check 800ms to hydrate user from local storage
+            const timer = setTimeout(() => {
+                setLoading(false);
+            }, 800);
+            return () => clearTimeout(timer);
         }
-    }, [user]);
+    }, [user, supabase]);
 
     async function fetchUserOrders() {
+        if (!supabase || !user) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             const digits = (user.phone || '').replace(/\D/g, '');
-            const phoneVariations = [digits];
-            if (digits.length === 10) {
-                phoneVariations.push('91' + digits);
-            } else if (digits.length === 12 && digits.startsWith('91')) {
-                phoneVariations.push(digits.substring(2));
+            const phoneVariations = [];
+            if (digits) {
+                phoneVariations.push(digits);
+                if (digits.length === 10) {
+                    phoneVariations.push('91' + digits);
+                } else if (digits.length === 12 && digits.startsWith('91')) {
+                    phoneVariations.push(digits.substring(2));
+                }
             }
 
-            const { data } = await supabase
+            let query = supabase
                 .from('orders')
                 .select('*, order_items(*)')
-                .in('customer_phone', phoneVariations)
                 .order('created_at', { ascending: false });
 
-            if (data) {
-                setOrders(data);
-                const orderIds = data.map(o => o.id);
-                const { data: reqs } = await supabase
-                    .from('return_requests')
-                    .select('*')
-                    .in('order_id', orderIds);
-                setReturnRequests(reqs || []);
+            if (user.id && phoneVariations.length > 0) {
+                query = query.or(`customer_id.eq.${user.id},customer_phone.in.(${phoneVariations.join(',')})`);
+            } else if (user.id) {
+                query = query.eq('customer_id', user.id);
+            } else if (phoneVariations.length > 0) {
+                query = query.in('customer_phone', phoneVariations);
+            } else {
+                setLoading(false);
+                return;
+            }
+
+            const { data, error } = await query;
+            if (error) {
+                console.error('Fetch Orders Query Error:', error);
+            } else if (data) {
+                const enrichedData = await Promise.all((data || []).map(async (o) => {
+                    if (o.invoice_no) return o;
+                    const { count: c } = await supabase
+                        .from('orders')
+                        .select('id', { count: 'exact', head: true })
+                        .neq('status', 'DRAFT')
+                        .lte('created_at', o.created_at);
+
+                    const seqNum = c || 1;
+                    return {
+                        ...o,
+                        invoice_no: `INV-${String(seqNum).padStart(4, '0')}`
+                    };
+                }));
+
+                setOrders(enrichedData);
+                const orderIds = enrichedData.map(o => o.id).filter(Boolean);
+                if (orderIds.length > 0) {
+                    const { data: reqs } = await supabase
+                        .from('return_requests')
+                        .select('*')
+                        .in('order_id', orderIds);
+                    setReturnRequests(reqs || []);
+                }
             }
         } catch (err) {
             console.error('Fetch Orders Error:', err);
@@ -68,25 +112,54 @@ export default function MyOrdersPage() {
     const ORDERS_PER_PAGE = 8;
 
     useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }, [currentPage]);
 
-    const filteredOrders = orders.filter(o => 
-        o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.status.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredOrders = (orders || []).filter((o, idx) => {
+        const seqNum = orders.length - idx;
+        const invNo = `inv-${String(seqNum).padStart(4, '0')}`;
+        const idStr = String(o?.id || '').toLowerCase();
+        const statusStr = String(o?.status || '').toLowerCase();
+        const search = (searchTerm || '').toLowerCase();
+        return idStr.includes(search) || invNo.includes(search) || statusStr.includes(search);
+    });
 
     const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
     const paginatedOrders = filteredOrders.slice((currentPage - 1) * ORDERS_PER_PAGE, currentPage * ORDERS_PER_PAGE);
 
     const getStatusIcon = (status) => {
         switch(status) {
-            case 'DELIVERED': return <CheckCircle size={16} className={styles.statusIconDelivered} />;
-            case 'CANCELLED': return <XCircle size={16} className={styles.statusIconCancelled} />;
-            case 'SHIPPED': return <Package size={16} className={styles.statusIconShipped} />;
-            default: return <Clock size={16} className={styles.statusIconPending} />;
+            case 'DELIVERED': return <CheckCircle size={14} className={styles.statusIconDelivered} />;
+            case 'CANCELLED': return <XCircle size={14} className={styles.statusIconCancelled} />;
+            case 'SHIPPED': return <Package size={14} className={styles.statusIconShipped} />;
+            default: return <Clock size={14} className={styles.statusIconPending} />;
         }
     };
+
+    const getOrderSource = (order) => {
+        if (!order) return 'WEBSITE';
+        const src = String(order.source || '').toUpperCase();
+        if (src === 'WEBSITE' || src === 'WEB') return 'WEBSITE';
+        if (src === 'MANUAL' || src === 'POS' || src === 'STORE') return 'MANUAL';
+        if (src === 'WHATSAPP' || src === 'WA') return 'WHATSAPP';
+        const id = String(order.id || '').toUpperCase();
+        if (id.startsWith('WEB-')) return 'WEBSITE';
+        if (id.startsWith('MAN-')) return 'MANUAL';
+        return 'WHATSAPP';
+    };
+
+    if (loading) {
+        return (
+            <div className={styles.ordersContainer}>
+                <div className={styles.loadingState} style={{ padding: '6rem 2rem' }}>
+                    <Package className={styles.spin} size={36} />
+                    <p style={{ marginTop: '1rem', fontWeight: 600, color: 'hsl(var(--text-muted))' }}>Loading your orders...</p>
+                </div>
+            </div>
+        );
+    }
 
     if (!user) {
         return (
@@ -115,7 +188,7 @@ export default function MyOrdersPage() {
                         <Search size={18} />
                         <input 
                             type="text" 
-                            placeholder="Search by Order ID or status..." 
+                            placeholder="Search by Invoice No, Order ID or status..." 
                             value={searchTerm}
                             onChange={(e) => {
                                 setSearchTerm(e.target.value);
@@ -126,12 +199,7 @@ export default function MyOrdersPage() {
                 </div>
             </div>
 
-            {loading ? (
-                <div className={styles.loadingState}>
-                    <Package className={styles.spin} />
-                    <p>Loading your orders...</p>
-                </div>
-            ) : filteredOrders.length === 0 ? (
+            {filteredOrders.length === 0 ? (
                 <div className={styles.emptyOrders}>
                     <Package size={64} style={{ opacity: 0.1, marginBottom: '2rem' }} />
                     <h3>No orders found</h3>
@@ -144,66 +212,97 @@ export default function MyOrdersPage() {
                         <table className={styles.ordersTable}>
                             <thead>
                                 <tr>
-                                    <th>Order ID</th>
+                                    <th>Invoice No</th>
                                     <th>Date</th>
                                     <th>Items</th>
                                     <th>Total</th>
+                                    <th>Source</th>
                                     <th>Status</th>
+                                    <th style={{ textAlign: 'right' }}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedOrders.map(order => (
-                                    <tr 
-                                        key={order.id} 
-                                        className={`${order.status === 'CANCELLED' ? styles.cancelledRow : ''} ${styles.clickableRow}`}
-                                        onClick={() => router.push(`/track-order?id=${order.id}`)}
-                                    >
-                                        <td className={styles.orderIdCell}>
-                                            <span className={styles.orderId}>#{order.id}</span>
-                                            <div style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                gap: '4px', 
-                                                fontSize: '0.65rem', 
-                                                fontWeight: 700, 
-                                                marginTop: '4px',
-                                                textTransform: 'uppercase',
-                                                color: order.source === 'WEBSITE' ? '#6366f1' : '#22c55e'
-                                            }}>
-                                                {order.source === 'WEBSITE' ? <Globe size={10} /> : <MessageCircle size={10} />}
-                                                {order.source === 'WEBSITE' ? 'WEB ORDER' : 'WHATSAPP'}
-                                            </div>
-                                        </td>
-                                        <td className={styles.dateCell}>
-                                            {new Date(order.created_at).toLocaleDateString('en-IN', {
-                                                day: 'numeric',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            })}
-                                        </td>
-                                        <td className={styles.itemsCell}>
-                                            {order.order_items?.length || 0} item(s)
-                                            <div className={styles.itemPreview}>
-                                                {order.order_items?.slice(0, 2).map((item, i) => (
-                                                    <span key={i} className={styles.itemName}>
-                                                        {item.product_name}{item.variant_name && ` (${item.variant_name})`}
-                                                        {i < (order.order_items.length > 2 ? 1 : order.order_items.length - 1) && ', '}
-                                                    </span>
-                                                ))}
-                                                {order.order_items?.length > 2 && '...'}
-                                            </div>
-                                        </td>
-                                        <td className={styles.totalCell}>
-                                            ₹{order.total_amount?.toLocaleString()}
-                                        </td>
-                                        <td className={styles.statusCell}>
-                                            <span className={`${styles.statusBadge} ${styles[`status${order.status}`]}`}>
-                                                {getStatusIcon(order.status)}
-                                                {order.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {paginatedOrders.map(order => {
+                                    const invoiceNo = order.invoice_no ? `#${order.invoice_no}` : `#INV-${String(orders.length - orders.findIndex(o => o.id === order.id)).padStart(4, '0')}`;
+                                    const orderSource = getOrderSource(order);
+
+                                    return (
+                                        <tr 
+                                            key={order.id} 
+                                            className={`${order.status === 'CANCELLED' ? styles.cancelledRow : ''} ${styles.clickableRow}`}
+                                            onClick={() => router.push(`/track-order?id=${order.id}`)}
+                                        >
+                                            <td className={styles.orderIdCell}>
+                                                <span className={styles.orderId}>{invoiceNo}</span>
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '4px', 
+                                                    fontSize: '0.7rem', 
+                                                    fontWeight: 600, 
+                                                    marginTop: '4px',
+                                                    color: 'hsl(var(--text-muted))'
+                                                }}>
+                                                    <span>Order ID: #{order.id}</span>
+                                                </div>
+                                            </td>
+                                            <td className={styles.dateCell}>
+                                                {new Date(order.created_at).toLocaleDateString('en-IN', {
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                    year: 'numeric'
+                                                })}
+                                            </td>
+                                            <td className={styles.itemsCell}>
+                                                {order.order_items?.length || 0} item(s)
+                                                <div className={styles.itemPreview}>
+                                                    {order.order_items?.slice(0, 2).map((item, i) => (
+                                                        <span key={i} className={styles.itemName}>
+                                                            {item.product_name}{item.variant_name && ` (${item.variant_name})`}
+                                                            {i < (order.order_items.length > 2 ? 1 : order.order_items.length - 1) && ', '}
+                                                        </span>
+                                                    ))}
+                                                    {order.order_items?.length > 2 && '...'}
+                                                </div>
+                                            </td>
+                                            <td className={styles.totalCell}>
+                                                ₹{order.total_amount?.toLocaleString()}
+                                            </td>
+                                            <td className={styles.sourceCell}>
+                                                <span className={`${styles.sourceBadge} ${orderSource === 'WEBSITE' ? styles.sourceWeb : orderSource === 'MANUAL' ? styles.sourceManual : styles.sourceWhatsApp}`}>
+                                                    {orderSource === 'WEBSITE' ? <Globe size={13} /> : orderSource === 'MANUAL' ? <ShoppingBag size={13} /> : <MessageCircle size={13} />}
+                                                    {orderSource === 'WEBSITE' ? 'Web Store' : orderSource === 'MANUAL' ? 'Direct Store' : 'WhatsApp'}
+                                                </span>
+                                            </td>
+                                            <td className={styles.statusCell}>
+                                                <span className={`${styles.statusBadge} ${styles[`status${order.status}`]}`}>
+                                                    {getStatusIcon(order.status)}
+                                                    {order.status}
+                                                </span>
+                                            </td>
+                                            <td className={styles.actionCell} onClick={e => e.stopPropagation()}>
+                                                <div className={styles.actionButtons} style={{ justifyContent: 'flex-end' }}>
+                                                    <a 
+                                                        href={`/api/invoice/${order.id}?phone=${order.customer_phone || user?.phone || ''}`} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        title="Download PDF Invoice"
+                                                        className={styles.actionBtn}
+                                                    >
+                                                        <Download size={15} />
+                                                    </a>
+                                                    <Link 
+                                                        href={`/track-order?id=${order.id}`}
+                                                        title="View Details"
+                                                        className={styles.actionBtn}
+                                                    >
+                                                        <ChevronRight size={16} />
+                                                    </Link>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

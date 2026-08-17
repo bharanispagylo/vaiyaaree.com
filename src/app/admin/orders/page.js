@@ -3,6 +3,7 @@
 
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 import { supabase } from '@/lib/supabaseClient';
 
@@ -101,6 +102,7 @@ export default function OrdersPage() {
     const [isAddingOrder, setIsAddingOrder] = useState(false);
     const [showShippingForm, setShowShippingForm] = useState(false);
     const [savingCourier, setSavingCourier] = useState(false);
+    const [courierModalError, setCourierModalError] = useState('');
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [showResendEmailModal, setShowResendEmailModal] = useState(false);
@@ -511,6 +513,7 @@ export default function OrdersPage() {
         setSelectedOrder(order);
         setIsCourierFromTable(fromTable);
         setIsCourierSaved(false);
+        setCourierModalError('');
         setShippingForm({
             courier_name: order.courier_name || '',
             tracking_number: order.tracking_number || '',
@@ -1073,7 +1076,7 @@ export default function OrdersPage() {
                     <div className="no-print">
                         {/* ─── MAIN LIST VIEW ─── */}
                         {(!selectedOrder || isCourierFromTable) && !isAddingOrder && (
-                            <>
+                            <div className="orders-list-section">
                                 {/* Header */}
                                 <div className="admin-header-row">
                                     <div>
@@ -1127,154 +1130,23 @@ export default function OrdersPage() {
                                             </select>
                                         </div>
 
-                                        {viewMode === 'analytics' && (
-                                            <>
-                                                <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))' }} />
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                    <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Range:</label>
-                                                    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                        {['DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'].map(r => (
-                                                            <button key={r} onClick={() => setTimeRange(r)} style={{
-                                                                padding: '0.4rem 0.8rem', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800, transition: 'all 0.2s',
-                                                                background: timeRange === r ? 'hsl(var(--primary))' : 'transparent',
-                                                                color: timeRange === r ? 'white' : 'hsl(var(--text-muted))'
-                                                            }}>{r}</button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-
-                                    {/* View Switcher Toggle - Now on the right of filters */}
-                                    <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
-                                        <button
-                                            onClick={() => setViewMode('list')}
-                                            style={{
-                                                padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                                fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
-                                                background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
-                                                color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))',
-                                                display: 'flex', alignItems: 'center', gap: '8px'
-                                            }}><ShoppingCart size={16} /> List View</button>
-                                        <button
-                                            onClick={() => setViewMode('analytics')}
-                                            style={{
-                                                padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                                fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
-                                                background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
-                                                color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
-                                                display: 'flex', alignItems: 'center', gap: '8px'
-                                            }}><TrendingUp size={16} /> Analysis</button>
-                                    </div>
+                                     {/* Link to Dedicated Orders Analysis Page */}
+                                     <Link
+                                         href="/admin/orders/analysis"
+                                         className="btn btn-secondary"
+                                         style={{
+                                             padding: '0.6rem 1.25rem', borderRadius: '10px',
+                                             fontSize: '0.85rem', fontWeight: 700,
+                                             display: 'flex', alignItems: 'center', gap: '8px',
+                                             textDecoration: 'none'
+                                         }}
+                                     >
+                                         <TrendingUp size={16} color="hsl(var(--primary))" /> Order Analysis
+                                     </Link>
+                                 </div>
                                 </div>
 
-                                {viewMode === 'analytics' && (
-                                    <div className="animate-enter">
-                                        <div className="admin-grid-2" style={{ marginBottom: '1.5rem' }}>
-                                            {/* Revenue Title updated dynamically */}
-                                            <div className="card" style={{ padding: '1.5rem' }}>
-                                                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <IndianRupee size={18} color="hsl(var(--success))" /> {timeRange} Revenue Trend
-                                                </h3>
-                                                <div style={{ height: '300px' }}>
-                                                    <ResponsiveContainer width="100%" height="100%">
-                                                        <AreaChart data={analyticsData.revenueTrend}>
-                                                            <defs>
-                                                                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                                                                    <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
-                                                                    <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
-                                                                </linearGradient>
-                                                            </defs>
-                                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border-subtle))" />
-                                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
-                                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
-                                                            <Tooltip contentStyle={{ background: '#ffffff', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }} />
-                                                            <Area type="monotone" dataKey="amount" stroke="hsl(var(--success))" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
-                                                        </AreaChart>
-                                                    </ResponsiveContainer>
-                                                </div>
-                                            </div>
-
-                                            <div className="card" style={{ padding: '1.5rem' }}>
-                                                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Trophy size={18} color="#f59e0b" /> Best Selling Products ({timeRange})
-                                                </h3>
-                                                <div style={{ height: '300px' }}>
-                                                    <ResponsiveContainer width="100%" height="100%">
-                                                        <BarChart layout="vertical" data={analyticsData.topProducts}>
-                                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border-subtle))" />
-                                                            <XAxis type="number" hide />
-                                                            <YAxis dataKey="name" type="category" width={100} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'hsl(var(--text-muted))' }} />
-                                                            <Tooltip />
-                                                            <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                                                        </BarChart>
-                                                    </ResponsiveContainer>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="admin-grid-3">
-                                            {/* Courier Distribution */}
-                                            <div className="card" style={{ padding: '1.5rem' }}>
-                                                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Truck size={18} color="#10b981" /> Courier Partners
-                                                </h3>
-                                                <div style={{ height: '250px' }}>
-                                                    <ResponsiveContainer width="100%" height="100%">
-                                                        <PieChart>
-                                                            <Pie data={analyticsData.courierData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} paddingAngle={5}>
-                                                                {analyticsData.courierData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                                            </Pie>
-                                                            <Tooltip />
-                                                            <Legend />
-                                                        </PieChart>
-                                                    </ResponsiveContainer>
-                                                </div>
-                                            </div>
-
-                                            {/* Channel Distribution */}
-                                            <div className="card" style={{ padding: '1.5rem' }}>
-                                                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <ShoppingCart size={18} color="hsl(var(--primary))" /> Order Sources
-                                                </h3>
-                                                <div style={{ height: '250px' }}>
-                                                    <ResponsiveContainer width="100%" height="100%">
-                                                        <PieChart>
-                                                            <Pie data={analyticsData.channelData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
-                                                                {analyticsData.channelData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                                                            </Pie>
-                                                            <Tooltip />
-                                                            <Legend />
-                                                        </PieChart>
-                                                    </ResponsiveContainer>
-                                                </div>
-                                            </div>
-
-                                            {/* Status Distribution */}
-                                            <div className="card" style={{ padding: '1.5rem' }}>
-                                                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Package size={18} color="hsl(var(--accent))" /> Status Breakdown
-                                                </h3>
-                                                <div style={{ height: '250px' }}>
-                                                    <ResponsiveContainer width="100%" height="100%">
-                                                        <BarChart data={analyticsData.statusData}>
-                                                            <XAxis dataKey="name" hide />
-                                                            <YAxis hide />
-                                                            <Tooltip />
-                                                            <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                                                        </BarChart>
-                                                    </ResponsiveContainer>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {viewMode === 'list' && (
-                                    <>
-
-                                        {/* Search + Table Card */}
+                                 {/* Search + Table Card */}
 
                                         <div className="card" style={{ padding: 0 }}>
 
@@ -1414,46 +1286,92 @@ export default function OrdersPage() {
                                                                                     <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
                                                                                 </td>
                                                                                 <td style={{ textAlign: 'center' }}>
-                                                                                    {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' ? (
-                                                                                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'nowrap' }}>
-                                                                                            <button
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    openCourierModal(order, true);
-                                                                                                }}
-                                                                                                className="btn btn-secondary"
-                                                                                                style={{ padding: '0.35rem 0.5rem', color: 'hsl(var(--success))', borderColor: 'hsl(var(--success) / 0.3)', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}
-                                                                                            >
-                                                                                                <Truck size={14} /> Courier
-                                                                                            </button>
-                                                                                            {order.courier_name && order.tracking_number && (
-                                                                                                <button
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        setSelectedOrder(order);
-                                                                                                        setIsCourierFromTable(true);
-                                                                                                        const phoneToUse = order.customer_phone || (typeof order.billing_address === 'object' ? order.billing_address?.phone : null) || '';
-                                                                                                        const bEmail = order.billing_email || (typeof order.billing_address === 'object' ? order.billing_address?.email : null) || order.customer_email || '';
-                                                                                                        const sEmail = order.shipping_email || (typeof order.shipping_address === 'object' ? order.shipping_address?.email : null) || '';
-                                                                                                        const emailToUse = bEmail || sEmail;
-                                                                                                        
-                                                                                                        setNotificationPhone(formatDisplayPhoneNumber(phoneToUse));
-                                                                                                        setNotificationEmail(emailToUse);
-                                                                                                        setSendWhatsAppChecked(true);
-                                                                                                        setSendEmailChecked(true);
-                                                                                                        setShowSendNotificationModal(true);
-                                                                                                    }}
-                                                                                                    className="btn btn-secondary"
-                                                                                                    style={{ padding: '0.35rem 0.5rem', color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.1)', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}
-                                                                                                >
-                                                                                                    <Send size={14} /> Send Info
-                                                                                                </button>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    ) : (
-                                                                                        <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 600 }}>—</span>
-                                                                                    )}
-                                                                                </td>
+                                                                                     <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'nowrap', alignItems: 'center' }}>
+                                                                                         {order.courier_name ? (
+                                                                                             <button
+                                                                                                 onClick={(e) => {
+                                                                                                     e.stopPropagation();
+                                                                                                     openCourierModal(order, true);
+                                                                                                 }}
+                                                                                                 className="btn btn-secondary"
+                                                                                                 style={{
+                                                                                                     padding: '0.35rem 0.65rem',
+                                                                                                     color: 'hsl(var(--primary))',
+                                                                                                     background: 'hsl(var(--primary) / 0.08)',
+                                                                                                     borderColor: 'hsl(var(--primary) / 0.25)',
+                                                                                                     fontSize: '0.75rem',
+                                                                                                     fontWeight: 700,
+                                                                                                     display: 'inline-flex',
+                                                                                                     alignItems: 'center',
+                                                                                                     gap: '5px',
+                                                                                                     borderRadius: '6px',
+                                                                                                     whiteSpace: 'nowrap'
+                                                                                                 }}
+                                                                                                 title="Click to view/edit courier info"
+                                                                                             >
+                                                                                                 <Truck size={14} color="hsl(var(--primary))" /> {order.courier_name}
+                                                                                             </button>
+                                                                                         ) : (
+                                                                                             <button
+                                                                                                 onClick={(e) => {
+                                                                                                     e.stopPropagation();
+                                                                                                     openCourierModal(order, true);
+                                                                                                 }}
+                                                                                                 className="btn btn-secondary"
+                                                                                                 style={{
+                                                                                                     padding: '0.35rem 0.5rem',
+                                                                                                     color: 'hsl(var(--success))',
+                                                                                                     borderColor: 'hsl(var(--success) / 0.3)',
+                                                                                                     fontSize: '0.72rem',
+                                                                                                     fontWeight: 700,
+                                                                                                     display: 'inline-flex',
+                                                                                                     alignItems: 'center',
+                                                                                                     gap: '4px',
+                                                                                                     borderRadius: '6px',
+                                                                                                     whiteSpace: 'nowrap'
+                                                                                                 }}
+                                                                                             >
+                                                                                                 <Truck size={14} /> + Courier
+                                                                                             </button>
+                                                                                         )}
+
+                                                                                         {order.courier_name && order.tracking_number && order.status !== 'CANCELLED' && (
+                                                                                             <button
+                                                                                                 onClick={(e) => {
+                                                                                                     e.stopPropagation();
+                                                                                                     setSelectedOrder(order);
+                                                                                                     setIsCourierFromTable(true);
+                                                                                                     const phoneToUse = order.customer_phone || (typeof order.billing_address === 'object' ? order.billing_address?.phone : null) || '';
+                                                                                                     const bEmail = order.billing_email || (typeof order.billing_address === 'object' ? order.billing_address?.email : null) || order.customer_email || '';
+                                                                                                     const sEmail = order.shipping_email || (typeof order.shipping_address === 'object' ? order.shipping_address?.email : null) || '';
+                                                                                                     const emailToUse = bEmail || sEmail;
+                                                                                                     
+                                                                                                     setNotificationPhone(formatDisplayPhoneNumber(phoneToUse));
+                                                                                                     setNotificationEmail(emailToUse);
+                                                                                                     setSendWhatsAppChecked(true);
+                                                                                                     setSendEmailChecked(true);
+                                                                                                     setShowSendNotificationModal(true);
+                                                                                                 }}
+                                                                                                 className="btn btn-secondary"
+                                                                                                 style={{
+                                                                                                     padding: '0.35rem 0.5rem',
+                                                                                                     color: 'hsl(var(--primary))',
+                                                                                                     background: 'hsl(var(--primary) / 0.1)',
+                                                                                                     fontSize: '0.72rem',
+                                                                                                     fontWeight: 700,
+                                                                                                     display: 'inline-flex',
+                                                                                                     alignItems: 'center',
+                                                                                                     gap: '4px',
+                                                                                                     borderRadius: '6px',
+                                                                                                     whiteSpace: 'nowrap'
+                                                                                                 }}
+                                                                                                 title="Send shipping notification to customer"
+                                                                                             >
+                                                                                                 <Send size={14} /> Send Info
+                                                                                             </button>
+                                                                                         )}
+                                                                                     </div>
+                                                                                 </td>
                                                                                 <td style={{ textAlign: 'right' }}>
                                                                                     <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                                                                                         <button onClick={async (e) => { 
@@ -1515,10 +1433,8 @@ export default function OrdersPage() {
                                             )}
 
                                         </div>
-                                    </>
+                                    </div>
                                 )}
-                            </>
-                        )}
                         {/* ─── ORDER DETAILS PAGE ─── */}
                         {selectedOrder && !isCourierFromTable && (
                             <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
@@ -2842,6 +2758,7 @@ export default function OrdersPage() {
                                     onChange={(e) => {
                                         const cid = e.target.value;
                                         setSelectedCourierId(cid);
+                                        setCourierModalError('');
                                         const courier = couriers.find(c => c.id === cid);
                                         if (courier) {
                                             const awb = shippingForm.tracking_number || '';
@@ -2854,12 +2771,24 @@ export default function OrdersPage() {
                                             });
                                         }
                                     }}
-                                    style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem', cursor: 'pointer' }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        background: '#f8fafc',
+                                        border: (courierModalError && (!selectedCourierId || !shippingForm.courier_name?.trim())) ? '1px solid #ef4444' : '1px solid hsl(var(--border-subtle))',
+                                        borderRadius: '12px',
+                                        color: 'hsl(var(--text-main))',
+                                        fontSize: '0.9rem',
+                                        cursor: 'pointer'
+                                    }}
                                 >
                                     <option value="">-- Select Courier --</option>
                                     {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     <option value="CUSTOM">Custom Courier</option>
                                 </select>
+                                {courierModalError && (!selectedCourierId || !shippingForm.courier_name?.trim()) && (
+                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>⚠️ Please select a courier partner</span>
+                                )}
                             </div>
 
                             {selectedCourierId === 'CUSTOM' && (
@@ -2870,9 +2799,23 @@ export default function OrdersPage() {
                                         placeholder="e.g. Local Express"
                                         required
                                         value={shippingForm.courier_name}
-                                        onChange={e => setShippingForm({ ...shippingForm, courier_name: e.target.value })}
-                                        style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
+                                        onChange={e => {
+                                            setShippingForm({ ...shippingForm, courier_name: e.target.value });
+                                            setCourierModalError('');
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            background: '#f8fafc',
+                                            border: (courierModalError && !shippingForm.courier_name?.trim()) ? '1px solid #ef4444' : '1px solid hsl(var(--border-subtle))',
+                                            borderRadius: '12px',
+                                            color: 'hsl(var(--text-main))',
+                                            fontSize: '0.9rem'
+                                        }}
                                     />
+                                    {courierModalError && !shippingForm.courier_name?.trim() && (
+                                        <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>⚠️ Courier name is required</span>
+                                    )}
                                 </div>
                             )}
 
@@ -2885,6 +2828,7 @@ export default function OrdersPage() {
                                     value={shippingForm.tracking_number}
                                     onChange={e => {
                                         const awb = e.target.value;
+                                        setCourierModalError('');
                                         const courier = couriers.find(c => c.id === selectedCourierId);
                                         setShippingForm({
                                             ...shippingForm,
@@ -2892,24 +2836,52 @@ export default function OrdersPage() {
                                             tracking_url: courier && courier.tracking_url_template ? courier.tracking_url_template.replace(/\{[^}]+\}/g, awb) : shippingForm.tracking_url
                                         });
                                     }}
-                                    style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', color: 'hsl(var(--text-main))', fontSize: '0.9rem' }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        background: '#f8fafc',
+                                        border: (courierModalError && !shippingForm.tracking_number?.trim()) ? '1px solid #ef4444' : '1px solid hsl(var(--border-subtle))',
+                                        borderRadius: '12px',
+                                        color: 'hsl(var(--text-main))',
+                                        fontSize: '0.9rem'
+                                    }}
                                 />
+                                {courierModalError && !shippingForm.tracking_number?.trim() && (
+                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>⚠️ AWB / Tracking ID is required</span>
+                                )}
                             </div>
 
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                            <button onClick={() => { setShowShippingForm(false); if (isCourierFromTable) { setSelectedOrder(null); } setIsCourierFromTable(false); }} className="btn btn-secondary" style={{ padding: '0.8rem' }}>
+                            <button onClick={() => { setShowShippingForm(false); if (isCourierFromTable) { setSelectedOrder(null); } setIsCourierFromTable(false); setCourierModalError(''); }} className="btn btn-secondary" style={{ padding: '0.8rem' }}>
                                 {isCourierSaved ? 'Close' : 'Cancel'}
                             </button>
                             {!isCourierSaved ? (
                                 <button
                                     onClick={async () => {
                                         if (!selectedOrder) return;
+
+                                        // Validation: Check Partner selection & AWB/Tracking ID
+                                        if (!selectedCourierId || !shippingForm.courier_name?.trim()) {
+                                            setCourierModalError('Please choose a courier partner.');
+                                            setNotification({ message: '⚠️ Please select a courier partner first.', type: 'error' });
+                                            return;
+                                        }
+
+                                        if (!shippingForm.tracking_number || !shippingForm.tracking_number.trim()) {
+                                            setCourierModalError('AWB / Tracking ID is required.');
+                                            setNotification({ message: '⚠️ AWB / Tracking ID is required. Please fill in the Tracking ID.', type: 'error' });
+                                            return;
+                                        }
+
+                                        setCourierModalError('');
                                         setSavingCourier(true);
+
+                                        // Loading Toast Notification
+                                        setNotification({ message: '⏳ Saving courier details & updating order status...', type: 'info' });
+
                                         try {
-                                            setNotification({ message: 'Saving courier details...', type: 'info' });
-                                            // Use the central update-status API to handle DB update, logging, and notifications
                                             const token = localStorage.getItem('cast_prince_admin') || '';
                                             const response = await fetch('/api/orders/update-status', {
                                                 method: 'POST',
@@ -2920,10 +2892,10 @@ export default function OrdersPage() {
                                                 body: JSON.stringify({
                                                     orderId: selectedOrder.id,
                                                     status: 'SHIPPED',
-                                                    courierName: shippingForm.courier_name,
-                                                    trackingNumber: shippingForm.tracking_number,
+                                                    courierName: shippingForm.courier_name.trim(),
+                                                    trackingNumber: shippingForm.tracking_number.trim(),
                                                     trackingUrl: shippingForm.tracking_url,
-                                                    notes: `Shipped via ${shippingForm.courier_name}`
+                                                    notes: `Shipped via ${shippingForm.courier_name.trim()}`
                                                 })
                                             });
 
@@ -2934,24 +2906,25 @@ export default function OrdersPage() {
 
                                             setSelectedOrder(prev => ({
                                                 ...prev,
-                                                courier_name: shippingForm.courier_name,
-                                                tracking_number: shippingForm.tracking_number,
+                                                courier_name: shippingForm.courier_name.trim(),
+                                                tracking_number: shippingForm.tracking_number.trim(),
                                                 tracking_url: shippingForm.tracking_url,
                                                 status: 'SHIPPED'
                                             }));
 
-                                            setNotification({ message: 'Tracking saved & Status updated to SHIPPED', type: 'success' });
+                                            // Success Toast Notification
+                                            setNotification({ message: '✅ Tracking ID saved & Order status updated to SHIPPED successfully!', type: 'success' });
                                             setIsCourierSaved(true);
                                             fetchOrders();
                                         } catch (err) {
                                             console.error('Courier save error:', err);
-                                            setNotification({ message: `Save failed: ${err.message || 'Unknown error'}`, type: 'error' });
+                                            setNotification({ message: `❌ Save failed: ${err.message || 'Unknown error'}`, type: 'error' });
                                         } finally {
                                             setSavingCourier(false);
-                                            setTimeout(() => setNotification(null), 3000);
+                                            setTimeout(() => setNotification(null), 4000);
                                         }
                                     }}
-                                    disabled={!shippingForm.courier_name || !shippingForm.tracking_number || savingCourier}
+                                    disabled={savingCourier}
                                     className="btn btn-primary"
                                     style={{ padding: '0.8rem', background: 'hsl(var(--success))', border: 'none' }}
                                 >

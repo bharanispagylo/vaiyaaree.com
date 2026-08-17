@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
     Search, Package, MapPin, Truck, CheckCircle, Clock, ChevronLeft, 
-    Download, XCircle, AlertTriangle, RefreshCw, MessageCircle 
+    Download, XCircle, AlertTriangle, RefreshCw, MessageCircle, Globe, ShoppingBag 
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import styles from './track.module.css';
@@ -55,6 +55,17 @@ function TrackContent() {
                 .single();
 
             if (data) {
+                if (!data.invoice_no && data.created_at) {
+                    const { count: c } = await supabase
+                        .from('orders')
+                        .select('id', { count: 'exact', head: true })
+                        .neq('status', 'DRAFT')
+                        .lte('created_at', data.created_at);
+
+                    const seqNum = c || 1;
+                    data.invoice_no = `INV-${String(seqNum).padStart(4, '0')}`;
+                }
+
                 setOrder(data);
                 // Fetch existing return requests for this order
                 const { data: reqs } = await supabase
@@ -264,6 +275,24 @@ function TrackContent() {
                             <div className={styles.orderIdentity}>
                                 <span className={styles.idLabel}>ORDER ID</span>
                                 <h3 className={styles.idValue}>#{order.id}</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginTop: '6px' }}>
+                                    {order.source === 'WEBSITE' ? (
+                                        <>
+                                            <Globe size={14} color="#6366f1" />
+                                            <span>Order Source: <strong style={{ color: '#4338ca' }}>Web Store</strong></span>
+                                        </>
+                                    ) : order.source === 'MANUAL' ? (
+                                        <>
+                                            <ShoppingBag size={14} color="#ec4899" />
+                                            <span>Order Source: <strong style={{ color: '#be185d' }}>Direct Store</strong></span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MessageCircle size={14} color="#22c55e" />
+                                            <span>Order Source: <strong style={{ color: '#15803d' }}>WhatsApp Order</strong></span>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             <div className={styles.orderStatusBadge}>
                                 <span className={`${styles.badge} ${styles[`status${order.status}`]}`}>{order.status}</span>

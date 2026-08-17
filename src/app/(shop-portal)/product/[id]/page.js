@@ -104,6 +104,18 @@ export default function ProductDetailsPage() {
             .slice(0, 4);
     }, [product, products]);
 
+    const priceRange = useMemo(() => {
+        if (product?.type === 'variant' && variants.length > 0) {
+            const prices = variants.map(v => Number(v.price || 0)).filter(p => p > 0);
+            if (prices.length > 0) {
+                const min = Math.min(...prices);
+                const max = Math.max(...prices);
+                return { min, max, isRange: min !== max };
+            }
+        }
+        return null;
+    }, [product, variants]);
+
     const handleAddToCart = () => {
         if (!product) return;
         addToCart(product, selectedVariant, qty);
@@ -190,13 +202,47 @@ export default function ProductDetailsPage() {
                     <h1 className={styles.productName}>{product.name}</h1>
 
                     {/* Price + Stock */}
-                    <div className={styles.priceRow}>
-                        <span className={styles.priceTag}>₹{displayPrice?.toLocaleString()}</span>
-                        {currentStock > 0
-                            ? <span className={styles.inStock}><CheckCircle size={13} /> {currentStock} in stock</span>
-                            : <span className={styles.outOfStock}><X size={13} /> Out of Stock</span>
-                        }
-                    </div>
+                    {(() => {
+                        const tagList = Array.isArray(product.tags)
+                            ? product.tags
+                            : (typeof product.tags === 'string' ? product.tags.split(',') : []);
+
+                        const mrpTag = tagList.map(t => String(t).trim()).find(t => t.toLowerCase().startsWith('mrp:'));
+                        const mrpVal = mrpTag ? Number(mrpTag.split(':')[1]) : (selectedVariant?.compare_price || product.compare_price || product.original_price || product.mrp);
+
+                        const hasDiscount = mrpVal && !isNaN(mrpVal) && mrpVal > (displayPrice || 0);
+                        const discountPercent = hasDiscount ? Math.round(((mrpVal - displayPrice) / mrpVal) * 100) : 0;
+
+                        return (
+                            <div className={styles.priceRow}>
+                                <span className={styles.priceTag}>
+                                    {priceRange?.isRange
+                                        ? `₹${priceRange.min.toLocaleString()} – ₹${priceRange.max.toLocaleString()}`
+                                        : `₹${displayPrice?.toLocaleString()}`
+                                    }
+                                </span>
+                                {hasDiscount && (
+                                    <>
+                                        <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '1.2rem', fontWeight: 600 }}>
+                                            ₹{Number(mrpVal).toLocaleString()}
+                                        </span>
+                                        <span style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', fontSize: '0.85rem', fontWeight: 800, padding: '0.25rem 0.65rem', borderRadius: '6px' }}>
+                                            {discountPercent}% OFF
+                                        </span>
+                                    </>
+                                )}
+                                {selectedVariant && priceRange?.isRange && (
+                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
+                                        (Selected Price: ₹{selectedVariant.price?.toLocaleString()})
+                                    </span>
+                                )}
+                                {currentStock > 0
+                                    ? <span className={styles.inStock}><CheckCircle size={13} /> {currentStock} sarees in stock</span>
+                                    : <span className={styles.outOfStock}><X size={13} /> Saree Not Available</span>
+                                }
+                            </div>
+                        );
+                    })()}
 
                     <div className={styles.divider} />
 
@@ -208,10 +254,10 @@ export default function ProductDetailsPage() {
                         </p>
                     </div>
 
-                    {/* Variants */}
+                    {/* Variants / Size Selector */}
                     {product.type === 'variant' && variants.length > 0 && (
                         <div className={styles.variantsSection}>
-                            <p className={styles.variantLabel}>Select Option</p>
+                            <p className={styles.variantLabel}>Select Size / Option</p>
                             <div className={styles.variantChips}>
                                 {variants.map(v => (
                                     <button
@@ -227,21 +273,52 @@ export default function ProductDetailsPage() {
                     )}
 
                     {/* Actions */}
-                    {currentStock > 0 && (
-                        <div className={styles.actions}>
-                            <div className={styles.qtySelector}>
-                                <button onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
-                                <span>{qty}</span>
-                                <button onClick={() => setQty(qty + 1)}>+</button>
+                    {currentStock > 0 ? (
+                        <div>
+                            <div className={styles.actions}>
+                                <div className={styles.qtySelector}>
+                                    <button onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
+                                    <span>{qty}</span>
+                                    <button 
+                                        onClick={() => setQty(Math.min(currentStock, qty + 1))}
+                                        disabled={qty >= currentStock}
+                                        title={qty >= currentStock ? `Maximum ${currentStock} sarees available` : 'Increase quantity'}
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                <button className={styles.addToCartBtn} onClick={handleAddToCart}>
+                                    <ShoppingCart size={16} /> Add to Cart
+                                </button>
+                                <button
+                                    className={styles.buyNowBtn}
+                                    onClick={() => { handleAddToCart(); router.push('/checkout'); }}
+                                >
+                                    Buy Now
+                                </button>
                             </div>
-                            <button className={styles.addToCartBtn} onClick={handleAddToCart}>
-                                <ShoppingCart size={16} /> Add to Cart
-                            </button>
-                            <button
-                                className={styles.buyNowBtn}
-                                onClick={() => { handleAddToCart(); router.push('/checkout'); }}
-                            >
-                                Buy Now
+                            {qty >= currentStock && (
+                                <div style={{
+                                    marginTop: '0.75rem',
+                                    padding: '0.45rem 0.85rem',
+                                    background: '#fff1f2',
+                                    border: '1px solid #fecdd3',
+                                    borderRadius: '8px',
+                                    color: '#e11d48',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}>
+                                    ⚠️ Saree Not Available for higher quantity (Maximum {currentStock} in stock)
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className={styles.actions}>
+                            <button disabled className={styles.addToCartBtn} style={{ background: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' }}>
+                                Saree Not Available
                             </button>
                         </div>
                     )}

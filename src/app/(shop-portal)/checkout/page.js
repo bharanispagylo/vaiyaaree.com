@@ -41,9 +41,44 @@ export default function CheckoutPage() {
 
     const states = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"];
 
+    const isBillingComplete = Boolean(
+        checkoutForm.billingName?.trim() &&
+        checkoutForm.billingPhone?.trim()?.length === 10 &&
+        checkoutForm.billingWhatsApp?.trim()?.length === 10 &&
+        checkoutForm.billingEmail?.trim() &&
+        checkoutForm.billingEmail?.includes('@') &&
+        checkoutForm.billingAddress?.trim() &&
+        checkoutForm.billingCity?.trim() &&
+        checkoutForm.billingPincode?.trim()?.length >= 6
+    );
+
     const handlePlaceOrder = async () => {
-        if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingAddress || !checkoutForm.billingCity || !checkoutForm.billingPincode || !checkoutForm.billingWhatsApp || !checkoutForm.billingEmail) {
-            showToast('Please fill all required billing details', 'error');
+        if (!checkoutForm.billingName?.trim()) {
+            showToast('Please enter your Full Name', 'error');
+            return;
+        }
+        if (!checkoutForm.billingPhone || checkoutForm.billingPhone.trim().length !== 10) {
+            showToast('Please enter a valid 10-digit Phone Number', 'error');
+            return;
+        }
+        if (!checkoutForm.billingWhatsApp || checkoutForm.billingWhatsApp.trim().length !== 10) {
+            showToast('Please enter a valid 10-digit WhatsApp Number', 'error');
+            return;
+        }
+        if (!checkoutForm.billingEmail || !checkoutForm.billingEmail.includes('@')) {
+            showToast('Please enter a valid Email Address', 'error');
+            return;
+        }
+        if (!checkoutForm.billingAddress?.trim()) {
+            showToast('Please enter your Billing Address', 'error');
+            return;
+        }
+        if (!checkoutForm.billingCity?.trim()) {
+            showToast('Please enter your City / Town', 'error');
+            return;
+        }
+        if (!checkoutForm.billingPincode || checkoutForm.billingPincode.trim().length < 6) {
+            showToast('Please enter a valid 6-digit Pincode', 'error');
             return;
         }
 
@@ -53,17 +88,23 @@ export default function CheckoutPage() {
             return;
         }
 
+        // Validate product stock limits
+        const unavailableItem = cart.find(i => i.stock !== undefined && i.stock !== null && (i.stock <= 0 || i.qty > i.stock));
+        if (unavailableItem) {
+            showToast(`Saree Not Available: "${unavailableItem.name}" exceeds available stock limit (${unavailableItem.stock ?? 0}). Please update cart.`, 'error');
+            return;
+        }
+
         setPlacing(true);
         try {
             const data = await placeOrder();
 
             if (data) {
                 if (checkoutForm.paymentMethod === 'ONLINE') {
-                    // Trigger Razorpay
                     await initiateRazorpayPayment(data);
                 } else {
-                    // COD success is handled in ShopContext redirect/data returned
-                    setOrderData(data);
+                    showToast('🎉 Order placed successfully! Redirecting to your orders...', 'success');
+                    router.push('/my-orders');
                 }
             }
         } catch (err) {
@@ -104,7 +145,8 @@ export default function CheckoutPage() {
                     });
                     const verifyData = await verifyRes.json();
                     if (verifyData.success) {
-                        setOrderData(orderData);
+                        showToast('🎉 Payment verified! Redirecting to your orders...', 'success');
+                        router.push('/my-orders');
                     } else {
                         showToast('Payment verification failed', 'error');
                     }
@@ -252,16 +294,17 @@ export default function CheckoutPage() {
                     <h3 className={styles.cardTitle}>Billing Details</h3>
                     <div className={styles.formGrid}>
                         <div className={styles.formGroup}>
-                            <label>FULL NAME</label>
+                            <label>FULL NAME <span className={styles.requiredStar}>*</span></label>
                             <input 
                                 type="text" 
                                 value={checkoutForm.billingName || ''} 
                                 onChange={e => setCheckoutForm(p => ({ ...p, billingName: e.target.value }))} 
                                 placeholder="Enter your full name" 
+                                required
                             />
                         </div>
                         <div className={styles.formGroup}>
-                            <label>PHONE NUMBER</label>
+                            <label>PHONE NUMBER <span className={styles.requiredStar}>*</span></label>
                             <input 
                                 type="tel" 
                                 value={checkoutForm.billingPhone || ''} 
@@ -277,7 +320,7 @@ export default function CheckoutPage() {
 
                     <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                         <div className={styles.formGroup}>
-                            <label>WHATSAPP NUMBER</label>
+                            <label>WHATSAPP NUMBER <span className={styles.requiredStar}>*</span></label>
                             <input 
                                 type="tel" 
                                 value={checkoutForm.billingWhatsApp || ''} 
@@ -290,38 +333,41 @@ export default function CheckoutPage() {
                             />
                         </div>
                         <div className={styles.formGroup}>
-                            <label>EMAIL ADDRESS</label>
+                            <label>EMAIL ADDRESS <span className={styles.requiredStar}>*</span></label>
                             <input 
                                 type="email" 
                                 value={checkoutForm.billingEmail || ''} 
                                 onChange={e => setCheckoutForm(p => ({ ...p, billingEmail: e.target.value }))} 
                                 placeholder="your@email.com" 
+                                required
                             />
                         </div>
                     </div>
 
                     <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
-                        <label>BILLING ADDRESS</label>
+                        <label>BILLING ADDRESS <span className={styles.requiredStar}>*</span></label>
                         <textarea 
                             value={checkoutForm.billingAddress || ''} 
                             onChange={e => setCheckoutForm(p => ({ ...p, billingAddress: e.target.value }))} 
                             placeholder="House No, Building, Street, Area..." 
                             rows={2} 
+                            required
                         />
                     </div>
 
                     <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                         <div className={styles.formGroup}>
-                            <label>CITY / TOWN</label>
+                            <label>CITY / TOWN <span className={styles.requiredStar}>*</span></label>
                             <input 
                                 type="text" 
                                 value={checkoutForm.billingCity || ''} 
                                 onChange={e => setCheckoutForm(p => ({ ...p, billingCity: e.target.value }))} 
                                 placeholder="City name" 
+                                required
                             />
                         </div>
                         <div className={styles.formGroup}>
-                            <label>STATE</label>
+                            <label>STATE <span className={styles.requiredStar}>*</span></label>
                             <select 
                                 value={checkoutForm.billingState || 'Tamil Nadu'} 
                                 onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
@@ -333,220 +379,227 @@ export default function CheckoutPage() {
 
                     <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                         <div className={styles.formGroup}>
-                            <label>PINCODE</label>
+                            <label>PINCODE <span className={styles.requiredStar}>*</span></label>
                             <input 
                                 type="text" 
                                 value={checkoutForm.billingPincode || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingPincode: e.target.value }))} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingPincode: e.target.value.replace(/[^0-9]/g, '').slice(0, 6) }))} 
                                 placeholder="6-digit pincode" 
+                                maxLength="6"
+                                required
                             />
                         </div>
                     </div>
                 </section>
 
-                {/* SHIPPING ADDRESS SECTION */}
-                <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
-                    <h3 className={styles.cardTitle}>Shipping Details</h3>
-                    
-                    {/* Same as Billing Checkbox */}
-                    <label className={styles.sameAsBillingCheckbox}>
-                        <input 
-                            type="checkbox" 
-                            checked={checkoutForm.sameAsBilling || false}
-                            onChange={e => {
-                                const isChecked = e.target.checked;
-                                setCheckoutForm(p => ({ 
-                                    ...p, 
-                                    sameAsBilling: isChecked,
-                                    // If checked, copy billing to shipping
-                                    ...(isChecked ? {
-                                        shippingName: p.billingName,
-                                        shippingPhone: p.billingPhone,
-                                        shippingAddress: p.billingAddress,
-                                        shippingCity: p.billingCity,
-                                        shippingState: p.billingState,
-                                        shippingPincode: p.billingPincode
-                                    } : {})
-                                }));
-                            }}
-                        />
-                        <span className={styles.checkmark}></span>
-                        <span className={styles.checkboxLabel}>Same as billing address</span>
-                    </label>
-
-                    {/* Shipping fields - always visible, auto-filled when sameAsBilling is checked */}
-                    <div className={styles.shippingFields} style={{ marginTop: '1.5rem' }}>
-                        <div className={styles.formGrid}>
-                            <div className={styles.formGroup}>
-                                <label>SHIPPING FULL NAME</label>
+                {/* CONDITIONALLY RENDER SHIPPING DETAILS & PAYMENT ONLY AFTER BILLING DETAILS ARE FILLED OUT */}
+                {!isBillingComplete ? (
+                    <div className={styles.billingIncompleteNotice}>
+                        <MapPin size={22} style={{ flexShrink: 0 }} />
+                        <span>Please fill in all mandatory Billing Details above (Full Name, 10-digit Phone, 10-digit WhatsApp, Email, Address, City, State, Pincode) to display Shipping Details & Payment Options.</span>
+                    </div>
+                ) : (
+                    <div className={styles.unlockedSection}>
+                        {/* SHIPPING ADDRESS SECTION */}
+                        <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
+                            <h3 className={styles.cardTitle}>Shipping Details</h3>
+                            
+                            {/* Same as Billing Checkbox */}
+                            <label className={styles.sameAsBillingCheckbox}>
                                 <input 
-                                    type="text" 
-                                    value={checkoutForm.shippingName || ''} 
-                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingName: e.target.value }))} 
-                                    placeholder="Enter recipient name"
-                                    disabled={checkoutForm.sameAsBilling}
-                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                />
-                            </div>
-                            <div className={styles.formGroup}>
-                                <label>SHIPPING PHONE NUMBER</label>
-                                <input 
-                                    type="tel" 
-                                    value={checkoutForm.shippingPhone || ''} 
-                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingPhone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
-                                    placeholder="10-digit phone number"
-                                    disabled={checkoutForm.sameAsBilling}
-                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                    pattern="[0-9]{10}"
-                                    maxLength="10"
-                                    minLength="10"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
-                            <label>SHIPPING ADDRESS</label>
-                            <textarea 
-                                value={checkoutForm.shippingAddress || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, shippingAddress: e.target.value }))} 
-                                placeholder="House No, Building, Street, Area..." 
-                                rows={2}
-                                disabled={checkoutForm.sameAsBilling}
-                                className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                            />
-                        </div>
-
-                        <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
-                            <div className={styles.formGroup}>
-                                <label>CITY / TOWN</label>
-                                <input 
-                                    type="text" 
-                                    value={checkoutForm.shippingCity || ''} 
-                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingCity: e.target.value }))} 
-                                    placeholder="City name"
-                                    disabled={checkoutForm.sameAsBilling}
-                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                />
-                            </div>
-                            <div className={styles.formGroup}>
-                                <label>STATE</label>
-                                <select 
-                                    value={checkoutForm.shippingState || 'Tamil Nadu'} 
-                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingState: e.target.value }))}
-                                    disabled={checkoutForm.sameAsBilling}
-                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                >
-                                    {states.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
-                            <div className={styles.formGroup}>
-                                <label>SHIPPING PINCODE</label>
-                                <input 
-                                    type="text" 
-                                    value={checkoutForm.shippingPincode || ''} 
-                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingPincode: e.target.value }))} 
-                                    placeholder="6-digit pincode"
-                                    disabled={checkoutForm.sameAsBilling}
-                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                />
-                            </div>
-                            <div className={styles.formGroup}>
-                                <label>SHIPPING EMAIL</label>
-                                <input 
-                                    type="email" 
-                                    value={checkoutForm.shippingEmail || ''} 
-                                    onChange={e => setCheckoutForm(p => ({ ...p, shippingEmail: e.target.value }))} 
-                                    placeholder="recipient@email.com"
-                                    disabled={checkoutForm.sameAsBilling}
-                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                />
-                            </div>
-                        </div>
-                        <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
-                            <div className={styles.formGroup}>
-                                <label>COUNTRY</label>
-                                <select 
-                                    value={checkoutForm.shippingCountry || 'India'}
+                                    type="checkbox" 
+                                    checked={checkoutForm.sameAsBilling || false}
                                     onChange={e => {
-                                        const newCountry = e.target.value;
+                                        const isChecked = e.target.checked;
                                         setCheckoutForm(p => ({ 
                                             ...p, 
-                                            shippingCountry: newCountry,
-                                            // Auto-switch to ONLINE if COD was selected and country is not India
-                                            ...(p.paymentMethod === 'COD' && newCountry !== 'India' ? { paymentMethod: 'ONLINE' } : {})
+                                            sameAsBilling: isChecked,
+                                            ...(isChecked ? {
+                                                shippingName: p.billingName,
+                                                shippingPhone: p.billingPhone,
+                                                shippingAddress: p.billingAddress,
+                                                shippingCity: p.billingCity,
+                                                shippingState: p.billingState,
+                                                shippingPincode: p.billingPincode
+                                            } : {})
                                         }));
                                     }}
-                                    disabled={checkoutForm.sameAsBilling}
-                                    className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                >
-                                    <option value="India">India</option>
-                                    <option value="USA">USA</option>
-                                    <option value="UK">UK</option>
-                                    <option value="UAE">UAE</option>
-                                    <option value="Singapore">Singapore</option>
-                                    <option value="Malaysia">Malaysia</option>
-                                    <option value="Australia">Australia</option>
-                                    <option value="Canada">Canada</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+                                />
+                                <span className={styles.checkmark}></span>
+                                <span className={styles.checkboxLabel}>Same as billing address</span>
+                            </label>
 
-                <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
-                    <h3 className={styles.cardTitle}>Payment Method</h3>
-                    <div className={styles.paymentOptions}>
-                        <label className={`${styles.paymentRadio} ${checkoutForm.paymentMethod === 'ONLINE' ? styles.activeRadio : ''}`}>
-                            <input type="radio" value="ONLINE" checked={checkoutForm.paymentMethod === 'ONLINE'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'ONLINE' }))} />
-                            <div className={styles.paymentMeta}>
-                                <span>Credit Card/Debit Card/NetBanking</span>
-                                <div className={styles.razorpayBrand}>
-                                    <img src="https://cdn.razorpay.com/static/assets/logo_white.png" alt="Razorpay" className={styles.razorpayLogo} />
-                                    <span>Pay by Razorpay</span>
-                                </div>
-                            </div>
-                        </label>
-
-                        {checkoutForm.paymentMethod === 'ONLINE' && (
-                            <div className={styles.paymentDesc}>
-                                Pay securely by Credit or Debit card or Internet Banking through Razorpay.
-                            </div>
-                        )}
-
-                        {/* COD only available for India */}
-                        {(checkoutForm.shippingCountry === 'India' || (!checkoutForm.shippingCountry && checkoutForm.sameAsBilling)) && (
-                            <label className={`${styles.paymentRadio} ${checkoutForm.paymentMethod === 'COD' ? styles.activeRadio : ''}`} style={{ marginTop: '1rem' }}>
-                                <input type="radio" value="COD" checked={checkoutForm.paymentMethod === 'COD'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))} />
-                                <div className={styles.radioInfo}>
-                                    <Truck size={20} />
-                                    <div>
-                                        <div className={styles.radioTitle}>Cash on Delivery</div>
-                                        <div className={styles.radioDesc}>Pay when you receive the product</div>
+                            {/* Shipping fields */}
+                            <div className={styles.shippingFields} style={{ marginTop: '1.5rem' }}>
+                                <div className={styles.formGrid}>
+                                    <div className={styles.formGroup}>
+                                        <label>SHIPPING FULL NAME</label>
+                                        <input 
+                                            type="text" 
+                                            value={checkoutForm.shippingName || ''} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingName: e.target.value }))} 
+                                            placeholder="Enter recipient name"
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                        />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label>SHIPPING PHONE NUMBER</label>
+                                        <input 
+                                            type="tel" 
+                                            value={checkoutForm.shippingPhone || ''} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingPhone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
+                                            placeholder="10-digit phone number"
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                            pattern="[0-9]{10}"
+                                            maxLength="10"
+                                            minLength="10"
+                                        />
                                     </div>
                                 </div>
-                            </label>
-                        )}
 
-                        {/* Show message for international orders */}
-                        {checkoutForm.shippingCountry && checkoutForm.shippingCountry !== 'India' && !checkoutForm.sameAsBilling && (
-                            <div style={{ 
-                                marginTop: '1rem', 
-                                padding: '0.75rem 1rem', 
-                                background: '#fef3c7', 
-                                borderRadius: '8px', 
-                                fontSize: '0.85rem', 
-                                color: '#92400e' 
-                            }}>
-                                💳 COD is only available for orders within India. Please pay online for international shipping.
+                                <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
+                                    <label>SHIPPING ADDRESS</label>
+                                    <textarea 
+                                        value={checkoutForm.shippingAddress || ''} 
+                                        onChange={e => setCheckoutForm(p => ({ ...p, shippingAddress: e.target.value }))} 
+                                        placeholder="House No, Building, Street, Area..." 
+                                        rows={2}
+                                        disabled={checkoutForm.sameAsBilling}
+                                        className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                    />
+                                </div>
+
+                                <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                                    <div className={styles.formGroup}>
+                                        <label>CITY / TOWN</label>
+                                        <input 
+                                            type="text" 
+                                            value={checkoutForm.shippingCity || ''} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingCity: e.target.value }))} 
+                                            placeholder="City name"
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                        />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label>STATE</label>
+                                        <select 
+                                            value={checkoutForm.shippingState || 'Tamil Nadu'} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingState: e.target.value }))}
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                        >
+                                            {states.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                                    <div className={styles.formGroup}>
+                                        <label>SHIPPING PINCODE</label>
+                                        <input 
+                                            type="text" 
+                                            value={checkoutForm.shippingPincode || ''} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingPincode: e.target.value }))} 
+                                            placeholder="6-digit pincode"
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                        />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label>SHIPPING EMAIL</label>
+                                        <input 
+                                            type="email" 
+                                            value={checkoutForm.shippingEmail || ''} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingEmail: e.target.value }))} 
+                                            placeholder="recipient@email.com"
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                        />
+                                    </div>
+                                </div>
+                                <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                                    <div className={styles.formGroup}>
+                                        <label>COUNTRY</label>
+                                        <select 
+                                            value={checkoutForm.shippingCountry || 'India'}
+                                            onChange={e => {
+                                                const newCountry = e.target.value;
+                                                setCheckoutForm(p => ({ 
+                                                    ...p, 
+                                                    shippingCountry: newCountry,
+                                                    ...(p.paymentMethod === 'COD' && newCountry !== 'India' ? { paymentMethod: 'ONLINE' } : {})
+                                                }));
+                                            }}
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                        >
+                                            <option value="India">India</option>
+                                            <option value="USA">USA</option>
+                                            <option value="UK">UK</option>
+                                            <option value="UAE">UAE</option>
+                                            <option value="Singapore">Singapore</option>
+                                            <option value="Malaysia">Malaysia</option>
+                                            <option value="Australia">Australia</option>
+                                            <option value="Canada">Canada</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                        )}
+                        </section>
+
+                        <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
+                            <h3 className={styles.cardTitle}>Payment Method</h3>
+                            <div className={styles.paymentOptions}>
+                                <label className={`${styles.paymentRadio} ${checkoutForm.paymentMethod === 'ONLINE' ? styles.activeRadio : ''}`}>
+                                    <input type="radio" value="ONLINE" checked={checkoutForm.paymentMethod === 'ONLINE'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'ONLINE' }))} />
+                                    <div className={styles.paymentMeta}>
+                                        <span>Credit Card/Debit Card/NetBanking</span>
+                                        <div className={styles.razorpayBrand}>
+                                            <img src="https://cdn.razorpay.com/static/assets/logo_white.png" alt="Razorpay" className={styles.razorpayLogo} />
+                                            <span>Pay by Razorpay</span>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                {checkoutForm.paymentMethod === 'ONLINE' && (
+                                    <div className={styles.paymentDesc}>
+                                        Pay securely by Credit or Debit card or Internet Banking through Razorpay.
+                                    </div>
+                                )}
+
+                                {(checkoutForm.shippingCountry === 'India' || (!checkoutForm.shippingCountry && checkoutForm.sameAsBilling)) && (
+                                    <label className={`${styles.paymentRadio} ${checkoutForm.paymentMethod === 'COD' ? styles.activeRadio : ''}`} style={{ marginTop: '1rem' }}>
+                                        <input type="radio" value="COD" checked={checkoutForm.paymentMethod === 'COD'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))} />
+                                        <div className={styles.radioInfo}>
+                                            <Truck size={20} />
+                                            <div>
+                                                <div className={styles.radioTitle}>Cash on Delivery</div>
+                                                <div className={styles.radioDesc}>Pay when you receive the product</div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                )}
+
+                                {checkoutForm.shippingCountry && checkoutForm.shippingCountry !== 'India' && !checkoutForm.sameAsBilling && (
+                                    <div style={{ 
+                                        marginTop: '1rem', 
+                                        padding: '0.75rem 1rem', 
+                                        background: '#fef3c7', 
+                                        borderRadius: '8px', 
+                                        fontSize: '0.85rem', 
+                                        color: '#92400e' 
+                                    }}>
+                                        💳 COD is only available for orders within India. Please pay online for international shipping.
+                                    </div>
+                                )}
+                            </div>
+                        </section>
                     </div>
-                </section>
+                )}
 
                 <p className={styles.privacyNote}>
                     Your personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.

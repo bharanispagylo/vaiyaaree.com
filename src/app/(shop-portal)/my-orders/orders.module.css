@@ -474,12 +474,23 @@
 }
 
 .statusBadge {
-    font-size: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    padding: 0.4rem 0.8rem;
+    letter-spacing: 0.08em;
+    padding: 0.35rem 0.8rem;
     border-radius: 50px;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+.statusBadge svg {
+    flex-shrink: 0;
+    display: block;
 }
 
 .statusPLACED {
@@ -505,6 +516,40 @@
 .statusCANCELLED {
     background: hsl(var(--danger) / 0.1);
     color: hsl(var(--danger));
+}
+
+.sourceCell {
+    white-space: nowrap;
+}
+
+.sourceBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.3rem 0.65rem;
+    border-radius: 8px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.sourceWeb {
+    background: #e0e7ff;
+    color: #4338ca;
+    border: 1px solid #c7d2fe;
+}
+
+.sourceWhatsApp {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.sourceManual {
+    background: #fce7f3;
+    color: #be185d;
+    border: 1px solid #fbcfe8;
 }
 
 .orderContent {

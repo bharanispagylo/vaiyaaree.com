@@ -19,7 +19,13 @@ export default function InvoiceSettingsPage() {
         shop_gstin: '',
         bill_terms: '',
         bill_footer: 'Thank you for shopping with us!',
-        business_phone: '15551678232'
+        business_phone: '15551678232',
+        company_vat_tin: '33132028969',
+        company_cst_no: '1091562',
+        company_pan_no: 'AAIFG6568K',
+        bank_name: 'INDIAN OVERSEAS BANK',
+        bank_account: '170902000000962',
+        bank_ifsc: 'IOBA0001709'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -49,22 +55,34 @@ export default function InvoiceSettingsPage() {
         setSaving(true);
         try {
             const updates = [
-                { key: 'shop_name', value: settings.shop_name },
-                { key: 'shop_logo', value: settings.shop_logo },
-                { key: 'shop_address', value: settings.shop_address },
-                { key: 'shop_gstin', value: settings.shop_gstin },
-                { key: 'bill_terms', value: settings.bill_terms },
-                { key: 'bill_footer', value: settings.bill_footer },
-                { key: 'business_phone', value: settings.business_phone }
+                { key: 'shop_name', value: String(settings.shop_name || '') },
+                { key: 'shop_logo', value: String(settings.shop_logo || '') },
+                { key: 'shop_address', value: String(settings.shop_address || '') },
+                { key: 'shop_gstin', value: String(settings.shop_gstin || '') },
+                { key: 'bill_terms', value: String(settings.bill_terms || '') },
+                { key: 'bill_footer', value: String(settings.bill_footer || '') },
+                { key: 'business_phone', value: String(settings.business_phone || '') },
+                { key: 'company_vat_tin', value: String(settings.company_vat_tin || '') },
+                { key: 'company_cst_no', value: String(settings.company_cst_no || '') },
+                { key: 'company_pan_no', value: String(settings.company_pan_no || '') },
+                { key: 'bank_name', value: String(settings.bank_name || '') },
+                { key: 'bank_account', value: String(settings.bank_account || '') },
+                { key: 'bank_ifsc', value: String(settings.bank_ifsc || '') }
             ];
-            const { error } = await supabase.from('app_settings').upsert(updates);
+
+            const { error } = await supabase
+                .from('app_settings')
+                .upsert(updates, { onConflict: 'key' });
+
             if (error) throw error;
-            setNotification({ message: 'Invoice settings updated!', type: 'success' });
+
+            setNotification({ message: 'Invoice settings saved successfully!', type: 'success' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
-            console.error(err);
-            setNotification({ message: 'Failed to save settings: ' + err.message, type: 'error' });
-            setTimeout(() => setNotification(null), 3500);
+            console.error('Invoice settings save error:', err);
+            const errMsg = err?.message || err?.details || err?.hint || (typeof err === 'object' && Object.keys(err).length > 0 ? JSON.stringify(err) : String(err)) || 'Failed to save settings';
+            setNotification({ message: 'Failed to save settings: ' + errMsg, type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
         } finally {
             setSaving(false);
         }
@@ -154,6 +172,46 @@ export default function InvoiceSettingsPage() {
                             </div>
                         </div>
 
+                        {/* COMPANY DETAILS SECTION */}
+                        <div style={{ borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1rem' }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'hsl(var(--primary))', marginBottom: '0.8rem' }}>Company Details (Tax / PAN)</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                                <div>
+                                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>VAT TIN</label>
+                                    <input type="text" value={settings.company_vat_tin || ''} onChange={e => setSettings({ ...settings, company_vat_tin: e.target.value })} placeholder="e.g. 33132028969" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>CST NO</label>
+                                    <input type="text" value={settings.company_cst_no || ''} onChange={e => setSettings({ ...settings, company_cst_no: e.target.value })} placeholder="e.g. 1091562" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>PAN NO</label>
+                                    <input type="text" value={settings.company_pan_no || ''} onChange={e => setSettings({ ...settings, company_pan_no: e.target.value })} placeholder="e.g. AAIFG6568K" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* BANK DETAILS SECTION */}
+                        <div style={{ borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1rem' }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'hsl(var(--primary))', marginBottom: '0.8rem' }}>Bank Details (Payment Info)</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                <div>
+                                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Bank Name</label>
+                                    <input type="text" value={settings.bank_name || ''} onChange={e => setSettings({ ...settings, bank_name: e.target.value })} placeholder="e.g. INDIAN OVERSEAS BANK" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Bank A/C Number</label>
+                                        <input type="text" value={settings.bank_account || ''} onChange={e => setSettings({ ...settings, bank_account: e.target.value })} placeholder="e.g. 170902000000962" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Branch & IFSC Code</label>
+                                        <input type="text" value={settings.bank_ifsc || ''} onChange={e => setSettings({ ...settings, bank_ifsc: e.target.value })} placeholder="e.g. IOBA0001709" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div>
                             <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Personalized Footer Greeting</label>
                             <input type="text" value={settings.bill_footer} onChange={e => setSettings({ ...settings, bill_footer: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
@@ -179,15 +237,15 @@ export default function InvoiceSettingsPage() {
                     }}>
                         <div style={{ border: '1px solid black' }}>
                             {/* Top Company Header */}
-                            <div style={{ display: 'flex', alignItems: 'center', padding: '15px', minHeight: '80px', gap: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '15px', minHeight: '80px', position: 'relative' }}>
                                 {settings.shop_logo && (
-                                    <div style={{ flexShrink: 0 }}>
+                                    <div style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)' }}>
                                         <img src={settings.shop_logo}
-                                            alt="Logo" style={{ maxHeight: '80px', maxWidth: '180px', objectFit: 'contain' }}
+                                            alt="Logo" style={{ maxHeight: '75px', maxWidth: '160px', objectFit: 'contain' }}
                                         />
                                     </div>
                                 )}
-                                <div style={{ flex: 1, textAlign: settings.shop_logo ? 'left' : 'center' }}>
+                                <div style={{ textAlign: 'center', width: '100%', paddingLeft: settings.shop_logo ? '160px' : '0', paddingRight: settings.shop_logo ? '160px' : '0' }}>
                                     <h1 style={{ margin: 0, fontSize: '2.2rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>{settings.shop_name}</h1>
                                     {settings.shop_address && <div style={{ fontSize: '12px', marginTop: '4px', whiteSpace: 'pre-line' }}>{settings.shop_address}</div>}
                                     <div style={{ fontSize: '12px', marginTop: '2px' }}>
@@ -275,7 +333,7 @@ export default function InvoiceSettingsPage() {
                                         <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center', verticalAlign: 'top' }}>1</td>
                                         <td style={{ padding: '5px', textAlign: 'right', verticalAlign: 'top' }}>2500.00</td>
                                     </tr>
-                                    {Array.from({ length: 6 }).map((_, i) => (
+                                    {Array.from({ length: 1 }).map((_, i) => (
                                         <tr key={`empty-${i}`}>
                                             <td style={{ borderRight: '1px solid black', padding: '5px', color: 'transparent' }}>.</td>
                                             <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
@@ -297,6 +355,38 @@ export default function InvoiceSettingsPage() {
                                         <td colSpan={5} style={{ padding: '5px' }}>
                                             <strong>Amount Chargeable (in words): </strong> 
                                             Rupees Seventeen Thousand Four Hundred and Ninety Nine Only
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Company & Bank Details Section */}
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', borderBottom: '1px solid black' }}>
+                                <thead>
+                                    <tr style={{ background: '#f0f0f0', borderBottom: '1px solid black' }}>
+                                        <th style={{ borderRight: '1px solid black', padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
+                                            Company Details
+                                        </th>
+                                        <th style={{ padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
+                                            Bank Details
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style={{ borderRight: '1px solid black', padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '70px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
+                                                <div><strong>VAT TIN</strong></div><div>:</div><div>{settings.company_vat_tin || '33132028969'}</div>
+                                                <div><strong>CST NO</strong></div><div>:</div><div>{settings.company_cst_no || '1091562'}</div>
+                                                <div><strong>PAN NO</strong></div><div>:</div><div>{settings.company_pan_no || 'AAIFG6568K'}</div>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '130px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
+                                                <div><strong>Bank Name</strong></div><div>:</div><div>{settings.bank_name || 'INDIAN OVERSEAS BANK'}</div>
+                                                <div><strong>Bank A/C</strong></div><div>:</div><div>{settings.bank_account || '170902000000962'}</div>
+                                                <div><strong>Branch & IFSC Code</strong></div><div>:</div><div>{settings.bank_ifsc || 'IOBA0001709'}</div>
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>

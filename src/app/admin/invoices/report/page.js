@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, ChevronRight, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, DollarSign, ShoppingCart } from 'lucide-react';
+import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, ChevronRight, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, IndianRupee, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
@@ -96,7 +96,22 @@ export default function InvoiceReportPage() {
                 finalOrders = finalOrders.filter(o => orderIdsWithCategory.includes(o.id));
             }
 
-            setOrders(finalOrders);
+            const enrichedOrders = await Promise.all(finalOrders.map(async (o) => {
+                if (o.invoice_no) return o;
+                const { count: c } = await supabase
+                    .from('orders')
+                    .select('id', { count: 'exact', head: true })
+                    .neq('status', 'DRAFT')
+                    .lte('created_at', o.created_at);
+
+                const seqNum = c || 1;
+                return {
+                    ...o,
+                    invoice_no: `INV-${String(seqNum).padStart(4, '0')}`
+                };
+            }));
+
+            setOrders(enrichedOrders);
         } catch (error) {
             console.error('Error fetching report data:', error);
         } finally {
@@ -121,8 +136,9 @@ export default function InvoiceReportPage() {
             { 'Metric': '', 'Value': '' } // Spacer
         ];
 
-        const reportData = orders.map(o => ({
-            'Invoice ID': `INV-${o.id}`,
+        const reportData = orders.map((o, idx) => ({
+            'Invoice No': o.invoice_no || `INV-${String(orders.length - idx).padStart(4, '0')}`,
+            'Order ID': o.id,
             'Date': new Date(o.created_at).toLocaleDateString(),
             'Customer': o.customer_name,
             'Phone': o.customer_phone,
@@ -228,7 +244,7 @@ export default function InvoiceReportPage() {
                             <div style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.5rem' }}>₹{metrics.totalRevenue.toLocaleString()}</div>
                         </div>
                         <div style={{ background: 'hsl(var(--primary) / 0.1)', padding: '10px', borderRadius: '10px', color: 'hsl(var(--primary))' }}>
-                            <DollarSign size={20} />
+                            <IndianRupee size={20} />
                         </div>
                     </div>
                 </div>
@@ -410,10 +426,18 @@ export default function InvoiceReportPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                paginatedOrders.map(o => (
-                                    <tr key={o.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))' }}>
-                                        <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>INV-{o.id}</td>
-                                        <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem' }}>{new Date(o.created_at).toLocaleDateString()}</td>
+                                paginatedOrders.map((o) => {
+                                    const seqNum = o.invoice_no || 'INV-0001';
+
+                                    return (
+                                        <tr key={o.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))' }}>
+                                            <td style={{ padding: '1.25rem 1.5rem' }}>
+                                                <div style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</div>
+                                                <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginTop: '2px' }}>
+                                                    Order ID: #{o.id}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem' }}>{new Date(o.created_at).toLocaleDateString()}</td>
                                         <td style={{ padding: '1.25rem 1.5rem' }}>
                                             <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{o.customer_phone}</div>
@@ -429,7 +453,8 @@ export default function InvoiceReportPage() {
                                             }}>{o.status}</span>
                                         </td>
                                     </tr>
-                                ))
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
