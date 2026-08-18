@@ -28,7 +28,14 @@ const menuItems = [
             { name: 'Refund Requests', href: '/admin/refunds' }
         ]
     },
-    { name: 'Customers', href: '/admin/customers', icon: Users },
+    { 
+        name: 'Customers', 
+        icon: Users, 
+        children: [
+            { name: 'Customers', href: '/admin/customers' },
+            { name: 'Customer Analysis', href: '/admin/customers/analysis' }
+        ]
+    },
     { 
         name: 'Invoices', 
         icon: FileText, 
@@ -121,7 +128,7 @@ export default function AdminSidebar({ isOpen }) {
                     <img src={logo} 
                         style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} 
                         alt="Logo" 
-                        onError={(e) => { e.target.src = '/images/cp-logo.png'; }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = '/images/cp-logo.png'; }}
                     />
                 </div>
                 <div>

@@ -661,28 +661,61 @@ export async function handleProductInquiry(to, catalogId) {
 }
 
 export async function sendMainMenu(to) {
-    // Build shop URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.vercel.app');
-    const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
+    try {
+        // Build shop URL
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.vercel.app');
+        const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
-    // Fetch dynamic welcome message
-    const welcomeMsg = await getConfig('wa_welcome_message', 'Explore our premium collection and manage your orders:');
+        // Fetch dynamic welcome message
+        const rawWelcomeMsg = await getConfig('wa_welcome_message', 'Explore our premium saree collection and manage your orders:');
+        const welcomeMsg = `🌸 *Welcome to Vaiyaaree* 🌸\n\n${rawWelcomeMsg}`;
 
-    // Fetch welcome image or shop logo
-    let welcomeImg = await getConfig('wa_welcome_image', null) || await getConfig('shop_logo', 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1000&q=80');
+        // Fetch welcome image or shop logo fallback
+        let welcomeImg = await getConfig('wa_welcome_image', null) || await getConfig('shop_logo', null);
 
-    // Ensure it's absolute URL so WhatsApp can display it
-    if (welcomeImg && !welcomeImg.startsWith('http')) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.vercel.app');
-        welcomeImg = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (welcomeImg.startsWith('/') ? '' : '/') + welcomeImg;
+        if (!welcomeImg || welcomeImg === 'null' || welcomeImg === 'undefined') {
+            welcomeImg = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1000&q=80';
+        }
+
+        // Ensure it's absolute HTTPS URL so WhatsApp Meta API can fetch it
+        if (welcomeImg && !welcomeImg.startsWith('http')) {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.vercel.app');
+            welcomeImg = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (welcomeImg.startsWith('/') ? '' : '/') + welcomeImg;
+        }
+
+        const buttons = [
+            { id: "menu_catalogue", title: "View Catalogue" },
+            { id: "menu_track", title: "My Orders" },
+            { id: "menu_contact", title: "Contact Us" }
+        ];
+
+        // 1. Try sending Image + Interactive Buttons (Rich Home Card)
+        let res = null;
+        if (welcomeImg && welcomeImg.startsWith('http')) {
+            res = await sendImageButtons(to, welcomeImg, welcomeMsg, buttons);
+        }
+
+        // 2. Fallback: If image buttons fail (e.g. Meta media download error), send interactive buttons without image
+        if (!res || res?.error) {
+            if (res?.error) console.warn('[WA] sendImageButtons failed, falling back to sendButtons:', res.error);
+            res = await sendButtons(to, welcomeMsg, buttons);
+        }
+
+        // 3. Fallback: If interactive buttons fail, send plain text menu
+        if (res?.error) {
+            console.warn('[WA] sendButtons failed, falling back to sendText:', res.error);
+            await sendText(to,
+                `${welcomeMsg}\n\n` +
+                `📌 *Quick Menu Commands:*\n` +
+                `• Reply *1* or *Catalogue* to browse sarees 💮\n` +
+                `• Reply *2* or *Orders* to track your orders 📦\n` +
+                `• Reply *3* or *Contact* for customer support 📞`
+            );
+        }
+    } catch (err) {
+        console.error('[WA] Fatal error in sendMainMenu:', err);
+        await sendText(to, '🌸 *Welcome to Vaiyaaree* 🌸\n\nReply *1* or *Catalogue* to browse our saree collection! 💮');
     }
-
-    // Use sendImageButtons for a richer first impression
-    await sendImageButtons(to, welcomeImg, welcomeMsg, [
-        { id: "menu_catalogue", title: "View Catalogue" },
-        { id: "menu_track", title: "My Orders" },
-        { id: "menu_contact", title: "Contact Us" }
-    ]);
 }
 
 
@@ -2418,7 +2451,8 @@ export async function processIncomingMessage(body) {
         }
 
         // -------------------------
-        const messageText = message.text?.body?.toLowerCase().trim();
+        const rawText = message.text?.body || message.button?.text || message.button?.payload || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || '';
+        const messageText = rawText.toLowerCase().trim();
 
         // 🛑 Stop any active stream for this user immediately
         cancelStream(from);
@@ -2442,33 +2476,54 @@ export async function processIncomingMessage(body) {
             }
         }
 
-        if (msgType === 'text') {
-            // ─── STEP 1: Keywords ALWAYS take priority — checked before anything else ───
-            const MENU_TRIGGERS = ['hi', 'hello', 'menu', 'start', '0'];
-            const RESET_TRIGGERS = ['reset'];
+        if (msgType === 'text' || msgType === 'button') {
+            const rawBodyText = message.text?.body?.trim() || message.button?.text?.trim() || message.button?.payload?.trim() || '';
+            const cleanText = messageText ? messageText.replace(/[^\w\s]/gi, '').trim() : '';
 
-            if (RESET_TRIGGERS.includes(messageText)) {
+            // ─── STEP 1: RESET & HOME CARD (MENU) TRIGGERS ───
+            const RESET_TRIGGERS = ['reset'];
+            const MENU_TRIGGERS = ['hi', 'hii', 'hiii', 'hello', 'hlo', 'hey', 'hai', 'menu', 'start', '0', 'home', 'vaiyaaree', 'saree', 'sarees', 'card', 'home card', 'homecard', 'main menu', 'welcome', 'test', 'help', 'support', 'bot'];
+
+            const isGreeting = MENU_TRIGGERS.includes(messageText) ||
+                               MENU_TRIGGERS.includes(cleanText) ||
+                               messageText.startsWith('hi ') ||
+                               messageText.startsWith('hello ') ||
+                               messageText.startsWith('hey ') ||
+                               messageText.includes('home card') ||
+                               messageText.includes('test number') ||
+                               messageText.includes('hi other message');
+
+            if (RESET_TRIGGERS.includes(messageText) || RESET_TRIGGERS.includes(cleanText)) {
                 // Reset: cancel any open draft orders and show main menu
                 await supabase.from('orders').delete().eq('customer_phone', from).eq('status', 'DRAFT');
                 return await sendMainMenu(from);
             }
-            if (MENU_TRIGGERS.includes(messageText)) return await sendMainMenu(from);
-            if (['cart', 'bag'].includes(messageText)) return await handleViewCart(from);
-            if (['catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees', 'show sarees'].includes(messageText)) return await sendCatalogueCategories(from);
 
-            // ── CATALOG ID LOOKUP: customer reads CAT-XXXXX code from product image ──
-            // Matches patterns like: CAT-AB12X, cat ab12x, CAT_C3FNP, CAT12345, or just AB12X (4-12 chars)
-            const rawBodyText = message.text.body.trim();
-            const catalogMatch = rawBodyText.match(/CAT[-\s_]?([A-Z0-9]{4,12})/i) || rawBodyText.match(/^([A-Z0-9]{4,12})$/i);
-            if (catalogMatch) {
-                const catalogId = catalogMatch[1] ? catalogMatch[1].toUpperCase() : catalogMatch[0].toUpperCase();
-                return await handleProductInquiry(from, catalogId);
+            if (isGreeting) {
+                return await sendMainMenu(from);
             }
 
-            if (messageText === 'contact') return await handleContact(from);
+            // ─── STEP 2: KEYWORD COMMANDS ───
+            if (['1', 'catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees', 'show sarees', 'view catalogue', 'view catalog'].includes(messageText)) return await sendCatalogueCategories(from);
+            if (['2', 'track order', 'my orders', 'my order', 'orders', 'order status', 'track'].includes(messageText)) return await handleTrackOrder(from);
+            if (['3', 'contact', 'contact us', 'support', 'customer care'].includes(messageText) || messageText === 'contact') return await handleContact(from);
+            if (['cart', 'bag', 'view cart', 'my cart', 'show cart'].includes(messageText)) return await handleViewCart(from);
+            if (['cancel', 'cancel order', 'cancel my order', 'cancellation', 'cancel it'].includes(messageText)) return await handleCancelOrder(from);
+
+            const returnKeywords = ['refund', 'return', 'exchange', 'refund order', 'return order', 'exchange order', 'returns', 'exchanges', 'retutn', 'return a product', 'exchange a product', 'i want to return', 'i want to exchange'];
+            if (returnKeywords.includes(messageText)) {
+                console.log('✅ Return/Exchange keyword matched - calling handleReturnExchangeOrder');
+                try {
+                    return await handleReturnExchangeOrder(customer.id, from);
+                } catch (error) {
+                    console.error('❌ handleReturnExchangeOrder failed:', error);
+                    throw error;
+                }
+            }
+
             if (messageText === 'stop') return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
 
-            // ─── STEP 2: Handle State (Waiting for user input) FIRST ───
+            // ─── STEP 3: HANDLE ACTIVE CONVERSATION STATE ───
             if (customer?.admin_notes) {
                 const notes = customer.admin_notes;
 
@@ -2497,41 +2552,14 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            // Text commands for menu items (typed by user)
-            console.log('🔍 Checking keyword matches for text:', messageText);
-
-            if (['track order', 'my orders', 'my order', 'orders', 'order status', 'track'].includes(messageText)) {
-                console.log('✅ Track order keyword matched');
-                return await handleTrackOrder(from);
-            }
-            if (['cancel', 'cancel order', 'cancel my order', 'cancellation', 'cancel it'].includes(messageText)) {
-                console.log('✅ Cancel keyword matched');
-                return await handleCancelOrder(from);
-            }
-
-            const returnKeywords = ['refund', 'return', 'exchange', 'refund order', 'return order', 'exchange order', 'returns', 'exchanges', 'retutn', 'return a product', 'exchange a product', 'i want to return', 'i want to exchange'];
-            if (returnKeywords.includes(messageText)) {
-                console.log('✅ Return/Exchange keyword matched - calling handleReturnExchangeOrder');
-                try {
-                    return await handleReturnExchangeOrder(customer.id, from);
-                } catch (error) {
-                    console.error('❌ handleReturnExchangeOrder failed:', error);
-                    throw error;
-                }
-            }
-
-            if (['view catalogue', 'view catalog', 'browse catalogue', 'browse catalog', 'show catalogue', 'show products'].includes(messageText)) return await sendCatalogueCategories(from);
-            if (['view cart', 'my cart', 'show cart', 'cart'].includes(messageText)) return await handleViewCart(from);
-
-            // Handle Order ID pattern for cancellation or refund/return
-            // More flexible pattern to match various order ID formats
+            // ─── STEP 4: ORDER ID LOOKUP ───
             const orderIdPatterns = [
-                /^(ORD|WEB|ORDER)-[A-Z0-9]+$/i,  // ORD-123456, WEB-789, ORDER-ABC
-                /^[A-Z]{2,6}-?\d{4,}$/i,         // CAT-1234, ABC123456
-                /^\d{6,}$/i                      // Just numbers like 123456
+                /^(ORD|WEB|ORDER)-[A-Z0-9]+$/i,
+                /^[A-Z]{2,6}-?\d{4,}$/i,
+                /^\d{6,}$/i
             ];
 
-            const trimmedMessage = message.text.body.trim();
+            const trimmedMessage = message.text?.body?.trim() || '';
             let matchedOrderId = null;
 
             for (const pattern of orderIdPatterns) {
@@ -2575,8 +2603,6 @@ export async function processIncomingMessage(body) {
 
             // Handle YES confirmation for cancellation
             if (messageText === 'yes' || messageText === 'yes cancel' || messageText === 'cancel yes') {
-                // Check if we have a pending cancel order in memory for this user
-                // For now, we'll handle via the button flow above
                 return await sendText(from, "📋 Please tap the button above or reply with your Order ID to cancel.\n\nExample: ORD-123456");
             }
 
@@ -2589,7 +2615,6 @@ export async function processIncomingMessage(body) {
                     const { data: order } = await supabase.from('orders').select('id, status, payment_method, total_amount, delivery_address, customer_name').eq('id', orderId).single();
 
                     if (order) {
-                        // If it's still a draft from old flow
                         if (order.status === 'DRAFT') {
                             await supabase.from('orders').update({ customer_phone: from }).eq('id', orderId);
                             await sendText(from,
@@ -2601,7 +2626,6 @@ export async function processIncomingMessage(body) {
                             return;
                         }
 
-                        // Order placed completely on website
                         await sendText(from, `Order Confirmed! (#${orderId})\n\nThank you, ${order.customer_name || 'Customer'}!\n\nDelivery Address:\n${order.delivery_address}\n\nTotal Billing: ₹${order.total_amount.toLocaleString()}`);
 
                         if (order.payment_method === 'UPI' && order.status === 'AWAITING_PAYMENT') {
@@ -2640,7 +2664,6 @@ export async function processIncomingMessage(body) {
                                 console.error('[NOTIFY] Failed to send COD PDF:', pdfErr);
                             }
 
-                            // Unify with bot flow by providing the same buttons
                             await sendButtons(from, "💗 We will contact you shortly to confirm cash on delivery dispatch!\n\nTap below to manage your order:", [
                                 { id: "menu_track", title: "Track Order" },
                                 { id: "menu_my_orders", title: "View Order" },
@@ -2652,8 +2675,7 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            // ─── STEP 2: Draft check — only reached for non-keyword messages ───
-            // Check for DRAFT orders that need billing or shipping address
+            // ─── STEP 5: DRAFT ORDER CHECK ───
             const normalizedPhone = normalizePhoneNumber(from);
             const phoneVariations = [normalizedPhone];
             if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
@@ -2670,13 +2692,11 @@ export async function processIncomingMessage(body) {
                 .single();
 
             if (draft) {
-                // Check if we need billing address
                 if (!draft.billing_address) {
                     console.log(`[WA] Saving billing address for draft ${draft.id}`);
                     return await handleNewBillingAddress(from, draft.id, message.text.body);
                 }
 
-                // Check if we need email (fallback if email was missing during billing)
                 if (draft.billing_address && !draft.customer_email) {
                     console.log(`[WA] Saving email for draft ${draft.id}`);
                     const email = message.text.body.trim();
@@ -2692,13 +2712,11 @@ export async function processIncomingMessage(body) {
                     }
                 }
 
-                // Check if we need shipping address (only if not set)
                 if (!draft.shipping_address) {
                     console.log(`[WA] Saving shipping address for draft ${draft.id}`);
                     return await handleNewShippingAddress(from, draft.id, message.text.body);
                 }
 
-                // Check if we need state selection (via text)
                 if ((!draft.customer_state || draft.customer_state === 'Other') && !MENU_TRIGGERS.includes(messageText)) {
                     console.log(`[WA] Attempting to set state for draft ${draft.id}: ${messageText}`);
                     const INDIAN_STATES = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi", "Puducherry", "Chandigarh", "Ladakh", "Jammu and Kashmir"];
@@ -2710,64 +2728,39 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            // Legacy: Check for old draft with delivery_address field only
-            const { data: legacyDraft } = await supabase
-                .from('orders')
-                .select('id, delivery_address')
-                .eq('customer_phone', from)
-                .eq('status', 'DRAFT')
-                .not('delivery_address', 'is', null)
-                .is('billing_address', null)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (legacyDraft && !legacyDraft.delivery_address) {
-                // User is replying with their delivery details
-                let name = 'Valued Customer';
-                let mobile = from; // default to WhatsApp number
-                let address = message.text.body.trim();
-
-                const rawBody = message.text.body.trim();
-
-                if (rawBody.includes(',')) {
-                    const parts = rawBody.split(',').map(p => p.trim());
-                    if (parts.length >= 3) {
-                        name = parts[0];
-                        mobile = parts[1];
-                        address = parts.slice(2).join(', ');
-                    } else if (parts.length === 2) {
-                        name = parts[0];
-                        address = parts[1];
-                    }
-                } else if (rawBody.includes('\n')) {
-                    const parts = rawBody.split('\n').map(p => p.trim()).filter(Boolean);
-                    if (parts.length >= 3) {
-                        name = parts[0];
-                        mobile = parts[1];
-                        address = parts.slice(2).join(', ');
-                    } else if (parts.length === 2) {
-                        name = parts[0];
-                        address = parts[1];
-                    }
-                }
-
-                console.log(`[WA] Saving address for draft ${draft.id}: name=${name}, mobile=${mobile}, addr=${address}`);
-                await supabase.from('orders').update({
-                    customer_name: name,
-                    customer_phone: mobile,
-                    delivery_address: address
-                }).eq('id', draft.id);
-
-                return await askState(from, draft.id);
+            // ─── STEP 6: SAFE CATALOG ID LOOKUP ───
+            // Matches explicit CAT- code (e.g. CAT-AB12X, cat_c3fnp)
+            const catExplicitMatch = rawBodyText.match(/CAT[-\s_]?([A-Z0-9]{4,12})/i);
+            if (catExplicitMatch) {
+                const catalogId = catExplicitMatch[1].toUpperCase();
+                return await handleProductInquiry(from, catalogId);
             }
 
-            // ─── STEP 3: Fallback for non-matching messages (DO NOT send Welcome Card) ───
-            // Try searching products by name or catalog ID before giving up
+            // For standalone alphanumeric codes (e.g., AB12X):
+            // Check if product actually exists in DB before treating as catalog lookup!
+            const standaloneMatch = rawBodyText.match(/^([A-Z0-9]{4,12})$/i);
+            const RESERVED_WORDS = ['TEST', 'ORDERS', 'ORDER', 'CANCEL', 'CONTACT', 'RETURN', 'REFUND', 'EXCHANGE', 'HELP', 'PRICE', 'INFO', 'HOME', 'MENU', 'SAREE', 'SAREES', 'CART', 'BAG', 'START', 'STOP', 'STATUS'];
+
+            if (standaloneMatch && !RESERVED_WORDS.includes(rawBodyText.toUpperCase())) {
+                const codeCandidate = rawBodyText.toUpperCase();
+                const { data: existingProd } = await supabaseAdmin
+                    .from('products')
+                    .select('product_catalog_image_id')
+                    .ilike('product_catalog_image_id', `%${codeCandidate}%`)
+                    .eq('is_active', true)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (existingProd) {
+                    return await handleProductInquiry(from, codeCandidate);
+                }
+            }
+
+            // ─── STEP 7: PRODUCT TERM SEARCH & HOME CARD FALLBACK ───
             const searchTerms = messageText.split(/\s+/).filter(w => w.length >= 3);
             for (const term of searchTerms) {
                 const cleanTerm = term.replace(/[^A-Z0-9]/gi, '');
-                if (cleanTerm.length >= 4) {
+                if (cleanTerm.length >= 4 && !RESERVED_WORDS.includes(cleanTerm.toUpperCase())) {
                     const { data: p } = await supabaseAdmin
                         .from('products')
                         .select('product_catalog_image_id')
@@ -2781,13 +2774,9 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            return await sendText(from,
-                `🌸 Thank you for reaching out to *Vaiyaaree*!\n\n` +
-                `We couldn't find a product matching *"${rawBodyText}"*.\n\n` +
-                `📌 *Tips:*\n` +
-                `• Send a product code (e.g. *CAT-C3FNP*)\n` +
-                `• Or send *Hi* to view our main menu & catalogue!`
-            );
+            // If no product found or unhandled text message (e.g. "hi other message", "test", etc.)
+            // Respond with Home Card (Main Menu) so the user gets a helpful, interactive menu!
+            return await sendMainMenu(from);
         }
 
         if (msgType === 'interactive') {

@@ -68,7 +68,7 @@ export default function ShopHeader() {
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
                         <Link href="/" className={styles.logoLink}>
-                            <img src="/images/cp-logo.png" alt="Vaiyaaree" className={styles.logoImg} onError={(e) => { e.target.src = '/images/cp-logo.svg'; }} />
+                            <img src="/images/cp-logo.png" alt="Vaiyaaree" className={styles.logoImg} onError={(e) => { e.target.onerror = null; e.target.src = '/images/cp-logo.svg'; }} />
                             <span className={styles.logoBrandName}>VAIYAAREE</span>
                         </Link>
                     </div>
@@ -130,8 +130,10 @@ export default function ShopHeader() {
                                                 </div>
                                                 <div className={styles.divider}></div>
                                                 <Link href="/my-orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>
-
-                                                <Link href="/profile" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account Settings</Link>
+                                                <Link href="/profile?tab=history" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Order History</Link>
+                                                <Link href="/profile?tab=account" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account & Addresses</Link>
+                                                <Link href="/profile?tab=refund" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Refund Requests</Link>
+                                                <Link href="/profile?tab=return" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Return Requests</Link>
                                                 <div className={styles.divider}></div>
                                                 <div className={`${styles.dropdownItem} ${styles.logout}`} onClick={handleLogout}>Logout</div>
                                             </div>

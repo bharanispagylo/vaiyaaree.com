@@ -2,9 +2,44 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, ChevronRight, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, IndianRupee, ShoppingCart } from 'lucide-react';
+import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, ChevronRight, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, IndianRupee, ShoppingCart, Printer, MessageCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
+
+const numberToWords = (num) => {
+    const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+    const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+    if ((num = num.toString()).length > 9) return 'overflow';
+    const n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+    if (!n) return; var str = '';
+    str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+    str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+    str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+    str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+    str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+    return str ? 'Rupees ' + str.trim() + ' Only' : 'Zero';
+};
+
+const formatAddress = (addr) => {
+    if (!addr) return "";
+    try {
+        if (typeof addr === 'string') {
+            if (addr.startsWith('{') && addr.endsWith('}')) {
+                const parsed = JSON.parse(addr);
+                const parts = [parsed.name, parsed.address, parsed.city, parsed.state, parsed.pincode].filter(Boolean);
+                return parts.join(', ');
+            }
+            return addr;
+        }
+        if (typeof addr === 'object') {
+            const parts = [addr.name, addr.address, addr.city, addr.state, addr.pincode].filter(Boolean);
+            return parts.join(', ');
+        }
+    } catch (e) {
+        return String(addr);
+    }
+    return String(addr);
+};
 
 export default function InvoiceReportPage() {
     const [orders, setOrders] = useState([]);
@@ -20,23 +55,56 @@ export default function InvoiceReportPage() {
     const [selectedCategory, setSelectedCategory] = useState('ALL');
     const [reportStatusFilter, setReportStatusFilter] = useState('ALL');
     const [searchTerm, setSearchTerm] = useState('');
-    const [viewInvoice, setViewInvoice] = useState(null);
+    const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [invoiceItems, setInvoiceItems] = useState([]);
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+    const [pdfLoading, setPdfLoading] = useState(false);
     const [notification, setNotification] = useState(null); // { message, type }
     const [reportPage, setReportPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
 
+    const [settings, setSettings] = useState({
+        shop_name: 'Vaiyaaree',
+        shop_logo: '',
+        shop_address: '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.',
+        shop_gstin: '8473939083',
+        bill_terms: '',
+        bill_footer: 'Thank you for shopping with Vaiyaaree!',
+        business_phone: '15551678232',
+        company_vat_tin: '33132028969',
+        company_cst_no: '1091562',
+        company_pan_no: 'AAIFG6568K',
+        bank_name: 'STATE BANK INDIA',
+        bank_account: '170902000000962',
+        bank_ifsc: 'SBI0001709',
+        bank_upi: 'vaiyaaree@upi'
+    });
+
     useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const { data } = await supabase.from('app_settings').select('*');
+                if (data) {
+                    const mapped = {};
+                    data.forEach(item => mapped[item.key] = item.value);
+                    setSettings(prev => ({ ...prev, ...mapped }));
+                }
+            } catch (err) {
+                console.error('Settings load error:', err);
+            }
+        };
+
         const fetchInitialData = async () => {
             setLoading(true);
             try {
                 // Fetch categories
                 const { data: catData } = await supabase.from('products').select('category').not('category', 'is', null);
-                const uniqueCats = [...new Set(catData.map(p => p.category))].sort();
+                const uniqueCats = [...new Set((catData || []).map(p => p.category))].sort();
                 setCategories(uniqueCats);
 
                 // Fetch locations (states)
                 const { data: locData } = await supabase.from('orders').select('shipping_state').not('shipping_state', 'is', null);
-                const uniqueLocs = [...new Set(locData.map(o => o.shipping_state))].sort();
+                const uniqueLocs = [...new Set((locData || []).map(o => o.shipping_state))].sort();
                 setLocations(uniqueLocs);
 
                 await fetchReportData();
@@ -47,8 +115,28 @@ export default function InvoiceReportPage() {
             }
         };
 
+        fetchSettings();
         fetchInitialData();
     }, []);
+
+    const openInvoice = async (order) => {
+        setSelectedInvoice(order);
+        try {
+            const { data, error } = await supabase
+                .from('order_items')
+                .select('*')
+                .eq('order_id', order.id);
+            if (error) throw error;
+            setInvoiceItems(data || []);
+        } catch (error) {
+            console.error('Error fetching invoice items:', error);
+            setInvoiceItems([]);
+        }
+    };
+
+    const printInvoice = () => {
+        window.print();
+    };
 
     const fetchReportData = async () => {
         setLoading(true);
@@ -154,8 +242,8 @@ export default function InvoiceReportPage() {
         XLSX.writeFile(wb, `Invoice_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
-    const handleDownloadAuditPDF = async () => {
-        setLoading(true);
+    const handlePreviewAuditPDF = async () => {
+        setPdfLoading(true);
         try {
             const { generateAuditPDF } = await import('@/lib/auditGenerator');
 
@@ -170,30 +258,71 @@ export default function InvoiceReportPage() {
             });
 
             const url = window.URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' }));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Audit_Report_${new Date().toISOString().split('T')[0]}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            setPdfPreviewUrl(url);
         } catch (error) {
             console.error('Audit PDF Error:', error);
-            setNotification({ message: 'Failed to generate Audit PDF. See console.', type: 'error' });
+            setNotification({ message: 'Failed to generate Audit PDF preview. See console.', type: 'error' });
             setTimeout(() => setNotification(null), 3500);
         } finally {
-            setLoading(false);
+            setPdfLoading(false);
+        }
+    };
+
+    const handleDownloadFromPreview = () => {
+        if (!pdfPreviewUrl) return;
+        const link = document.createElement('a');
+        link.href = pdfPreviewUrl;
+        link.setAttribute('download', `Audit_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    };
+
+    const handleClosePreview = () => {
+        if (pdfPreviewUrl) {
+            window.URL.revokeObjectURL(pdfPreviewUrl);
+            setPdfPreviewUrl(null);
         }
     };
 
     const filteredOrders = orders.filter(o => {
         const matchesStatusFilter = reportStatusFilter === 'ALL' ? true : o.status === reportStatusFilter;
-        return (
-            (!['CANCELLED', 'REFUNDED'].includes(o.status)) &&
-            matchesStatusFilter &&
-            (o.id.toString().includes(searchTerm) ||
-            o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            o.customer_phone?.includes(searchTerm))
-        );
+        if (['CANCELLED', 'REFUNDED'].includes(o.status) || !matchesStatusFilter) return false;
+
+        if (!searchTerm || !searchTerm.trim()) return true;
+
+        const cleanTerm = searchTerm.trim().toLowerCase();
+        const strippedHash = cleanTerm.replace(/^#+/, '').trim();
+        const digitsOnly = cleanTerm.replace(/\D/g, '');
+
+        const invNo = (o.invoice_no || '').toLowerCase();
+        const id = (o.id || '').toLowerCase();
+        const name = (o.customer_name || '').toLowerCase();
+        const phone = (o.customer_phone || '').toLowerCase();
+        const email = (o.customer_email || '').toLowerCase();
+        const payment = (o.payment_method || '').toLowerCase();
+        const status = (o.status || '').toLowerCase();
+        const state = (o.shipping_state || '').toLowerCase();
+
+        if (invNo.includes(cleanTerm) || (strippedHash && invNo.includes(strippedHash))) return true;
+        if (id.includes(cleanTerm) || (strippedHash && id.includes(strippedHash))) return true;
+        if (name.includes(cleanTerm)) return true;
+        if (phone.includes(cleanTerm)) return true;
+        if (email.includes(cleanTerm)) return true;
+        if (payment.includes(cleanTerm)) return true;
+        if (status.includes(cleanTerm)) return true;
+        if (state.includes(cleanTerm)) return true;
+
+        if (digitsOnly.length > 0) {
+            const seqNumNum = parseInt(digitsOnly, 10);
+            if (!isNaN(seqNumNum)) {
+                const formattedInvNo = `inv-${String(seqNumNum).padStart(4, '0')}`;
+                if (invNo === formattedInvNo || invNo.includes(digitsOnly)) return true;
+            }
+            if (id.includes(digitsOnly) || phone.includes(digitsOnly)) return true;
+        }
+
+        return false;
     });
 
     const totalReportPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
@@ -204,6 +333,295 @@ export default function InvoiceReportPage() {
         orderCount: filteredOrders.length,
         avgTicket: filteredOrders.length > 0 ? (filteredOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0) / filteredOrders.length) : 0
     };
+
+    if (selectedInvoice) {
+        return (
+            <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+                <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                    <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <button onClick={() => setSelectedInvoice(null)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))' }}>
+                            <ArrowLeft size={16} /> Back to Invoice Report
+                        </button>
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button onClick={printInvoice} className="btn btn-primary" style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'hsl(var(--primary))', color: 'white', cursor: 'pointer' }}>
+                                <Printer size={18} /> Print Invoice
+                            </button>
+                            <a href={`https://wa.me/${selectedInvoice.customer_phone}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', textDecoration: 'none', border: '1px solid hsl(var(--primary) / 0.3)' }}>
+                                <MessageCircle size={18} /> Send via WhatsApp
+                            </a>
+                        </div>
+                    </div>
+
+                    <div id="printable-invoice" style={{
+                        background: 'white', width: '210mm', minHeight: '297mm',
+                        margin: '0 auto', color: 'black', fontFamily: 'Arial, sans-serif',
+                        padding: '10mm', boxSizing: 'border-box'
+                    }}>
+                        <div style={{ border: '1px solid black' }}>
+                            {/* Top Company Header */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '15px', minHeight: '80px', position: 'relative' }}>
+                                {settings.shop_logo && (
+                                    <div style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)' }}>
+                                        <img src={typeof settings.shop_logo === 'string' && (settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/')) ? settings.shop_logo : `/images/${settings.shop_logo}`}
+                                            alt="Logo" style={{ maxHeight: '75px', maxWidth: '160px', objectFit: 'contain' }}
+                                        />
+                                    </div>
+                                )}
+                                <div style={{ textAlign: 'center', width: '100%', paddingLeft: settings.shop_logo ? '160px' : '0', paddingRight: settings.shop_logo ? '160px' : '0' }}>
+                                    <h1 style={{ margin: 0, fontSize: '2.2rem', fontWeight: 'bold', letterSpacing: '1px' }}>{settings.shop_name}</h1>
+                                    {settings.shop_address && <div style={{ fontSize: '12px', marginTop: '4px', whiteSpace: 'pre-line' }}>{settings.shop_address}</div>}
+                                    <div style={{ fontSize: '12px', marginTop: '2px' }}>
+                                        {settings.shop_gstin && <span><strong>GSTIN:</strong> {settings.shop_gstin}</span>}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* TAX INVOICE Bar */}
+                            <div style={{ borderTop: '1px solid black', borderBottom: '1px solid black', background: '#f0f0f0', padding: '5px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', letterSpacing: '1px' }}>
+                                TAX INVOICE
+                            </div>
+
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <tbody>
+                                    {/* Info Row */}
+                                    <tr>
+                                        <td style={{ padding: '6px 8px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '4px' }}>
+                                                <div><strong>Invoice No:</strong></div><div>{selectedInvoice.invoice_no || 'INV-0001'}</div>
+                                                <div><strong>Order ID:</strong></div><div>{selectedInvoice.id}</div>
+                                                <div><strong>Invoice Date:</strong></div><div>{new Date(selectedInvoice.created_at).toLocaleDateString('en-IN')}</div>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '6px 8px', width: '50%', borderBottom: '1px solid black', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px' }}>
+                                                <div><strong>Payment Method:</strong></div><div>{selectedInvoice.payment_method || 'COD'}</div>
+                                                <div><strong>Order Status:</strong></div><div>{selectedInvoice.status}</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    {/* Details Headers */}
+                                    <tr>
+                                        <td style={{ padding: '3px 5px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', fontWeight: 'bold', background: '#f9f9f9' }}>
+                                            Billing Address :
+                                        </td>
+                                        <td style={{ padding: '3px 5px', width: '50%', borderBottom: '1px solid black', fontWeight: 'bold', background: '#f9f9f9' }}>
+                                            Shipping Address :
+                                        </td>
+                                    </tr>
+
+                                    {/* Details Content */}
+                                    <tr>
+                                        <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '5px' }}>
+                                                <div><strong>Name</strong></div><div>: {selectedInvoice.customer_name}</div>
+                                                <div><strong>Address</strong></div><div>: {formatAddress(selectedInvoice.billing_address || selectedInvoice.delivery_address || selectedInvoice.shipping_address)}</div>
+                                                <div><strong>Phone</strong></div><div>: {selectedInvoice.customer_phone}</div>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', verticalAlign: 'top' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '5px' }}>
+                                                <div><strong>Name</strong></div><div>: {selectedInvoice.customer_name}</div>
+                                                <div><strong>Address</strong></div><div>: {formatAddress(selectedInvoice.shipping_address || selectedInvoice.delivery_address || selectedInvoice.billing_address)}</div>
+                                                <div><strong>Phone</strong></div><div>: {selectedInvoice.customer_phone}</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Items Table */}
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <thead>
+                                    <tr style={{ background: '#f0f0f0' }}>
+                                        <th style={{ borderBottom: '1px solid black', borderRight: '1px solid black', padding: '5px', width: '5%', textAlign: 'center' }}>S.No</th>
+                                        <th style={{ borderBottom: '1px solid black', borderRight: '1px solid black', padding: '5px', width: '50%', textAlign: 'left' }}>Description</th>
+                                        <th style={{ borderBottom: '1px solid black', borderRight: '1px solid black', padding: '5px', width: '15%', textAlign: 'right' }}>Price</th>
+                                        <th style={{ borderBottom: '1px solid black', borderRight: '1px solid black', padding: '5px', width: '10%', textAlign: 'center' }}>Qty</th>
+                                        <th style={{ borderBottom: '1px solid black', padding: '5px', width: '20%', textAlign: 'right' }}>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {invoiceItems.map((item, i) => (
+                                        <tr key={i}>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center', verticalAlign: 'top' }}>{i + 1}</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', verticalAlign: 'top' }}>
+                                                {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
+                                            </td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', verticalAlign: 'top' }}>{(item.price_at_time || 0).toFixed(2)}</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center', verticalAlign: 'top' }}>{item.quantity}</td>
+                                            <td style={{ padding: '5px', textAlign: 'right', verticalAlign: 'top' }}>{((item.price_at_time || 0) * item.quantity).toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+
+                                    {Array.from({ length: Math.max(0, 1 - invoiceItems.length) }).map((_, i) => (
+                                        <tr key={`empty-${i}`}>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', color: 'transparent' }}>.</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ padding: '5px' }}></td>
+                                        </tr>
+                                    ))}
+                                    
+                                    {selectedInvoice.shipping_cost > 0 && (
+                                        <tr>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>Shipping Cost:</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.shipping_cost).toFixed(2)}</td>
+                                        </tr>
+                                    )}
+                                    {selectedInvoice.cgst > 0 && (
+                                        <tr>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>CGST:</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.cgst).toFixed(2)}</td>
+                                        </tr>
+                                    )}
+                                    {selectedInvoice.sgst > 0 && (
+                                        <tr>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>SGST:</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.sgst).toFixed(2)}</td>
+                                        </tr>
+                                    )}
+                                    {selectedInvoice.igst > 0 && (
+                                        <tr>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>IGST:</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.igst).toFixed(2)}</td>
+                                        </tr>
+                                    )}
+                                    {((!selectedInvoice.cgst && !selectedInvoice.sgst && !selectedInvoice.igst) && selectedInvoice.tax_amount > 0) && (
+                                        <tr>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>Tax:</td>
+                                            <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.tax_amount).toFixed(2)}</td>
+                                        </tr>
+                                    )}
+
+                                    {/* Total Row */}
+                                    <tr style={{ borderTop: '1px solid black', fontWeight: 'bold' }}>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right' }}>Total</td>
+                                        <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'center' }}>
+                                            {invoiceItems.reduce((sum, item) => sum + (item.quantity || 1), 0)}
+                                        </td>
+                                        <td style={{ padding: '5px', textAlign: 'right' }}>
+                                            {parseFloat(selectedInvoice.total_amount).toFixed(2)}
+                                        </td>
+                                    </tr>
+
+                                    {/* Amount in words */}
+                                    <tr style={{ borderBottom: '1px solid black' }}>
+                                        <td colSpan={5} style={{ padding: '5px' }}>
+                                            <strong>Amount Chargeable (in words): </strong> 
+                                            {numberToWords(Math.round(selectedInvoice.total_amount || 0))}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Company Address & Bank Details Section */}
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', borderBottom: '1px solid black' }}>
+                                <thead>
+                                    <tr style={{ background: '#f0f0f0', borderBottom: '1px solid black' }}>
+                                        <th style={{ borderRight: '1px solid black', padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
+                                            Company Address
+                                        </th>
+                                        <th style={{ padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
+                                            Bank Details
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style={{ borderRight: '1px solid black', padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
+                                            <div style={{ lineHeight: '1.5', whiteSpace: 'pre-line' }}>
+                                                {settings.shop_address || '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.'}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '130px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
+                                                <div><strong>Bank Name</strong></div><div>:</div><div>{settings.bank_name || 'STATE BANK INDIA'}</div>
+                                                <div><strong>Bank A/C</strong></div><div>:</div><div>{settings.bank_account || '170902000000962'}</div>
+                                                <div><strong>Branch & IFSC Code</strong></div><div>:</div><div>{settings.bank_ifsc || 'SBI0001709'}</div>
+                                                <div><strong>UPI ID</strong></div><div>:</div><div>{settings.bank_upi || 'vaiyaaree@upi'}</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Footer sections */}
+                            <div style={{ display: 'flex' }}>
+                                <div style={{ width: '50%', borderRight: '1px solid black', padding: '5px' }}>
+                                    <div style={{ paddingBottom: '2px', marginBottom: '5px', fontWeight: 'bold' }}>
+                                        Terms & Conditions / Declarations :
+                                    </div>
+                                    <div style={{ fontSize: '11px', whiteSpace: 'pre-line' }}>
+                                        {settings.bill_terms || "Goods once sold will not be taken back or exchanged unless defective"}
+                                    </div>
+                                </div>
+                                <div style={{ width: '50%', padding: '5px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'center' }}>
+                                    <div style={{ fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>For {settings.shop_name}</div>
+                                    <div style={{ marginTop: '50px', fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>Authorized Signatory</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '11px', color: '#666' }}>
+                            {settings.bill_footer}
+                        </div>
+                    </div>
+                </div>
+
+                <style jsx>{`
+                    @media print {
+                        * {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        body * {
+                            visibility: hidden !important;
+                        }
+                        #printable-invoice, #printable-invoice * {
+                            visibility: visible !important;
+                        }
+                        #printable-invoice {
+                            position: absolute !important;
+                            left: 0 !important;
+                            top: 0 !important;
+                            width: 100% !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            box-shadow: none !important;
+                            border: none !important;
+                            border-radius: 0 !important;
+                        }
+                        .no-print, .sidebar, button, .btn {
+                            display: none !important;
+                        }
+                        @page {
+                            size: A4;
+                            margin: 5mm;
+                        }
+                    }
+                `}</style>
+            </div>
+        );
+    }
 
     return (
         <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
@@ -217,12 +635,12 @@ export default function InvoiceReportPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button
-                        onClick={handleDownloadAuditPDF}
-                        disabled={filteredOrders.length === 0 || loading}
+                        onClick={handlePreviewAuditPDF}
+                        disabled={filteredOrders.length === 0 || pdfLoading}
                         className="btn btn-secondary"
                         style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, background: '#f1f5f9', color: 'hsl(var(--text-main))' }}
                     >
-                        {loading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />} Audit PDF
+                        {pdfLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />} Audit PDF
                     </button>
                     <button
                         onClick={downloadReport}
@@ -430,7 +848,13 @@ export default function InvoiceReportPage() {
                                     const seqNum = o.invoice_no || 'INV-0001';
 
                                     return (
-                                        <tr key={o.id} style={{ borderBottom: '1px solid hsl(var(--border-subtle))' }}>
+                                        <tr 
+                                            key={o.id} 
+                                            onClick={() => openInvoice(o)}
+                                            style={{ borderBottom: '1px solid hsl(var(--border-subtle))', cursor: 'pointer', transition: 'background 0.2s' }}
+                                            onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.04)'}
+                                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                                        >
                                             <td style={{ padding: '1.25rem 1.5rem' }}>
                                                 <div style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</div>
                                                 <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginTop: '2px' }}>
@@ -438,21 +862,21 @@ export default function InvoiceReportPage() {
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem' }}>{new Date(o.created_at).toLocaleDateString()}</td>
-                                        <td style={{ padding: '1.25rem 1.5rem' }}>
-                                            <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{o.customer_phone}</div>
-                                        </td>
-                                        <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem' }}>{o.shipping_state || 'N/A'}</td>
-                                        <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right', fontWeight: 800 }}>₹{o.total_amount.toLocaleString()}</td>
-                                        <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
-                                            <span style={{
-                                                fontSize: '0.65rem', fontWeight: 800, padding: '4px 10px', borderRadius: '99px',
-                                                background: o.status === 'DELIVERED' || o.status === 'PAID' ? 'hsl(var(--primary))' : 'hsl(var(--bg-app))',
-                                                color: o.status === 'DELIVERED' || o.status === 'PAID' ? 'white' : 'hsl(var(--text-main))',
-                                                border: `1px solid ${o.status === 'DELIVERED' || o.status === 'PAID' ? 'transparent' : 'hsl(var(--border-subtle))'}`
-                                            }}>{o.status}</span>
-                                        </td>
-                                    </tr>
+                                            <td style={{ padding: '1.25rem 1.5rem' }}>
+                                                <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{o.customer_phone}</div>
+                                            </td>
+                                            <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem' }}>{o.shipping_state || 'N/A'}</td>
+                                            <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right', fontWeight: 800 }}>₹{o.total_amount.toLocaleString()}</td>
+                                            <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
+                                                <span style={{
+                                                    fontSize: '0.65rem', fontWeight: 800, padding: '4px 10px', borderRadius: '99px',
+                                                    background: o.status === 'DELIVERED' || o.status === 'PAID' ? 'hsl(var(--primary))' : 'hsl(var(--bg-app))',
+                                                    color: o.status === 'DELIVERED' || o.status === 'PAID' ? 'white' : 'hsl(var(--text-main))',
+                                                    border: `1px solid ${o.status === 'DELIVERED' || o.status === 'PAID' ? 'transparent' : 'hsl(var(--border-subtle))'}`
+                                                }}>{o.status}</span>
+                                            </td>
+                                        </tr>
                                     );
                                 })
                             )}
@@ -508,6 +932,80 @@ export default function InvoiceReportPage() {
                     {notification.message}
                 </div>
             )}
+            {/* Audit PDF Preview Modal */}
+            {pdfPreviewUrl && (
+                <div
+                    onClick={(e) => { if (e.target === e.currentTarget) handleClosePreview(); }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 10000,
+                        background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '1rem', animation: 'fadeIn 0.25s ease-out'
+                    }}
+                >
+                    <div style={{
+                        background: '#ffffff', width: '96vw', maxWidth: '1250px', height: '92vh',
+                        maxHeight: '94vh',
+                        borderRadius: '20px', display: 'flex', flexDirection: 'column',
+                        overflow: 'hidden', boxShadow: '0 25px 60px -15px rgba(0,0,0,0.6)',
+                        border: '1px solid rgba(255,255,255,0.2)'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            background: '#f8fafc', flexShrink: 0
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                <div style={{ background: '#e0e7ff', padding: '10px', borderRadius: '12px', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <FileText size={22} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>Audit Report Preview</h3>
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>
+                                        Timeframe: {timeframe} | Total Orders: {filteredOrders.length}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <button
+                                    onClick={() => window.open(pdfPreviewUrl, '_blank')}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.65rem 1.15rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, background: '#f1f5f9', color: '#1e293b', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                                    title="Open PDF in a new tab for printing or full view"
+                                >
+                                    <Printer size={16} /> Open / Print
+                                </button>
+                                <button
+                                    onClick={handleDownloadFromPreview}
+                                    className="btn btn-primary"
+                                    style={{ padding: '0.65rem 1.35rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, background: 'hsl(var(--primary))', color: 'white', cursor: 'pointer', boxShadow: '0 4px 12px hsl(var(--primary)/0.2)' }}
+                                >
+                                    <Download size={16} /> Download PDF
+                                </button>
+                                <button
+                                    onClick={handleClosePreview}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.65rem 1.15rem', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', background: '#e2e8f0', color: '#334155', border: 'none' }}
+                                >
+                                    Close Preview
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body (PDF Viewer) */}
+                        <div style={{ flex: 1, background: '#525659', width: '100%', height: '100%', overflow: 'hidden' }}>
+                            <iframe
+                                src={`${pdfPreviewUrl}#view=FitH`}
+                                title="Audit PDF Preview"
+                                style={{ width: '100%', height: '100%', border: 'none' }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style jsx>{`
                 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             `}</style>

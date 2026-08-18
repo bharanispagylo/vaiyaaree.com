@@ -8,7 +8,7 @@ import Link from 'next/link';
 import styles from './orders.module.css';
 
 export default function MyOrdersPage() {
-    const { user, supabase } = useShop();
+    const { user, supabase, isSessionLoading } = useShop();
     const router = useRouter();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -150,7 +150,7 @@ export default function MyOrdersPage() {
         return 'WHATSAPP';
     };
 
-    if (loading) {
+    if (isSessionLoading || loading) {
         return (
             <div className={styles.ordersContainer}>
                 <div className={styles.loadingState} style={{ padding: '6rem 2rem' }}>

@@ -15,17 +15,18 @@ export default function InvoiceSettingsPage() {
     const [settings, setSettings] = useState({
         shop_name: 'Vaiyaaree',
         shop_logo: '',
-        shop_address: '',
-        shop_gstin: '',
+        shop_address: '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.',
+        shop_gstin: '8473939083',
         bill_terms: '',
-        bill_footer: 'Thank you for shopping with us!',
+        bill_footer: 'Thank you for shopping with Vaiyaaree!',
         business_phone: '15551678232',
         company_vat_tin: '33132028969',
         company_cst_no: '1091562',
         company_pan_no: 'AAIFG6568K',
-        bank_name: 'INDIAN OVERSEAS BANK',
+        bank_name: 'STATE BANK INDIA',
         bank_account: '170902000000962',
-        bank_ifsc: 'IOBA0001709'
+        bank_ifsc: 'SBI0001709',
+        bank_upi: 'vaiyaaree@upi'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -67,7 +68,8 @@ export default function InvoiceSettingsPage() {
                 { key: 'company_pan_no', value: String(settings.company_pan_no || '') },
                 { key: 'bank_name', value: String(settings.bank_name || '') },
                 { key: 'bank_account', value: String(settings.bank_account || '') },
-                { key: 'bank_ifsc', value: String(settings.bank_ifsc || '') }
+                { key: 'bank_ifsc', value: String(settings.bank_ifsc || '') },
+                { key: 'bank_upi', value: String(settings.bank_upi || '') }
             ];
 
             const { error } = await supabase
@@ -172,24 +174,7 @@ export default function InvoiceSettingsPage() {
                             </div>
                         </div>
 
-                        {/* COMPANY DETAILS SECTION */}
-                        <div style={{ borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1rem' }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'hsl(var(--primary))', marginBottom: '0.8rem' }}>Company Details (Tax / PAN)</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                                <div>
-                                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>VAT TIN</label>
-                                    <input type="text" value={settings.company_vat_tin || ''} onChange={e => setSettings({ ...settings, company_vat_tin: e.target.value })} placeholder="e.g. 33132028969" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>CST NO</label>
-                                    <input type="text" value={settings.company_cst_no || ''} onChange={e => setSettings({ ...settings, company_cst_no: e.target.value })} placeholder="e.g. 1091562" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>PAN NO</label>
-                                    <input type="text" value={settings.company_pan_no || ''} onChange={e => setSettings({ ...settings, company_pan_no: e.target.value })} placeholder="e.g. AAIFG6568K" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
-                                </div>
-                            </div>
-                        </div>
+
 
                         {/* BANK DETAILS SECTION */}
                         <div style={{ borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1rem' }}>
@@ -197,7 +182,7 @@ export default function InvoiceSettingsPage() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 <div>
                                     <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Bank Name</label>
-                                    <input type="text" value={settings.bank_name || ''} onChange={e => setSettings({ ...settings, bank_name: e.target.value })} placeholder="e.g. INDIAN OVERSEAS BANK" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                    <input type="text" value={settings.bank_name || ''} onChange={e => setSettings({ ...settings, bank_name: e.target.value })} placeholder="e.g. STATE BANK INDIA" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.75rem' }}>
                                     <div>
@@ -206,8 +191,12 @@ export default function InvoiceSettingsPage() {
                                     </div>
                                     <div>
                                         <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>Branch & IFSC Code</label>
-                                        <input type="text" value={settings.bank_ifsc || ''} onChange={e => setSettings({ ...settings, bank_ifsc: e.target.value })} placeholder="e.g. IOBA0001709" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
+                                        <input type="text" value={settings.bank_ifsc || ''} onChange={e => setSettings({ ...settings, bank_ifsc: e.target.value })} placeholder="e.g. SBI0001709" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
                                     </div>
+                                </div>
+                                <div>
+                                    <label style={{ fontSize: '0.68rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'block' }}>UPI ID</label>
+                                    <input type="text" value={settings.bank_upi || ''} onChange={e => setSettings({ ...settings, bank_upi: e.target.value })} placeholder="e.g. vaiyaaree@upi" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }} />
                                 </div>
                             </div>
                         </div>
@@ -360,12 +349,12 @@ export default function InvoiceSettingsPage() {
                                 </tbody>
                             </table>
 
-                            {/* Company & Bank Details Section */}
+                            {/* Company Address & Bank Details Section */}
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', borderBottom: '1px solid black' }}>
                                 <thead>
                                     <tr style={{ background: '#f0f0f0', borderBottom: '1px solid black' }}>
                                         <th style={{ borderRight: '1px solid black', padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
-                                            Company Details
+                                            Company Address
                                         </th>
                                         <th style={{ padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
                                             Bank Details
@@ -375,17 +364,16 @@ export default function InvoiceSettingsPage() {
                                 <tbody>
                                     <tr>
                                         <td style={{ borderRight: '1px solid black', padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '70px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
-                                                <div><strong>VAT TIN</strong></div><div>:</div><div>{settings.company_vat_tin || '33132028969'}</div>
-                                                <div><strong>CST NO</strong></div><div>:</div><div>{settings.company_cst_no || '1091562'}</div>
-                                                <div><strong>PAN NO</strong></div><div>:</div><div>{settings.company_pan_no || 'AAIFG6568K'}</div>
+                                            <div style={{ lineHeight: '1.5', whiteSpace: 'pre-line' }}>
+                                                {settings.shop_address || '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.'}
                                             </div>
                                         </td>
                                         <td style={{ padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: '130px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
-                                                <div><strong>Bank Name</strong></div><div>:</div><div>{settings.bank_name || 'INDIAN OVERSEAS BANK'}</div>
+                                                <div><strong>Bank Name</strong></div><div>:</div><div>{settings.bank_name || 'STATE BANK INDIA'}</div>
                                                 <div><strong>Bank A/C</strong></div><div>:</div><div>{settings.bank_account || '170902000000962'}</div>
-                                                <div><strong>Branch & IFSC Code</strong></div><div>:</div><div>{settings.bank_ifsc || 'IOBA0001709'}</div>
+                                                <div><strong>Branch & IFSC Code</strong></div><div>:</div><div>{settings.bank_ifsc || 'SBI0001709'}</div>
+                                                <div><strong>UPI ID</strong></div><div>:</div><div>{settings.bank_upi || 'vaiyaaree@upi'}</div>
                                             </div>
                                         </td>
                                     </tr>

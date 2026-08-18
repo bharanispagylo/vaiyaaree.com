@@ -2,6 +2,7 @@
 
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 import { supabase } from '@/lib/supabaseClient';
 
@@ -948,7 +949,9 @@ function CustomersPage() {
                                                     />
                                                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} allowDecimals={false} />
                                                     <Tooltip
-                                                        contentStyle={{ background: 'hsl(var(--bg-app))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))' }}
+                                                        contentStyle={{ background: '#1e293b', color: '#ffffff', borderRadius: '10px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}
+                                                        itemStyle={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 600 }}
+                                                        labelStyle={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, marginBottom: '4px' }}
                                                     />
                                                     <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} barSize={timeRange === 'DAILY' ? 24 : 45} />
                                                 </BarChart>
@@ -1036,28 +1039,6 @@ function CustomersPage() {
                                                         </select>
                                                         <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))', pointerEvents: 'none' }} />
                                                     </div>
-                                                </div>
-
-                                                {/* View Toggle */}
-                                                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', borderRadius: '12px', padding: '4px', height: 'fit-content' }}>
-                                                    <button
-                                                        onClick={() => setViewMode('list')}
-                                                        style={{
-                                                            padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                                            fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
-                                                            background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
-                                                            color: viewMode === 'list' ? 'white' : 'hsl(var(--text-muted))',
-                                                            display: 'flex', alignItems: 'center', gap: '8px'
-                                                        }}><ShoppingCart size={16} /> List View</button>
-                                                    <button
-                                                        onClick={() => setViewMode('analytics')}
-                                                        style={{
-                                                            padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                                            fontSize: '0.85rem', fontWeight: 700, transition: 'all 0.2s',
-                                                            background: viewMode === 'analytics' ? 'hsl(var(--primary))' : 'transparent',
-                                                            color: viewMode === 'analytics' ? 'white' : 'hsl(var(--text-muted))',
-                                                            display: 'flex', alignItems: 'center', gap: '8px'
-                                                        }}><TrendingUp size={16} /> Analysis</button>
                                                 </div>
                                             </div>
                                         </div>

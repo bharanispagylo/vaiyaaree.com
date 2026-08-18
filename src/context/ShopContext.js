@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 const defaultContextValue = {
-    products: [], cart: [], loading: false, user: null, setUser: () => { },
+    products: [], cart: [], loading: false, user: null, setUser: () => { }, isSessionLoading: true,
     shippingZones: [], zoneMappings: [], businessState: 'Tamil Nadu',
     checkoutForm: { 
         billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
@@ -27,6 +27,7 @@ export function ShopProvider({ children }) {
     const [cart, setCart] = useState([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
+    const [isSessionLoading, setIsSessionLoading] = useState(true);
     const [shippingZones, setShippingZones] = useState([]);
     const [zoneMappings, setZoneMappings] = useState([]);
     const [businessState, setBusinessState] = useState('Tamil Nadu');
@@ -59,10 +60,13 @@ export function ShopProvider({ children }) {
     // ── EFFECTS ──
     useEffect(() => {
         setHasMounted(true);
-        fetchProducts();
-        fetchBusinessState();
-        fetchShippingRates();
-        checkSession();
+        // Execute initial data fetches concurrently for fast startup performance
+        Promise.all([
+            fetchProducts(),
+            fetchBusinessState(),
+            fetchShippingRates(),
+            checkSession()
+        ]).catch(err => console.error('[APP INIT] Startup fetch error:', err));
     }, []);
 
     // ── CART PERSISTENCE ──
@@ -132,13 +136,8 @@ export function ShopProvider({ children }) {
                             variantName: dbItem.variant_name
                         }));
                         
-                        // If we have items in DB, sync them. 
-                        // If DB is empty, but we have guest items, we might want to preserve them ONLY IF this is the first load after login
-                        // However, to keep it strictly synced, if a user is logged in, the DB is the source of truth.
-                        
                         const guestItems = prev.filter(g => !dbCart.find(d => (g.variantId ? d.variantId === g.variantId : d.id === g.id)));
                         
-                        // Only merge guest items if the user just recently signed in (isCartLoaded was false)
                         if (!isCartLoaded && guestItems.length > 0) {
                             return [...dbCart, ...guestItems];
                         }
@@ -167,54 +166,96 @@ export function ShopProvider({ children }) {
     }, []);
 
     async function checkSession() {
+        if (typeof window === 'undefined') {
+            setIsSessionLoading(false);
+            return;
+        }
         const storedUser = localStorage.getItem('cast_prince_user');
-        if (storedUser) {
-            try {
-                const localUser = JSON.parse(storedUser);
-                
-                // Check for session expiration
-                if (localUser.login_at) {
-                    const diff = Date.now() - localUser.login_at;
-                    const days = diff / (1000 * 60 * 60 * 24);
-                    if (days > SESSION_EXPIRY_DAYS) {
-                        handleLogout();
-                        return;
-                    }
-                } else {
-                    // For legacy sessions without timestamp, add it now or force refresh
-                    // Let's add it now so they get one more grace period
-                    localUser.login_at = Date.now();
-                    localStorage.setItem('cast_prince_user', JSON.stringify(localUser));
-                }
-                
-                // Only fetch from database if we have a valid ID
-                if (localUser.id && localUser.id !== 'undefined') {
-                    const { data: dbUser } = await supabase.from('customers').select('*').eq('id', localUser.id).single();
-                    const activeUser = dbUser || localUser;
-                    setUser(activeUser);
-                    setCheckoutForm(prev => ({
-                        ...prev,
-                        billingName: activeUser.name || '',
-                        billingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : '',
-                        shippingName: activeUser.name || '',
-                        shippingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : ''
-                    }));
-                } else {
-                    // Use stored user as-is if ID is invalid
-                    setUser(localUser);
-                }
-            } catch (error) {
-                console.error('Session check error:', error);
-                // Clear invalid stored user
-                localStorage.removeItem('cast_prince_user');
+        if (!storedUser) {
+            setIsSessionLoading(false);
+            return;
+        }
+
+        try {
+            const localUser = JSON.parse(storedUser);
+            if (!localUser) {
+                setIsSessionLoading(false);
+                return;
             }
+
+            // If stored user is an admin account, do not load it as a shop customer user
+            if (localUser.role === 'admin' || localUser.role === 'Super Admin' || localUser.username || localUser.source === 'db_users' || localUser.source === 'db_settings') {
+                localStorage.removeItem('cast_prince_user');
+                setUser(null);
+                setIsSessionLoading(false);
+                return;
+            }
+
+            // Robust expiration check
+            let loginTime = Date.now();
+            if (localUser.login_at) {
+                const parsed = typeof localUser.login_at === 'number' 
+                    ? localUser.login_at 
+                    : new Date(localUser.login_at).getTime();
+                if (!isNaN(parsed) && parsed > 0) {
+                    loginTime = parsed < 10000000000 ? parsed * 1000 : parsed;
+                }
+            } else {
+                localUser.login_at = Date.now();
+                localStorage.setItem('cast_prince_user', JSON.stringify(localUser));
+            }
+
+            const diff = Date.now() - loginTime;
+            const days = diff / (1000 * 60 * 60 * 24);
+            if (days > SESSION_EXPIRY_DAYS) {
+                handleLogout();
+                setIsSessionLoading(false);
+                return;
+            }
+
+            // Set local user immediately so UI remains logged in on page refresh
+            setUser(localUser);
+
+            // Fetch latest user profile from DB to sync changes if valid ID exists
+            if (localUser.id && localUser.id !== 'undefined') {
+                try {
+                    const { data: dbUser, error: dbError } = await supabase
+                        .from('customers')
+                        .select('*')
+                        .eq('id', localUser.id)
+                        .maybeSingle();
+
+                    if (!dbError && dbUser) {
+                        const activeUser = { ...localUser, ...dbUser, login_at: localUser.login_at || Date.now() };
+                        setUser(activeUser);
+                        localStorage.setItem('cast_prince_user', JSON.stringify(activeUser));
+
+                        setCheckoutForm(prev => ({
+                            ...prev,
+                            billingName: activeUser.name || '',
+                            billingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : '',
+                            shippingName: activeUser.name || '',
+                            shippingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : ''
+                        }));
+                    }
+                } catch (dbErr) {
+                    console.warn('[SESSION] Could not refresh customer profile from DB, retaining local session:', dbErr);
+                }
+            }
+        } catch (error) {
+            console.error('[SESSION] Error parsing stored user session:', error);
+            localStorage.removeItem('cast_prince_user');
+            setUser(null);
+        } finally {
+            setIsSessionLoading(false);
         }
     }
 
-
-
     async function handleLogout() {
-        localStorage.clear();
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('cast_prince_user');
+            localStorage.removeItem('cast_prince_cart');
+        }
         setUser(null);
         setCart([]);
         setIsCartLoaded(true);
@@ -458,8 +499,16 @@ export function ShopProvider({ children }) {
             };
 
             // GUEST CHECKOUT / AUTO-ACCOUNT CREATION LOGIC
-            let customerId = user?.id;
-            let currentCustomer = user;
+            const userPhoneDigits = user?.phone ? user.phone.replace(/\D/g, '') : '';
+            const checkoutPhoneDigits = fullPhone.replace(/\D/g, '');
+            const isUserValidCustomer = user?.id && 
+                user.role !== 'admin' && 
+                user.role !== 'Super Admin' && 
+                !user.username &&
+                (userPhoneDigits === checkoutPhoneDigits || (userPhoneDigits.length === 10 && '91' + userPhoneDigits === checkoutPhoneDigits) || ('91' + userPhoneDigits === checkoutPhoneDigits));
+
+            let customerId = isUserValidCustomer ? user.id : null;
+            let currentCustomer = isUserValidCustomer ? user : null;
 
             if (!customerId) {
                 // Check if customer exists by phone
@@ -470,8 +519,24 @@ export function ShopProvider({ children }) {
                     .single();
 
                 if (existingCustomer) {
-                    customerId = existingCustomer.id;
-                    currentCustomer = existingCustomer;
+                    if (checkoutForm.billingName && existingCustomer.name !== checkoutForm.billingName) {
+                        const { data: updatedExisting } = await supabase
+                            .from('customers')
+                            .update({
+                                name: checkoutForm.billingName,
+                                email: checkoutForm.billingEmail || existingCustomer.email,
+                                address: fullBillingAddress,
+                                city: checkoutForm.billingCity,
+                                state: checkoutForm.billingState
+                            })
+                            .eq('id', existingCustomer.id)
+                            .select()
+                            .single();
+                        currentCustomer = updatedExisting || existingCustomer;
+                    } else {
+                        currentCustomer = existingCustomer;
+                    }
+                    customerId = currentCustomer.id;
                 } else {
                     // Create new customer
                     const { data: newCustomer, error: createError } = await supabase
@@ -494,9 +559,33 @@ export function ShopProvider({ children }) {
                     currentCustomer = newCustomer;
                 }
 
-                // Log the guest in locally so they can see their order history immediately
+                // Log the guest / newly created customer in locally so they see their correct profile immediately
                 setUser(currentCustomer);
                 localStorage.setItem('cast_prince_user', JSON.stringify(currentCustomer));
+            } else {
+                // User is logged in as valid customer: sync customer profile with latest billing details
+                try {
+                    const { data: updatedUser } = await supabase.from('customers').update({
+                        name: checkoutForm.billingName || user.name,
+                        email: checkoutForm.billingEmail || user.email,
+                        phone: checkoutForm.billingPhone || user.phone,
+                        address: checkoutForm.shippingAddress || checkoutForm.billingAddress,
+                        city: checkoutForm.shippingCity || checkoutForm.billingCity,
+                        state: checkoutForm.shippingState || checkoutForm.billingState,
+                        pincode: checkoutForm.shippingPincode || checkoutForm.billingPincode,
+                        metadata: {
+                            ...(user.metadata || {}),
+                            last_billing_address: billingAddressObj,
+                            last_shipping_address: shippingAddressObj
+                        }
+                    }).eq('id', user.id).select().single();
+                    if (updatedUser) {
+                        setUser(updatedUser);
+                        localStorage.setItem('cast_prince_user', JSON.stringify(updatedUser));
+                    }
+                } catch (syncErr) {
+                    console.error('[PROFILE-SYNC] Failed to update customer profile:', syncErr);
+                }
             }
 
             // --- SECURE SERVER-SIDE ORDER CREATION ---
@@ -525,29 +614,6 @@ export function ShopProvider({ children }) {
             if (!createRes.ok) {
                 throw new Error(createData.error || 'Failed to secure your order. Please try again.');
             }
-
-            // --- SYNC CUSTOMER PROFILE ---
-            if (user && user.id) {
-                try {
-                    await supabase.from('customers').update({
-                        name: checkoutForm.billingName || user.name,
-                        email: checkoutForm.billingEmail || user.email,
-                        phone: checkoutForm.billingPhone || user.phone,
-                        address: checkoutForm.shippingAddress || checkoutForm.billingAddress,
-                        city: checkoutForm.shippingCity || checkoutForm.billingCity,
-                        state: checkoutForm.shippingState || checkoutForm.billingState,
-                        pincode: checkoutForm.shippingPincode || checkoutForm.billingPincode,
-                        metadata: {
-                            ...(user.metadata || {}),
-                            last_billing_address: billingAddressObj,
-                            last_shipping_address: shippingAddressObj
-                        }
-                    }).eq('id', user.id);
-                } catch (syncErr) {
-                    console.error('[PROFILE-SYNC] Failed to update customer profile:', syncErr);
-                }
-            }
-            // --- END SYNC ---
 
             const finalOrderData = {
                 orderId,
@@ -606,7 +672,7 @@ export function ShopProvider({ children }) {
 
     return (
         <ShopContext.Provider value={{
-            products, cart, loading, user, setUser, shippingZones, zoneMappings, businessState,
+            products, cart, loading, user, setUser, isSessionLoading, shippingZones, zoneMappings, businessState,
             checkoutForm, setCheckoutForm, addToCart, removeFromCart, updateQty,
             handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, supabase, placeOrder,
             isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart

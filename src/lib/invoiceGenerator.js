@@ -100,16 +100,17 @@ export async function generateInvoicePDF(order) {
     // Fetch branding from settings
     let branding = {
         shop_name: 'Vaiyaaree',
-        shop_address: "Premium Handwoven Textiles",
-        shop_gstin: "",
-        bill_footer: "Thank you for your business!",
-        business_phone: "",
+        shop_address: "16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.",
+        shop_gstin: "8473939083",
+        bill_footer: "Thank you for shopping with Vaiyaaree!",
+        business_phone: "15551678232",
         company_vat_tin: "33132028969",
         company_cst_no: "1091562",
         company_pan_no: "AAIFG6568K",
-        bank_name: "INDIAN OVERSEAS BANK",
+        bank_name: "STATE BANK INDIA",
         bank_account: "170902000000962",
-        bank_ifsc: "IOBA0001709"
+        bank_ifsc: "SBI0001709",
+        bank_upi: "vaiyaaree@upi"
     };
 
     try {
@@ -392,45 +393,41 @@ export async function generateInvoicePDF(order) {
     
     y += 8;
 
-    // Company Details & Bank Details Header Bar
+    // Company Address & Bank Details Header Bar
     doc.setFillColor(240, 240, 240);
     doc.rect(margin, y, 190, 6, "FD");
     doc.line(105, y, 105, y + 6);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text("Company Details", 57, y + 4.5, { align: "center" });
+    doc.text("Company Address", 57, y + 4.5, { align: "center" });
     doc.text("Bank Details", 152, y + 4.5, { align: "center" });
 
     y += 6;
 
-    // Company Details & Bank Details Content Box
-    const compBoxHeight = 16;
+    // Company Address & Bank Details Content Box
+    const compBoxHeight = 22;
     doc.rect(margin, y, 190, compBoxHeight);
     doc.line(105, y, 105, y + compBoxHeight);
 
     doc.setFontSize(8);
-    // Company Details (Left)
-    doc.setFont("helvetica", "bold"); doc.text("VAT TIN", margin + 2, y + 4.5);
-    doc.text(":", margin + 24, y + 4.5);
-    doc.setFont("helvetica", "normal"); doc.text(branding.company_vat_tin || "33132028969", margin + 27, y + 4.5);
-
-    doc.setFont("helvetica", "bold"); doc.text("CST NO", margin + 2, y + 9.5);
-    doc.text(":", margin + 24, y + 9.5);
-    doc.setFont("helvetica", "normal"); doc.text(branding.company_cst_no || "1091562", margin + 27, y + 9.5);
-
-    doc.setFont("helvetica", "bold"); doc.text("PAN NO", margin + 2, y + 14.5);
-    doc.text(":", margin + 24, y + 14.5);
-    doc.setFont("helvetica", "normal"); doc.text(branding.company_pan_no || "AAIFG6568K", margin + 27, y + 14.5);
+    // Company Address (Left)
+    doc.setFont("helvetica", "normal");
+    const addressText = branding.shop_address || "16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.";
+    const splitAddress = doc.splitTextToSize(addressText, 90);
+    doc.text(splitAddress, margin + 2, y + 4.5);
 
     // Bank Details (Right)
     doc.setFont("helvetica", "bold"); doc.text("Bank Name", 107, y + 4.5);
-    doc.setFont("helvetica", "normal"); doc.text(branding.bank_name || "INDIAN OVERSEAS BANK", 142, y + 4.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.bank_name || "STATE BANK INDIA", 142, y + 4.5);
 
     doc.setFont("helvetica", "bold"); doc.text("Bank A/C", 107, y + 9.5);
     doc.setFont("helvetica", "normal"); doc.text(branding.bank_account || "170902000000962", 142, y + 9.5);
 
     doc.setFont("helvetica", "bold"); doc.text("Branch & IFSC Code", 107, y + 14.5);
-    doc.setFont("helvetica", "normal"); doc.text(branding.bank_ifsc || "IOBA0001709", 142, y + 14.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.bank_ifsc || "SBI0001709", 142, y + 14.5);
+
+    doc.setFont("helvetica", "bold"); doc.text("UPI ID", 107, y + 19.5);
+    doc.setFont("helvetica", "normal"); doc.text(branding.bank_upi || "vaiyaaree@upi", 142, y + 19.5);
 
     y += compBoxHeight;
 

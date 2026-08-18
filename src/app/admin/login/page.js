@@ -2,11 +2,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, User, ShieldCheck, Loader2, Eye, EyeOff } from 'lucide-react';
-import { useShop } from '@/context/ShopContext';
 
 export default function AdminLoginPage() {
     const router = useRouter();
-    const { setUser } = useShop();
     
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -29,8 +27,6 @@ export default function AdminLoginPage() {
                 const adminData = { ...data, login_at: Date.now() };
                 localStorage.setItem('cast_prince_admin', data.token);
                 localStorage.setItem('cast_prince_admin_user', JSON.stringify(adminData));
-                localStorage.setItem('cast_prince_user', JSON.stringify(adminData));
-                setUser(adminData);
                 router.push('/admin');
             } else {
                 setError(data.error || 'Invalid username or password');

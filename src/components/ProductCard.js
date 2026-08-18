@@ -22,7 +22,7 @@ export default function ProductCard({ product, gridView = true }) {
                             src={firstImage}
                             alt={product.name}
                             className={styles.productImage}
-                            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
                             style={{ position: 'relative', zIndex: 1 }}
                         />
                     </Link>
@@ -57,7 +57,7 @@ export default function ProductCard({ product, gridView = true }) {
                         src={firstImage}
                         alt={product.name}
                         className={styles.productImage}
-                        onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
                         style={{ position: 'relative', zIndex: 1 }}
                     />
                 </Link>

@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env UV_THREADPOOL_SIZE=4 NODE_OPTIONS=--max-old-space-size=2048 next dev --webpack",
-    "build": "cross-env UV_THREADPOOL_SIZE=4 NODE_OPTIONS=--max-old-space-size=2048 next build --webpack",
+    "dev": "cross-env UV_THREADPOOL_SIZE=4 NODE_OPTIONS=--max-old-space-size=4096 next dev --webpack",
+    "build": "cross-env UV_THREADPOOL_SIZE=4 NODE_OPTIONS=--max-old-space-size=4096 next build --webpack",
     "start": "next start"
   },
   "dependencies": {

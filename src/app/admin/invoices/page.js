@@ -19,21 +19,84 @@ const numberToWords = (num) => {
     return str ? 'Rupees ' + str.trim() + ' Only' : 'Zero';
 };
 
+function filterInvoices(invoicesList, rawTerm) {
+    if (!rawTerm || typeof rawTerm !== 'string') return invoicesList;
+    const cleanTerm = rawTerm.trim().toLowerCase();
+    if (!cleanTerm) return invoicesList;
+
+    const strippedHash = cleanTerm.replace(/^#+/, '').trim();
+    const normalizedTerm = cleanTerm.replace(/[\s\-_]+/g, '');
+    const digitsOnly = cleanTerm.replace(/\D/g, '');
+    const termNum = digitsOnly ? parseInt(digitsOnly, 10) : null;
+
+    return invoicesList.filter(inv => {
+        const invNo = (inv.invoice_no || '').toLowerCase();
+        const normalizedInvNo = invNo.replace(/[\s\-_]+/g, '');
+        const id = (inv.id || '').toLowerCase();
+        const normalizedId = id.replace(/[\s\-_]+/g, '');
+        const name = (inv.customer_name || '').toLowerCase();
+        const phone = (inv.customer_phone || '').toLowerCase();
+        const email = (inv.customer_email || '').toLowerCase();
+        const billingEmail = (inv.billing_email || '').toLowerCase();
+        const shippingEmail = (inv.shipping_email || '').toLowerCase();
+        const billingPhone = (inv.billing_phone || '').toLowerCase();
+        const shippingPhone = (inv.shipping_phone || '').toLowerCase();
+        const payment = (inv.payment_method || '').toLowerCase();
+        const status = (inv.status || '').toLowerCase();
+        const address = (typeof inv.delivery_address === 'string' ? inv.delivery_address : JSON.stringify(inv.delivery_address || '')).toLowerCase();
+        const shippingState = (inv.shipping_state || '').toLowerCase();
+
+        // 1. Direct and normalized text search
+        if (invNo.includes(cleanTerm) || (strippedHash && invNo.includes(strippedHash))) return true;
+        if (normalizedInvNo.includes(normalizedTerm)) return true;
+        if (id.includes(cleanTerm) || (strippedHash && id.includes(strippedHash))) return true;
+        if (normalizedId.includes(normalizedTerm)) return true;
+
+        if (name.includes(cleanTerm)) return true;
+        if (phone.includes(cleanTerm)) return true;
+        if (email.includes(cleanTerm)) return true;
+        if (billingEmail.includes(cleanTerm)) return true;
+        if (shippingEmail.includes(cleanTerm)) return true;
+        if (billingPhone.includes(cleanTerm)) return true;
+        if (shippingPhone.includes(cleanTerm)) return true;
+        if (payment.includes(cleanTerm)) return true;
+        if (status.includes(cleanTerm)) return true;
+        if (address.includes(cleanTerm)) return true;
+        if (shippingState.includes(cleanTerm)) return true;
+
+        // 2. Numeric sequence match e.g. "37" or "0037" or "INV-37" matching INV-0037
+        if (termNum !== null && !isNaN(termNum)) {
+            const invDigits = invNo.replace(/\D/g, '');
+            if (invDigits) {
+                const invNum = parseInt(invDigits, 10);
+                if (invNum === termNum) return true;
+            }
+            const formattedInvNo = `inv-${String(termNum).padStart(4, '0')}`;
+            if (invNo === formattedInvNo || normalizedInvNo === `inv${termNum}`) return true;
+        }
+
+        if (digitsOnly.length > 0) {
+            if (id.includes(digitsOnly) || phone.includes(digitsOnly) || billingPhone.includes(digitsOnly) || shippingPhone.includes(digitsOnly)) return true;
+        }
+
+        // 3. Multi-word customer name search (e.g. "Hari Pranesh")
+        const words = cleanTerm.split(/\s+/).filter(w => w.length >= 2);
+        if (words.length > 1 && words.every(w => name.includes(w))) {
+            return true;
+        }
+
+        return false;
+    });
+}
+
 export default function InvoicesPage() {
-    const [invoices, setInvoices] = useState([]);
+    const [allInvoices, setAllInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [invoiceItems, setInvoiceItems] = useState([]);
     const [notification, setNotification] = useState(null);
     const [invoicePage, setInvoicePage] = useState(1);
-    const [totalCount, setTotalCount] = useState(0);
     const [stats, setStats] = useState({ totalRevenue: 0, paidTotal: 0, unpaidTotal: 0 });
     const INVOICES_PER_PAGE = 10;
 
@@ -43,17 +106,18 @@ export default function InvoicesPage() {
     const [settings, setSettings] = useState({
         shop_name: 'Vaiyaaree',
         shop_logo: '',
-        shop_address: '',
-        shop_gstin: '',
+        shop_address: '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.',
+        shop_gstin: '8473939083',
         bill_terms: '',
-        bill_footer: 'Thank you for shopping with us!',
+        bill_footer: 'Thank you for shopping with Vaiyaaree!',
         business_phone: '15551678232',
         company_vat_tin: '33132028969',
         company_cst_no: '1091562',
         company_pan_no: 'AAIFG6568K',
-        bank_name: 'INDIAN OVERSEAS BANK',
+        bank_name: 'STATE BANK INDIA',
         bank_account: '170902000000962',
-        bank_ifsc: 'IOBA0001709'
+        bank_ifsc: 'SBI0001709',
+        bank_upi: 'vaiyaaree@upi'
     });
 
     useEffect(() => {
@@ -99,48 +163,20 @@ export default function InvoicesPage() {
         const fetchInvoices = async () => {
             setLoading(true);
             try {
-                const from = (invoicePage - 1) * INVOICES_PER_PAGE;
-                const to = invoicePage * INVOICES_PER_PAGE - 1;
-
-                let query = supabase
+                const { data, error } = await supabase
                     .from('orders')
-                    .select('*', { count: 'exact' })
-                    .neq('status', 'DRAFT');
-
-                if (debouncedSearchTerm.trim()) {
-                    const term = debouncedSearchTerm.trim();
-                    const isNumeric = /^\d+$/.test(term);
-                    if (isNumeric) {
-                        query = query.or(`id.eq.${term},customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%`);
-                    } else {
-                        query = query.or(`customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%`);
-                    }
-                }
-
-                const { data, count, error } = await query
-                    .order('created_at', { ascending: false })
-                    .range(from, to);
+                    .select('*')
+                    .neq('status', 'DRAFT')
+                    .order('created_at', { ascending: true });
 
                 if (error) throw error;
 
-                const enrichedData = await Promise.all((data || []).map(async (inv) => {
-                    if (inv.invoice_no) return inv;
+                const enrichedData = (data || []).map((inv, idx) => ({
+                    ...inv,
+                    invoice_no: inv.invoice_no || `INV-${String(idx + 1).padStart(4, '0')}`
+                })).reverse();
 
-                    const { count: c } = await supabase
-                        .from('orders')
-                        .select('id', { count: 'exact', head: true })
-                        .neq('status', 'DRAFT')
-                        .lte('created_at', inv.created_at);
-
-                    const seqNum = c || 1;
-                    return {
-                        ...inv,
-                        invoice_no: `INV-${String(seqNum).padStart(4, '0')}`
-                    };
-                }));
-
-                setInvoices(enrichedData);
-                setTotalCount(count || 0);
+                setAllInvoices(enrichedData);
             } catch (error) {
                 console.error('Error fetching invoices:', error);
             } finally {
@@ -149,11 +185,19 @@ export default function InvoicesPage() {
         };
 
         fetchInvoices();
-    }, [invoicePage, debouncedSearchTerm]);
+    }, []);
 
     useEffect(() => {
         setInvoicePage(1);
-    }, [debouncedSearchTerm]);
+    }, [searchTerm]);
+
+    const filteredInvoices = filterInvoices(allInvoices, searchTerm);
+    const totalCount = filteredInvoices.length;
+    const totalInvoicePages = Math.ceil(totalCount / INVOICES_PER_PAGE) || 1;
+    const invoices = filteredInvoices.slice(
+        (invoicePage - 1) * INVOICES_PER_PAGE,
+        invoicePage * INVOICES_PER_PAGE
+    );
 
     const formatAddress = (addr) => {
         if (!addr) return "";
@@ -215,8 +259,6 @@ export default function InvoicesPage() {
         }
     };
 
-    const totalInvoicePages = Math.ceil(totalCount / INVOICES_PER_PAGE);
-
     // Top-level loading check removed so headers stay visible
 
     return (
@@ -268,16 +310,34 @@ export default function InvoicesPage() {
             {/* Invoice List */}
             {!selectedInvoice && (
                 <div className="card" style={{ padding: 0 }}>
-                    <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))' }}>
-                        <div style={{ position: 'relative', maxWidth: '400px' }}>
+                    <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ position: 'relative', width: '100%', maxWidth: '420px' }}>
                             <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                             <input
-                                type="text" placeholder="Search invoices..."
+                                type="text" placeholder="Search invoices by INV#, name, phone, payment..."
                                 value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); }}
                                 className="admin-input"
-                                style={{ paddingLeft: '2.75rem' }}
+                                style={{ paddingLeft: '2.75rem', paddingRight: searchTerm ? '2.5rem' : '1rem' }}
                             />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm('')}
+                                    style={{
+                                        position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                                        background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))',
+                                        padding: '2px', display: 'flex', alignItems: 'center'
+                                    }}
+                                    title="Clear search"
+                                >
+                                    <X size={16} />
+                                </button>
+                            )}
                         </div>
+                        {searchTerm.trim() && (
+                            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
+                                Found <span style={{ color: 'hsl(var(--primary))', fontWeight: 800 }}>{totalCount}</span> {totalCount === 1 ? 'invoice' : 'invoices'}
+                            </div>
+                        )}
                     </div>
 
                     {loading ? (
@@ -574,12 +634,12 @@ export default function InvoicesPage() {
                                     </tbody>
                                 </table>
 
-                                {/* Company & Bank Details Section */}
+                                {/* Company Address & Bank Details Section */}
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', borderBottom: '1px solid black' }}>
                                     <thead>
                                         <tr style={{ background: '#f0f0f0', borderBottom: '1px solid black' }}>
                                             <th style={{ borderRight: '1px solid black', padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
-                                                Company Details
+                                                Company Address
                                             </th>
                                             <th style={{ padding: '4px 8px', width: '50%', textAlign: 'center', fontWeight: 'bold' }}>
                                                 Bank Details
@@ -589,17 +649,16 @@ export default function InvoicesPage() {
                                     <tbody>
                                         <tr>
                                             <td style={{ borderRight: '1px solid black', padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '70px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
-                                                    <div><strong>VAT TIN</strong></div><div>:</div><div>{settings.company_vat_tin || '33132028969'}</div>
-                                                    <div><strong>CST NO</strong></div><div>:</div><div>{settings.company_cst_no || '1091562'}</div>
-                                                    <div><strong>PAN NO</strong></div><div>:</div><div>{settings.company_pan_no || 'AAIFG6568K'}</div>
+                                                <div style={{ lineHeight: '1.5', whiteSpace: 'pre-line' }}>
+                                                    {settings.shop_address || '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.'}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '6px 8px', verticalAlign: 'top', width: '50%' }}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '130px 10px 1fr', gap: '2px', lineHeight: '1.6' }}>
-                                                    <div><strong>Bank Name</strong></div><div>:</div><div>{settings.bank_name || 'INDIAN OVERSEAS BANK'}</div>
+                                                    <div><strong>Bank Name</strong></div><div>:</div><div>{settings.bank_name || 'STATE BANK INDIA'}</div>
                                                     <div><strong>Bank A/C</strong></div><div>:</div><div>{settings.bank_account || '170902000000962'}</div>
-                                                    <div><strong>Branch & IFSC Code</strong></div><div>:</div><div>{settings.bank_ifsc || 'IOBA0001709'}</div>
+                                                    <div><strong>Branch & IFSC Code</strong></div><div>:</div><div>{settings.bank_ifsc || 'SBI0001709'}</div>
+                                                    <div><strong>UPI ID</strong></div><div>:</div><div>{settings.bank_upi || 'vaiyaaree@upi'}</div>
                                                 </div>
                                             </td>
                                         </tr>

@@ -67,12 +67,12 @@ export default function RefundsPage() {
             const list = data || [];
             setStatusCounts({
                 total: list.length,
-                pending: list.filter(r => r.status === 'REQUESTED').length,
-                approved: list.filter(r => r.status === 'APPROVED').length,
-                completed: list.filter(r => r.status === 'COMPLETED').length
+                pending: list.filter(r => (r.status || '').toUpperCase() === 'REQUESTED' || (r.status || '').toUpperCase() === 'PENDING').length,
+                approved: list.filter(r => (r.status || '').toUpperCase() === 'APPROVED').length,
+                completed: list.filter(r => (r.status || '').toUpperCase() === 'COMPLETED').length
             });
         } catch (err) {
-            console.error('Error fetching refund status counts:', err);
+            console.error('Error fetching refund status counts:', err?.message || err?.details || JSON.stringify(err));
         }
     };
 
@@ -97,11 +97,7 @@ export default function RefundsPage() {
 
             if (searchTerm.trim()) {
                 const term = searchTerm.trim();
-                if (!isNaN(term)) {
-                    query = query.eq('order_id', parseInt(term));
-                } else {
-                    query = query.or(`reason.ilike.%${term}%,notes.ilike.%${term}%`);
-                }
+                query = query.or(`order_id.ilike.%${term}%,reason.ilike.%${term}%,notes.ilike.%${term}%`);
             }
 
             const { data, count, error } = await query
@@ -114,7 +110,7 @@ export default function RefundsPage() {
 
             fetchStatusCounts();
         } catch (err) {
-            console.error('Error fetching refunds:', err);
+            console.error('Error fetching refunds:', err?.message || err?.details || JSON.stringify(err));
             showNotification('Failed to load refunds', 'error');
         } finally {
             setLoading(false);

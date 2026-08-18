@@ -573,17 +573,20 @@ export default function ProductsPage() {
         e.preventDefault();
         const formData = new FormData(e.target);
 
-        const sellingPriceInput = formData.get('price');
-        const sellingPriceVal = sellingPriceInput ? Number(sellingPriceInput) : 0;
         const comparePriceInput = formData.get('compare_price') || formData.get('regular_price');
-        const comparePriceVal = comparePriceInput ? Number(comparePriceInput) : null;
+        const comparePriceVal = comparePriceInput && Number(comparePriceInput) > 0 ? Number(comparePriceInput) : null;
+
+        const sellingPriceInput = formData.get('price');
+        const sellingPriceVal = sellingPriceInput && Number(sellingPriceInput) > 0 
+            ? Number(sellingPriceInput) 
+            : (comparePriceVal || 0);
 
         // Parse user tags and manage mrp tag
         let userTags = formData.get('tags_input') 
             ? formData.get('tags_input').split(',').map(t => t.trim()).filter(t => Boolean(t) && !t.toLowerCase().startsWith('mrp:')) 
             : [];
         
-        if (comparePriceVal && comparePriceVal > sellingPriceVal) {
+        if (comparePriceVal && sellingPriceInput && comparePriceVal > sellingPriceVal) {
             userTags.push(`mrp:${comparePriceVal}`);
         }
 
@@ -601,6 +604,15 @@ export default function ProductsPage() {
         };
 
         if (productType === 'simple') {
+            // Validation: Regular Price (Original MRP) is mandatory for simple product
+            if (!comparePriceVal || comparePriceVal <= 0) {
+                setErrorModal({
+                    title: 'Regular Price Required',
+                    message: 'Regular Price (Original MRP) is mandatory. Please enter a valid Regular Price.'
+                });
+                return;
+            }
+
             productData.price = sellingPriceVal;
             productData.stock = Number(formData.get('stock'));
             productData.alert_threshold = Number(formData.get('alert_threshold')) || 0;
@@ -613,18 +625,30 @@ export default function ProductsPage() {
             }
         } else {
             if (variants.length > 0) {
-                productData.price = variants[0].price;
+                // Validation: Regular Price (MRP) is mandatory for all variants
+                for (let i = 0; i < variants.length; i++) {
+                    const v = variants[i];
+                    if (!v.compare_price || Number(v.compare_price) <= 0) {
+                        setErrorModal({
+                            title: 'Variant Regular Price Required',
+                            message: `Regular Price (MRP) is mandatory for variant "${v.name || '#' + (i + 1)}". Please enter a valid Regular Price.`
+                        });
+                        return;
+                    }
+                }
+                const firstVarSelling = v => (v.price !== undefined && v.price !== '' && Number(v.price) > 0) ? Number(v.price) : Number(v.compare_price || 0);
+                productData.price = firstVarSelling(variants[0]);
                 productData.stock = variants.reduce((acc, v) => acc + (v.stock || 0), 0);
                 productData.alert_threshold = Number(formData.get('alert_threshold')) || 0;
                 productData.image_url = variants[0].image_url;
             }
         }
 
-        // Validate: If Regular Price (MRP) is entered, it must be higher than Compare Price (Selling Price)
-        if (productType === 'simple' && comparePriceVal && comparePriceVal < sellingPriceVal) {
+        // Validate: If Compare Price (Selling Price) is entered, it must not exceed Regular Price (MRP)
+        if (productType === 'simple' && sellingPriceInput && comparePriceVal && comparePriceVal < Number(sellingPriceInput)) {
             setErrorModal({
                 title: 'Invalid Price Setup',
-                message: `Regular Price (Original MRP: ₹${comparePriceVal}) cannot be less than Compare Price (Selling Price: ₹${sellingPriceVal}). Regular Price (MRP) must be higher than Compare Price (Selling Price) (e.g. Regular Price MRP: ₹1,600, Compare Price Selling: ₹1,400).`
+                message: `Regular Price (Original MRP: ₹${comparePriceVal}) cannot be less than Compare Price (Selling Price: ₹${sellingPriceInput}). Regular Price (MRP) must be higher than or equal to Compare Price (Selling Price).`
             });
             return;
         }
@@ -730,14 +754,20 @@ export default function ProductsPage() {
 
                 // 2. Insert/Update variants
                 if (variants.length > 0) {
-                    const variantsToInsert = variants.map(v => ({
-                        product_id: savedProduct.id,
-                        name: v.name,
-                        price: Math.max(0, parseFloat(v.price || '0')),
-                        compare_price: v.compare_price ? Math.max(0, parseFloat(v.compare_price)) : null,
-                        stock: Math.max(0, parseInt(v.stock || '0')),
-                        image_url: v.image_url
-                    }));
+                    const variantsToInsert = variants.map(v => {
+                        const mPrice = v.compare_price ? Math.max(0, parseFloat(v.compare_price)) : 0;
+                        const sPrice = v.price !== undefined && v.price !== '' && parseFloat(v.price) > 0 
+                            ? Math.max(0, parseFloat(v.price)) 
+                            : mPrice;
+                        return {
+                            product_id: savedProduct.id,
+                            name: v.name,
+                            price: sPrice,
+                            compare_price: (mPrice > 0 && mPrice > sPrice) ? mPrice : null,
+                            stock: Math.max(0, parseInt(v.stock || '0')),
+                            image_url: v.image_url
+                        };
+                    });
                     let { error: insErr } = await supabase.from('product_variants').insert(variantsToInsert);
                     if (insErr && (insErr.message.includes('compare_price') || insErr.message.includes('schema cache'))) {
                         const safeVariants = variantsToInsert.map(v => {
@@ -1248,7 +1278,7 @@ export default function ProductsPage() {
                                                                         <>
                                                                             <img src={product.image_url?.split(',')[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                                                 onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
-                                                                                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
+                                                                                onError={e => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80'; }} />
                                                                             {/* {product.product_catalog_image_id && (
                                                                                 <div style={{
                                                                                     position: 'absolute', bottom: 2, right: 2,
@@ -1375,7 +1405,7 @@ export default function ProductsPage() {
                                                             <img src={product.image_url?.split(',')[0]} alt={product.name}
                                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                                 onClick={(e) => { e.stopPropagation(); setZoomedImage(product.image_url?.split(',')[0]); }}
-                                                                onError={e => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
+                                                                onError={e => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
                                                         </>
                                                     ) : (
                                                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>
@@ -1549,7 +1579,7 @@ export default function ProductsPage() {
                                         </h3>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Regular Price (Original MRP ₹)</label>
+                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Regular Price (Original MRP ₹) *</label>
                                                 <input 
                                                     type="number" 
                                                     name="compare_price" 
@@ -1560,26 +1590,26 @@ export default function ProductsPage() {
                                                         const mrpTag = tagList.map(t => String(t).trim()).find(t => t.toLowerCase().startsWith('mrp:'));
                                                         return mrpTag ? mrpTag.split(':')[1] : (currentProduct?.compare_price || currentProduct?.original_price || '');
                                                     })()} 
+                                                    required
                                                     min="0" 
                                                     placeholder="e.g. 1600 (Original MRP)" 
                                                     className="admin-input" 
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} 
                                                 />
-                                                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block', fontWeight: 600 }}>Optional Strikethrough Price (e.g. ~~₹1,600~~)</span>
+                                                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block', fontWeight: 600 }}>Original MRP / Base Price (Mandatory)</span>
                                             </div>
                                             <div>
-                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Compare Price (Selling Price ₹) *</label>
+                                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Compare Price (Selling Price ₹)</label>
                                                 <input 
                                                     type="number" 
                                                     name="price" 
                                                     defaultValue={currentProduct?.price} 
-                                                    required 
                                                     min="0" 
                                                     placeholder="e.g. 1400 (Selling Price)" 
                                                     className="admin-input" 
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} 
                                                 />
-                                                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block', fontWeight: 600 }}>Actual Price Customer Pays (Mandatory)</span>
+                                                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block', fontWeight: 600 }}>Optional Selling Price (e.g. ₹1,400)</span>
                                             </div>
                                             <div>
                                                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Stock Qty *</label>
@@ -1828,8 +1858,8 @@ export default function ProductsPage() {
                                             {variants.length > 0 && (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.1fr 1.1fr 0.9fr 2fr auto', gap: '0.6rem', marginBottom: '0.4rem', padding: '0 4px', fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                                     <div>Size / Option Name</div>
-                                                    <div>Regular Price (MRP ₹)</div>
-                                                    <div>Compare Price (Selling Price ₹) *</div>
+                                                    <div>Regular Price (MRP ₹) *</div>
+                                                    <div>Compare Price (Selling Price ₹)</div>
                                                     <div>Stock Qty *</div>
                                                     <div>Variant Image</div>
                                                     <div>Action</div>
@@ -1840,8 +1870,8 @@ export default function ProductsPage() {
                                                 {variants.map((v, i) => (
                                                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.1fr 1.1fr 0.9fr 2fr auto', gap: '0.6rem', alignItems: 'center' }}>
                                                         <input placeholder="Size (e.g. 38, Unstitched)" value={v.name} onChange={e => updateVariant(i, 'name', e.target.value)} className="admin-input" style={{ padding: '0.5rem' }} />
-                                                        <input type="number" placeholder="MRP (Optional)" value={v.compare_price || ''} min="0" onChange={e => updateVariant(i, 'compare_price', e.target.value ? Number(e.target.value) : '')} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
-                                                        <input type="number" placeholder="Selling Price" value={v.price} min="0" required onChange={e => updateVariant(i, 'price', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                        <input type="number" placeholder="MRP (Mandatory)" value={v.compare_price || ''} min="0" required onChange={e => updateVariant(i, 'compare_price', e.target.value ? Number(e.target.value) : '')} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                                        <input type="number" placeholder="Selling Price (Optional)" value={v.price !== undefined ? v.price : ''} min="0" onChange={e => updateVariant(i, 'price', e.target.value ? Number(e.target.value) : '')} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <input type="number" placeholder="Stock" value={v.stock} min="0" onChange={e => updateVariant(i, 'stock', Number(e.target.value))} className="admin-input" style={{ padding: '0.5rem' }} onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                             {v.image_url && <img src={v.image_url} style={{ width: '32px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setZoomedImage(v.image_url)} title="Click to zoom" />}

@@ -12,6 +12,7 @@ const PAGE_TITLES = {
     '/admin/orders': 'Orders',
     '/admin/orders/analysis': 'Order Analysis',
     '/admin/customers': 'Customers',
+    '/admin/customers/analysis': 'Customer Analysis',
     '/admin/invoices': 'Invoices',
     '/admin/broadcast': 'Broadcast',
     '/admin/whatsapp': 'WhatsApp Funnel',
@@ -40,14 +41,12 @@ export default function AdminTopBar({ onMenuClick }) {
     useEffect(() => {
         // 1. Read stored admin profile from localStorage
         try {
-            const adminStored = typeof window !== 'undefined' ? (localStorage.getItem('cast_prince_admin_user') || localStorage.getItem('cast_prince_user')) : null;
+            const adminStored = typeof window !== 'undefined' ? localStorage.getItem('cast_prince_admin_user') : null;
             if (adminStored) {
                 const parsed = JSON.parse(adminStored);
                 if (parsed && (parsed.full_name || parsed.username || parsed.role)) {
                     setAdminUser(prev => ({ ...prev, ...parsed }));
                 }
-            } else if (user && (user.full_name || user.username || user.role)) {
-                setAdminUser(prev => ({ ...prev, ...user }));
             }
         } catch (e) {
             console.error('[AdminTopBar] Error reading stored admin profile:', e);

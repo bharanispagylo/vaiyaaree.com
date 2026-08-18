@@ -39,31 +39,138 @@ const toIST = (dStr, opts) => {
 
 
 const getStatusReference = (status) => {
-
     switch (status) {
-
         case 'PLACED': return 'badge-placed';
-
         case 'PENDING': return 'badge-placed';
-
         case 'AWAITING_PAYMENT': return 'badge-placed';
-
         case 'PAID': return 'badge-paid';
-
         case 'PACKING': return 'badge-placed'; // Use placed/pending style for packing
-
         case 'SHIPPED': return 'badge-shipped';
-
         case 'DELIVERED': return 'badge-delivered';
-
         case 'CANCELLED': return 'badge-cancelled';
-
         default: return 'badge';
-
     }
-
 };
 
+
+function parseCourierDetails(order) {
+    if (!order) return { name: '', trackingNumber: '', trackingUrl: '' };
+
+    let name = '';
+    let trackingNumber = order.tracking_number || order.tracking_id || order.awb_number || '';
+    let trackingUrl = order.tracking_url || '';
+
+    const rawCourier = order.courier_name || order.courier_partner || order.courier || order.carrier || order.shipping_courier;
+
+    if (typeof rawCourier === 'string') {
+        if (rawCourier.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(rawCourier);
+                name = parsed.name || parsed.courier_name || parsed.courier || parsed.carrier || parsed.title || parsed.query || '';
+                if (!trackingNumber && (parsed.tracking_number || parsed.tracking_id || parsed.awb)) {
+                    trackingNumber = parsed.tracking_number || parsed.tracking_id || parsed.awb;
+                }
+                if (!trackingUrl && (parsed.tracking_url || parsed.url)) {
+                    trackingUrl = parsed.tracking_url || parsed.url;
+                }
+            } catch (e) {
+                name = rawCourier;
+            }
+        } else {
+            name = rawCourier;
+        }
+    } else if (typeof rawCourier === 'object' && rawCourier !== null) {
+        name = rawCourier.name || rawCourier.courier_name || rawCourier.courier || rawCourier.carrier || rawCourier.title || '';
+        if (!trackingNumber && (rawCourier.tracking_number || rawCourier.tracking_id || rawCourier.awb)) {
+            trackingNumber = rawCourier.tracking_number || rawCourier.tracking_id || rawCourier.awb;
+        }
+        if (!trackingUrl && (rawCourier.tracking_url || rawCourier.url)) {
+            trackingUrl = rawCourier.tracking_url || rawCourier.url;
+        }
+    }
+
+    if (trackingUrl && trackingNumber && trackingUrl.includes('{')) {
+        trackingUrl = trackingUrl.replace(/\{[^}]+\}/g, trackingNumber);
+    }
+
+    return {
+        name: String(name || '').trim(),
+        trackingNumber: String(trackingNumber || '').trim(),
+        trackingUrl: String(trackingUrl || '').trim()
+    };
+}
+
+function buildOrderSearchOrCondition(rawTerm) {
+    if (!rawTerm || typeof rawTerm !== 'string') return null;
+    const trimmed = rawTerm.trim();
+    if (!trimmed) return null;
+
+    // Remove leading hash '#' e.g. "#WEB-848593" -> "WEB-848593"
+    const strippedHash = trimmed.replace(/^#+/, '').trim();
+    // Remove PostgREST reserved syntax chars: commas, parentheses
+    const cleanTerm = strippedHash.replace(/[,()]/g, '');
+    if (!cleanTerm) return null;
+
+    const digitsOnly = cleanTerm.replace(/\D/g, '');
+    const conditions = new Set();
+
+    // 1. Match order ID directly (case-insensitive substring)
+    conditions.add(`id.ilike.%${cleanTerm}%`);
+    if (strippedHash !== trimmed) {
+        const cleanRaw = trimmed.replace(/[,()]/g, '');
+        if (cleanRaw) conditions.add(`id.ilike.%${cleanRaw}%`);
+    }
+
+    // 2. Match Customer Name
+    conditions.add(`customer_name.ilike.%${cleanTerm}%`);
+
+    // 3. Match Email addresses
+    conditions.add(`customer_email.ilike.%${cleanTerm}%`);
+    conditions.add(`billing_email.ilike.%${cleanTerm}%`);
+    conditions.add(`shipping_email.ilike.%${cleanTerm}%`);
+
+    // 4. Direct phone string matching (e.g., if phone stored with spaces or exact format)
+    conditions.add(`customer_phone.ilike.%${cleanTerm}%`);
+    conditions.add(`billing_phone.ilike.%${cleanTerm}%`);
+    conditions.add(`shipping_phone.ilike.%${cleanTerm}%`);
+
+    // 5. Digit-based matching for IDs & Phone Numbers
+    if (digitsOnly.length > 0) {
+        // Match numeric part in Order ID (e.g. searching "848593" matches "WEB-848593" or "MAN-848593")
+        conditions.add(`id.ilike.%${digitsOnly}%`);
+
+        if (digitsOnly.length >= 3) {
+            conditions.add(`customer_phone.ilike.%${digitsOnly}%`);
+            conditions.add(`billing_phone.ilike.%${digitsOnly}%`);
+            conditions.add(`shipping_phone.ilike.%${digitsOnly}%`);
+
+            // Standard Indian phone number variations (10 digits vs 12 digits starting with 91)
+            if (digitsOnly.length === 10) {
+                conditions.add(`customer_phone.ilike.%91${digitsOnly}%`);
+                conditions.add(`billing_phone.ilike.%91${digitsOnly}%`);
+                conditions.add(`shipping_phone.ilike.%91${digitsOnly}%`);
+            } else if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+                const tenDigits = digitsOnly.substring(2);
+                conditions.add(`customer_phone.ilike.%${tenDigits}%`);
+                conditions.add(`billing_phone.ilike.%${tenDigits}%`);
+                conditions.add(`shipping_phone.ilike.%${tenDigits}%`);
+            }
+        }
+    }
+
+    // 6. Split words for customer name search if search term contains spaces (e.g., "Mano Sebastin")
+    const words = cleanTerm.split(/\s+/).filter(w => w.length >= 2);
+    if (words.length > 1) {
+        words.forEach(w => {
+            const cleanWord = w.replace(/[,()]/g, '');
+            if (cleanWord) {
+                conditions.add(`customer_name.ilike.%${cleanWord}%`);
+            }
+        });
+    }
+
+    return Array.from(conditions).join(',');
+}
 
 
 export default function OrdersPage() {
@@ -397,12 +504,9 @@ export default function OrdersPage() {
 
             // 3. Search Term
             if (debouncedSearchTerm.trim()) {
-                const term = debouncedSearchTerm.trim();
-                const isNumeric = /^\d+$/.test(term);
-                if (isNumeric) {
-                    query = query.or(`id.eq.${term},customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%`);
-                } else {
-                    query = query.or(`customer_name.ilike.%${term}%,customer_phone.ilike.%${term}%,customer_email.ilike.%${term}%`);
+                const searchOrCond = buildOrderSearchOrCondition(debouncedSearchTerm);
+                if (searchOrCond) {
+                    query = query.or(searchOrCond);
                 }
             }
 
@@ -510,6 +614,9 @@ export default function OrdersPage() {
     };
 
     const openCourierModal = (order, fromTable = false) => {
+        if (!order || ['CANCELLED', 'REFUNDED', 'REFUND_REQUESTED'].includes((order.status || '').toUpperCase())) {
+            return;
+        }
         setSelectedOrder(order);
         setIsCourierFromTable(fromTable);
         setIsCourierSaved(false);
@@ -1154,7 +1261,7 @@ export default function OrdersPage() {
 
                                             <div className="admin-search-container">
 
-                                                <div className="admin-search-input-wrapper">
+                                                <div className="admin-search-input-wrapper" style={{ position: 'relative' }}>
 
                                                     <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
 
@@ -1170,7 +1277,7 @@ export default function OrdersPage() {
 
                                                         style={{
 
-                                                            width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem',
+                                                            width: '100%', padding: searchTerm ? '0.75rem 2.5rem 0.75rem 2.75rem' : '0.75rem 1rem 0.75rem 2.75rem',
 
                                                             background: '#f1f5f9',
 
@@ -1185,6 +1292,21 @@ export default function OrdersPage() {
                                                         }}
 
                                                     />
+
+                                                    {searchTerm && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSearchTerm('')}
+                                                            style={{
+                                                                position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                                                                background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px'
+                                                            }}
+                                                            title="Clear search"
+                                                        >
+                                                            <X size={16} />
+                                                        </button>
+                                                    )}
 
                                                 </div>
 
@@ -1286,91 +1408,111 @@ export default function OrdersPage() {
                                                                                     <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
                                                                                 </td>
                                                                                 <td style={{ textAlign: 'center' }}>
-                                                                                     <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'nowrap', alignItems: 'center' }}>
-                                                                                         {order.courier_name ? (
-                                                                                             <button
-                                                                                                 onClick={(e) => {
-                                                                                                     e.stopPropagation();
-                                                                                                     openCourierModal(order, true);
-                                                                                                 }}
-                                                                                                 className="btn btn-secondary"
-                                                                                                 style={{
-                                                                                                     padding: '0.35rem 0.65rem',
-                                                                                                     color: 'hsl(var(--primary))',
-                                                                                                     background: 'hsl(var(--primary) / 0.08)',
-                                                                                                     borderColor: 'hsl(var(--primary) / 0.25)',
-                                                                                                     fontSize: '0.75rem',
-                                                                                                     fontWeight: 700,
-                                                                                                     display: 'inline-flex',
-                                                                                                     alignItems: 'center',
-                                                                                                     gap: '5px',
-                                                                                                     borderRadius: '6px',
-                                                                                                     whiteSpace: 'nowrap'
-                                                                                                 }}
-                                                                                                 title="Click to view/edit courier info"
-                                                                                             >
-                                                                                                 <Truck size={14} color="hsl(var(--primary))" /> {order.courier_name}
-                                                                                             </button>
-                                                                                         ) : (
-                                                                                             <button
-                                                                                                 onClick={(e) => {
-                                                                                                     e.stopPropagation();
-                                                                                                     openCourierModal(order, true);
-                                                                                                 }}
-                                                                                                 className="btn btn-secondary"
-                                                                                                 style={{
-                                                                                                     padding: '0.35rem 0.5rem',
-                                                                                                     color: 'hsl(var(--success))',
-                                                                                                     borderColor: 'hsl(var(--success) / 0.3)',
-                                                                                                     fontSize: '0.72rem',
-                                                                                                     fontWeight: 700,
-                                                                                                     display: 'inline-flex',
-                                                                                                     alignItems: 'center',
-                                                                                                     gap: '4px',
-                                                                                                     borderRadius: '6px',
-                                                                                                     whiteSpace: 'nowrap'
-                                                                                                 }}
-                                                                                             >
-                                                                                                 <Truck size={14} /> + Courier
-                                                                                             </button>
-                                                                                         )}
+                                                                                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'nowrap', alignItems: 'center' }}>
+                                                                                        {(() => {
+                                                                                            const statusUpper = (order.status || '').toUpperCase();
+                                                                                            if (['CANCELLED', 'REFUNDED', 'REFUND_REQUESTED'].includes(statusUpper)) {
+                                                                                                return <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>—</span>;
+                                                                                            }
+                                                                                            const courierInfo = parseCourierDetails(order);
+                                                                                            if (courierInfo.name || courierInfo.trackingNumber) {
+                                                                                                return (
+                                                                                                    <button
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            openCourierModal(order, true);
+                                                                                                        }}
+                                                                                                        className="btn btn-secondary"
+                                                                                                        style={{
+                                                                                                            padding: '0.35rem 0.65rem',
+                                                                                                            color: 'hsl(var(--primary))',
+                                                                                                            background: 'hsl(var(--primary) / 0.08)',
+                                                                                                            borderColor: 'hsl(var(--primary) / 0.25)',
+                                                                                                            fontSize: '0.75rem',
+                                                                                                            fontWeight: 700,
+                                                                                                            display: 'inline-flex',
+                                                                                                            alignItems: 'center',
+                                                                                                            gap: '5px',
+                                                                                                            borderRadius: '6px',
+                                                                                                            whiteSpace: 'nowrap'
+                                                                                                        }}
+                                                                                                        title="Click to view/edit courier info"
+                                                                                                    >
+                                                                                                        <Truck size={14} color="hsl(var(--primary))" /> {courierInfo.name || 'Courier Info'}
+                                                                                                    </button>
+                                                                                                );
+                                                                                            }
+                                                                                            return (
+                                                                                                <button
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        openCourierModal(order, true);
+                                                                                                    }}
+                                                                                                    className="btn btn-secondary"
+                                                                                                    style={{
+                                                                                                        padding: '0.35rem 0.5rem',
+                                                                                                        color: 'hsl(var(--success))',
+                                                                                                        borderColor: 'hsl(var(--success) / 0.3)',
+                                                                                                        fontSize: '0.72rem',
+                                                                                                        fontWeight: 700,
+                                                                                                        display: 'inline-flex',
+                                                                                                        alignItems: 'center',
+                                                                                                        gap: '4px',
+                                                                                                        borderRadius: '6px',
+                                                                                                        whiteSpace: 'nowrap'
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <Truck size={14} /> + Courier
+                                                                                                </button>
+                                                                                            );
+                                                                                        })()}
 
-                                                                                         {order.courier_name && order.tracking_number && order.status !== 'CANCELLED' && (
-                                                                                             <button
-                                                                                                 onClick={(e) => {
-                                                                                                     e.stopPropagation();
-                                                                                                     setSelectedOrder(order);
-                                                                                                     setIsCourierFromTable(true);
-                                                                                                     const phoneToUse = order.customer_phone || (typeof order.billing_address === 'object' ? order.billing_address?.phone : null) || '';
-                                                                                                     const bEmail = order.billing_email || (typeof order.billing_address === 'object' ? order.billing_address?.email : null) || order.customer_email || '';
-                                                                                                     const sEmail = order.shipping_email || (typeof order.shipping_address === 'object' ? order.shipping_address?.email : null) || '';
-                                                                                                     const emailToUse = bEmail || sEmail;
-                                                                                                     
-                                                                                                     setNotificationPhone(formatDisplayPhoneNumber(phoneToUse));
-                                                                                                     setNotificationEmail(emailToUse);
-                                                                                                     setSendWhatsAppChecked(true);
-                                                                                                     setSendEmailChecked(true);
-                                                                                                     setShowSendNotificationModal(true);
-                                                                                                 }}
-                                                                                                 className="btn btn-secondary"
-                                                                                                 style={{
-                                                                                                     padding: '0.35rem 0.5rem',
-                                                                                                     color: 'hsl(var(--primary))',
-                                                                                                     background: 'hsl(var(--primary) / 0.1)',
-                                                                                                     fontSize: '0.72rem',
-                                                                                                     fontWeight: 700,
-                                                                                                     display: 'inline-flex',
-                                                                                                     alignItems: 'center',
-                                                                                                     gap: '4px',
-                                                                                                     borderRadius: '6px',
-                                                                                                     whiteSpace: 'nowrap'
-                                                                                                 }}
-                                                                                                 title="Send shipping notification to customer"
-                                                                                             >
-                                                                                                 <Send size={14} /> Send Info
-                                                                                             </button>
-                                                                                         )}
-                                                                                     </div>
+                                                                                        {(() => {
+                                                                                            const statusUpper = (order.status || '').toUpperCase();
+                                                                                            if (['CANCELLED', 'REFUNDED', 'REFUND_REQUESTED'].includes(statusUpper)) {
+                                                                                                return null;
+                                                                                            }
+                                                                                            const courierInfo = parseCourierDetails(order);
+                                                                                            if ((courierInfo.name || courierInfo.trackingNumber) && order.status !== 'CANCELLED') {
+                                                                                                return (
+                                                                                                    <button
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            setSelectedOrder(order);
+                                                                                                            setIsCourierFromTable(true);
+                                                                                                            const phoneToUse = order.customer_phone || (typeof order.billing_address === 'object' ? order.billing_address?.phone : null) || '';
+                                                                                                            const bEmail = order.billing_email || (typeof order.billing_address === 'object' ? order.billing_address?.email : null) || order.customer_email || '';
+                                                                                                            const sEmail = order.shipping_email || (typeof order.shipping_address === 'object' ? order.shipping_address?.email : null) || '';
+                                                                                                            const emailToUse = bEmail || sEmail;
+                                                                                                            
+                                                                                                            setNotificationPhone(formatDisplayPhoneNumber(phoneToUse));
+                                                                                                            setNotificationEmail(emailToUse);
+                                                                                                            setSendWhatsAppChecked(true);
+                                                                                                            setSendEmailChecked(true);
+                                                                                                            setShowSendNotificationModal(true);
+                                                                                                        }}
+                                                                                                        className="btn btn-secondary"
+                                                                                                        style={{
+                                                                                                            padding: '0.35rem 0.5rem',
+                                                                                                            color: 'hsl(var(--primary))',
+                                                                                                            background: 'hsl(var(--primary) / 0.1)',
+                                                                                                            fontSize: '0.72rem',
+                                                                                                            fontWeight: 700,
+                                                                                                            display: 'inline-flex',
+                                                                                                            alignItems: 'center',
+                                                                                                            gap: '4px',
+                                                                                                            borderRadius: '6px',
+                                                                                                            whiteSpace: 'nowrap'
+                                                                                                        }}
+                                                                                                        title="Send shipping notification to customer"
+                                                                                                    >
+                                                                                                        <Send size={14} /> Send Info
+                                                                                                    </button>
+                                                                                                );
+                                                                                            }
+                                                                                            return null;
+                                                                                        })()}
+                                                                                    </div>
                                                                                  </td>
                                                                                 <td style={{ textAlign: 'right' }}>
                                                                                     <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
@@ -3200,18 +3342,51 @@ export default function OrdersPage() {
                                 </div>
                             </div>
 
-                            {infoModalOrder.courier_name && (
-                                <div>
-                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', fontWeight: 700, letterSpacing: '0.5px' }}>Logistics details</div>
-                                    <div style={{ fontSize: '0.85rem', background: 'hsl(var(--primary) / 0.05)', padding: '1rem', borderRadius: '12px', border: '1px dashed hsl(var(--primary) / 0.3)' }}>
-                                        <div style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}><Truck size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }}/> Courier: {infoModalOrder.courier_name}</div>
-                                        <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <span style={{ color: 'hsl(var(--text-muted))' }}>AWB Track ID:</span> 
-                                            <span style={{ fontFamily: 'var(--font-roboto)', fontWeight: 800, background: 'hsl(var(--text-main))', color: 'white', padding: '2px 6px', borderRadius: '4px', letterSpacing: '1px' }}>{infoModalOrder.tracking_number}</span>
+                            {(() => {
+                                const courierInfo = parseCourierDetails(infoModalOrder);
+                                if (!courierInfo.name && !courierInfo.trackingNumber) return null;
+                                return (
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', fontWeight: 700, letterSpacing: '0.5px' }}>Logistics Details</div>
+                                        <div style={{ fontSize: '0.85rem', background: 'hsl(var(--primary) / 0.05)', padding: '1rem', borderRadius: '12px', border: '1px dashed hsl(var(--primary) / 0.3)', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                                <div style={{ fontWeight: 700, color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <Truck size={16} /> Courier: {courierInfo.name || 'Dispatched'}
+                                                </div>
+                                                {courierInfo.trackingUrl && (
+                                                    <a
+                                                        href={courierInfo.trackingUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        style={{
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 700,
+                                                            color: '#ffffff',
+                                                            background: 'hsl(var(--primary))',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '6px',
+                                                            textDecoration: 'none',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                    >
+                                                        <ExternalLink size={12} /> Track Package
+                                                    </a>
+                                                )}
+                                            </div>
+                                            {courierInfo.trackingNumber && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 600 }}>AWB Track ID:</span> 
+                                                    <span style={{ fontFamily: 'var(--font-roboto)', fontWeight: 800, background: 'hsl(var(--text-main))', color: 'white', padding: '3px 8px', borderRadius: '4px', letterSpacing: '1px', fontSize: '0.85rem' }}>
+                                                        {courierInfo.trackingNumber}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

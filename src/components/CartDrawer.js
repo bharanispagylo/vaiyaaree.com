@@ -95,7 +95,7 @@ export default function CartDrawer() {
                                             src={firstImage}
                                             alt={item.name}
                                             className={styles.itemImage}
-                                            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
                                         />
                                         <div className={styles.itemDetails}>
                                             <div className={styles.itemTopRow}>
