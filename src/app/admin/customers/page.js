@@ -854,7 +854,7 @@ function CustomersPage() {
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <div>
                                                                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'hsl(var(--text-main))', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                    <a href={`/admin/orders?orderId=${order.id}`} style={{ color: 'hsl(var(--primary))', textDecoration: 'none', fontWeight: 700 }}>#{order.id}</a>
+                                                                    <Link href={`/admin/orders?id=${order.id}`} style={{ color: 'hsl(var(--primary))', textDecoration: 'none', fontWeight: 700 }}>#{order.id}</Link>
                                                                     <button onClick={(e) => { e.stopPropagation(); startEditingOrder(order); }} style={{ background: 'transparent', border: 'none', color: 'hsl(var(--primary))', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }} title="Edit Order">
                                                                         <Edit2 size={12} />
                                                                     </button>

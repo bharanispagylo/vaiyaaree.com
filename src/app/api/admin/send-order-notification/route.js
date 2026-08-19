@@ -6,10 +6,13 @@ import { supabase } from '@/lib/supabaseClient';
 function buildStatusMessage(order, status, orderId) {
     const totalAmount = order.total_amount || 0;
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
-    const invoiceUrl = `${appUrl}/shop/invoice?oid=${orderId}`;
     const brand = 'Vaiyaaree';
     const items = order.order_items || [];
     const itemsList = items.map(i => `• ${i.product_name} (x${i.quantity})`).join('\n');
+    const displayInv = order.invoice_no 
+        ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
+        : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
+    const invoiceUrl = `${appUrl}/shop/invoice?oid=${displayInv.replace('#', '')}`;
     
     // Common Shipping Block
     const shipDetails = [];
@@ -17,7 +20,6 @@ function buildStatusMessage(order, status, orderId) {
         let trackingUrl = order.tracking_url || '';
         const trackingNum = order.tracking_number || '';
         
-        // Fix: If tracking_url has a placeholder like {tracking_number} or {821011}, replace it
         if (trackingUrl && trackingNum && trackingUrl.includes('{') && trackingUrl.includes('}')) {
             trackingUrl = trackingUrl.replace(/\{[^}]+\}/g, trackingNum);
         }
@@ -33,7 +35,7 @@ function buildStatusMessage(order, status, orderId) {
             return [
                 `✅ *ORDER CONFIRMED*`,
                 ``,
-                `Hi ${order.customer_name || 'Customer'}, your order #${orderId} is confirmed!`,
+                `Hi ${order.customer_name || 'Customer'}, your order ${displayInv} is confirmed!`,
                 `💰 Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
@@ -47,7 +49,7 @@ function buildStatusMessage(order, status, orderId) {
             return [
                 `⏳ *PAYMENT PENDING*`,
                 ``,
-                `Your order #${orderId} is awaiting payment.`,
+                `Your order ${displayInv} is awaiting payment.`,
                 `Amount Due: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `Please complete your payment to confirm your order.`,
@@ -60,7 +62,7 @@ function buildStatusMessage(order, status, orderId) {
             return [
                 `💳 *PAYMENT RECEIVED*`,
                 `--------------------------`,
-                `Order ID: #${orderId}`,
+                `Invoice No: ${displayInv}`,
                 `Total Paid: ₹${totalAmount.toLocaleString()}`,
                 `Method: ${order.payment_method || 'UPI/Online'}`,
                 ``,
@@ -77,7 +79,7 @@ function buildStatusMessage(order, status, orderId) {
             return [
                 `📦 *ORDER PACKING*`,
                 ``,
-                `Hi! We are currently packing your order #${orderId}.`,
+                `Hi! We are currently packing your order ${displayInv}.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
@@ -91,7 +93,7 @@ function buildStatusMessage(order, status, orderId) {
             return [
                 `🚀 *ORDER SHIPPED*`,
                 ``,
-                `Great news! Order #${orderId} is on its way!`,
+                `Great news! Order ${displayInv} is on its way!`,
                 ``,
                 `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
                 ...shipDetails,
@@ -106,7 +108,7 @@ function buildStatusMessage(order, status, orderId) {
             return [
                 `🎉 *ORDER DELIVERED*`,
                 ``,
-                `Order #${orderId} has been delivered successfully!`,
+                `Order ${displayInv} has been delivered successfully!`,
                 `Total: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `Hope you love your new saree! 💖`,
@@ -119,7 +121,7 @@ function buildStatusMessage(order, status, orderId) {
             return [
                 `❌ *ORDER CANCELLED*`,
                 ``,
-                `Order #${orderId} has been cancelled.`,
+                `Order ${displayInv} has been cancelled.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `If you did not request this cancellation, please contact us.`,
@@ -131,7 +133,7 @@ function buildStatusMessage(order, status, orderId) {
             return [
                 `✅ *Order Update — ${brand}*`,
                 ``,
-                `Order: #${orderId}`,
+                `Invoice No: ${displayInv}`,
                 `Status: ${status}`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,

@@ -349,9 +349,9 @@ export default function AdminReturnsPage() {
                         Manage customer return requests and exchange requests
                     </p>
                 </div>
-                <button onClick={() => window.location.href = '/admin'} className="btn btn-secondary">
+                <Link href="/admin" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
                     <ArrowLeft size={18} /> Back to Dashboard
-                </button>
+                </Link>
             </div>
 
             {/* Stats */}
@@ -443,7 +443,7 @@ export default function AdminReturnsPage() {
                         <table style={{ width: '100%', margin: 0 }}>
                             <thead>
                                 <tr>
-                                    <th>Order ID</th>
+                                    <th>Invoice No</th>
                                     <th>Customer</th>
                                     <th>Type</th>
                                     <th>Reason</th>
@@ -455,7 +455,15 @@ export default function AdminReturnsPage() {
                             <tbody>
                                 {paginatedReturns.map((request) => (
                                     <tr key={request.id} onClick={() => { setSelectedRequest(request); setShowDetailModal(true); }} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                                        <td>#{request.order_id}</td>
+                                        <td>
+                                            <Link 
+                                                href={`/admin/orders?id=${request.order_id}`}
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{ color: 'hsl(var(--primary))', fontWeight: 700, textDecoration: 'underline' }}
+                                            >
+                                                #{request.order_id ? String(request.order_id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001'}
+                                            </Link>
+                                        </td>
                                         <td>
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                 <span style={{ fontWeight: 600 }}>{request.customers?.name || 'N/A'}</span>
@@ -600,7 +608,14 @@ export default function AdminReturnsPage() {
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                                         <div>
                                             <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Order ID</div>
-                                            <div style={{ fontWeight: 600 }}>#{selectedRequest.order_id}</div>
+                                            <div style={{ fontWeight: 600 }}>
+                                                <Link 
+                                                    href={`/admin/orders?id=${selectedRequest.order_id}`}
+                                                    style={{ color: 'hsl(var(--primary))', fontWeight: 700, textDecoration: 'underline' }}
+                                                >
+                                                    #{selectedRequest.order_id}
+                                                </Link>
+                                            </div>
                                         </div>
                                         <div>
                                             <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Customer</div>

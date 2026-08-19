@@ -16,7 +16,7 @@ async function sendWhatsAppText(to, text) {
         cleanedNum = cleanedNum.substring(1);
     }
     if (cleanedNum.length === 12 && cleanedNum.startsWith('91')) {
-        // Correct
+        // Correct E.164
     } else if (cleanedNum.length === 10 && /^[6789]/.test(cleanedNum)) {
         cleanedNum = '91' + cleanedNum;
     }
@@ -60,18 +60,43 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Request not found' }), { status: 404 });
         }
 
-        const phone = req.customers?.phone;
+        let phone = req.customers?.phone;
+        let customerName = req.customers?.name;
+
+        if (!phone && req.order_id) {
+            const { data: ord } = await supabase.from('orders').select('customer_phone, customer_name').eq('id', req.order_id).single();
+            if (ord) {
+                phone = ord.customer_phone;
+                customerName = customerName || ord.customer_name;
+            }
+        }
+
         const orderId = req.order_id;
-        const type = req.request_type; // 'RETURN' or 'EXCHANGE'
-        const productName = req.products?.name || 'Product';
+        const type = (req.request_type || 'RETURN').toUpperCase(); // 'RETURN' or 'EXCHANGE'
+        const productName = req.products?.name || 'Product Item';
         const brand = 'Vaiyaaree';
 
         let message = '';
-        if (status === 'APPROVED') {
+        if (status === 'PENDING' || status === 'SUBMITTED' || status === 'REQUESTED') {
+            message = [
+                `📋 ${type} REQUEST RECEIVED`,
+                ``,
+                `Hi ${customerName || 'Customer'},`,
+                `We have received your ${type.toLowerCase()} request for Order #${orderId}.`,
+                ``,
+                `Product: ${productName}`,
+                `Reason: ${req.reason || 'Not specified'}`,
+                `Status: Under Review ⏳`,
+                ``,
+                `Our customer support team will review your request and update you shortly.`,
+                ``,
+                `— ${brand}`
+            ].join('\n');
+        } else if (status === 'APPROVED') {
             message = [
                 `✅ ${type} REQUEST APPROVED`,
                 ``,
-                `Hi ${req.customers?.name || 'Customer'},`,
+                `Hi ${customerName || 'Customer'},`,
                 `Good news! Your ${type.toLowerCase()} request for Order #${orderId} has been approved.`,
                 ``,
                 `Product: ${productName}`,
@@ -85,7 +110,7 @@ export async function POST(request) {
             message = [
                 `❌ ${type} REQUEST REJECTED`,
                 ``,
-                `Hi ${req.customers?.name || 'Customer'},`,
+                `Hi ${customerName || 'Customer'},`,
                 `Your ${type.toLowerCase()} request for Order #${orderId} was not approved.`,
                 ``,
                 `Product: ${productName}`,
@@ -99,7 +124,7 @@ export async function POST(request) {
             message = [
                 `✨ ${type} COMPLETED`,
                 ``,
-                `Hi ${req.customers?.name || 'Customer'},`,
+                `Hi ${customerName || 'Customer'},`,
                 `The ${type.toLowerCase()} process for your Order #${orderId} is now complete.`,
                 ``,
                 `Product: ${productName}`,

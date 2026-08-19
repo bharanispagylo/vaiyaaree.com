@@ -7,6 +7,7 @@
 */
 
 import { supabase } from '@/lib/supabaseClient';
+import { getNextOrderId } from '@/lib/orderIdGenerator';
 
 /**
  * Creates a new order in the database.
@@ -14,8 +15,8 @@ import { supabase } from '@/lib/supabaseClient';
  * @param {Object} orderData - The order details.
  */
 export async function createOrder(orderData) {
-    // 1. Generate a unique ID (if not provided, let DB handle it or generate here)
-    const orderId = orderData.id || `ORD-${Date.now()}`;
+    // 1. Generate a unique ID if not provided
+    const orderId = orderData.id || await getNextOrderId('ORD', supabase);
 
     // 2. Insert Order Logic
     const { data, error } = await supabase

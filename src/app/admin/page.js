@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck } from 'lucide-react';
 
 export default function AdminDashboard() {
+    const router = useRouter();
     const formatDisplayPhoneNumber = (phone) => {
         if (!phone) return '';
         let cleaned = String(phone).replace(/\D/g, '');
@@ -292,7 +294,7 @@ export default function AdminDashboard() {
                     <table style={{ margin: 0 }}>
                         <thead>
                             <tr>
-                                <th style={{ paddingLeft: '2rem' }}>Order</th>
+                                <th style={{ paddingLeft: '2rem' }}>Invoice No</th>
                                 <th>Customer</th>
                                 <th style={{ textAlign: 'right' }}>Amount</th>
                                 <th style={{ textAlign: 'right', paddingRight: '2rem' }}>Status</th>
@@ -302,24 +304,30 @@ export default function AdminDashboard() {
                             {recentOrders.length === 0 ? (
                                 <tr><td colSpan={4} style={{ padding: '3rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders yet.</td></tr>
                             ) : (
-                                recentOrders.map(order => (
-                                    <tr key={order.id} onClick={() => window.location.href = `/admin/orders?id=${order.id}`} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                                        <td style={{ paddingLeft: '2rem' }}>
-                                            <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>#{order.id}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{new Date(order.created_at).toLocaleDateString('en-IN')}</div>
-                                        </td>
-                                        <td>
-                                            <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'WhatsApp Customer'}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(order.customer_phone)}</div>
-                                        </td>
-                                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>
-                                            ₹{(order.total_amount || 0).toLocaleString()}
-                                        </td>
-                                        <td style={{ textAlign: 'right', paddingRight: '2rem' }}>
-                                            <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
-                                        </td>
-                                    </tr>
-                                ))
+                                recentOrders.map(order => {
+                                    const displayInvoiceNo = order.invoice_no 
+                                        ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
+                                        : (order.id ? `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}` : '#INV-0001');
+
+                                    return (
+                                        <tr key={order.id} onClick={() => router.push(`/admin/orders?id=${order.id}`)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+                                            <td style={{ paddingLeft: '2rem' }}>
+                                                <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{displayInvoiceNo}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{new Date(order.created_at).toLocaleDateString('en-IN')}</div>
+                                            </td>
+                                            <td>
+                                                <div style={{ fontWeight: 500, color: 'hsl(var(--text-main))' }}>{order.customer_name || 'WhatsApp Customer'}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(order.customer_phone)}</div>
+                                            </td>
+                                            <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>
+                                                ₹{(order.total_amount || 0).toLocaleString()}
+                                            </td>
+                                            <td style={{ textAlign: 'right', paddingRight: '2rem' }}>
+                                                <span className={`badge ${getStatusReference(order.status)}`}>{order.status}</span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

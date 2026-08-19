@@ -100,20 +100,22 @@
 }
 
 .ordersTable th {
-    padding: 1.25rem 1.5rem;
+    padding: 0.65rem 1rem;
     text-align: left;
-    font-weight: 600;
+    font-weight: 700;
     color: hsl(var(--text-muted));
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid hsl(var(--border-subtle));
+    white-space: nowrap;
 }
 
 .ordersTable td {
-    padding: 1.25rem 1.5rem;
+    padding: 0.55rem 1rem;
     border-bottom: 1px solid hsl(var(--border-subtle) / 0.5);
     vertical-align: middle;
+    white-space: nowrap;
 }
 
 .ordersTable tbody tr:hover {

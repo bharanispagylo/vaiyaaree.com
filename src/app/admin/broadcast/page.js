@@ -190,16 +190,16 @@ export default function BroadcastPage() {
                                     mergedMsg = mergedMsg.replace(/\{\{product\.url\}\}/g, productUrl);
                                 } else {
                                     mergedMsg += `\n\n*${product.name}*`;
-                                    mergedMsg += `\n💰 ₹${product.price}`;
+                                    mergedMsg += `\nPrice: ₹${product.price}`;
                                     
                                     let variantText = '';
                                     if (Array.isArray(product.variants) && product.variants.length > 0) {
-                                        variantText = `\n📦 Variants: ${product.variants.join(', ')}`;
+                                        variantText = `\nVariants: ${product.variants.join(', ')}`;
                                     } else if (typeof product.variants === 'string') {
                                         try {
                                             const parsed = JSON.parse(product.variants);
                                             if (Array.isArray(parsed) && parsed.length > 0) {
-                                                variantText = `\n📦 Variants: ${parsed.join(', ')}`;
+                                                variantText = `\nVariants: ${parsed.join(', ')}`;
                                             }
                                         } catch(e) {}
                                     }

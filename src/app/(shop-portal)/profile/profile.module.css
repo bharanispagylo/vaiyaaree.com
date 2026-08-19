@@ -593,21 +593,27 @@
 }
 
 .dataTable th {
-    background: hsl(var(--text-main) / 0.04);
-    color: hsl(var(--text-main));
-    font-weight: 800;
-    padding: 0.9rem 1.25rem;
+    background: hsl(var(--text-main) / 0.03);
+    color: hsl(var(--text-muted));
+    font-weight: 700;
+    padding: 0.65rem 1rem;
     border-bottom: 1px solid hsl(var(--text-main) / 0.08);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .dataTable td {
-    padding: 1rem 1.25rem;
+    padding: 0.55rem 1rem;
     border-bottom: 1px solid hsl(var(--text-main) / 0.06);
     color: hsl(var(--text-main));
     vertical-align: middle;
+    white-space: nowrap;
+}
+
+.dataTable tr:hover {
+    background: hsl(var(--text-main) / 0.015);
 }
 
 .dataTable tr:last-child td {

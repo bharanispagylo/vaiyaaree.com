@@ -90,14 +90,14 @@
 
 .table th {
     text-align: left;
-    padding: 1rem;
+    padding: 0.65rem 1rem;
     background: #f9fafb;
     font-weight: 600;
     color: #4b5563;
 }
 
 .table td {
-    padding: 1rem;
+    padding: 0.65rem 1rem;
     border-bottom: 1px solid #e5e7eb;
 }
 

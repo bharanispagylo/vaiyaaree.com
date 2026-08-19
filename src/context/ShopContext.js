@@ -467,7 +467,6 @@ export function ShopProvider({ children }) {
         }
 
         try {
-            const orderId = `WEB-${Date.now().toString().slice(-6)}`;
             const customerPhone = checkoutForm.billingPhone.replace(/\D/g, '');
             const fullPhone = customerPhone.startsWith('91') ? customerPhone : `91${customerPhone}`;
             
@@ -589,9 +588,9 @@ export function ShopProvider({ children }) {
             }
 
             // --- SECURE SERVER-SIDE ORDER CREATION ---
-            // We now call an API route instead of direct Supabase inserts to prevent price manipulation and race conditions.
+            // We call API route to generate sequential orderId and save order atomically
             const orderPayload = {
-                orderId,
+                prefix: 'WEB',
                 customerId,
                 customerPhone: fullPhone,
                 customerName: checkoutForm.billingName,
@@ -615,8 +614,10 @@ export function ShopProvider({ children }) {
                 throw new Error(createData.error || 'Failed to secure your order. Please try again.');
             }
 
+            const assignedOrderId = createData.orderId;
+
             const finalOrderData = {
-                orderId,
+                orderId: assignedOrderId,
                 billingName: checkoutForm.billingName,
                 billingPhone: checkoutForm.billingPhone,
                 customerName: checkoutForm.billingName,
@@ -641,7 +642,7 @@ export function ShopProvider({ children }) {
                 fetch('/api/orders/resend-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId })
+                    body: JSON.stringify({ orderId: assignedOrderId })
                 });
             } catch (emailErr) {
                 console.error('Failed to trigger order confirmation email:', emailErr);
@@ -653,7 +654,7 @@ export function ShopProvider({ children }) {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        orderId,
+                        orderId: assignedOrderId,
                         phone: checkoutForm.billingWhatsApp || checkoutForm.billingPhone
                     })
                 });

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { LogOut, Menu, User, ShieldCheck, ChevronDown, Mail, Settings, Users } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 
@@ -11,11 +12,21 @@ const PAGE_TITLES = {
     '/admin/products': 'Products',
     '/admin/orders': 'Orders',
     '/admin/orders/analysis': 'Order Analysis',
+    '/admin/returns': 'Return Requests',
+    '/admin/refunds': 'Refund Requests',
     '/admin/customers': 'Customers',
     '/admin/customers/analysis': 'Customer Analysis',
     '/admin/invoices': 'Invoices',
+    '/admin/invoices/report': 'Invoice Report',
+    '/admin/invoices/settings': 'Invoice Settings',
+    '/admin/shipping': 'Shipping Settings',
+    '/admin/couriers': 'Couriers',
     '/admin/broadcast': 'Broadcast',
     '/admin/whatsapp': 'WhatsApp Funnel',
+    '/admin/schedule': 'Schedule Post',
+    '/admin/facebook': 'Meta Connect',
+    '/admin/cms': 'CMS',
+    '/admin/analytics': 'Analytics',
     '/admin/settings': 'Settings',
     '/admin/shop-settings': 'Shop Settings',
     '/admin/users': 'User Management',
@@ -150,9 +161,21 @@ export default function AdminTopBar({ onMenuClick }) {
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <span className="breadcrumb-prefix" style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 500 }}>
+                    <Link 
+                        href="/admin" 
+                        className="breadcrumb-prefix" 
+                        style={{ 
+                            fontSize: '0.8rem', 
+                            color: 'rgba(255, 255, 255, 0.45)', 
+                            fontWeight: 500,
+                            textDecoration: 'none',
+                            transition: 'color 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.45)'}
+                    >
                         Admin /
-                    </span>
+                    </Link>
                     <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em' }}>
                         {pageTitle}
                     </span>

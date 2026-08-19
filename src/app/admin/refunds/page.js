@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useShop } from '@/context/ShopContext';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ModalPortal from '@/components/ModalPortal';
 import { 
     ArrowLeft, RefreshCcw, Clock, CheckCircle, XCircle, AlertCircle, 
@@ -387,7 +388,7 @@ export default function RefundsPage() {
                     <table style={{ width: '100%', margin: 0 }}>
                         <thead>
                             <tr>
-                                <th>Order ID</th>
+                                <th>Invoice No</th>
                                 <th>Customer</th>
                                 <th>Refund Amount</th>
                                 <th>Reason</th>
@@ -399,7 +400,15 @@ export default function RefundsPage() {
                         <tbody>
                             {paginatedRefunds.map((refund) => (
                                 <tr key={refund.id} onClick={() => { setSelectedRefund(refund); setShowDetailModal(true); }} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                                    <td>#{refund.order_id}</td>
+                                    <td>
+                                        <Link 
+                                            href={`/admin/orders?id=${refund.order_id}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{ color: 'hsl(var(--primary))', fontWeight: 700, textDecoration: 'underline' }}
+                                        >
+                                            #{refund.order_id ? String(refund.order_id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001'}
+                                        </Link>
+                                    </td>
                                     <td>
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                                             <span style={{ fontWeight: 600 }}>{refund.orders?.customer_name || 'N/A'}</span>
@@ -531,7 +540,14 @@ export default function RefundsPage() {
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                                     <div>
                                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Order ID</div>
-                                        <div style={{ fontWeight: 600 }}>#{selectedRefund.order_id}</div>
+                                        <div style={{ fontWeight: 600 }}>
+                                            <Link 
+                                                href={`/admin/orders?id=${selectedRefund.order_id}`}
+                                                style={{ color: 'hsl(var(--primary))', fontWeight: 700, textDecoration: 'underline' }}
+                                            >
+                                                #{selectedRefund.order_id}
+                                            </Link>
+                                        </div>
                                     </div>
                                     <div>
                                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Original Amount</div>

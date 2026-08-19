@@ -198,7 +198,7 @@ export async function generateInvoicePDF(order) {
     doc.rect(margin, y, 190, 18);
     doc.line(105, y, 105, y + 18);
     
-    const displayInvoiceNo = order.invoice_no || `INV-0001`;
+    const displayInvoiceNo = order.invoice_no || (order.id ? String(order.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
 
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");

@@ -129,7 +129,7 @@ export default function ShopHeader() {
                                                     <p className={styles.dropdownPhone}>{user.phone}</p>
                                                 </div>
                                                 <div className={styles.divider}></div>
-                                                <Link href="/my-orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>
+                                                <Link href="/profile?tab=orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>
                                                 <Link href="/profile?tab=history" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Order History</Link>
                                                 <Link href="/profile?tab=account" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account & Addresses</Link>
                                                 <Link href="/profile?tab=refund" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Refund Requests</Link>

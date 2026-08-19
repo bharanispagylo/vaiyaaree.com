@@ -14,6 +14,7 @@ import {
     User, Phone, MapPin, Globe, ShieldAlert, FileText
 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
+import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 import OrderLabelPrint from '@/components/OrderLabelPrint';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -248,6 +249,189 @@ export default function OrdersPage() {
             return `${part1} ${part2}`;
         }
         return phone;
+    };
+
+    const parseStructuredAddress = (rawAddr, defaultName = '', defaultPhone = '') => {
+        if (!rawAddr) return { name: defaultName, phone: defaultPhone, address_line: '', city: '', pincode: '', state: 'Tamil Nadu' };
+        
+        let obj = rawAddr;
+        if (typeof rawAddr === 'string' && rawAddr.trim().startsWith('{')) {
+            try { obj = JSON.parse(rawAddr); } catch(e) {}
+        }
+        
+        if (typeof obj === 'object' && obj !== null) {
+            return {
+                name: obj.name || defaultName,
+                phone: obj.phone || obj.mobile || defaultPhone,
+                address_line: obj.address || obj.address_line || '',
+                city: obj.city || '',
+                pincode: obj.pincode || obj.postal_code || '',
+                state: obj.state || 'Tamil Nadu'
+            };
+        }
+
+        const str = String(rawAddr).trim();
+        const parts = str.split(',').map(s => s.trim()).filter(Boolean);
+        
+        let name = defaultName;
+        let phone = defaultPhone;
+        let city = '';
+        let state = 'Tamil Nadu';
+        let pincode = '';
+        let address_line = str;
+
+        if (parts.length >= 2) {
+            if (parts[0] && isNaN(parts[0])) name = parts[0];
+            if (parts[1] && (parts[1].length >= 10 || !isNaN(parts[1]))) phone = parts[1];
+
+            const lastPart = parts[parts.length - 1];
+            if (lastPart && /^\d{6}$/.test(lastPart)) {
+                pincode = lastPart;
+            }
+
+            const knownStates = ['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra', 'Delhi', 'Gujarat'];
+            const stateIdx = parts.findIndex(p => knownStates.includes(p));
+            if (stateIdx !== -1) {
+                state = parts[stateIdx];
+            }
+
+            if (stateIdx > 0) {
+                city = parts[stateIdx - 1];
+            } else if (parts.length >= 4) {
+                city = parts[parts.length - (pincode ? 2 : 1)] || '';
+            }
+
+            const midParts = parts.filter(p => p !== name && p !== phone && p !== pincode && p !== state && p !== city);
+            if (midParts.length > 0) {
+                address_line = midParts.join(', ');
+            }
+        }
+
+        return { name, phone, address_line, city, pincode, state };
+    };
+
+    const prepareOrderForEditing = (order) => {
+        if (!order) return null;
+        const ship = parseStructuredAddress(order.shipping_address || order.delivery_address, order.customer_name, order.customer_phone);
+        const bill = parseStructuredAddress(order.billing_address || order.delivery_address, order.customer_name, order.customer_phone);
+        
+        const prepared = {
+            ...order,
+            shipping_name: order.shipping_name || ship.name,
+            shipping_phone: order.shipping_phone || ship.phone,
+            shipping_address_line: order.shipping_address_line || ship.address_line,
+            shipping_city: order.shipping_city || ship.city,
+            shipping_pincode: order.shipping_pincode || ship.pincode,
+            shipping_state: order.shipping_state || ship.state,
+
+            billing_name: order.billing_name || bill.name,
+            billing_phone: order.billing_phone || bill.phone,
+            billing_address_line: order.billing_address_line || bill.address_line,
+            billing_city: order.billing_city || bill.city,
+            billing_pincode: order.billing_pincode || bill.pincode,
+            billing_state: order.billing_state || bill.state,
+        };
+        setSelectedOrder(prepared);
+        return prepared;
+    };
+
+    const resolveItemProduct = (item, catalogProducts = []) => {
+        if (!item) return null;
+        if (item.products && (item.products.image_url || item.products.sku)) return item.products;
+
+        const pId = String(item.product_id || '').trim();
+        const pName = String(item.product_name || '').trim().toLowerCase();
+
+        const catalog = catalogProducts && catalogProducts.length > 0 ? catalogProducts : allProducts;
+        if (!catalog || catalog.length === 0) return item.products || null;
+
+        // 1. Try match by ID, SKU, product_no, or product_catalog_image_id
+        if (pId) {
+            const matchById = catalog.find(p => 
+                String(p.id) === pId || 
+                String(p.sku || '').trim() === pId || 
+                String(p.product_no || '').trim() === pId ||
+                String(p.product_catalog_image_id || '').trim().toUpperCase() === pId.toUpperCase()
+            );
+            if (matchById) return matchById;
+        }
+
+        // 2. Try exact case-insensitive Name match
+        if (pName) {
+            const matchByName = catalog.find(p => String(p.name || '').trim().toLowerCase() === pName);
+            if (matchByName) return matchByName;
+        }
+
+        // 3. Try fuzzy/substring Name match (e.g. "Kota Doria with embroidery" <-> "Kota Doria")
+        if (pName) {
+            const matchBySub = catalog.find(p => {
+                const dbName = String(p.name || '').trim().toLowerCase();
+                return dbName.length > 3 && (dbName.includes(pName) || pName.includes(dbName));
+            });
+            if (matchBySub) return matchBySub;
+        }
+
+        return item.products || null;
+    };
+
+    const enrichOrderItems = async (rawItems) => {
+        let items = rawItems || [];
+        if (items.length === 0) return [];
+
+        let catalog = allProducts;
+        if (!catalog || catalog.length === 0) {
+            const { data: dbProds } = await supabase.from('products').select('*');
+            catalog = dbProds || [];
+            setAllProducts(catalog);
+        }
+
+        const productIds = items.map(i => i.product_id).filter(Boolean);
+        const variantIds = items.map(i => i.variant_id).filter(Boolean);
+
+        const [prodsRes, varsRes] = await Promise.all([
+            productIds.length > 0 ? supabase.from('products').select('id, name, image_url, sku, category, product_no, product_group, product_catalog_image_id').in('id', productIds) : { data: [] },
+            variantIds.length > 0 ? supabase.from('product_variants').select('id, image_url, sku, name').in('id', variantIds) : { data: [] }
+        ]);
+
+        const prodMap = new Map((prodsRes.data || []).map(p => [String(p.id), p]));
+        const varMap = new Map((varsRes.data || []).map(v => [String(v.id), v]));
+
+        return items.map(item => {
+            let prod = item.product_id ? prodMap.get(String(item.product_id)) || null : null;
+            let vnt = item.variant_id ? varMap.get(String(item.variant_id)) || null : null;
+
+            if (!prod || (!prod.image_url && catalog.length > 0)) {
+                const resolved = resolveItemProduct(item, catalog);
+                if (resolved) prod = { ...(prod || {}), ...resolved };
+            }
+
+            return {
+                ...item,
+                products: prod,
+                variant: vnt
+            };
+        });
+    };
+
+    const getItemImageUrl = (item) => {
+        if (!item) return null;
+        const resolvedProduct = item.products || resolveItemProduct(item, allProducts);
+        const raw = 
+            item.variant?.image_url || 
+            resolvedProduct?.image_url || 
+            item.products?.image_url ||
+            item.product?.image_url || 
+            item.image_url || 
+            item.product_image || 
+            item.product_image_url ||
+            item.image;
+
+        if (!raw) return null;
+        const first = String(raw).split(',')[0].trim();
+        if (!first) return null;
+        if (first.startsWith('http://') || first.startsWith('https://') || first.startsWith('/') || first.startsWith('data:')) return first;
+        if (first.startsWith('images/')) return `/${first}`;
+        return `/images/${first}`;
     };
 
     const [newOrder, setNewOrder] = useState({
@@ -494,11 +678,11 @@ export default function OrdersPage() {
             // 2. Source Filter
             if (sourceFilter !== 'ALL') {
                 if (sourceFilter === 'WEBSITE') {
-                    query = query.or('source.eq.WEBSITE,id.ilike.WEB-%');
+                    query = query.or('source.eq.WEBSITE,source.eq.WEB,id.ilike.WEB-%');
                 } else if (sourceFilter === 'MANUAL') {
-                    query = query.or('source.eq.MANUAL,id.ilike.MAN-%');
+                    query = query.or('source.eq.MANUAL,source.eq.MAN,id.ilike.MAN-%');
                 } else if (sourceFilter === 'WHATSAPP') {
-                    query = query.or('source.eq.WHATSAPP,source.is.null');
+                    query = query.or('source.eq.WHATSAPP,source.eq.WA,source.is.null,id.ilike.ORD-%');
                 }
             }
 
@@ -557,11 +741,35 @@ export default function OrdersPage() {
             setIsEditingItems(false);
         };
         window.addEventListener('resetAdminView', handleReset);
-
         return () => {
             supabase.removeChannel(channel);
             window.removeEventListener('resetAdminView', handleReset);
         };
+    }, []);
+
+    // Automatically open specific order if 'id' or 'orderId' is passed in URL query params
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const queryId = params.get('id') || params.get('orderId');
+            if (queryId) {
+                const numericId = parseInt(queryId, 10);
+                if (!isNaN(numericId)) {
+                    setSearchTerm(String(numericId));
+                    supabase
+                        .from('orders')
+                        .select('*, customers(name, email, phone)')
+                        .eq('id', numericId)
+                        .single()
+                        .then(({ data, error }) => {
+                            if (data && !error) {
+                                openOrderDetail(data);
+                            }
+                        })
+                        .catch(err => console.error('[OrdersPage] Error opening order from URL param:', err));
+                }
+            }
+        }
     }, []);
 
     // Reset to page 1 when filters change
@@ -592,22 +800,25 @@ export default function OrdersPage() {
     };
 
     useEffect(() => {
-        if (isAddingOrder) fetchAllProducts();
+        fetchAllProducts();
         fetchCouriers();
-    }, [isAddingOrder]);
+    }, []);
 
     const openOrderDetail = async (order) => {
         setLoading(true);
         setSelectedOrder(order);
+        prepareOrderForEditing(order);
         try {
-            const [{ data: items }, { data: logs }] = await Promise.all([
-                supabase.from('order_items').select('*, products(image_url)').eq('order_id', order.id),
+            const [{ data: rawItems }, { data: logs }] = await Promise.all([
+                supabase.from('order_items').select('*').eq('order_id', order.id),
                 supabase.from('order_status_logs').select('*').eq('order_id', order.id).order('created_at', { ascending: true })
             ]);
-            setOrderItems(items || []);
+
+            const enriched = await enrichOrderItems(rawItems);
+            setOrderItems(enriched);
             setOrderActivityLogs(logs || []);
         } catch (err) {
-            console.error(err);
+            console.error('openOrderDetail error:', err);
         } finally {
             setLoading(false);
         }
@@ -1091,6 +1302,28 @@ export default function OrdersPage() {
             setLoading(true);
             const subtotal = orderItems.reduce((sum, item) => sum + (item.quantity * item.price_at_time), 0);
 
+            // Construct structured shipping and billing address objects
+            const shipObj = {
+                name: selectedOrder.shipping_name || selectedOrder.customer_name || '',
+                phone: selectedOrder.shipping_phone || selectedOrder.customer_phone || '',
+                address: selectedOrder.shipping_address_line || '',
+                city: selectedOrder.shipping_city || '',
+                pincode: selectedOrder.shipping_pincode || '',
+                state: selectedOrder.shipping_state || 'Tamil Nadu'
+            };
+
+            const billObj = {
+                name: selectedOrder.billing_name || selectedOrder.customer_name || '',
+                phone: selectedOrder.billing_phone || selectedOrder.customer_phone || '',
+                address: selectedOrder.billing_address_line || '',
+                city: selectedOrder.billing_city || '',
+                pincode: selectedOrder.billing_pincode || '',
+                state: selectedOrder.billing_state || selectedOrder.shipping_state || 'Tamil Nadu'
+            };
+
+            const formattedShipStr = [shipObj.name, shipObj.phone, shipObj.address, shipObj.city, shipObj.state, shipObj.pincode].filter(Boolean).join(', ');
+            const formattedBillStr = [billObj.name, billObj.phone, billObj.address, billObj.city, billObj.state, billObj.pincode].filter(Boolean).join(', ');
+
             // Calculate taxes based on selectedOrder's state
             const state = selectedOrder.shipping_state || 'Tamil Nadu';
             const gstRate = 0.05; // 5%
@@ -1107,15 +1340,15 @@ export default function OrdersPage() {
 
             // 1. Update Order record (items + customer info)
             const { error: orderError } = await supabase.from('orders').update({
-                customer_name: selectedOrder.customer_name,
-                customer_phone: selectedOrder.customer_phone,
+                customer_name: shipObj.name || selectedOrder.customer_name,
+                customer_phone: shipObj.phone || selectedOrder.customer_phone,
                 customer_email: selectedOrder.customer_email,
                 billing_email: selectedOrder.customer_email,
                 shipping_email: selectedOrder.customer_email,
-                delivery_address: selectedOrder.shipping_address || selectedOrder.billing_address || selectedOrder.delivery_address,
-                billing_address: selectedOrder.billing_address,
-                shipping_address: selectedOrder.shipping_address,
-                shipping_state: selectedOrder.shipping_state,
+                delivery_address: formattedShipStr || formattedBillStr,
+                billing_address: billObj,
+                shipping_address: shipObj,
+                shipping_state: shipObj.state,
                 subtotal,
                 tax_amount: tax,
                 total_amount: total,
@@ -1221,7 +1454,7 @@ export default function OrdersPage() {
 
                                         <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))' }} />
 
-                                        {/* Channel Filter */}
+                                        {/* Channel / Source Filter */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                             <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))', letterSpacing: '0.05em' }}>Channel:</label>
                                             <select
@@ -1231,7 +1464,7 @@ export default function OrdersPage() {
                                             >
                                                 {SOURCE_FILTERS.map(src => (
                                                     <option key={src} value={src}>
-                                                        {src === 'ALL' ? 'All' : src === 'WEBSITE' ? 'Website' : src === 'MANUAL' ? 'Manual' : 'WhatsApp'}
+                                                        {src === 'ALL' ? 'All' : src === 'WEBSITE' ? 'Website (Web)' : src === 'MANUAL' ? 'Manual' : 'WhatsApp'}
                                                     </option>
                                                 ))}
                                             </select>
@@ -1331,7 +1564,7 @@ export default function OrdersPage() {
                                                         <thead>
                                                             <tr>
 
-                                                                <th>Order ID</th>
+                                                                <th>Invoice No</th>
                                                                 <th style={{ width: '40px', textAlign: 'center' }}>
                                                                     <input
                                                                         type="checkbox"
@@ -1377,7 +1610,7 @@ export default function OrdersPage() {
                                                                                     transition: 'background 0.2s'
                                                                                 }}
                                                                             >
-                                                                                <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.id}</td>
+                                                                                <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.invoice_no || (order.id ? String(order.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001')}</td>
                                                                                 <td style={{ textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleSelectItem(order.id); }}>
                                                                                     <input
                                                                                         type="checkbox"
@@ -1515,23 +1748,21 @@ export default function OrdersPage() {
                                                                                     </div>
                                                                                  </td>
                                                                                 <td style={{ textAlign: 'right' }}>
-                                                                                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                                                                                        <button onClick={async (e) => { 
-                                                                                            e.stopPropagation(); 
-                                                                                            setInfoModalOrder({ ...order, items: null });
-                                                                                            const { data: items } = await supabase.from('order_items').select('*, products(image_url)').eq('order_id', order.id);
-                                                                                            setInfoModalOrder(prev => prev && prev.id === order.id ? { ...prev, items: items || [] } : prev);
-                                                                                        }} className="btn btn-secondary" style={{ padding: '0.35rem 0.5rem', color: '#0ea5e9', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                                                                                            <Info size={14} /> View Info
-                                                                                        </button>
-                                                                                        <button onClick={(e) => { e.stopPropagation(); openOrderDetail(order); }} className="btn btn-secondary" style={{ padding: '0.35rem 0.5rem', color: 'hsl(var(--primary))', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                                                                                            <Eye size={14} /> View Detail
-                                                                                        </button>
-                                                                                        <button onClick={(e) => { e.stopPropagation(); handleBulkDelete([order.id]); }} className="btn btn-secondary" style={{ padding: '0.35rem 0.5rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                                                                                            <Trash2 size={14} /> Delete
-                                                                                        </button>
-                                                                                    </div>
-                                                                                </td>
+                                                                                     <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                                                                                         <button onClick={async (e) => { 
+                                                                                             e.stopPropagation(); 
+                                                                                             setInfoModalOrder({ ...order, items: null });
+                                                                                             const { data: rawItems } = await supabase.from('order_items').select('*').eq('order_id', order.id);
+                                                                                             const enriched = await enrichOrderItems(rawItems);
+                                                                                             setInfoModalOrder(prev => prev && prev.id === order.id ? { ...prev, items: enriched } : prev);
+                                                                                         }} className="btn btn-secondary" style={{ padding: '0.35rem 0.5rem', color: '#0ea5e9', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                                                                                             <Info size={14} /> View Info
+                                                                                         </button>
+                                                                                         <button onClick={(e) => { e.stopPropagation(); handleBulkDelete([order.id]); }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }} title="Delete Order">
+                                                                                             <Trash2 size={14} />
+                                                                                         </button>
+                                                                                     </div>
+                                                                                 </td>
                                                                             </tr>
                                                                         </React.Fragment>
                                                                     );
@@ -1585,31 +1816,42 @@ export default function OrdersPage() {
                                 }}>
                                     <div style={{ padding: '1.5rem 2rem', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.id}</h2>
-                                            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '4px' }}>
+                                            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.invoice_no || (selectedOrder.id ? String(selectedOrder.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001')}</h2>
+                                            <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '4px', flexWrap: 'wrap' }}>
                                                 <span>Placed on {toIST(selectedOrder.created_at)}</span>
-                                                {/* <span style={{
-                                                    padding: '0.2rem 0.6rem',
-                                                    borderRadius: '6px',
-                                                    fontSize: '0.65rem',
-                                                    fontWeight: 800,
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '0.05em',
-                                                    background: 'hsl(var(--bg-app))',
-                                                    border: '1px solid hsl(var(--border-subtle))',
-                                                    color: 'hsl(var(--text-muted))'
-                                                }}>
-                                                    Source: {(() => {
-                                                        const src = selectedOrder.source || (selectedOrder.id?.startsWith('WEB-') ? 'WEBSITE' : selectedOrder.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
-                                                        return src === 'WEBSITE' ? 'Web' : src === 'MANUAL' ? 'Manual' : 'WhatsApp';
-                                                    })()}
-                                                </span> */}
+                                                {(() => {
+                                                    const src = selectedOrder.source || (selectedOrder.id?.startsWith('WEB-') ? 'WEBSITE' : selectedOrder.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
+                                                    const badgeConfig = {
+                                                        WEBSITE: { label: 'Website Order', bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
+                                                        MANUAL: { label: 'Manual Order', bg: '#f3e8ff', border: '#e9d5ff', color: '#6b21a8' },
+                                                        WHATSAPP: { label: 'WhatsApp Order', bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' }
+                                                    };
+                                                    const config = badgeConfig[src] || badgeConfig.WHATSAPP;
+                                                    return (
+                                                        <span style={{
+                                                            padding: '0.2rem 0.65rem',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 800,
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.04em',
+                                                            background: config.bg,
+                                                            border: `1px solid ${config.border}`,
+                                                            color: config.color,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}>
+                                                            {config.label}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                                             <button onClick={() => { setSelectedOrder(null); setOrderItems([]); setIsEditingItems(false); }} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>← Back to Orders</button>
                                             {!isEditingItems ? (
-                                                <button onClick={() => setIsEditingItems(true)} className="btn btn-primary" style={{ fontSize: '0.85rem', background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                                                <button onClick={() => { prepareOrderForEditing(selectedOrder); setIsEditingItems(true); }} className="btn btn-primary" style={{ fontSize: '0.85rem', background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
                                                     Edit Order
                                                 </button>
                                             ) : (
@@ -1660,12 +1902,37 @@ export default function OrdersPage() {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                                 {orderItems.filter(item => (item.returned_quantity || 0) < item.quantity).map((item, idx) => (
                                                     <div key={idx} style={{ display: 'flex', gap: '1.5rem', background: '#ffffff', padding: '1rem', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
-                                                        <div style={{ width: '100px', height: '130px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                            <img src={item.products?.image_url || 'https://via.placeholder.com/100x130?text=Saree'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        <div style={{ width: '100px', height: '130px', borderRadius: '8px', overflow: 'hidden', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', flexShrink: 0 }}>
+                                                            <img 
+                                                                src={getItemImageUrl(item) || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'} 
+                                                                alt={item.product_name || 'Product'} 
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                                                onError={(e) => {
+                                                                    e.target.onerror = null;
+                                                                    e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
+                                                                }}
+                                                            />
                                                         </div>
-                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                                             <div style={{ fontWeight: 800, fontSize: '1rem', color: 'hsl(var(--text-main))' }}>{item.product_name}</div>
-                                                            <div style={{ fontSize: '0.82rem', color: 'hsl(var(--primary))', fontWeight: 600 }}>{item.variant_name || 'Standard Unit'}</div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                                <span style={{ fontSize: '0.82rem', color: 'hsl(var(--primary))', fontWeight: 600 }}>{item.variant_name || 'Standard Unit'}</span>
+                                                                {(item.products?.sku || item.products?.product_no || item.product_id) && (
+                                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '2px 7px', borderRadius: '5px' }}>
+                                                                        SKU: {item.products?.sku || item.products?.product_no || item.product_id}
+                                                                    </span>
+                                                                )}
+                                                                {item.products?.category && (
+                                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', padding: '2px 7px', borderRadius: '5px' }}>
+                                                                        {item.products.category}
+                                                                    </span>
+                                                                )}
+                                                                {item.products?.product_group && (
+                                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '2px 7px', borderRadius: '5px' }}>
+                                                                        Group: {item.products.product_group}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             {isEditingItems ? (
                                                                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: 'auto', flexWrap: 'wrap' }}>
                                                                     <div>
@@ -1784,119 +2051,218 @@ export default function OrdersPage() {
 
                                         {/* Top: Customer Info */}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', gridArea: 'info' }}>
-                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '-0.5rem', fontWeight: 700 }}>Customer Info</h4>
-                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: `1px solid ${isEditingItems ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border-subtle))'}` }}>
-                                                {isEditingItems ? (
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.65rem' }}>
-                                                        {/* Row 1: Name and Email */}
-                                                        <div style={{ gridColumn: 'span 1' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                                                 <User size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Customer Name</label>
+                                            {isEditingItems ? (
+                                                <>
+                                                    {/* Card 1: Shipping Details */}
+                                                    <div>
+                                                        <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '0.5rem', fontWeight: 700 }}>Shipping Details</h4>
+                                                        <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.4)' }}>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>FULL NAME</label>
+                                                                    <input
+                                                                        placeholder="Full Name"
+                                                                        value={selectedOrder.shipping_name ?? (selectedOrder.customer_name || '')}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, shipping_name: e.target.value, customer_name: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>PHONE</label>
+                                                                    <input
+                                                                        placeholder="Phone Number"
+                                                                        value={selectedOrder.shipping_phone ?? (selectedOrder.customer_phone || '')}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, shipping_phone: e.target.value, customer_phone: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>CUSTOMER EMAIL</label>
+                                                                    <input
+                                                                        placeholder="Customer Email"
+                                                                        value={selectedOrder.customer_email || ''}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, customer_email: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>PINCODE</label>
+                                                                    <input
+                                                                        placeholder="Pincode"
+                                                                        value={selectedOrder.shipping_pincode || ''}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, shipping_pincode: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div style={{ gridColumn: 'span 2' }}>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>ADDRESS LINE</label>
+                                                                    <textarea
+                                                                        rows={2}
+                                                                        placeholder="Flat, Street, Area"
+                                                                        value={selectedOrder.shipping_address_line || ''}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, shipping_address_line: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'vertical', minHeight: '60px', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>CITY</label>
+                                                                    <input
+                                                                        placeholder="City"
+                                                                        value={selectedOrder.shipping_city || ''}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, shipping_city: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>STATE</label>
+                                                                    <select
+                                                                        value={selectedOrder.shipping_state || 'Tamil Nadu'}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, shipping_state: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    >
+                                                                        {['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra', 'Delhi', 'Gujarat', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
+                                                                    </select>
+                                                                </div>
                                                             </div>
-                                                            <input
-                                                                placeholder="Customer Name"
-                                                                value={selectedOrder.customer_name || ''}
-                                                                onChange={e => setSelectedOrder({ ...selectedOrder, customer_name: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', transition: 'all 0.2s', outline: 'none' }}
-                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
-                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                                                            />
-                                                        </div>
-                                                        <div style={{ gridColumn: 'span 1' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                                                 <Mail size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Customer Email</label>
-                                                            </div>
-                                                            <input
-                                                                placeholder="Customer Email"
-                                                                value={selectedOrder.customer_email || ''}
-                                                                onChange={e => setSelectedOrder({ ...selectedOrder, customer_email: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', transition: 'all 0.2s', outline: 'none' }}
-                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
-                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                                                            />
-                                                        </div>
-
-                                                        {/* Row 2: Shipping and Billing Address */}
-                                                        <div style={{ gridColumn: 'span 1' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                 <MapPin size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Shipping Address</label>
-                                                            </div>
-                                                            <textarea
-                                                                rows={4}
-                                                                placeholder="Shipping Address Details..."
-                                                                value={(() => {
-                                                                    let addr = selectedOrder.shipping_address || selectedOrder.delivery_address || '';
-                                                                    if (typeof addr === 'string' && addr.trim().startsWith('{')) { try { addr = JSON.parse(addr); } catch(e){} }
-                                                                    if (typeof addr === 'object' && addr !== null) {
-                                                                        return [addr.name || selectedOrder.customer_name, addr.mobile || addr.phone, addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
-                                                                    }
-                                                                    return String(addr);
-                                                                })()}
-                                                                onChange={e => setSelectedOrder({ ...selectedOrder, shipping_address: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'vertical', minHeight: '100px', outline: 'none' }}
-                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
-                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                                                            />
-                                                        </div>
-                                                        <div style={{ gridColumn: 'span 1' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                 <MapPin size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Billing Address</label>
-                                                            </div>
-                                                            <textarea
-                                                                rows={4}
-                                                                placeholder="Billing Address Details..."
-                                                                value={(() => {
-                                                                    let addr = selectedOrder.billing_address || selectedOrder.delivery_address || '';
-                                                                    if (typeof addr === 'string' && addr.trim().startsWith('{')) { try { addr = JSON.parse(addr); } catch(e){} }
-                                                                    if (typeof addr === 'object' && addr !== null) {
-                                                                        return [addr.name || selectedOrder.customer_name, addr.mobile || addr.phone, addr.address, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
-                                                                    }
-                                                                    return String(addr);
-                                                                })()}
-                                                                onChange={e => setSelectedOrder({ ...selectedOrder, billing_address: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'vertical', minHeight: '100px', outline: 'none' }}
-                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
-                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                                                            />
-                                                        </div>
-
-                                                        {/* Row 3: Phone Number and Shipping State */}
-                                                        <div style={{ gridColumn: 'span 1' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                 <Phone size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Phone Number</label>
-                                                            </div>
-                                                            <input
-                                                                placeholder="Phone"
-                                                                value={selectedOrder.customer_phone || ''}
-                                                                onChange={e => setSelectedOrder({ ...selectedOrder, customer_phone: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', transition: 'all 0.2s', outline: 'none' }}
-                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
-                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                                                            />
-                                                        </div>
-                                                        <div style={{ gridColumn: 'span 1' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                                                 <Globe size={14} style={{ color: 'hsl(var(--primary))' }} />
-                                                                 <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Shipping State</label>
-                                                            </div>
-                                                            <select
-                                                                value={selectedOrder.shipping_state || 'Tamil Nadu'}
-                                                                onChange={e => setSelectedOrder({ ...selectedOrder, shipping_state: e.target.value })}
-                                                                style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
-                                                                onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
-                                                                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                                                            >
-                                                                {['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra', 'Delhi', 'Gujarat', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
-                                                            </select>
                                                         </div>
                                                     </div>
-                                                ) : (
-                                                    <>
+
+                                                    {/* Card 2: Billing Details */}
+                                                    <div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', margin: 0, fontWeight: 700 }}>Billing Details</h4>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedOrder(prev => {
+                                                                        if (!prev) return prev;
+                                                                        const currentShip = parseStructuredAddress(
+                                                                            prev.shipping_address || prev.delivery_address, 
+                                                                            prev.customer_name, 
+                                                                            prev.customer_phone
+                                                                        );
+                                                                        const sName = prev.shipping_name || currentShip.name || prev.customer_name || '';
+                                                                        const sPhone = prev.shipping_phone || currentShip.phone || prev.customer_phone || '';
+                                                                        const sPincode = prev.shipping_pincode || currentShip.pincode || '';
+                                                                        const sAddressLine = prev.shipping_address_line || currentShip.address_line || '';
+                                                                        const sCity = prev.shipping_city || currentShip.city || '';
+                                                                        const sState = prev.shipping_state || currentShip.state || 'Tamil Nadu';
+
+                                                                        return {
+                                                                            ...prev,
+                                                                            shipping_name: sName,
+                                                                            shipping_phone: sPhone,
+                                                                            shipping_pincode: sPincode,
+                                                                            shipping_address_line: sAddressLine,
+                                                                            shipping_city: sCity,
+                                                                            shipping_state: sState,
+
+                                                                            billing_name: sName,
+                                                                            billing_phone: sPhone,
+                                                                            billing_pincode: sPincode,
+                                                                            billing_address_line: sAddressLine,
+                                                                            billing_city: sCity,
+                                                                            billing_state: sState
+                                                                        };
+                                                                    });
+                                                                }}
+                                                                style={{ padding: '3px 8px', fontSize: '0.7rem', color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.08)', border: '1px solid hsl(var(--primary) / 0.2)', borderRadius: '5px', cursor: 'pointer', fontWeight: 700 }}
+                                                            >
+                                                                Same as Shipping Address
+                                                            </button>
+                                                        </div>
+                                                        <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--primary) / 0.4)' }}>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>FULL NAME</label>
+                                                                    <input
+                                                                        placeholder="Full Name"
+                                                                        value={selectedOrder.billing_name ?? (selectedOrder.customer_name || '')}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, billing_name: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>PHONE</label>
+                                                                    <input
+                                                                        placeholder="Phone Number"
+                                                                        value={selectedOrder.billing_phone ?? (selectedOrder.customer_phone || '')}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, billing_phone: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>PINCODE</label>
+                                                                    <input
+                                                                        placeholder="Pincode"
+                                                                        value={selectedOrder.billing_pincode || ''}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, billing_pincode: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>CITY</label>
+                                                                    <input
+                                                                        placeholder="City"
+                                                                        value={selectedOrder.billing_city || ''}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, billing_city: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div style={{ gridColumn: 'span 2' }}>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>ADDRESS LINE</label>
+                                                                    <textarea
+                                                                        rows={2}
+                                                                        placeholder="Flat, Street, Area"
+                                                                        value={selectedOrder.billing_address_line || ''}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, billing_address_line: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', resize: 'vertical', minHeight: '60px', outline: 'none' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    />
+                                                                </div>
+                                                                <div style={{ gridColumn: 'span 2' }}>
+                                                                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>STATE</label>
+                                                                    <select
+                                                                        value={selectedOrder.billing_state || 'Tamil Nadu'}
+                                                                        onChange={e => setSelectedOrder({ ...selectedOrder, billing_state: e.target.value })}
+                                                                        style={{ width: '100%', padding: '0.65rem 0.85rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', color: 'hsl(var(--text-main))', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+                                                                        onFocus={e => e.target.style.borderColor = 'hsl(var(--primary))'}
+                                                                        onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                                                                    >
+                                                                        {['Tamil Nadu', 'Kerala', 'Karnataka', 'Andhra Pradesh', 'Telangana', 'Maharashtra', 'Delhi', 'Gujarat', 'Other'].map(s => <option key={s} value={s}>{s}</option>)}
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '-0.5rem', fontWeight: 700 }}>Customer Info</h4>
+                                                    <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                                         <div style={{ fontWeight: 800, fontSize: '1rem', color: 'hsl(var(--text-main))' }}>{selectedOrder.customer_name}</div>
                                                         <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '2px', fontWeight: 500 }}>{formatDisplayPhoneNumber(selectedOrder.customer_phone)}</div>
                                                         {selectedOrder.customer_email && (
@@ -1944,9 +2310,9 @@ export default function OrdersPage() {
                                                                 })()}
                                                             </div>
                                                         </div>
-                                                    </>
-                                                )}
-                                            </div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
 
                                         {/* Bottom: Summary & Others */}
@@ -1957,8 +2323,6 @@ export default function OrdersPage() {
                                             gap: '1.5rem', 
                                             gridArea: 'others' 
                                         }}>
-                                            {/* Order Activity Log - REMOVED from right side, now on left */}
-
                                             <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', order: isEditingItems ? 2 : 1 }}>
                                                 <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Order Summary</h4>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem', color: 'hsl(var(--text-main))' }}>
@@ -2000,6 +2364,36 @@ export default function OrdersPage() {
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
                                                         <span>Total:</span>
                                                         <span>₹{(selectedOrder.total_amount || 0).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Source & Channel Info Card */}
+                                            <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', order: isEditingItems ? 3 : 1 }}>
+                                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem', fontWeight: 700 }}>Source & Channel Info</h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Order Source:</span>
+                                                        {(() => {
+                                                            const src = selectedOrder.source || (selectedOrder.id?.startsWith('WEB-') ? 'WEBSITE' : selectedOrder.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
+                                                            return (
+                                                                <span style={{ fontWeight: 800, color: src === 'WEBSITE' ? '#1d4ed8' : src === 'MANUAL' ? '#6b21a8' : '#047857' }}>
+                                                                    {src === 'WEBSITE' ? 'Website Store' : src === 'MANUAL' ? 'Admin Manual Order' : 'WhatsApp Bot'}
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Payment Channel:</span>
+                                                        <span style={{ fontWeight: 700, color: 'hsl(var(--text-main))' }}>
+                                                            {selectedOrder.payment_method || (selectedOrder.id?.startsWith('WEB-') ? 'Online Payment / COD' : 'Cash / Direct Transfer')}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ color: 'hsl(var(--text-muted))' }}>Order Type:</span>
+                                                        <span style={{ fontWeight: 600, color: 'hsl(var(--text-muted))' }}>
+                                                            {selectedOrder.id?.startsWith('WEB-') ? 'Web Cart Purchase' : selectedOrder.id?.startsWith('MAN-') ? 'Admin Panel Invoice' : 'WhatsApp Checkout'}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2121,7 +2515,8 @@ export default function OrdersPage() {
                                                                 >
                                                                     {loading && notification?.type === 'info' ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Send Info</>}
                                                                 </button>
-                                                            )}
+                                                            )
+                                                            }
 
                                                             {selectedOrder.tracking_url && (
                                                                 <a
@@ -2345,7 +2740,7 @@ export default function OrdersPage() {
                                                 </>
                                             )}
 
-                                            <div style={{ gridColumn: 'span 2', marginTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1.5rem' }}>
+                                            <div style={{ gridColumn: 'span 2', marginTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                 <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 1rem 0', color: 'hsl(var(--primary))' }}>Order Options</h3>
                                             </div>
                                             <div>
@@ -2485,12 +2880,13 @@ export default function OrdersPage() {
                                                         <button
                                                             onClick={async () => {
                                                                 if (!newOrder.customer_name || !newOrder.billing_phone || newOrder.items.length === 0) {
-                                                                    setNotification({ message: 'Please fill all customer details and add at least one item.', type: 'error' }); return;
+                                                                    setNotification({ message: 'Please fill all customer details and add at least one item.', type: 'error' });
+                                                                    return;
                                                                 }
                                                                 setNotification({ message: 'Order creating...', type: 'info' });
                                                                 setIsCreatingOrder(true);
                                                                 try {
-                                                                    const orderId = `MAN-${Date.now().toString().slice(-6)}`;
+                                                                    const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('MAN', supabase);
 
                                                                     // ────── NORMALISE PHONE & SYNC CUSTOMER ──────
                                                                     const cleanPhone = newOrder.billing_phone.replace(/\D/g, '');
@@ -2520,6 +2916,7 @@ export default function OrdersPage() {
 
                                                                     const { error: ordErr } = await supabase.from('orders').insert({
                                                                         id: orderId,
+                                                                        invoice_no: invoiceNo,
                                                                         customer_name: newOrder.customer_name,
                                                                         customer_email: newOrder.billing_email || null,
                                                                         customer_phone: normalizedPhone,
@@ -2929,7 +3326,7 @@ export default function OrdersPage() {
                                     <option value="CUSTOM">Custom Courier</option>
                                 </select>
                                 {courierModalError && (!selectedCourierId || !shippingForm.courier_name?.trim()) && (
-                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>⚠️ Please select a courier partner</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>Please select a courier partner</span>
                                 )}
                             </div>
 
@@ -2956,7 +3353,7 @@ export default function OrdersPage() {
                                         }}
                                     />
                                     {courierModalError && !shippingForm.courier_name?.trim() && (
-                                        <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>⚠️ Courier name is required</span>
+                                        <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>Courier name is required</span>
                                     )}
                                 </div>
                             )}
@@ -2989,7 +3386,7 @@ export default function OrdersPage() {
                                     }}
                                 />
                                 {courierModalError && !shippingForm.tracking_number?.trim() && (
-                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>⚠️ AWB / Tracking ID is required</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>AWB / Tracking ID is required</span>
                                 )}
                             </div>
 
@@ -3007,13 +3404,13 @@ export default function OrdersPage() {
                                         // Validation: Check Partner selection & AWB/Tracking ID
                                         if (!selectedCourierId || !shippingForm.courier_name?.trim()) {
                                             setCourierModalError('Please choose a courier partner.');
-                                            setNotification({ message: '⚠️ Please select a courier partner first.', type: 'error' });
+                                            setNotification({ message: 'Please select a courier partner first.', type: 'error' });
                                             return;
                                         }
 
                                         if (!shippingForm.tracking_number || !shippingForm.tracking_number.trim()) {
                                             setCourierModalError('AWB / Tracking ID is required.');
-                                            setNotification({ message: '⚠️ AWB / Tracking ID is required. Please fill in the Tracking ID.', type: 'error' });
+                                            setNotification({ message: 'AWB / Tracking ID is required. Please fill in the Tracking ID.', type: 'error' });
                                             return;
                                         }
 
@@ -3021,7 +3418,7 @@ export default function OrdersPage() {
                                         setSavingCourier(true);
 
                                         // Loading Toast Notification
-                                        setNotification({ message: '⏳ Saving courier details & updating order status...', type: 'info' });
+                                        setNotification({ message: 'Saving courier details & updating order status...', type: 'info' });
 
                                         try {
                                             const token = localStorage.getItem('cast_prince_admin') || '';
@@ -3055,12 +3452,12 @@ export default function OrdersPage() {
                                             }));
 
                                             // Success Toast Notification
-                                            setNotification({ message: '✅ Tracking ID saved & Order status updated to SHIPPED successfully!', type: 'success' });
+                                            setNotification({ message: 'Tracking ID saved & Order status updated to SHIPPED successfully!', type: 'success' });
                                             setIsCourierSaved(true);
                                             fetchOrders();
                                         } catch (err) {
                                             console.error('Courier save error:', err);
-                                            setNotification({ message: `❌ Save failed: ${err.message || 'Unknown error'}`, type: 'error' });
+                                            setNotification({ message: `Save failed: ${err.message || 'Unknown error'}`, type: 'error' });
                                         } finally {
                                             setSavingCourier(false);
                                             setTimeout(() => setNotification(null), 4000);
@@ -3265,7 +3662,7 @@ export default function OrdersPage() {
                     <div className="animate-enter card shadow-premium" style={{ padding: '0', maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', background: '#fff', borderRadius: '16px' }}>
                         <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
                             <div>
-                                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Order #{infoModalOrder.id}</h3>
+                                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Order #{infoModalOrder.invoice_no || (infoModalOrder.id ? String(infoModalOrder.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001')}</h3>
                                 <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Placed on {toIST(infoModalOrder.created_at)}</div>
                             </div>
                             <button onClick={() => setInfoModalOrder(null)} className="btn btn-secondary" style={{ padding: '0.5rem' }}><X size={18} /></button>
@@ -3298,11 +3695,15 @@ export default function OrdersPage() {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                         {infoModalOrder.items.map((item, idx) => (
                                             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                                {item.products?.image_url ? (
-                                                    <img src={item.products.image_url} alt={item.product_name} style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', flexShrink: 0 }} />
-                                                ) : (
-                                                    <div style={{ width: '56px', height: '56px', background: 'hsl(var(--border-subtle))', borderRadius: '8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--text-muted))' }}><Package size={20} /></div>
-                                                )}
+                                                <img 
+                                                    src={getItemImageUrl(item)} 
+                                                    alt={item.product_name || 'Product'} 
+                                                    style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', flexShrink: 0 }} 
+                                                    onError={(e) => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=100&q=80';
+                                                    }}
+                                                />
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontSize: '0.9rem', fontWeight: 700, wordBreak: 'break-word', color: 'hsl(var(--text-main))', lineHeight: '1.2' }}>{item.product_name}</div>
                                                     {item.variant_name && <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>{item.variant_name}</div>}

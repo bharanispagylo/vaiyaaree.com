@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,7 +10,7 @@ export async function POST(request) {
     try {
         const body = await request.json();
         const { 
-            orderId, 
+            orderId: rawOrderId, 
             customerId, 
             customerPhone, 
             customerName, 
@@ -22,6 +23,18 @@ export async function POST(request) {
             shippingZoneId,
             shippingState
         } = body;
+
+        // Generate unified sequential order ID & invoice number if missing or non-sequential format
+        let orderId = rawOrderId;
+        let invoiceNo = null;
+        if (!orderId || !/^WEB-\d{3,}$/i.test(orderId)) {
+            const nextData = await getNextOrderAndInvoiceId('WEB', supabase);
+            orderId = nextData.orderId;
+            invoiceNo = nextData.invoiceNo;
+        } else {
+            const num = orderId.split('-')[1] || '0001';
+            invoiceNo = `INV-${num.padStart(4, '0')}`;
+        }
 
         // 0. INPUT VALIDATION (Negative Case)
         if (!cart || !Array.isArray(cart) || cart.length === 0) {

@@ -60,14 +60,16 @@ async function sendWhatsAppText(to, text) {
 async function getStatusMessage(orderId, status, order, items = []) {
     const totalAmount = order.total_amount || 0;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://mathematically-foliaged-palmer.ngrok-free.dev');
-    const invoiceUrl = `${appUrl}/api/invoice/${orderId}`;
     const brand = 'Vaiyaaree';
+    const displayInv = order.invoice_no 
+        ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
+        : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
 
     switch (status) {
         case 'PAID':
             const itemList = items.map(i => `• ${i.product_name} (x${i.quantity}) - ₹${(i.price_at_time * i.quantity).toLocaleString()}`).join('\n');
             return [
-                `INVOICE: ${orderId}`,
+                `INVOICE NO: ${displayInv}`,
                 `--------------------------`,
                 `Payment Received!`,
                 ``,
@@ -85,7 +87,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
             return [
                 `ORDER CANCELLED`,
                 ``,
-                `Order #${orderId} has been cancelled.`,
+                `Order ${displayInv} has been cancelled.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `If you did not request this cancellation, please contact us!`,
@@ -97,7 +99,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
             return [
                 `ORDER PACKING`,
                 ``,
-                `Hi! We are currently packing your order #${orderId}.`,
+                `Hi! We are currently packing your order ${displayInv}.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `It will be shipped shortly. Thank you!`,
@@ -109,7 +111,6 @@ async function getStatusMessage(orderId, status, order, items = []) {
             let trackingUrl = order.tracking_url || '';
             const trackingNum = order.tracking_number || '';
             
-            // Fix placeholders {tracking_number} etc.
             if (trackingUrl && trackingNum && trackingUrl.includes('{')) {
                 trackingUrl = trackingUrl.replace(/\{[^}]+\}/g, trackingNum);
             }
@@ -117,7 +118,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
             return [
                 `🚀 *ORDER SHIPPED*`,
                 ``,
-                `Great news! Order #${orderId} is on its way!`,
+                `Great news! Order ${displayInv} is on its way!`,
                 ``,
                 `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
                 ``,
@@ -135,7 +136,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
             return [
                 `ORDER DELIVERED!`,
                 ``,
-                `Order #${orderId} has been delivered successfully!`,
+                `Order ${displayInv} has been delivered successfully!`,
                 `Total: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `Hope you love your new saree!`,
@@ -148,7 +149,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
             return [
                 `ORDER CONFIRMED`,
                 ``,
-                `Your order #${orderId} has been confirmed!`,
+                `Your order ${displayInv} has been confirmed!`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
                 `We are preparing your saree for shipping.`,
@@ -156,7 +157,7 @@ async function getStatusMessage(orderId, status, order, items = []) {
             ].join('\n');
 
         default:
-            return `Order #${orderId} status updated to: ${status}\n— ${brand}`;
+            return `Order ${displayInv} status updated to: ${status}\n— ${brand}`;
     }
 }
 

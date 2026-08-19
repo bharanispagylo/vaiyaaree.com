@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { processReturnRequest } from './returnService';
 import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
+import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 
 // ─── 1. CONFIGURATION & CLIENTS ───────────────────────────────────────────────
 
@@ -207,11 +208,16 @@ export async function sendRawMessage(to, payload) {
                 console.error('   3. Replace WHATSAPP_ACCESS_TOKEN in your .env file with the new token.');
                 console.error('   4. Restart your Next.js dev server.');
             } else if (errorCode === 131030) {
-                console.error('💡 TIP: This usually means the 24-hour customer window is closed. The customer must message the bot first.');
+                console.error('💡 TIP [ERROR 131030 Recipient Not In Allowed List]:');
+                console.error('   When using Meta Test / Sandbox Number, Meta ONLY permits sending messages to numbers listed in Meta Developer Console.');
+                console.error('   1. Go to Meta Developer Console (developers.facebook.com) -> WhatsApp -> API Setup.');
+                console.error('   2. Under "To", select "Manage phone number list" from the drop-down menu.');
+                console.error('   3. Add the recipient test phone number (e.g. +91 9876543210 or your test number) and submit the WhatsApp verification code.');
+                console.error('   4. Once added, Meta will allow the bot to send automated replies to that test number!');
             } else if (errorCode === 131005 || response.status === 403) {
                 console.error('💡 TIP [ERROR 131005 Access Denied]:');
                 console.error('   1. Expired Access Token? Meta 24-hour Temporary Access Tokens expire daily. Refresh WHATSAPP_ACCESS_TOKEN in .env');
-                console.error('   2. Test Recipient Missing? If using Sandbox Number (15551678232), add recipient phone to "To" list in Meta Developer Console -> WhatsApp -> API Setup.');
+                console.error('   2. Test Recipient Missing? Add recipient phone to "To" list in Meta Developer Console -> WhatsApp -> API Setup.');
                 console.error('   3. Missing Permissions? Ensure your Token/System User has "whatsapp_business_messaging" & "whatsapp_business_management" permissions.');
             }
 
@@ -605,12 +611,15 @@ export async function handleProductInquiry(to, catalogId) {
             const orderDate = new Date(matchingOrder.created_at).toLocaleDateString('en-IN', {
                 day: '2-digit', month: 'short', year: 'numeric'
             });
+            const displayInv = matchingOrder.invoice_no 
+                ? (matchingOrder.invoice_no.startsWith('#') ? matchingOrder.invoice_no : `#${matchingOrder.invoice_no}`)
+                : `#${String(matchingOrder.id).replace(/^[A-Z]+-/, 'INV-')}`;
             const caption =
                 `🛍️ *${product.name}*\n` +
                 catalogLine +
                 `--------------------------\n` +
                 `You have already ordered this item in a past order! 💖\n\n` +
-                `• *Order ID:* #${matchingOrder.id}\n` +
+                `• *Invoice No:* ${displayInv}\n` +
                 `• *Order Date:* ${orderDate}\n` +
                 `• *Status:* *${matchingOrder.status}*\n` +
                 `• *Order Total:* ₹${matchingOrder.total_amount.toLocaleString()}\n\n` +
@@ -1059,7 +1068,7 @@ export async function startCheckout(to) {
     const cart = await getCart(to);
     if (!cart.length) return sendText(to, "Cart empty!");
 
-    const orderId = `ORD-${Date.now().toString().slice(-6)}`;
+    const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('ORD', supabaseAdmin);
     const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
 
     // Initial Draft
@@ -1400,10 +1409,14 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
         const statusEmoji = isPaid ? '✅' : '🎉';
         const statusText = isPaid ? 'Payment Confirmed! Thank you!' : 'Hi ' + (order.customer_name || 'Customer') + '! Your order has been placed successfully.';
 
+        const displayInv = order.invoice_no 
+            ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
+            : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
+
         const message =
             `${statusEmoji} *Order Confirmed — Vaiyaaree* ${statusEmoji}\n\n` +
             `${statusText}\n\n` +
-            `📦 *Order ID:* #${orderId}\n` +
+            `🧾 *Invoice No:* ${displayInv}\n` +
             `💰 *Grand Total:* ₹${total}\n` +
             `🛍️ *Items:*\n${itemsList}\n\n` +
             `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
@@ -1468,9 +1481,12 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                         }
                     } catch (e) { }
 
+                    const displayInvPdf = order.invoice_no 
+                        ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
+                        : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
                     const pdfBuffer = await generateOrderPDFBuffer(order, settings);
                     await new Promise(r => setTimeout(r, 1000));
-                    await sendPdfBuffer(targetPhone, pdfBuffer, `Invoice_${orderId}.pdf`, `Invoice - Order #${orderId}`);
+                    await sendPdfBuffer(targetPhone, pdfBuffer, `Invoice_${displayInvPdf.replace('#', '')}.pdf`, `Invoice — ${displayInvPdf}`);
                 } catch (pdfErr) {
                     console.error('[NOTIFY] Failed to generate/send PDF:', pdfErr);
                 }
@@ -1593,7 +1609,12 @@ export async function handlePaymentConfirmed(to, orderId) {
     // Note: Stock is NOT deducted yet for unverified UPI to prevent "locking" stock with fake payments.
     // Stock will be deducted when admin marks it as PAID.
 
-    return await sendText(to, "✅ *Payment Notification Received*\n\nThank you! We are verifying your payment. Once confirmed, you will receive your official invoice and tracking details.\n\nOrder ID: *#" + orderId + "*");
+    const { data: ord } = await supabase.from('orders').select('invoice_no').eq('id', orderId).maybeSingle();
+    const displayInv = ord?.invoice_no 
+        ? (ord.invoice_no.startsWith('#') ? ord.invoice_no : `#${ord.invoice_no}`) 
+        : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
+
+    return await sendText(to, "✅ *Payment Notification Received*\n\nThank you! We are verifying your payment. Once confirmed, you will receive your official invoice and tracking details.\n\nInvoice No: *" + displayInv + "*");
 }
 export async function handleCancelOrder(to, customerId) {
     // Normalize phone number to handle both formats (with/without country code)
@@ -1813,8 +1834,12 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
         created_at: new Date().toISOString()
     });
 
+    const displayInv = (targetOrder?.invoice_no) 
+        ? (targetOrder.invoice_no.startsWith('#') ? targetOrder.invoice_no : `#${targetOrder.invoice_no}`) 
+        : `#${String(upperOrderId).replace(/^[A-Z]+-/, 'INV-')}`;
+
     return sendButtons(to,
-        `✅ *Order Cancelled Successfully*\n\nOrder: *${upperOrderId}*\nReason: ${reason}\n\nYour order has been cancelled and stock has been restored.\n\nIf you have already paid, a refund will be processed within 5-7 business days.`,
+        `✅ *Order Cancelled Successfully*\n\nInvoice No: *${displayInv}*\nReason: ${reason}\n\nYour order has been cancelled and stock has been restored.\n\nIf you have already paid, a refund will be processed within 5-7 business days.`,
         [
             { id: "menu_catalogue", title: "Browse Products" },
             { id: "menu_main", title: "Main Menu" }
@@ -2588,9 +2613,13 @@ export async function processIncomingMessage(body) {
                     const catalogNoStr = await getOrderCatalogNumbers(o.id);
                     const catalogNoLine = catalogNoStr ? `Product Catalogue No: *${catalogNoStr}*\n` : '';
 
+                    const displayInv = o.invoice_no 
+                        ? (o.invoice_no.startsWith('#') ? o.invoice_no : `#${o.invoice_no}`) 
+                        : `#${String(o.id).replace(/^[A-Z]+-/, 'INV-')}`;
+
                     return await sendButtons(from,
                         `🛒 *Order Details*\n\n` +
-                        `Order ID: *#${o.id}*\n` +
+                        `Invoice No: *${displayInv}*\n` +
                         catalogNoLine +
                         `Source: *${sourceLabel}*\n` +
                         `Status: *${o.status}*\n` +

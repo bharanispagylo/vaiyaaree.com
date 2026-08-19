@@ -8,8 +8,11 @@ import Link from 'next/link';
 import styles from './orders.module.css';
 
 export default function MyOrdersPage() {
-    const { user, supabase, isSessionLoading } = useShop();
     const router = useRouter();
+    useEffect(() => {
+        router.replace('/profile?tab=orders');
+    }, [router]);
+    const { user, supabase, isSessionLoading } = useShop();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [generatingId, setGeneratingId] = useState(null);
@@ -84,10 +87,9 @@ export default function MyOrdersPage() {
                         .neq('status', 'DRAFT')
                         .lte('created_at', o.created_at);
 
-                    const seqNum = c || 1;
                     return {
                         ...o,
-                        invoice_no: `INV-${String(seqNum).padStart(4, '0')}`
+                        invoice_no: o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(c || 1).padStart(4, '0')}`)
                     };
                 }));
 
@@ -234,17 +236,6 @@ export default function MyOrdersPage() {
                                         >
                                             <td className={styles.orderIdCell}>
                                                 <span className={styles.orderId}>{invoiceNo}</span>
-                                                <div style={{ 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    gap: '4px', 
-                                                    fontSize: '0.7rem', 
-                                                    fontWeight: 600, 
-                                                    marginTop: '4px',
-                                                    color: 'hsl(var(--text-muted))'
-                                                }}>
-                                                    <span>Order ID: #{order.id}</span>
-                                                </div>
                                             </td>
                                             <td className={styles.dateCell}>
                                                 {new Date(order.created_at).toLocaleDateString('en-IN', {

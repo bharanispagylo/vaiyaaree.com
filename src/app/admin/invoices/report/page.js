@@ -192,10 +192,9 @@ export default function InvoiceReportPage() {
                     .neq('status', 'DRAFT')
                     .lte('created_at', o.created_at);
 
-                const seqNum = c || 1;
                 return {
                     ...o,
-                    invoice_no: `INV-${String(seqNum).padStart(4, '0')}`
+                    invoice_no: o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(c || 1).padStart(4, '0')}`)
                 };
             }));
 
@@ -225,7 +224,7 @@ export default function InvoiceReportPage() {
         ];
 
         const reportData = orders.map((o, idx) => ({
-            'Invoice No': o.invoice_no || `INV-${String(orders.length - idx).padStart(4, '0')}`,
+            'Invoice No': o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(orders.length - idx).padStart(4, '0')}`),
             'Order ID': o.id,
             'Date': new Date(o.created_at).toLocaleDateString(),
             'Customer': o.customer_name,
@@ -316,7 +315,7 @@ export default function InvoiceReportPage() {
         if (digitsOnly.length > 0) {
             const seqNumNum = parseInt(digitsOnly, 10);
             if (!isNaN(seqNumNum)) {
-                const formattedInvNo = `inv-${String(seqNumNum).padStart(4, '0')}`;
+                const formattedInvNo = `inv-${String(seqNumNum).padStart(3, '0')}`;
                 if (invNo === formattedInvNo || invNo.includes(digitsOnly)) return true;
             }
             if (id.includes(digitsOnly) || phone.includes(digitsOnly)) return true;
@@ -387,8 +386,7 @@ export default function InvoiceReportPage() {
                                     <tr>
                                         <td style={{ padding: '6px 8px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', verticalAlign: 'top' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '4px' }}>
-                                                <div><strong>Invoice No:</strong></div><div>{selectedInvoice.invoice_no || 'INV-0001'}</div>
-                                                <div><strong>Order ID:</strong></div><div>{selectedInvoice.id}</div>
+                                                <div><strong>Invoice No:</strong></div><div>{selectedInvoice.invoice_no || (selectedInvoice.id ? String(selectedInvoice.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001')}</div>
                                                 <div><strong>Invoice Date:</strong></div><div>{new Date(selectedInvoice.created_at).toLocaleDateString('en-IN')}</div>
                                             </div>
                                         </td>
@@ -845,7 +843,7 @@ export default function InvoiceReportPage() {
                                 </tr>
                             ) : (
                                 paginatedOrders.map((o) => {
-                                    const seqNum = o.invoice_no || 'INV-0001';
+                                    const seqNum = o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
 
                                     return (
                                         <tr 
@@ -855,20 +853,17 @@ export default function InvoiceReportPage() {
                                             onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.04)'}
                                             onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                                         >
-                                            <td style={{ padding: '1.25rem 1.5rem' }}>
+                                            <td style={{ padding: '0.65rem 1rem' }}>
                                                 <div style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</div>
-                                                <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginTop: '2px' }}>
-                                                    Order ID: #{o.id}
-                                                </div>
                                             </td>
-                                            <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem' }}>{new Date(o.created_at).toLocaleDateString()}</td>
-                                            <td style={{ padding: '1.25rem 1.5rem' }}>
+                                            <td style={{ padding: '0.65rem 1rem', fontSize: '0.85rem' }}>{new Date(o.created_at).toLocaleDateString()}</td>
+                                            <td style={{ padding: '0.65rem 1rem' }}>
                                                 <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
                                                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{o.customer_phone}</div>
                                             </td>
-                                            <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.85rem' }}>{o.shipping_state || 'N/A'}</td>
-                                            <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right', fontWeight: 800 }}>₹{o.total_amount.toLocaleString()}</td>
-                                            <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
+                                            <td style={{ padding: '0.65rem 1rem', fontSize: '0.85rem' }}>{o.shipping_state || 'N/A'}</td>
+                                            <td style={{ padding: '0.65rem 1rem', textAlign: 'right', fontWeight: 800 }}>₹{o.total_amount.toLocaleString()}</td>
+                                            <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
                                                 <span style={{
                                                     fontSize: '0.65rem', fontWeight: 800, padding: '4px 10px', borderRadius: '99px',
                                                     background: o.status === 'DELIVERED' || o.status === 'PAID' ? 'hsl(var(--primary))' : 'hsl(var(--bg-app))',

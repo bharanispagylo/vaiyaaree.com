@@ -29,15 +29,8 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 });
         }
 
-        if (!order.invoice_no && order.created_at) {
-            const { count: c } = await supabase
-                .from('orders')
-                .select('id', { count: 'exact', head: true })
-                .neq('status', 'DRAFT')
-                .lte('created_at', order.created_at);
-
-            const seqNum = c || 1;
-            order.invoice_no = `INV-${String(seqNum).padStart(4, '0')}`;
+        if (!order.invoice_no && order.id) {
+            order.invoice_no = String(order.id).replace(/^[A-Z]+-/, 'INV-');
         }
 
         // 3. Ownership Verification

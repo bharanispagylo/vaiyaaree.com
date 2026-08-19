@@ -352,7 +352,7 @@ table {
 
 th {
   text-align: left;
-  padding: 1.25rem 1.5rem;
+  padding: 0.65rem 1rem;
   color: hsl(var(--text-muted));
   font-family: var(--font-body);
   font-size: 0.75rem;
@@ -364,10 +364,10 @@ th {
 }
 
 td {
-  padding: 1.25rem 1.5rem;
+  padding: 0.65rem 1rem;
   border-bottom: 1px solid hsl(var(--border-subtle));
   color: hsl(var(--text-main));
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   vertical-align: middle;
 }
 

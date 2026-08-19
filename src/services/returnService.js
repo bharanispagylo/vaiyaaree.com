@@ -126,6 +126,19 @@ export async function processReturnRequest({ orderId, items, productId, customer
         }
 
         console.log(`[RETURN-SERVICE] Success! Stored ${data?.length} records.`);
+
+        // Trigger WhatsApp confirmation to customer
+        if (data && data.length > 0) {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            for (const r of data) {
+                fetch(`${baseUrl}/api/returns/notify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requestId: r.id, status: 'PENDING' })
+                }).catch(err => console.error('[RETURN-SERVICE] WA notify failed:', err));
+            }
+        }
+
         return { success: true, count: data?.length, data };
 
     } catch (error) {

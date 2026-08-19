@@ -71,7 +71,7 @@ function filterInvoices(invoicesList, rawTerm) {
                 const invNum = parseInt(invDigits, 10);
                 if (invNum === termNum) return true;
             }
-            const formattedInvNo = `inv-${String(termNum).padStart(4, '0')}`;
+            const formattedInvNo = `inv-${String(termNum).padStart(3, '0')}`;
             if (invNo === formattedInvNo || normalizedInvNo === `inv${termNum}`) return true;
         }
 
@@ -173,7 +173,7 @@ export default function InvoicesPage() {
 
                 const enrichedData = (data || []).map((inv, idx) => ({
                     ...inv,
-                    invoice_no: inv.invoice_no || `INV-${String(idx + 1).padStart(4, '0')}`
+                    invoice_no: inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(idx + 1).padStart(4, '0')}`)
                 })).reverse();
 
                 setAllInvoices(enrichedData);
@@ -363,15 +363,12 @@ export default function InvoicesPage() {
                                 <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
                             ) : (
                                 invoices.map((inv) => {
-                                    const seqNum = inv.invoice_no || 'INV-0001';
+                                    const seqNum = inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
 
                                     return (
                                         <tr key={inv.id} onClick={() => openInvoice(inv)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
                                             <td style={{ padding: '1rem 1.5rem' }}>
                                                 <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</span>
-                                                <div style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginTop: '2px' }}>
-                                                    Order ID: #{inv.id}
-                                                </div>
                                             </td>
                                             <td>
                                                 <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{inv.customer_name || 'WhatsApp Customer'}</div>
@@ -485,8 +482,7 @@ export default function InvoicesPage() {
                                         <tr>
                                             <td style={{ padding: '6px 8px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', verticalAlign: 'top' }}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '4px' }}>
-                                                    <div><strong>Invoice No:</strong></div><div>{selectedInvoice.invoice_no || 'INV-0001'}</div>
-                                                    <div><strong>Order ID:</strong></div><div>{selectedInvoice.id}</div>
+                                                    <div><strong>Invoice No:</strong></div><div>{selectedInvoice.invoice_no || (selectedInvoice.id ? String(selectedInvoice.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001')}</div>
                                                     <div><strong>Invoice Date:</strong></div><div>{new Date(selectedInvoice.created_at).toLocaleDateString('en-IN')}</div>
                                                 </div>
                                             </td>

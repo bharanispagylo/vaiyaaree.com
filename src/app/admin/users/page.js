@@ -378,8 +378,8 @@ export default function UserManagementPage() {
 
                 .table-responsive { width: 100%; overflow-x: auto; }
                 .users-table { width: 100%; border-collapse: collapse; text-align: left; }
-                .users-table th { padding: 1.25rem 1.5rem; background: #f9fafb; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #666; font-weight: 800; border-bottom: 1px solid #e5e7eb; }
-                .users-table td { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f3f4f6; color: #444; font-size: 0.9rem; }
+                .users-table th { padding: 0.65rem 1rem; background: #f9fafb; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #666; font-weight: 800; border-bottom: 1px solid #e5e7eb; }
+                .users-table td { padding: 0.65rem 1rem; border-bottom: 1px solid #f3f4f6; color: #444; font-size: 0.88rem; }
                 
                 .user-info { display: flex; align-items: center; gap: 1rem; }
                 .avatar { width: 32px; height: 32px; border-radius: 50%; background: hsl(var(--primary)); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; }

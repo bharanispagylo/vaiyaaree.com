@@ -11,19 +11,14 @@ async function sendWhatsAppText(to, text) {
         return;
     }
 
-    // Clean number: remove all non-digits (+ , etc.)
     let cleanedNum = to.replace(/\D/g, '');
-    
-    // Remove leading zeros
     while (cleanedNum.startsWith('0')) {
         cleanedNum = cleanedNum.substring(1);
     }
     
-    // If it starts with 91 and has 12 digits, it's correct for India
     if (cleanedNum.length === 12 && cleanedNum.startsWith('91')) {
-        // Already correct
+        // Correct E.164
     } else if (cleanedNum.length === 10 && /^[6789]/.test(cleanedNum)) {
-        // 10 digits for India, add 91
         cleanedNum = '91' + cleanedNum;
     }
 
@@ -58,31 +53,55 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Missing refundId or status' }), { status: 400 });
         }
 
-        // Fetch refund and order details
         const { data: refund, error: refundError } = await supabase
             .from('refunds')
             .select('*, orders:order_id(*)')
             .eq('id', refundId)
             .single();
 
-        if (refundError || !refund || !refund.orders) {
-            return new Response(JSON.stringify({ error: 'Refund or associated order not found' }), { status: 404 });
+        if (refundError || !refund) {
+            return new Response(JSON.stringify({ error: 'Refund not found' }), { status: 404 });
         }
 
-        const phone = refund.orders.customer_phone;
+        let phone = refund.orders?.customer_phone;
+        let customerName = refund.orders?.customer_name;
+
+        if (!phone && refund.customer_id) {
+            const { data: cust } = await supabase.from('customers').select('phone, name').eq('id', refund.customer_id).single();
+            if (cust) {
+                phone = cust.phone;
+                customerName = customerName || cust.name;
+            }
+        }
+
         const orderId = refund.order_id;
         const amount = refund.amount || 0;
         const brand = 'Vaiyaaree';
 
         let message = '';
-        if (status === 'APPROVED') {
+        if (status === 'REQUESTED' || status === 'PENDING' || status === 'SUBMITTED') {
+            message = [
+                `📋 REFUND REQUEST RECEIVED`,
+                ``,
+                `Hi ${customerName || 'Customer'},`,
+                `We have received your refund request for Order #${orderId}.`,
+                ``,
+                `Amount: ₹${amount.toLocaleString('en-IN')}`,
+                `Reason: ${refund.reason || 'Not specified'}`,
+                `Status: Under Review ⏳`,
+                ``,
+                `Our accounts team is reviewing your request and will notify you once processed.`,
+                ``,
+                `— ${brand}`
+            ].join('\n');
+        } else if (status === 'APPROVED') {
             message = [
                 `REFUND APPROVED`,
                 ``,
-                `Hi ${refund.orders.customer_name || 'Customer'},`,
+                `Hi ${customerName || 'Customer'},`,
                 `Status: APPROVED ✅`,
                 `Order ID: #${orderId}`,
-                `Refund Amount: ₹${amount.toLocaleString()}`,
+                `Refund Amount: ₹${amount.toLocaleString('en-IN')}`,
                 ``,
                 `Your refund has been approved and is being processed. It should reflect in your account within 5-7 business days.`,
                 ``,
@@ -92,7 +111,7 @@ export async function POST(request) {
             message = [
                 `REFUND REJECTED`,
                 ``,
-                `Hi ${refund.orders.customer_name || 'Customer'},`,
+                `Hi ${customerName || 'Customer'},`,
                 `Order ID: #${orderId}`,
                 `Status: REJECTED ❌`,
                 ``,
@@ -106,10 +125,10 @@ export async function POST(request) {
             message = [
                 `REFUND COMPLETED!`,
                 ``,
-                `Hi ${refund.orders.customer_name || 'Customer'},`,
+                `Hi ${customerName || 'Customer'},`,
                 `Order ID: #${orderId}`,
                 `Status: COMPLETED 💰`,
-                `Refund Amount: ₹${amount.toLocaleString()}`,
+                `Refund Amount: ₹${amount.toLocaleString('en-IN')}`,
                 ``,
                 `The refund has been successfully processed and sent to your original payment method.`,
                 ``,
@@ -120,7 +139,7 @@ export async function POST(request) {
             message = `Refund update for Order #${orderId}: Status changed to ${status}.\n— ${brand}`;
         }
 
-        if (phone) {
+        if (phone && message) {
             await sendWhatsAppText(phone, message);
         }
 

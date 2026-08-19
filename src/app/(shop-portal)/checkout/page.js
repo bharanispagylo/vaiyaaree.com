@@ -298,8 +298,10 @@ export default function CheckoutPage() {
                             <input 
                                 type="text" 
                                 value={checkoutForm.billingName || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingName: e.target.value }))} 
+                                onChange={e => setCheckoutForm(p => ({ ...p, billingName: e.target.value.replace(/[^a-zA-Z\s]/g, '') }))} 
                                 placeholder="Enter your full name" 
+                                pattern="[a-zA-Z\s]+"
+                                title="Only letters and spaces are allowed"
                                 required
                             />
                         </div>
@@ -437,8 +439,10 @@ export default function CheckoutPage() {
                                         <input 
                                             type="text" 
                                             value={checkoutForm.shippingName || ''} 
-                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingName: e.target.value }))} 
-                                            placeholder="Enter recipient name"
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingName: e.target.value.replace(/[^a-zA-Z\s]/g, '') }))} 
+                                            placeholder="Enter recipient full name" 
+                                            pattern="[a-zA-Z\s]+"
+                                            title="Only letters and spaces are allowed"
                                             disabled={checkoutForm.sameAsBilling}
                                             className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
                                         />

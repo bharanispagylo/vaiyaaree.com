@@ -294,7 +294,7 @@ export default function ProductsPage() {
     const generateCaption = (product) => {
         if (!product) return '';
         const shopUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-        return `✨ ${product.name}\n\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\n🛍️ Shop now: ${shopUrl}/shop?pid=${product?.id || 'new'}\n\n#Vaiyaaree #Sarees #IndianFashion #EthnicWear #SareeLove #NewArrivals`;
+        return `${product.name}\n\nPrice: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\nShop now: ${shopUrl}/shop?pid=${product?.id || 'new'}\n\n#Vaiyaaree #Sarees #IndianFashion #EthnicWear #SareeLove #NewArrivals`;
     };
 
     useEffect(() => {
@@ -1801,7 +1801,7 @@ export default function ProductsPage() {
                                             {/* Quick Add Size Presets Toolbar */}
                                             <div style={{ marginBottom: '1.25rem', background: '#ffffff', padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                                                 <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                    <span>⚡ Quick Add Size Presets (Saree Blouse & Apparel):</span>
+                                                    <span>Quick Add Size Presets (Saree Blouse & Apparel):</span>
                                                     <button 
                                                         type="button" 
                                                         onClick={() => {

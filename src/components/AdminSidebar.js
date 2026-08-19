@@ -167,8 +167,11 @@ export default function AdminSidebar({ isOpen }) {
                                 <button
                                     onClick={() => {
                                         setOpenSubMenus(prev => 
-                                            prev.includes(item.name) ? [] : [item.name]
+                                            prev.includes(item.name) ? prev : [item.name]
                                         );
+                                        if (item.children && item.children.length > 0) {
+                                            router.push(item.children[0].href);
+                                        }
                                     }}
                                     className={isActive ? 'active' : ''}
                                     style={{
@@ -202,6 +205,11 @@ export default function AdminSidebar({ isOpen }) {
                                                     key={child.href}
                                                     href={child.href}
                                                     className={isChildActive ? 'active' : ''}
+                                                    onClick={() => {
+                                                        if (isChildActive) {
+                                                            window.dispatchEvent(new Event('resetAdminView'));
+                                                        }
+                                                    }}
                                                     style={{
                                                         padding: '0.6rem 1rem',
                                                         fontSize: '0.85rem',

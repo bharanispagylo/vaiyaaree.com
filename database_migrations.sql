@@ -52,3 +52,29 @@ CREATE TABLE IF NOT EXISTS public.return_requests (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- 6. Atomic Order Sequence Generator
+CREATE TABLE IF NOT EXISTS public.order_sequences (
+    prefix TEXT PRIMARY KEY,
+    last_val BIGINT NOT NULL DEFAULT 1000
+);
+
+INSERT INTO public.order_sequences (prefix, last_val)
+VALUES ('WEB-', 1000), ('ORD-', 1000), ('MAN-', 1000)
+ON CONFLICT (prefix) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION public.get_next_order_id(p_prefix TEXT DEFAULT 'WEB-')
+RETURNS TEXT AS $$
+DECLARE
+    v_next_val BIGINT;
+BEGIN
+    INSERT INTO public.order_sequences (prefix, last_val)
+    VALUES (p_prefix, 1001)
+    ON CONFLICT (prefix) DO UPDATE
+    SET last_val = public.order_sequences.last_val + 1
+    RETURNING last_val INTO v_next_val;
+    
+    RETURN p_prefix || v_next_val::TEXT;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+

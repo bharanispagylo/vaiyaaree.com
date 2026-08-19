@@ -12,7 +12,15 @@ import styles from './track.module.css';
 function TrackContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const orderIdParam = searchParams.get('id') || '';
+    const orderIdParam = searchParams.get('id') || searchParams.get('orderId') || '';
+
+    useEffect(() => {
+        if (orderIdParam) {
+            router.replace(`/profile?tab=track&id=${orderIdParam}`);
+        } else {
+            router.replace('/profile?tab=track');
+        }
+    }, [router, orderIdParam]);
 
     const { supabase, showToast, user } = useShop();
     const [orderId, setOrderId] = useState(orderIdParam);
@@ -38,6 +46,8 @@ function TrackContent() {
 
     useEffect(() => {
         if (orderIdParam) {
+            const formattedInvoiceNo = String(orderIdParam).replace(/^[A-Z]+-/, 'INV-');
+            setOrderId(formattedInvoiceNo);
             fetchTrackingOrder(orderIdParam);
         }
     }, [orderIdParam]);
@@ -48,22 +58,40 @@ function TrackContent() {
         setLoading(true);
         setOrder(null);
         try {
-            const { data, error } = await supabase
+            const cleanId = String(id).trim().toUpperCase().replace(/^#/, '');
+            let data = null;
+
+            // Extract numeric sequence if present (e.g. INV-0001 -> 0001, WEB-0001 -> 0001, 1 -> 0001)
+            const numMatch = cleanId.match(/(\d+)/);
+            const numStr = numMatch ? numMatch[1] : '';
+            const padded4 = numStr ? numStr.padStart(4, '0') : '';
+
+            // Build search candidates for order id in DB (avoiding invoice_no DB column error)
+            const candidates = new Set([cleanId]);
+            if (numStr) {
+                candidates.add(numStr);
+                candidates.add(`WEB-${padded4}`);
+                candidates.add(`ORD-${padded4}`);
+                candidates.add(`MAN-${padded4}`);
+                candidates.add(`WEB-${numStr}`);
+                candidates.add(`ORD-${numStr}`);
+                candidates.add(`MAN-${numStr}`);
+            }
+
+            const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%`).join(',');
+
+            const { data: matches } = await supabase
                 .from('orders')
                 .select('*, order_items(*)')
-                .eq('id', id)
-                .single();
+                .or(searchOr);
+
+            if (matches && matches.length > 0) {
+                data = matches[0];
+            }
 
             if (data) {
-                if (!data.invoice_no && data.created_at) {
-                    const { count: c } = await supabase
-                        .from('orders')
-                        .select('id', { count: 'exact', head: true })
-                        .neq('status', 'DRAFT')
-                        .lte('created_at', data.created_at);
-
-                    const seqNum = c || 1;
-                    data.invoice_no = `INV-${String(seqNum).padStart(4, '0')}`;
+                if (!data.invoice_no && data.id) {
+                    data.invoice_no = String(data.id).replace(/^[A-Z]+-/, 'INV-');
                 }
 
                 setOrder(data);
@@ -250,14 +278,14 @@ function TrackContent() {
             </button>
             <div className={styles.trackHeader}>
                 <h1>Track Order</h1>
-                <p>Enter your order ID to see the latest status of your purchase.</p>
+                <p>Enter your Invoice ID to see the latest status of your purchase.</p>
 
                 <div className={styles.searchBar}>
                     <div className={styles.searchInputWrap}>
                         <Search size={22} className={styles.searchIcon} />
                         <input
                             type="text"
-                            placeholder="Enter Order ID (e.g. WEB-123456)"
+                            placeholder="Enter Invoice ID (e.g. INV-0001)"
                             value={orderId}
                             onChange={(e) => setOrderId(e.target.value)}
                         />
@@ -273,8 +301,8 @@ function TrackContent() {
                     <div className={styles.orderSummary}>
                         <div className={styles.summaryTop}>
                             <div className={styles.orderIdentity}>
-                                <span className={styles.idLabel}>ORDER ID</span>
-                                <h3 className={styles.idValue}>#{order.id}</h3>
+                                <span className={styles.idLabel}>INVOICE ID</span>
+                                <h3 className={styles.idValue}>{order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`}</h3>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginTop: '6px' }}>
                                     {order.source === 'WEBSITE' ? (
                                         <>
@@ -305,16 +333,20 @@ function TrackContent() {
                                 { stage: 'CONFIRMED', label: 'Confirmed', icon: <CheckCircle size={20} /> },
                                 { stage: 'SHIPPED', label: 'Shipped', icon: <Truck size={20} /> },
                                 { stage: 'DELIVERED', label: 'Delivered', icon: <MapPin size={20} /> }
-                            ].map((step, idx) => (
-                                <div key={idx} className={`${styles.timelineStep} ${idx <= statusIndex ? styles.stepActive : ''}`}>
-                                    <div className={styles.stepIcon}>{step.icon}</div>
-                                    <div className={styles.stepInfo}>
-                                        <div className={styles.stepLabel}>{step.label}</div>
-                                        <div className={styles.stepDate}>{idx === statusIndex ? 'In Progress' : (idx < statusIndex ? 'Completed' : 'Pending')}</div>
+                            ].map((step, idx) => {
+                                const isDelivered = (order.status || '').toUpperCase() === 'DELIVERED';
+                                const stepText = isDelivered ? 'Completed' : (idx === statusIndex ? 'In Progress' : (idx < statusIndex ? 'Completed' : 'Pending'));
+                                return (
+                                    <div key={idx} className={`${styles.timelineStep} ${idx <= statusIndex ? styles.stepActive : ''}`}>
+                                        <div className={styles.stepIcon}>{step.icon}</div>
+                                        <div className={styles.stepInfo}>
+                                            <div className={styles.stepLabel}>{step.label}</div>
+                                            <div className={styles.stepDate}>{stepText}</div>
+                                        </div>
+                                        {idx < 3 && <div className={`${styles.timelineLine} ${idx < statusIndex ? styles.lineActive : ''}`} />}
                                     </div>
-                                    {idx < 3 && <div className={`${styles.timelineLine} ${idx < statusIndex ? styles.lineActive : ''}`} />}
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Order Actions - EXCLUSIVELY ON THIS PAGE NOW */}
@@ -454,7 +486,7 @@ function TrackContent() {
             ) : !loading && orderIdParam && (
                 <div className={styles.noOrderPlaceholder}>
                     <Package size={48} />
-                    <p>Order not found. Please double-check your Order ID.</p>
+                    <p>Order not found. Please double-check your Invoice ID.</p>
                 </div>
             )}
 
@@ -467,7 +499,7 @@ function TrackContent() {
                             <h3>Confirm Cancellation</h3>
                         </div>
                         <div className={styles.modalBody}>
-                            <p>Verify identity to cancel order <strong>#{order.id}</strong></p>
+                            <p>Verify identity to cancel order <strong>{order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`}</strong></p>
                             <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
                                 A verification code will be sent to <strong>{order.customer_phone?.replace(/(\d{2})(\d{6})(\d{4})/, '$1******$3') || 'your phone'}</strong>
                             </p>

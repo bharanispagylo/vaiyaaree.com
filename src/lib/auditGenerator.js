@@ -632,7 +632,7 @@ export async function generateAuditPDF({ timeframe, orders = [], products = [], 
         registerTotalTax += tax;
         registerTotalRevenue += totalAmt;
 
-        const invNo = o.invoice_no || `INV-${String(orders.length - index).padStart(4, '0')}`;
+        const invNo = o.invoice_no || `INV-${String(orders.length - index).padStart(3, '0')}`;
         const dateStr = new Date(o.created_at || Date.now()).toLocaleDateString('en-IN', {
             day: '2-digit', month: '2-digit', year: 'numeric'
         });

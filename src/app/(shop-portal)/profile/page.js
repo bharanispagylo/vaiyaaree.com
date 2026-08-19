@@ -1,15 +1,171 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
     User, Mail, MapPin, Phone, MessageCircle, Save, 
     ShoppingBag, History, RotateCcw, IndianRupee, 
-    CheckCircle, Clock, XCircle, Package, ArrowRight, FileText, Send, AlertCircle
+    CheckCircle, Clock, XCircle, Package, ArrowRight, FileText, Send, AlertCircle,
+    Truck, Search, Globe, Download, RefreshCw, ChevronDown, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
 import styles from './profile.module.css';
+
+function ProductSelectDropdown({ products, selectedKey, onSelect, placeholder = "-- Select Product --" }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectedProduct = products.find(p => p.key === selectedKey);
+
+    const handleOptionClick = (productKey) => {
+        if (selectedKey === productKey) {
+            // Deselect on second click
+            onSelect(null);
+        } else {
+            const item = products.find(p => p.key === productKey);
+            onSelect(item);
+        }
+        setIsOpen(false);
+    };
+
+    return (
+        <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+            <div 
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    background: 'hsl(var(--text-main) / 0.03)',
+                    border: isOpen ? '1.5px solid hsl(var(--primary))' : '1px solid hsl(var(--text-main) / 0.12)',
+                    borderRadius: '12px',
+                    padding: '0.85rem 1.15rem',
+                    color: 'hsl(var(--text-main))',
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    userSelect: 'none',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isOpen ? '0 0 0 3px hsl(var(--primary) / 0.15)' : 'none'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 800, color: selectedProduct ? 'hsl(var(--primary))' : '#94a3b8' }}>
+                        {selectedProduct ? '☑' : '☐'}
+                    </span>
+                    <span style={{ fontWeight: selectedProduct ? 700 : 500, color: selectedProduct ? 'hsl(var(--text-main))' : 'hsl(var(--text-muted))' }}>
+                        {selectedProduct 
+                            ? `Order #${selectedProduct.orderId} - ${selectedProduct.productName}${selectedProduct.price ? ` (₹${Number(selectedProduct.price).toLocaleString('en-IN')})` : ''}` 
+                            : placeholder}
+                    </span>
+                </div>
+                <ChevronDown size={18} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', color: 'hsl(var(--text-muted))', flexShrink: 0 }} />
+            </div>
+
+            {isOpen && (
+                <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
+                    background: '#ffffff',
+                    border: '1px solid hsl(var(--border-subtle, #e2e8f0))',
+                    borderRadius: '14px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
+                    maxHeight: '260px',
+                    overflowY: 'auto',
+                    padding: '0.4rem'
+                }}>
+                    {products.length === 0 ? (
+                        <div style={{ padding: '0.85rem', color: 'hsl(var(--text-muted))', fontSize: '0.88rem', textAlign: 'center' }}>
+                            No eligible products available
+                        </div>
+                    ) : (
+                        <>
+                            <div 
+                                onClick={() => { onSelect(null); setIsOpen(false); }}
+                                style={{
+                                    padding: '0.65rem 0.9rem',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.85rem',
+                                    color: 'hsl(var(--text-muted))',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.65rem',
+                                    borderBottom: '1px solid #f1f5f9',
+                                    marginBottom: '0.25rem',
+                                    fontWeight: 500
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span style={{ fontSize: '1.1rem', color: '#94a3b8' }}>☐</span>
+                                <span>{placeholder}</span>
+                            </div>
+
+                            {products.map(p => {
+                                const isSelected = selectedKey === p.key;
+                                return (
+                                    <div
+                                        key={p.key}
+                                        onClick={() => handleOptionClick(p.key)}
+                                        style={{
+                                            padding: '0.75rem 0.9rem',
+                                            borderRadius: '10px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.75rem',
+                                            background: isSelected ? '#f1f5f9' : 'transparent',
+                                            color: isSelected ? 'hsl(var(--primary))' : 'hsl(var(--text-main))',
+                                            fontWeight: isSelected ? 700 : 500,
+                                            transition: 'background 0.15s ease'
+                                        }}
+                                        onMouseOver={(e) => {
+                                            if (!isSelected) e.currentTarget.style.background = '#f8fafc';
+                                        }}
+                                        onMouseOut={(e) => {
+                                            if (!isSelected) e.currentTarget.style.background = 'transparent';
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isSelected ? 'hsl(var(--primary))' : '#cbd5e1' }}>
+                                            {isSelected ? '☑' : '☐'}
+                                        </span>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ fontSize: '0.9rem', color: isSelected ? 'hsl(var(--primary))' : '#0f172a' }}>
+                                                Order #{p.orderId} - {p.productName}
+                                            </span>
+                                            <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                                {p.price ? `Price: ₹${Number(p.price).toLocaleString('en-IN')} • ` : ''}Date: {p.orderDate}
+                                            </span>
+                                        </div>
+                                        {isSelected && (
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'hsl(var(--primary))', background: 'hsl(var(--primary) / 0.1)', padding: '0.15rem 0.5rem', borderRadius: '6px' }}>
+                                                Click to Deselect
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function ProfilePage() {
     const { user, setUser, showToast, supabase, isSessionLoading } = useShop();
@@ -25,10 +181,14 @@ export default function ProfilePage() {
     const [addresses, setAddresses] = useState([]);
     const [loadingAddresses, setLoadingAddresses] = useState(true);
     const [showAddressForm, setShowAddressForm] = useState(false);
+    const [addressFormType, setAddressFormType] = useState('shipping'); // 'billing' or 'shipping'
 
-    // Orders state
+    // Orders state & pagination
     const [orders, setOrders] = useState([]);
     const [loadingOrders, setLoadingOrders] = useState(true);
+    const [activeOrdersPage, setActiveOrdersPage] = useState(1);
+    const [historyOrdersPage, setHistoryOrdersPage] = useState(1);
+    const ORDERS_PER_PAGE = 5;
 
     // Refund state
     const [refunds, setRefunds] = useState([]);
@@ -37,7 +197,8 @@ export default function ProfilePage() {
         orderItemKey: '',
         reason: 'Defective Product',
         otherReason: '',
-        amount: ''
+        amount: '',
+        upiId: ''
     });
     const [submittingRefund, setSubmittingRefund] = useState(false);
 
@@ -52,24 +213,109 @@ export default function ProfilePage() {
     });
     const [submittingReturn, setSubmittingReturn] = useState(false);
 
+    // Track Order State
+    const [trackSearchId, setTrackSearchId] = useState('');
+    const [trackOrderData, setTrackOrderData] = useState(null);
+    const [loadingTrack, setLoadingTrack] = useState(false);
+
+    const getOrderSourceBadge = (order) => {
+        const src = (order.source || '').toUpperCase();
+        const idStr = String(order.id || '').toUpperCase();
+        
+        if (src === 'WEBSITE' || src === 'WEB' || idStr.startsWith('WEB-')) {
+            return (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e0e7ff', color: '#3730a3', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <Globe size={12} /> Web Store
+                </span>
+            );
+        }
+        if (src === 'MANUAL' || src === 'MAN' || idStr.startsWith('MAN-')) {
+            return (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fce7f3', color: '#9d174d', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <ShoppingBag size={12} /> Direct Store
+                </span>
+            );
+        }
+        return (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#dcfce7', color: '#166534', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                <MessageCircle size={12} /> WhatsApp
+            </span>
+        );
+    };
+
+    const getStatusIndex = (status) => {
+        switch (status) {
+            case 'PLACED': case 'PENDING': case 'AWAITING_PAYMENT': return 0;
+            case 'CONFIRMED': case 'PACKING': case 'PAID': return 1;
+            case 'SHIPPED': return 2;
+            case 'DELIVERED': return 3;
+            default: return 0;
+        }
+    };
+
     // Synchronize tab with URL query parameter
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab === 'orders') {
-            router.replace('/my-orders');
-        } else if (tab && ['history', 'account', 'refund', 'return'].includes(tab)) {
+        const trackId = searchParams.get('id') || searchParams.get('orderId');
+        if (tab && ['orders', 'track', 'history', 'account', 'refund', 'return'].includes(tab)) {
             setActiveTab(tab);
         }
-    }, [searchParams, router]);
+        if (trackId) {
+            const formattedInv = String(trackId).replace(/^[A-Z]+-/, 'INV-');
+            setTrackSearchId(formattedInv);
+            handleTrackSearch(trackId);
+        }
+    }, [searchParams]);
 
     const handleTabChange = (tab) => {
-        if (tab === 'orders') {
-            router.push('/my-orders');
-            return;
-        }
         setActiveTab(tab);
         router.push(`/profile?tab=${tab}`, { scroll: false });
     };
+
+    async function handleTrackSearch(searchIdToUse) {
+        const idToSearch = searchIdToUse || trackSearchId;
+        if (!idToSearch) return;
+        setLoadingTrack(true);
+        setTrackOrderData(null);
+        try {
+            const cleanId = String(idToSearch).trim().toUpperCase().replace(/^#/, '');
+            const numMatch = cleanId.match(/(\d+)/);
+            const numStr = numMatch ? numMatch[1] : '';
+            const padded4 = numStr ? numStr.padStart(4, '0') : '';
+
+            const candidates = new Set([cleanId]);
+            if (numStr) {
+                candidates.add(numStr);
+                candidates.add(`WEB-${padded4}`);
+                candidates.add(`ORD-${padded4}`);
+                candidates.add(`MAN-${padded4}`);
+                candidates.add(`WEB-${numStr}`);
+                candidates.add(`ORD-${numStr}`);
+                candidates.add(`MAN-${numStr}`);
+            }
+
+            const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%`).join(',');
+
+            const { data: matches } = await supabase
+                .from('orders')
+                .select('*, order_items(*, products(id, image_url, name))')
+                .or(searchOr);
+
+            if (matches && matches.length > 0) {
+                const o = matches[0];
+                if (!o.invoice_no && o.id) {
+                    o.invoice_no = String(o.id).replace(/^[A-Z]+-/, 'INV-');
+                }
+                setTrackOrderData(o);
+            } else {
+                showToast('No order found matching this Invoice ID', 'error');
+            }
+        } catch (err) {
+            console.error('Track error:', err);
+        } finally {
+            setLoadingTrack(false);
+        }
+    }
 
     // Load data on user ready
     useEffect(() => {
@@ -112,7 +358,13 @@ export default function ProfilePage() {
 
             const { data, error } = await query;
             if (!error && data) {
-                setOrders(data);
+                const formattedOrders = data.map(o => ({
+                    ...o,
+                    invoice_no: o.invoice_no 
+                        ? (o.invoice_no.startsWith('#') ? o.invoice_no : `#${o.invoice_no}`)
+                        : `#${String(o.id).replace(/^[A-Z]+-/, 'INV-')}`
+                }));
+                setOrders(formattedOrders);
             }
         } catch (err) {
             console.error('Error fetching orders:', err);
@@ -148,7 +400,7 @@ export default function ProfilePage() {
         try {
             const { data, error } = await supabase
                 .from('refunds')
-                .select('*, orders:order_id(id, created_at)')
+                .select('*, orders:order_id(id, invoice_no, created_at)')
                 .eq('customer_id', user.id)
                 .order('created_at', { ascending: false });
             if (!error && data) {
@@ -168,7 +420,7 @@ export default function ProfilePage() {
         try {
             const { data, error } = await supabase
                 .from('return_requests')
-                .select('*, products(id, name, image_url), orders:order_id(id, created_at)')
+                .select('*, products(id, name, image_url), orders:order_id(id, invoice_no, created_at)')
                 .eq('customer_id', user.id)
                 .order('created_at', { ascending: false });
             if (!error && data) {
@@ -189,8 +441,16 @@ export default function ProfilePage() {
 
         try {
             const formData = new FormData(e.target);
+            const nameVal = (formData.get('name') || '').trim();
+
+            if (!nameVal || /[^a-zA-Z\s]/.test(nameVal)) {
+                showToast('Full Name can only contain letters and spaces', 'error');
+                setSaving(false);
+                return;
+            }
+
             const updates = {
-                name: formData.get('name'),
+                name: nameVal,
                 email: formData.get('email'),
                 address: formData.get('address'),
                 city: formData.get('city'),
@@ -224,10 +484,16 @@ export default function ProfilePage() {
         const formData = new FormData(e.target);
 
         try {
+            const fullNameVal = (formData.get('full_name') || '').trim();
+            if (!fullNameVal || /[^a-zA-Z\s]/.test(fullNameVal)) {
+                showToast('Full Name can only contain letters and spaces', 'error');
+                return;
+            }
+
             const newAddress = {
                 customer_id: user.id,
                 title: formData.get('title'),
-                full_name: formData.get('full_name'),
+                full_name: fullNameVal,
                 phone: formData.get('phone'),
                 address_line: formData.get('address_line'),
                 city: formData.get('city'),
@@ -290,14 +556,24 @@ export default function ProfilePage() {
                 product_id: productId && productId !== 'undefined' ? productId : null,
                 amount: parseFloat(refundForm.amount) || parseFloat(itemPrice) || 0,
                 reason: finalReason,
-                status: 'REQUESTED'
+                status: 'REQUESTED',
+                notes: refundForm.upiId ? `UPI Payout ID: ${refundForm.upiId}` : 'Original payment method'
             };
 
-            const { error } = await supabase.from('refunds').insert(refundPayload);
+            const { data: insertedRefund, error } = await supabase.from('refunds').insert(refundPayload).select().single();
             if (error) throw error;
 
+            // Trigger WhatsApp confirmation to customer
+            if (insertedRefund?.id) {
+                fetch('/api/refunds/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refundId: insertedRefund.id, status: 'REQUESTED' })
+                }).catch(err => console.error('WA Notify Error:', err));
+            }
+
             showToast('Refund request submitted successfully!');
-            setRefundForm({ orderItemKey: '', reason: 'Defective Product', otherReason: '', amount: '' });
+            setRefundForm({ orderItemKey: '', reason: 'Defective Product', otherReason: '', amount: '', upiId: '' });
             fetchRefunds();
         } catch (err) {
             console.error('Error submitting refund:', err);
@@ -334,8 +610,17 @@ export default function ProfilePage() {
                 status: 'PENDING'
             };
 
-            const { error } = await supabase.from('return_requests').insert(returnPayload);
+            const { data: insertedReturn, error } = await supabase.from('return_requests').insert(returnPayload).select().single();
             if (error) throw error;
+
+            // Trigger WhatsApp confirmation to customer
+            if (insertedReturn?.id) {
+                fetch('/api/returns/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requestId: insertedReturn.id, status: 'PENDING' })
+                }).catch(err => console.error('WA Notify Error:', err));
+            }
 
             showToast('Return request submitted successfully!');
             setReturnForm({ orderItemKey: '', requestType: 'RETURN', reason: 'Wrong Item Delivered', otherReason: '' });
@@ -371,32 +656,61 @@ export default function ProfilePage() {
 
     // Filter Active vs History Orders
     const activeOrders = orders.filter(o => ['PLACED', 'PAID', 'PROCESSING', 'SHIPPED'].includes(o.status));
-    const historyOrders = orders.filter(o => ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(o.status));
+    const pastOrders = orders.filter(o => ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(o.status));
+    const historyOrders = pastOrders;
 
-    // Products eligible for Refund & Return (From user orders)
+    const totalActivePages = Math.ceil(activeOrders.length / ORDERS_PER_PAGE);
+    const paginatedActiveOrders = activeOrders.slice((activeOrdersPage - 1) * ORDERS_PER_PAGE, activeOrdersPage * ORDERS_PER_PAGE);
+
+    const totalHistoryPages = Math.ceil(pastOrders.length / ORDERS_PER_PAGE);
+    const paginatedHistoryOrders = pastOrders.slice((historyOrdersPage - 1) * ORDERS_PER_PAGE, historyOrdersPage * ORDERS_PER_PAGE);
+
+    // Separate Billing & Shipping Addresses
+    const billingAddresses = addresses.filter(a => (a.title || '').toLowerCase().includes('billing'));
+    const shippingAddresses = addresses.filter(a => !(a.title || '').toLowerCase().includes('billing'));
+
+    // Products eligible for Refund & Return (From user orders, excluding already requested/non-rejected products)
     const eligibleRefundProducts = [];
     orders.forEach(o => {
+        const displayInv = o.invoice_no ? (o.invoice_no.startsWith('#') ? o.invoice_no : `#${o.invoice_no}`) : `#${String(o.id).replace(/^[A-Z]+-/, 'INV-')}`;
         (o.order_items || []).forEach(item => {
-            const priceVal = item.price_at_time || item.price || 0;
-            eligibleRefundProducts.push({
-                key: `${o.id}::${item.product_id}::${priceVal}`,
-                orderId: o.id,
-                productName: item.product_name,
-                price: priceVal,
-                orderDate: new Date(o.created_at).toLocaleDateString()
-            });
+            const alreadyRefunded = refunds.some(ref => 
+                String(ref.order_id) === String(o.id) && 
+                (String(ref.product_id) === String(item.product_id) || !ref.product_id) &&
+                ref.status !== 'REJECTED'
+            );
+
+            if (!alreadyRefunded) {
+                const priceVal = item.price_at_time || item.price || 0;
+                eligibleRefundProducts.push({
+                    key: `${o.id}::${item.product_id}::${priceVal}`,
+                    orderId: displayInv,
+                    productName: item.product_name || 'Product Item',
+                    price: priceVal,
+                    orderDate: new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                });
+            }
         });
     });
 
     const eligibleReturnProducts = [];
     orders.filter(o => o.status === 'DELIVERED').forEach(o => {
+        const displayInv = o.invoice_no ? (o.invoice_no.startsWith('#') ? o.invoice_no : `#${o.invoice_no}`) : `#${String(o.id).replace(/^[A-Z]+-/, 'INV-')}`;
         (o.order_items || []).forEach(item => {
-            eligibleReturnProducts.push({
-                key: `${o.id}::${item.product_id}`,
-                orderId: o.id,
-                productName: item.product_name,
-                orderDate: new Date(o.created_at).toLocaleDateString()
-            });
+            const alreadyReturned = returns.some(ret => 
+                String(ret.order_id) === String(o.id) && 
+                (String(ret.product_id) === String(item.product_id) || !ret.product_id) &&
+                ret.status !== 'REJECTED'
+            );
+
+            if (!alreadyReturned) {
+                eligibleReturnProducts.push({
+                    key: `${o.id}::${item.product_id}`,
+                    orderId: displayInv,
+                    productName: item.product_name || 'Product Item',
+                    orderDate: new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                });
+            }
         });
     });
 
@@ -440,6 +754,14 @@ export default function ProfilePage() {
                 </button>
 
                 <button 
+                    className={`${styles.tabBtn} ${activeTab === 'track' ? styles.tabBtnActive : ''}`} 
+                    onClick={() => handleTabChange('track')}
+                >
+                    <Truck size={18} />
+                    <span>Track Orders</span>
+                </button>
+
+                <button 
                     className={`${styles.tabBtn} ${activeTab === 'history' ? styles.tabBtnActive : ''}`} 
                     onClick={() => handleTabChange('history')}
                 >
@@ -476,9 +798,7 @@ export default function ProfilePage() {
 
             {/* Profile Main Content Layout */}
             <div className={styles.profileLayout}>
-                <div className={styles.profileMain}>
-
-                    {/* TAB 1: ACTIVE ORDERS */}
+                <div className={styles.profileMain}>                    {/* TAB 1: ACTIVE ORDERS */}
                     {activeTab === 'orders' && (
                         <section className={styles.profileSection}>
                             <div className={styles.sectionHeader}>
@@ -500,63 +820,265 @@ export default function ProfilePage() {
                                     </Link>
                                 </div>
                             ) : (
-                                <div className={styles.ordersList}>
-                                    {activeOrders.map(order => (
-                                        <div key={order.id} className={styles.orderCard}>
-                                            <div className={styles.orderHeader}>
-                                                <div className={styles.orderMeta}>
-                                                    <span className={styles.orderId}>Order #{order.id}</span>
-                                                    <span className={styles.orderDate}>Placed on {new Date(order.created_at).toLocaleDateString()}</span>
-                                                </div>
-                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`}>
-                                                    {order.status}
-                                                </span>
-                                            </div>
+                                <div className={styles.tableContainer}>
+                                    <table className={styles.dataTable}>
+                                        <thead>
+                                            <tr>
+                                                <th>INVOICE NO</th>
+                                                <th>DATE</th>
+                                                <th>ITEMS</th>
+                                                <th>TOTAL</th>
+                                                <th>SOURCE</th>
+                                                <th>STATUS</th>
+                                                <th style={{ textAlign: 'right' }}>ACTION</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paginatedActiveOrders.map(order => {
+                                                const displayInv = order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
+                                                const itemsList = order.order_items || [];
+                                                const firstItemName = itemsList[0]?.product_name || 'Item';
+                                                const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-                                            <div className={styles.orderBody}>
-                                                <div className={styles.orderItems}>
-                                                    {(order.order_items || []).map(item => {
-                                                        const itemPrice = Number(item.price_at_time || item.price || 0);
-                                                        const itemQty = Number(item.quantity || 1);
-                                                        const itemTotal = itemPrice * itemQty;
-                                                        const rawImg = item.image_url || item.products?.image_url || '';
-                                                        const itemImg = rawImg ? rawImg.split(',')[0].trim() : 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
-
-                                                        return (
-                                                            <div key={item.id} className={styles.orderItemRow}>
-                                                                <img 
-                                                                    src={itemImg} 
-                                                                    alt={item.product_name} 
-                                                                    className={styles.itemImage}
-                                                                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
-                                                                />
-                                                                <div className={styles.itemDetails}>
-                                                                    <p className={styles.itemName}>{item.product_name}</p>
-                                                                    <p className={styles.itemMeta}>Qty: {itemQty} • ₹{itemPrice.toLocaleString()}</p>
-                                                                </div>
-                                                                <div className={styles.itemPrice}>₹{itemTotal.toLocaleString()}</div>
+                                                return (
+                                                    <tr key={order.id}>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
+                                                        </td>
+                                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </td>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                                                <span style={{ fontWeight: 700, fontSize: '0.84rem' }}>{totalItems} item(s)</span>
+                                                                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={firstItemName}>
+                                                                    {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
+                                                                </span>
                                                             </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                        </td>
+                                                        <td style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
+                                                            ₹{(order.total_amount || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            {getOrderSourceBadge(order)}
+                                                        </td>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                                {order.status}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
+                                                                    setTrackSearchId(inv);
+                                                                    handleTabChange('track');
+                                                                    handleTrackSearch(order.id);
+                                                                }}
+                                                                className={styles.actionBtnOutline}
+                                                                style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                                            >
+                                                                Track Order <ArrowRight size={13} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
 
-                                                <div className={styles.orderFooter}>
-                                                    <div className={styles.orderTotal}>Total Amount: ₹{order.total_amount}</div>
-                                                    <div className={styles.orderActions}>
-                                                        <Link href={`/track-order?orderId=${order.id}`} className={styles.actionBtnOutline}>
-                                                            Track Order <ArrowRight size={14} />
-                                                        </Link>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle, #e2e8f0))', flexWrap: 'wrap', gap: '0.75rem', background: '#fafafa' }}>
+                                        <div style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
+                                            Showing <strong>{activeOrders.length === 0 ? 0 : (activeOrdersPage - 1) * ORDERS_PER_PAGE + 1}</strong> to <strong>{Math.min(activeOrdersPage * ORDERS_PER_PAGE, activeOrders.length)}</strong> of <strong>{activeOrders.length}</strong> orders
                                         </div>
-                                    ))}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <button
+                                                onClick={() => setActiveOrdersPage(p => Math.max(1, p - 1))}
+                                                disabled={activeOrdersPage === 1}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: activeOrdersPage === 1 ? '#f1f5f9' : '#ffffff', color: activeOrdersPage === 1 ? '#94a3b8' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: activeOrdersPage === 1 ? 'not-allowed' : 'pointer' }}
+                                            >
+                                                <ChevronLeft size={15} /> Previous
+                                            </button>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                {Array.from({ length: Math.max(1, totalActivePages) }, (_, i) => i + 1).map(p => (
+                                                    <button
+                                                        key={p}
+                                                        onClick={() => setActiveOrdersPage(p)}
+                                                        style={{ minWidth: '32px', height: '32px', borderRadius: '6px', border: activeOrdersPage === p ? 'none' : '1px solid hsl(var(--border-subtle, #e2e8f0))', background: activeOrdersPage === p ? 'hsl(var(--primary))' : '#ffffff', color: activeOrdersPage === p ? '#ffffff' : 'hsl(var(--text-main))', fontWeight: 800, fontSize: '0.82rem', cursor: 'pointer' }}
+                                                    >
+                                                        {p}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                onClick={() => setActiveOrdersPage(p => Math.min(Math.max(1, totalActivePages), p + 1))}
+                                                disabled={activeOrdersPage >= Math.max(1, totalActivePages)}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: activeOrdersPage >= Math.max(1, totalActivePages) ? '#f1f5f9' : '#ffffff', color: activeOrdersPage >= Math.max(1, totalActivePages) ? '#94a3b8' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: activeOrdersPage >= Math.max(1, totalActivePages) ? 'not-allowed' : 'pointer' }}
+                                            >
+                                                Next <ChevronRight size={15} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </section>
                     )}
 
-                    {/* TAB 2: ORDER HISTORY */}
+                    {/* TAB 2: TRACK ORDERS */}
+                    {activeTab === 'track' && (
+                        <section className={styles.profileSection}>
+                            <div className={styles.sectionHeader}>
+                                <div>
+                                    <h3 className={styles.sectionTitle}><Truck size={20} /> Track Orders</h3>
+                                    <p className={styles.sectionSubtitle}>Enter your Invoice ID to see real-time order & delivery status</p>
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Enter Invoice ID (e.g. INV-0001)" 
+                                            value={trackSearchId}
+                                            onChange={(e) => setTrackSearchId(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleTrackSearch()}
+                                            style={{
+                                                width: '100%', padding: '0.65rem 1rem 0.65rem 2.5rem',
+                                                borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))',
+                                                fontSize: '0.9rem', fontWeight: 600, outline: 'none'
+                                            }}
+                                        />
+                                        <Search size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
+                                    </div>
+                                    <button 
+                                        onClick={() => handleTrackSearch()} 
+                                        disabled={loadingTrack}
+                                        className="btn btn-primary"
+                                        style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', fontWeight: 700, fontSize: '0.9rem' }}
+                                    >
+                                        {loadingTrack ? 'Searching...' : 'Track My Order'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {trackOrderData ? (
+                                <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                    {/* Header Summary */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid hsl(var(--border-subtle))', paddingBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>INVOICE ID</div>
+                                            <h3 style={{ margin: '2px 0 0', fontSize: '1.35rem', color: 'hsl(var(--primary))', fontWeight: 800 }}>
+                                                {trackOrderData.invoice_no ? (trackOrderData.invoice_no.startsWith('#') ? trackOrderData.invoice_no : `#${trackOrderData.invoice_no}`) : `#${String(trackOrderData.id).replace(/^[A-Z]+-/, 'INV-')}`}
+                                            </h3>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '6px' }}>
+                                                {getOrderSourceBadge(trackOrderData)}
+                                                <span style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>
+                                                    Placed on {new Date(trackOrderData.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span className={`badge ${styles['status' + trackOrderData.status]}`} style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', fontWeight: 800, borderRadius: '20px' }}>
+                                            {trackOrderData.status}
+                                        </span>
+                                    </div>
+
+                                    {/* 4-Step Progress Timeline */}
+                                    <div style={{ padding: '1.5rem', background: '#f8fafc', borderRadius: '14px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                        <h5 style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', fontWeight: 800 }}>Delivery Timeline</h5>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', position: 'relative' }}>
+                                            {[
+                                                { stage: 'PLACED', label: 'Order Placed', icon: <Package size={18} /> },
+                                                { stage: 'CONFIRMED', label: 'Confirmed', icon: <CheckCircle size={18} /> },
+                                                { stage: 'SHIPPED', label: 'Shipped', icon: <Truck size={18} /> },
+                                                { stage: 'DELIVERED', label: 'Delivered', icon: <MapPin size={18} /> }
+                                            ].map((step, idx) => {
+                                                const sIdx = getStatusIndex(trackOrderData.status);
+                                                const isDelivered = (trackOrderData.status || '').toUpperCase() === 'DELIVERED';
+                                                const isDone = idx <= sIdx;
+                                                const stepText = isDelivered ? 'Completed' : (idx === sIdx ? 'In Progress' : (idx < sIdx ? 'Completed' : 'Pending'));
+                                                return (
+                                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '0.5rem' }}>
+                                                        <div style={{
+                                                            width: '40px', height: '40px', borderRadius: '50%',
+                                                            background: isDone ? 'hsl(var(--primary))' : '#e2e8f0',
+                                                            color: isDone ? '#ffffff' : '#64748b',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            boxShadow: isDone ? '0 4px 10px hsl(var(--primary) / 0.3)' : 'none'
+                                                        }}>
+                                                            {step.icon}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isDone ? 'hsl(var(--text-main))' : '#94a3b8' }}>{step.label}</div>
+                                                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: isDone ? 'hsl(var(--primary))' : '#cbd5e1' }}>
+                                                            {stepText}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Shipping Carrier Card if exists */}
+                                    {trackOrderData.tracking_number && (
+                                        <div style={{ padding: '1.25rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>Shipment Details</div>
+                                                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#14532d', marginTop: '2px' }}>
+                                                    {trackOrderData.courier_name || 'BlueDart / Delhivery'} — {trackOrderData.tracking_number}
+                                                </div>
+                                            </div>
+                                            {trackOrderData.tracking_url && (
+                                                <a href={trackOrderData.tracking_url} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: '0.5rem 1rem', fontSize: '0.825rem', borderRadius: '8px', textDecoration: 'none' }}>
+                                                    Track on Carrier Website
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Action Buttons */}
+                                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                        <a 
+                                            href={`/api/invoice/${trackOrderData.id}?phone=${trackOrderData.customer_phone}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className={styles.actionBtnOutline}
+                                            style={{ padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700 }}
+                                        >
+                                            <Download size={16} /> Download Invoice
+                                        </a>
+                                    </div>
+
+                                    {/* Ordered Items Breakdown */}
+                                    <div>
+                                        <h5 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', margin: '0 0 0.85rem 0', fontWeight: 800 }}>Order Items Breakdown</h5>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {(trackOrderData.order_items || []).map(item => {
+                                                const rawImg = item.image_url || item.products?.image_url || '';
+                                                const imgUrl = rawImg ? rawImg.split(',')[0].trim() : 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
+                                                return (
+                                                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                        <img src={imgUrl} alt={item.product_name} style={{ width: '52px', height: '52px', borderRadius: '10px', objectFit: 'cover' }} onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'hsl(var(--text-main))' }}>{item.product_name}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Qty: {item.quantity || 1} • ₹{Number(item.price_at_time || item.price || 0).toLocaleString()} each</div>
+                                                        </div>
+                                                        <div style={{ fontWeight: 800, fontSize: '1rem', color: 'hsl(var(--text-main))' }}>₹{(Number(item.price_at_time || item.price || 0) * (item.quantity || 1)).toLocaleString()}</div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className={styles.emptyState}>
+                                    <Truck size={48} style={{ opacity: 0.2 }} />
+                                    <p>Enter an Invoice ID above to track package status</p>
+                                </div>
+                            )}
+                        </section>
+                    )}
+
+                    {/* TAB 3: ORDER HISTORY */}
                     {activeTab === 'history' && (
                         <section className={styles.profileSection}>
                             <div className={styles.sectionHeader}>
@@ -568,73 +1090,111 @@ export default function ProfilePage() {
 
                             {loadingOrders ? (
                                 <div className={styles.loadingState}>Loading order history...</div>
-                            ) : historyOrders.length === 0 ? (
+                            ) : pastOrders.length === 0 ? (
                                 <div className={styles.emptyState}>
                                     <History size={48} style={{ opacity: 0.2 }} />
                                     <p>No past order history</p>
-                                    <span>Completed and delivered orders will be listed here.</span>
                                 </div>
                             ) : (
-                                <div className={styles.ordersList}>
-                                    {historyOrders.map(order => (
-                                        <div key={order.id} className={styles.orderCard}>
-                                            <div className={styles.orderHeader}>
-                                                <div className={styles.orderMeta}>
-                                                    <span className={styles.orderId}>Order #{order.id}</span>
-                                                    <span className={styles.orderDate}>Completed on {new Date(order.created_at).toLocaleDateString()}</span>
-                                                </div>
-                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`}>
-                                                    {order.status}
-                                                </span>
-                                            </div>
+                                <div className={styles.tableContainer}>
+                                    <table className={styles.dataTable}>
+                                        <thead>
+                                            <tr>
+                                                <th>INVOICE NO</th>
+                                                <th>DATE</th>
+                                                <th>ITEMS</th>
+                                                <th>TOTAL</th>
+                                                <th>SOURCE</th>
+                                                <th>STATUS</th>
+                                                <th style={{ textAlign: 'right' }}>ACTION</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paginatedHistoryOrders.map(order => {
+                                                const displayInv = order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
+                                                const itemsList = order.order_items || [];
+                                                const firstItemName = itemsList[0]?.product_name || 'Item';
+                                                const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-                                            <div className={styles.orderBody}>
-                                                <div className={styles.orderItems}>
-                                                    {(order.order_items || []).map(item => {
-                                                        const itemPrice = Number(item.price_at_time || item.price || 0);
-                                                        const itemQty = Number(item.quantity || 1);
-                                                        const itemTotal = itemPrice * itemQty;
-                                                        const rawImg = item.image_url || item.products?.image_url || '';
-                                                        const itemImg = rawImg ? rawImg.split(',')[0].trim() : 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
-
-                                                        return (
-                                                            <div key={item.id} className={styles.orderItemRow}>
-                                                                <img 
-                                                                    src={itemImg} 
-                                                                    alt={item.product_name} 
-                                                                    className={styles.itemImage}
-                                                                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
-                                                                />
-                                                                <div className={styles.itemDetails}>
-                                                                    <p className={styles.itemName}>{item.product_name}</p>
-                                                                    <p className={styles.itemMeta}>Qty: {itemQty} • ₹{itemPrice.toLocaleString()}</p>
-                                                                </div>
-                                                                <div className={styles.itemPrice}>₹{itemTotal.toLocaleString()}</div>
+                                                return (
+                                                    <tr key={order.id}>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
+                                                        </td>
+                                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </td>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                                                <span style={{ fontWeight: 700, fontSize: '0.84rem' }}>{totalItems} item(s)</span>
+                                                                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={firstItemName}>
+                                                                    {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
+                                                                </span>
                                                             </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                        </td>
+                                                        <td style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
+                                                            ₹{(order.total_amount || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            {getOrderSourceBadge(order)}
+                                                        </td>
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                                {order.status}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
+                                                                    setTrackSearchId(inv);
+                                                                    handleTabChange('track');
+                                                                    handleTrackSearch(order.id);
+                                                                }}
+                                                                className={styles.actionBtnOutline}
+                                                                style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                                            >
+                                                                Track Order <ArrowRight size={13} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
 
-                                                <div className={styles.orderFooter}>
-                                                    <div className={styles.orderTotal}>Total Amount: ₹{order.total_amount}</div>
-                                                    <div className={styles.orderActions}>
-                                                        <button 
-                                                            className={styles.actionBtnOutline}
-                                                            onClick={() => handleTabChange('return')}
-                                                        >
-                                                            <RotateCcw size={14} /> Request Return
-                                                        </button>
-                                                        <button 
-                                                            className={styles.actionBtnOutline}
-                                                            onClick={() => handleTabChange('refund')}
-                                                        >
-                                                            <IndianRupee size={14} /> Request Refund
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle, #e2e8f0))', flexWrap: 'wrap', gap: '0.75rem', background: '#fafafa' }}>
+                                        <div style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
+                                            Showing <strong>{pastOrders.length === 0 ? 0 : (historyOrdersPage - 1) * ORDERS_PER_PAGE + 1}</strong> to <strong>{Math.min(historyOrdersPage * ORDERS_PER_PAGE, pastOrders.length)}</strong> of <strong>{pastOrders.length}</strong> orders
                                         </div>
-                                    ))}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <button
+                                                onClick={() => setHistoryOrdersPage(p => Math.max(1, p - 1))}
+                                                disabled={historyOrdersPage === 1}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: historyOrdersPage === 1 ? '#f1f5f9' : '#ffffff', color: historyOrdersPage === 1 ? '#94a3b8' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: historyOrdersPage === 1 ? 'not-allowed' : 'pointer' }}
+                                            >
+                                                <ChevronLeft size={15} /> Previous
+                                            </button>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                {Array.from({ length: Math.max(1, totalHistoryPages) }, (_, i) => i + 1).map(p => (
+                                                    <button
+                                                        key={p}
+                                                        onClick={() => setHistoryOrdersPage(p)}
+                                                        style={{ minWidth: '32px', height: '32px', borderRadius: '6px', border: historyOrdersPage === p ? 'none' : '1px solid hsl(var(--border-subtle, #e2e8f0))', background: historyOrdersPage === p ? 'hsl(var(--primary))' : '#ffffff', color: historyOrdersPage === p ? '#ffffff' : 'hsl(var(--text-main))', fontWeight: 800, fontSize: '0.82rem', cursor: 'pointer' }}
+                                                    >
+                                                        {p}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                onClick={() => setHistoryOrdersPage(p => Math.min(Math.max(1, totalHistoryPages), p + 1))}
+                                                disabled={historyOrdersPage >= Math.max(1, totalHistoryPages)}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: historyOrdersPage >= Math.max(1, totalHistoryPages) ? '#f1f5f9' : '#ffffff', color: historyOrdersPage >= Math.max(1, totalHistoryPages) ? '#94a3b8' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: historyOrdersPage >= Math.max(1, totalHistoryPages) ? 'not-allowed' : 'pointer' }}
+                                            >
+                                                Next <ChevronRight size={15} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </section>
@@ -649,7 +1209,17 @@ export default function ProfilePage() {
                                     <div className={styles.formGrid}>
                                         <div className={styles.formGroup}>
                                             <label><User size={14} /> FULL NAME</label>
-                                            <input name="name" defaultValue={user.name} required placeholder="Your name" />
+                                            <input 
+                                                name="name" 
+                                                defaultValue={user.name} 
+                                                required 
+                                                placeholder="Your name"
+                                                onInput={(e) => {
+                                                    e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                                                }}
+                                                pattern="[a-zA-Z\s]+"
+                                                title="Only letters and spaces are allowed"
+                                            />
                                         </div>
                                         <div className={styles.formGroup}>
                                             <label><Mail size={14} /> EMAIL</label>
@@ -683,31 +1253,49 @@ export default function ProfilePage() {
                                 </form>
                             </section>
 
+                            {/* CARD 2: Billing Address Book */}
                             <section className={styles.profileSection}>
                                 <div className={styles.sectionHeader}>
                                     <div>
-                                        <h3 className={styles.sectionTitle}><MapPin size={20} /> Billing & Shipping Address Book</h3>
-                                        <p className={styles.sectionSubtitle}>Manage multiple saved delivery locations</p>
+                                        <h3 className={styles.sectionTitle}><FileText size={20} /> Billing Address Book</h3>
+                                        <p className={styles.sectionSubtitle}>Manage saved billing locations and tax billing addresses</p>
                                     </div>
                                     <button 
                                         type="button"
-                                        onClick={() => setShowAddressForm(!showAddressForm)} 
+                                        onClick={() => {
+                                            if (showAddressForm && addressFormType === 'billing') {
+                                                setShowAddressForm(false);
+                                            } else {
+                                                setAddressFormType('billing');
+                                                setShowAddressForm(true);
+                                            }
+                                        }} 
                                         className={styles.addAddressBtn}
                                     >
-                                        {showAddressForm ? 'Cancel' : '+ Add New Address'}
+                                        {showAddressForm && addressFormType === 'billing' ? 'Cancel' : '+ Add Billing Address'}
                                     </button>
                                 </div>
 
-                                {showAddressForm && (
+                                {showAddressForm && addressFormType === 'billing' && (
                                     <form onSubmit={handleAddAddress} className={styles.addressForm}>
                                         <div className={styles.formGrid}>
                                             <div className={styles.formGroup}>
-                                                <label>TITLE (e.g. Home, Office)</label>
-                                                <input name="title" required placeholder="Home" />
+                                                <label>TITLE (e.g. GST Billing, Office Billing)</label>
+                                                <input name="title" defaultValue="Billing Address" required />
                                             </div>
                                             <div className={styles.formGroup}>
-                                                <label>FULL NAME</label>
-                                                <input name="full_name" defaultValue={user.name} required />
+                                                <label>FULL NAME / COMPANY NAME</label>
+                                                <input 
+                                                    name="full_name" 
+                                                    defaultValue={user.name} 
+                                                    required 
+                                                    placeholder="Full Name"
+                                                    onInput={(e) => {
+                                                        e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                                                    }}
+                                                    pattern="[a-zA-Z\s]+"
+                                                    title="Only letters and spaces are allowed"
+                                                />
                                             </div>
                                             <div className={styles.formGroup}>
                                                 <label>PHONE</label>
@@ -715,12 +1303,12 @@ export default function ProfilePage() {
                                             </div>
                                             <div className={styles.formGroup}>
                                                 <label>PINCODE</label>
-                                                <input name="pincode" required />
+                                                <input name="pincode" required placeholder="6-digit PIN" />
                                             </div>
                                         </div>
                                         <div className={styles.formGroupFull} style={{ marginTop: '1rem' }}>
-                                            <label>ADDRESS LINE</label>
-                                            <textarea name="address_line" rows={2} required placeholder="Flat, Street, Area" />
+                                            <label>BILLING ADDRESS LINE</label>
+                                            <textarea name="address_line" rows={2} required placeholder="Flat/Building No, Street, Area" />
                                         </div>
                                         <div className={styles.formGrid} style={{ marginTop: '1rem' }}>
                                             <div className={styles.formGroup}>
@@ -733,28 +1321,132 @@ export default function ProfilePage() {
                                             </div>
                                         </div>
                                         <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input type="checkbox" name="is_default" id="is_default" />
-                                            <label htmlFor="is_default" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Set as default address</label>
+                                            <input type="checkbox" name="is_default" id="is_default_billing" />
+                                            <label htmlFor="is_default_billing" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Set as default billing address</label>
                                         </div>
-                                        <button type="submit" className={styles.btnPrimary} style={{ marginTop: '1.5rem', width: 'auto' }}>Save Address</button>
+                                        <button type="submit" className={styles.btnPrimary} style={{ marginTop: '1.5rem', width: 'auto' }}>Save Billing Address</button>
                                     </form>
                                 )}
 
                                 {loadingAddresses ? (
-                                    <div className={styles.loadingState}>Loading addresses...</div>
-                                ) : addresses.length === 0 ? (
+                                    <div className={styles.loadingState}>Loading billing addresses...</div>
+                                ) : billingAddresses.length === 0 ? (
                                     <div className={styles.emptyState}>
-                                        <MapPin size={40} style={{ opacity: 0.3 }} />
-                                        <p>No saved addresses yet.</p>
-                                        <span>Add a billing or shipping address for faster checkout.</span>
+                                        <FileText size={40} style={{ opacity: 0.3 }} />
+                                        <p>No saved billing addresses yet.</p>
+                                        <span>Add a billing address for tax invoices and billing records.</span>
                                     </div>
                                 ) : (
                                     <div className={styles.addressGrid}>
-                                        {addresses.map(addr => (
+                                        {billingAddresses.map(addr => (
                                             <div key={addr.id} className={styles.addressCard}>
                                                 {addr.is_default && <span className={styles.defaultBadge}>DEFAULT</span>}
                                                 <h4 className={styles.addressTitle}>
-                                                    <MapPin size={16} /> {addr.title}
+                                                    <FileText size={16} /> {addr.title}
+                                                </h4>
+                                                <p className={styles.addressName}>{addr.full_name}</p>
+                                                <p className={styles.addressLine}>{addr.address_line}</p>
+                                                <p className={styles.addressLocation}>{addr.city}, {addr.state} {addr.pincode}</p>
+                                                <p className={styles.addressPhone}>📞 +{addr.phone}</p>
+                                                <button type="button" onClick={() => deleteAddress(addr.id)} className={styles.deleteAddressBtn}>
+                                                    Delete Address
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+
+                            {/* CARD 3: Shipping Address Book */}
+                            <section className={styles.profileSection}>
+                                <div className={styles.sectionHeader}>
+                                    <div>
+                                        <h3 className={styles.sectionTitle}><Truck size={20} /> Shipping Address Book</h3>
+                                        <p className={styles.sectionSubtitle}>Manage saved delivery locations and shipping addresses</p>
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            if (showAddressForm && addressFormType === 'shipping') {
+                                                setShowAddressForm(false);
+                                            } else {
+                                                setAddressFormType('shipping');
+                                                setShowAddressForm(true);
+                                            }
+                                        }} 
+                                        className={styles.addAddressBtn}
+                                    >
+                                        {showAddressForm && addressFormType === 'shipping' ? 'Cancel' : '+ Add Shipping Address'}
+                                    </button>
+                                </div>
+
+                                {showAddressForm && addressFormType === 'shipping' && (
+                                    <form onSubmit={handleAddAddress} className={styles.addressForm}>
+                                        <div className={styles.formGrid}>
+                                            <div className={styles.formGroup}>
+                                                <label>TITLE (e.g. Home, Office, Work)</label>
+                                                <input name="title" defaultValue="Home Shipping" required placeholder="Home" />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>RECIPIENT NAME</label>
+                                                <input 
+                                                    name="full_name" 
+                                                    defaultValue={user.name} 
+                                                    required 
+                                                    placeholder="Recipient Full Name"
+                                                    onInput={(e) => {
+                                                        e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                                                    }}
+                                                    pattern="[a-zA-Z\s]+"
+                                                    title="Only letters and spaces are allowed"
+                                                />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>PHONE</label>
+                                                <input name="phone" defaultValue={user.phone} required />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>PINCODE</label>
+                                                <input name="pincode" required placeholder="6-digit PIN" />
+                                            </div>
+                                        </div>
+                                        <div className={styles.formGroupFull} style={{ marginTop: '1rem' }}>
+                                            <label>DELIVERY ADDRESS LINE</label>
+                                            <textarea name="address_line" rows={2} required placeholder="Flat/House No, Street, Area" />
+                                        </div>
+                                        <div className={styles.formGrid} style={{ marginTop: '1rem' }}>
+                                            <div className={styles.formGroup}>
+                                                <label>CITY</label>
+                                                <input name="city" required />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>STATE</label>
+                                                <input name="state" defaultValue="Tamil Nadu" required />
+                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <input type="checkbox" name="is_default" id="is_default_shipping" />
+                                            <label htmlFor="is_default_shipping" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Set as default shipping address</label>
+                                        </div>
+                                        <button type="submit" className={styles.btnPrimary} style={{ marginTop: '1.5rem', width: 'auto' }}>Save Shipping Address</button>
+                                    </form>
+                                )}
+
+                                {loadingAddresses ? (
+                                    <div className={styles.loadingState}>Loading shipping addresses...</div>
+                                ) : shippingAddresses.length === 0 ? (
+                                    <div className={styles.emptyState}>
+                                        <Truck size={40} style={{ opacity: 0.3 }} />
+                                        <p>No saved shipping addresses yet.</p>
+                                        <span>Add a delivery address for faster checkout.</span>
+                                    </div>
+                                ) : (
+                                    <div className={styles.addressGrid}>
+                                        {shippingAddresses.map(addr => (
+                                            <div key={addr.id} className={styles.addressCard}>
+                                                {addr.is_default && <span className={styles.defaultBadge}>DEFAULT</span>}
+                                                <h4 className={styles.addressTitle}>
+                                                    <Truck size={16} /> {addr.title}
                                                 </h4>
                                                 <p className={styles.addressName}>{addr.full_name}</p>
                                                 <p className={styles.addressLine}>{addr.address_line}</p>
@@ -786,23 +1478,21 @@ export default function ProfilePage() {
                                 <h4 style={{ margin: '0 0 1.25rem 0', fontWeight: 800 }}>Create New Refund Request</h4>
                                 <form onSubmit={handleSubmitRefund}>
                                     <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
-                                        <label>CHOOSE PRODUCT *</label>
-                                        <select 
-                                            value={refundForm.orderItemKey}
-                                            onChange={(e) => {
-                                                const key = e.target.value;
-                                                const price = key ? key.split('::')[2] : '';
-                                                setRefundForm({ ...refundForm, orderItemKey: key, amount: price || '' });
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            CHOOSE PRODUCT *
+                                        </label>
+                                        <ProductSelectDropdown 
+                                            products={eligibleRefundProducts}
+                                            selectedKey={refundForm.orderItemKey}
+                                            placeholder="-- Select Product for Refund --"
+                                            onSelect={(item) => {
+                                                if (!item) {
+                                                    setRefundForm({ ...refundForm, orderItemKey: '', amount: '' });
+                                                } else {
+                                                    setRefundForm({ ...refundForm, orderItemKey: item.key, amount: String(item.price) });
+                                                }
                                             }}
-                                            required
-                                        >
-                                            <option value="">-- Select Product from Orders --</option>
-                                            {eligibleRefundProducts.map(p => (
-                                                <option key={p.key} value={p.key}>
-                                                    Order #{p.orderId} - {p.productName} (₹{p.price}) [{p.orderDate}]
-                                                </option>
-                                            ))}
-                                        </select>
+                                        />
                                     </div>
 
                                     <div className={styles.formGrid} style={{ marginBottom: '1.25rem' }}>
@@ -829,6 +1519,18 @@ export default function ProfilePage() {
                                                 onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })} 
                                             />
                                         </div>
+                                    </div>
+
+                                    <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            UPI ID FOR DIRECT REFUND PAYOUT (OPTIONAL)
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="e.g. 9876543210@upi or name@okaxis (for direct bank transfer)" 
+                                            value={refundForm.upiId || ''} 
+                                            onChange={(e) => setRefundForm({ ...refundForm, upiId: e.target.value })} 
+                                        />
                                     </div>
 
                                     {refundForm.reason === 'Other' && (
@@ -874,20 +1576,33 @@ export default function ProfilePage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {refunds.map(r => (
-                                                <tr key={r.id}>
-                                                    <td><strong>#{String(r.id).substring(0, 8)}</strong></td>
-                                                    <td>#{r.order_id}</td>
-                                                    <td>{new Date(r.created_at).toLocaleDateString()}</td>
-                                                    <td><strong>₹{r.amount}</strong></td>
-                                                    <td>{r.reason || 'N/A'}</td>
-                                                    <td>
-                                                        <span className={styles['badge' + (r.status || 'REQUESTED')]}>
-                                                            {r.status || 'REQUESTED'}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {refunds.map(r => {
+                                                const displayOrderInv = r.orders?.invoice_no 
+                                                    ? (r.orders.invoice_no.startsWith('#') ? r.orders.invoice_no : `#${r.orders.invoice_no}`)
+                                                    : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
+
+                                                const st = (r.status || 'REQUESTED').toUpperCase();
+                                                let badgeText = '⏳ Under Review';
+                                                let badgeClass = styles.badgeRequested;
+                                                if (st === 'APPROVED') { badgeText = '✅ Approved & Processing'; badgeClass = styles.badgeApproved; }
+                                                else if (st === 'COMPLETED') { badgeText = '💰 Refund Credited'; badgeClass = styles.badgeCompleted; }
+                                                else if (st === 'REJECTED') { badgeText = '❌ Request Declined'; badgeClass = styles.badgeRejected; }
+
+                                                return (
+                                                    <tr key={r.id}>
+                                                        <td><strong>#{String(r.id).substring(0, 8)}</strong></td>
+                                                        <td><strong>{displayOrderInv}</strong></td>
+                                                        <td>{new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                                        <td><strong>₹{(r.amount || 0).toLocaleString('en-IN')}</strong></td>
+                                                        <td>{r.reason || 'N/A'}</td>
+                                                        <td>
+                                                            <span className={badgeClass}>
+                                                                {badgeText}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -909,6 +1624,24 @@ export default function ProfilePage() {
                             <div className={styles.requestFormCard}>
                                 <h4 style={{ margin: '0 0 1.25rem 0', fontWeight: 800 }}>Create New Return Request</h4>
                                 <form onSubmit={handleSubmitReturn}>
+                                    <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            CHOOSE PRODUCT *
+                                        </label>
+                                        <ProductSelectDropdown 
+                                            products={eligibleReturnProducts}
+                                            selectedKey={returnForm.orderItemKey}
+                                            placeholder="-- Select Delivered Product --"
+                                            onSelect={(item) => {
+                                                if (!item) {
+                                                    setReturnForm({ ...returnForm, orderItemKey: '' });
+                                                } else {
+                                                    setReturnForm({ ...returnForm, orderItemKey: item.key });
+                                                }
+                                            }}
+                                        />
+                                    </div>
+
                                     <div className={styles.formGrid} style={{ marginBottom: '1.25rem' }}>
                                         <div className={styles.formGroup}>
                                             <label>REQUEST TYPE *</label>
@@ -922,38 +1655,18 @@ export default function ProfilePage() {
                                         </div>
 
                                         <div className={styles.formGroup}>
-                                            <label>CHOOSE PRODUCT *</label>
+                                            <label>REASON *</label>
                                             <select 
-                                                value={returnForm.orderItemKey}
-                                                onChange={(e) => setReturnForm({ ...returnForm, orderItemKey: e.target.value })}
-                                                required
+                                                value={returnForm.reason} 
+                                                onChange={(e) => setReturnForm({ ...returnForm, reason: e.target.value })}
                                             >
-                                                <option value="">-- Select Delivered Product --</option>
-                                                {eligibleReturnProducts.length > 0 ? (
-                                                    eligibleReturnProducts.map(p => (
-                                                        <option key={p.key} value={p.key}>
-                                                            Order #{p.orderId} - {p.productName} [{p.orderDate}]
-                                                        </option>
-                                                    ))
-                                                ) : (
-                                                    <option value="" disabled>No delivered products eligible for return</option>
-                                                )}
+                                                <option value="Wrong Item Delivered">Wrong Item / Size Received</option>
+                                                <option value="Defective / Damaged">Defective or Damaged Product</option>
+                                                <option value="Quality Not as Expected">Quality Not as Expected</option>
+                                                <option value="Changed Mind">Changed Mind</option>
+                                                <option value="Other">Other Reason</option>
                                             </select>
                                         </div>
-                                    </div>
-
-                                    <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
-                                        <label>REASON *</label>
-                                        <select 
-                                            value={returnForm.reason} 
-                                            onChange={(e) => setReturnForm({ ...returnForm, reason: e.target.value })}
-                                        >
-                                            <option value="Wrong Item Delivered">Wrong Item / Size Received</option>
-                                            <option value="Defective / Damaged">Defective or Damaged Product</option>
-                                            <option value="Quality Not as Expected">Quality Not as Expected</option>
-                                            <option value="Changed Mind">Changed Mind</option>
-                                            <option value="Other">Other Reason</option>
-                                        </select>
                                     </div>
 
                                     {returnForm.reason === 'Other' && (
@@ -999,20 +1712,33 @@ export default function ProfilePage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {returns.map(r => (
-                                                <tr key={r.id}>
-                                                    <td><strong>#{String(r.id).substring(0, 8)}</strong></td>
-                                                    <td>#{r.order_id}</td>
-                                                    <td>{r.products?.name || 'Order Item'}</td>
-                                                    <td><strong>{r.request_type || 'RETURN'}</strong></td>
-                                                    <td>{r.reason}</td>
-                                                    <td>
-                                                        <span className={styles['badge' + (r.status || 'PENDING')]}>
-                                                            {r.status || 'PENDING'}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {returns.map(r => {
+                                                const displayOrderInv = r.orders?.invoice_no 
+                                                    ? (r.orders.invoice_no.startsWith('#') ? r.orders.invoice_no : `#${r.orders.invoice_no}`)
+                                                    : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
+
+                                                const st = (r.status || 'PENDING').toUpperCase();
+                                                let badgeText = '⏳ Under Review';
+                                                let badgeClass = styles.badgePending;
+                                                if (st === 'APPROVED') { badgeText = '✅ Approved & Scheduled'; badgeClass = styles.badgeApproved; }
+                                                else if (st === 'COMPLETED') { badgeText = '✨ Return Completed'; badgeClass = styles.badgeCompleted; }
+                                                else if (st === 'REJECTED') { badgeText = '❌ Request Declined'; badgeClass = styles.badgeRejected; }
+
+                                                return (
+                                                    <tr key={r.id}>
+                                                        <td style={{ whiteSpace: 'nowrap' }}><strong>#{String(r.id).substring(0, 8)}</strong></td>
+                                                        <td style={{ whiteSpace: 'nowrap' }}><strong>{displayOrderInv}</strong></td>
+                                                        <td>{r.products?.name || 'Order Item'}</td>
+                                                        <td><strong>{r.request_type || 'RETURN'}</strong></td>
+                                                        <td>{r.reason}</td>
+                                                        <td>
+                                                            <span className={badgeClass}>
+                                                                {badgeText}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
