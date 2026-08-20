@@ -65,9 +65,16 @@ export default function AdminTopBar({ onMenuClick }) {
 
         // 2. Fetch fresh session info from verify-session API
         const token = typeof window !== 'undefined' ? localStorage.getItem('cast_prince_admin') : null;
+        const storedUsername = adminUser?.username || (typeof window !== 'undefined' ? (() => {
+            try { return JSON.parse(localStorage.getItem('cast_prince_admin_user'))?.username || ''; } catch(e) { return ''; }
+        })() : '');
+
         if (token) {
             fetch('/api/admin/verify-session', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'X-Admin-Username': storedUsername
+                }
             })
                 .then(res => res.json())
                 .then(data => {
