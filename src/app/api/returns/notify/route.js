@@ -76,6 +76,8 @@ export async function POST(request) {
         const productName = req.products?.name || 'Product Item';
         const brand = 'Vaiyaaree';
 
+        const webUrl = type === 'EXCHANGE' ? 'https://vaiyaaree-com-ten.vercel.app/profile?tab=return' : 'https://vaiyaaree-com-ten.vercel.app/profile?tab=refund';
+
         let message = '';
         if (status === 'PENDING' || status === 'SUBMITTED' || status === 'REQUESTED') {
             message = [
@@ -89,6 +91,8 @@ export async function POST(request) {
                 `Status: Under Review`,
                 ``,
                 `Our customer support team will review your request and update you shortly.`,
+                ``,
+                `🌐 Track status on website: ${webUrl}`,
                 ``,
                 `— ${brand}`
             ].join('\n');
@@ -104,6 +108,8 @@ export async function POST(request) {
                 ``,
                 `Notes: ${notes || 'Standard protocol initiated.'}`,
                 ``,
+                `🌐 Track status on website: ${webUrl}`,
+                ``,
                 `— ${brand}`
             ].join('\n');
         } else if (status === 'REJECTED') {
@@ -118,6 +124,8 @@ export async function POST(request) {
                 ``,
                 `Please contact our support team if you have any questions.`,
                 ``,
+                `🌐 View status on website: ${webUrl}`,
+                ``,
                 `— ${brand}`
             ].join('\n');
         } else if (status === 'COMPLETED') {
@@ -129,6 +137,8 @@ export async function POST(request) {
                 ``,
                 `Product: ${productName}`,
                 `We hope you are satisfied with the resolution!`,
+                ``,
+                `🌐 View details on website: ${webUrl}`,
                 ``,
                 `— ${brand}`
             ].join('\n');

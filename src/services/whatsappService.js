@@ -1904,6 +1904,7 @@ export async function handleRefundOrder(to) {
     let msg = "Refund Request\n\nYour delivered orders:\n";
     orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
     msg += "\nPlease reply with the Order ID you want to refund\n\n_Example: ORD-123456_";
+    msg += "\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=refund";
     return sendText(to, msg);
 }
 
@@ -1953,7 +1954,7 @@ export async function processRefundOrder(to, orderId) {
     // Store that this user is now in "Waiting for Refund Reason" state for this order
     await updateCustomerAdminNotes(customerId || to, `WAITING_REFUND_REASON:${upperOrderId}`);
 
-    return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.`);
+    return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.\n\n🌐 *Or submit via Website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=refund`);
 }
 
 export async function handleReturnExchangeOrder(customerId, to) {
@@ -1994,7 +1995,7 @@ export async function handleReturnExchangeOrder(customerId, to) {
 
     if (!allDelivered?.length) {
         console.log(' No delivered orders found - sending error message');
-        return sendButtons(to, " No delivered orders found. Only delivered orders can be returned or exchanged.", [{ id: "menu_main", title: " Main Menu" }]);
+        return sendButtons(to, " No delivered orders found. Only delivered orders can be returned or exchanged.\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return", [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Filter for 10-day delivery deadline
@@ -2022,12 +2023,13 @@ export async function handleReturnExchangeOrder(customerId, to) {
     }).slice(0, 10);
 
     if (!orders?.length) {
-        return sendButtons(to, " No orders found eligible for return or exchange (delivery window exceeded or request already submitted).", [{ id: "menu_main", title: " Main Menu" }]);
+        return sendButtons(to, " No orders found eligible for return or exchange (delivery window exceeded or request already submitted).\n\n🌐 *View status on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return", [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     let msg = " *Return or Exchange*\n\nYour delivered orders:\n";
     orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
     msg += "\n *Please reply with the Order ID* you want to return/exchange\n\n_Example: ORD-123456_";
+    msg += "\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return";
     return sendText(to, msg);
 }
 
@@ -2048,7 +2050,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     }
 
     if (!order || order.status !== 'DELIVERED') {
-        return sendButtons(to, ` Order *${orderId}* not found or is not DELIVERED.\n\nOnly delivered orders can be returned or exchanged.`, [{ id: "menu_main", title: " Main Menu" }]);
+        return sendButtons(to, ` Order *${orderId}* not found or is not DELIVERED.\n\nOnly delivered orders can be returned or exchanged.\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return`, [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Verify 10-day deadline
@@ -2071,7 +2073,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     // Store state: WAITING_RETURN_TYPE:ORDER_ID
     await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_TYPE:${upperOrderId}`);
 
-    return sendButtons(to, `Order *${upperOrderId}* selected.\n\nWhat would you like to do?`, [
+    return sendButtons(to, `Order *${upperOrderId}* selected.\n\nWhat would you like to do?\n\n🌐 *Or manage on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return`, [
         { id: `rectype_return_${upperOrderId}`, title: " Return & Refund" },
         { id: `rectype_exchange_${upperOrderId}`, title: " Exchange Item" }
     ]);
@@ -2081,12 +2083,16 @@ export async function handleReturnExchangeTypeSelection(customerId, type, orderI
     // type is 'RETURN' or 'EXCHANGE'
     await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_REASON:${type}:${orderId}`);
 
-    return sendText(to, `You selected *${type}* for Order *${orderId}*.\n\nPlease reply with the *reason* for your request and which item(s) you wish to ${type.toLowerCase()}.`);
+    const webUrl = type === 'EXCHANGE' ? 'https://vaiyaaree-com-ten.vercel.app/profile?tab=return' : 'https://vaiyaaree-com-ten.vercel.app/profile?tab=refund';
+
+    return sendText(to, `You selected *${type}* for Order *${orderId}*.\n\nPlease reply with the *reason* for your request and which item(s) you wish to ${type.toLowerCase()}.\n\n🌐 *Or complete on website:*\n${webUrl}`);
 }
 
 export async function submitReturnExchangeRequest(to, type, orderId, reason, customerId = null) {
     console.log('\n === SUBMIT RETURN/EXCHANGE REQUEST (INTERNAL) ===');
     console.log(`[RETURN] Order: ${orderId}, Type: ${type}`);
+
+    const webUrl = type === 'EXCHANGE' ? 'https://vaiyaaree-com-ten.vercel.app/profile?tab=return' : 'https://vaiyaaree-com-ten.vercel.app/profile?tab=refund';
 
     try {
         // Fetch order items for the service (try exact match first, then uppercase)
@@ -2141,12 +2147,12 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
         await updateCustomerAdminNotes(to, null);
 
         if (result.alreadyExists) {
-            return sendButtons(to, `ℹ A ${type.toLowerCase()} request for Order *#${orderId}* has already been submitted.\n\nOur team is working on it!`, [
+            return sendButtons(to, `ℹ A ${type.toLowerCase()} request for Order *#${orderId}* has already been submitted.\n\nOur team is working on it!\n\n🌐 *Track status on website:*\n${webUrl}`, [
                 { id: "menu_main", title: " Main Menu" }
             ]);
         }
 
-        return sendButtons(to, ` *Request Submitted*\n\nYour ${type.toLowerCase()} request for Order *#${orderId}* has been received successfully.\n\nOur team will review it and update you shortly. Thank you!`, [
+        return sendButtons(to, ` *Request Submitted*\n\nYour ${type.toLowerCase()} request for Order *#${orderId}* has been received successfully.\n\nOur team will review it and update you shortly. Thank you!\n\n🌐 *Track status on website:*\n${webUrl}`, [
             { id: "menu_main", title: " Main Menu" }
         ]);
     } catch (err) {
@@ -2183,7 +2189,7 @@ export async function confirmRefundOrder(to, orderId, reason) {
         });
     }
 
-    return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.`, [{ id: "menu_main", title: "Main Menu" }]);
+    return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.\n\n🌐 *Track refund on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=refund`, [{ id: "menu_main", title: "Main Menu" }]);
 }
 
 async function getOrderCatalogNumbers(orderId) {

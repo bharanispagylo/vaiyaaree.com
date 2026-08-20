@@ -78,6 +78,8 @@ export async function POST(request) {
         const amount = refund.amount || 0;
         const brand = 'Vaiyaaree';
 
+        const webUrl = 'https://vaiyaaree-com-ten.vercel.app/profile?tab=refund';
+
         let message = '';
         if (status === 'REQUESTED' || status === 'PENDING' || status === 'SUBMITTED') {
             message = [
@@ -92,6 +94,8 @@ export async function POST(request) {
                 ``,
                 `Our accounts team is reviewing your request and will notify you once processed.`,
                 ``,
+                `🌐 Track status on website: ${webUrl}`,
+                ``,
                 `— ${brand}`
             ].join('\n');
         } else if (status === 'APPROVED') {
@@ -104,6 +108,8 @@ export async function POST(request) {
                 `Refund Amount: ₹${amount.toLocaleString('en-IN')}`,
                 ``,
                 `Your refund has been approved and is being processed. It should reflect in your account within 5-7 business days.`,
+                ``,
+                `🌐 Track status on website: ${webUrl}`,
                 ``,
                 `— ${brand}`
             ].join('\n');
@@ -118,6 +124,8 @@ export async function POST(request) {
                 `Reason: ${notes || 'Please contact support for details.'}`,
                 ``,
                 `If you have any questions, feel free to reach out to us.`,
+                ``,
+                `🌐 View status on website: ${webUrl}`,
                 ``,
                 `— ${brand}`
             ].join('\n');
@@ -134,10 +142,12 @@ export async function POST(request) {
                 ``,
                 `Thank you for your patience!`,
                 ``,
+                `🌐 View details on website: ${webUrl}`,
+                ``,
                 `— ${brand}`
             ].join('\n');
         } else {
-            message = `Refund update for Order #${orderId}: Status changed to ${status}.\n— ${brand}`;
+            message = `Refund update for Order #${orderId}: Status changed to ${status}.\n\n🌐 View on website: ${webUrl}\n— ${brand}`;
         }
 
         if (phone && message) {
