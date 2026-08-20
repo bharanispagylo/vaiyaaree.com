@@ -136,10 +136,17 @@ export function ShopProvider({ children }) {
                             variantName: dbItem.variant_name
                         }));
                         
-                        const guestItems = prev.filter(g => !dbCart.find(d => (g.variantId ? d.variantId === g.variantId : d.id === g.id)));
-                        
-                        if (!isCartLoaded && guestItems.length > 0) {
-                            return [...dbCart, ...guestItems];
+                        // If guest cart items exist in local state, DO NOT wipe them out!
+                        // Preserve guest cart items and merge any extra DB items
+                        if (prev && prev.length > 0) {
+                            const merged = [...prev];
+                            dbCart.forEach(dbItem => {
+                                const exists = merged.find(m => (dbItem.variantId ? m.variantId === dbItem.variantId : m.id === dbItem.id));
+                                if (!exists) {
+                                    merged.push(dbItem);
+                                }
+                            });
+                            return merged;
                         }
                         
                         return dbCart;
@@ -232,10 +239,16 @@ export function ShopProvider({ children }) {
 
                         setCheckoutForm(prev => ({
                             ...prev,
-                            billingName: activeUser.name || '',
-                            billingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : '',
-                            shippingName: activeUser.name || '',
-                            shippingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : ''
+                            billingName: activeUser.name || prev.billingName || '',
+                            billingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : (prev.billingPhone || ''),
+                            billingWhatsApp: activeUser.phone ? activeUser.phone.replace(/^91/, '') : (prev.billingWhatsApp || ''),
+                            billingEmail: activeUser.email || prev.billingEmail || '',
+                            billingAddress: activeUser.address || prev.billingAddress || '',
+                            billingCity: activeUser.city || prev.billingCity || '',
+                            billingState: activeUser.state || prev.billingState || 'Tamil Nadu',
+                            billingPincode: activeUser.pincode || prev.billingPincode || '',
+                            shippingName: activeUser.name || prev.shippingName || '',
+                            shippingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : (prev.shippingPhone || '')
                         }));
                     }
                 } catch (dbErr) {
@@ -250,6 +263,25 @@ export function ShopProvider({ children }) {
             setIsSessionLoading(false);
         }
     }
+
+    // Auto-sync checkout form whenever logged in user profile updates
+    useEffect(() => {
+        if (user && user.id) {
+            setCheckoutForm(prev => ({
+                ...prev,
+                billingName: user.name || prev.billingName || '',
+                billingPhone: user.phone ? user.phone.replace(/^91/, '') : (prev.billingPhone || ''),
+                billingWhatsApp: user.phone ? user.phone.replace(/^91/, '') : (prev.billingWhatsApp || ''),
+                billingEmail: user.email || prev.billingEmail || '',
+                billingAddress: user.address || prev.billingAddress || '',
+                billingCity: user.city || prev.billingCity || '',
+                billingState: user.state || prev.billingState || 'Tamil Nadu',
+                billingPincode: user.pincode || prev.billingPincode || '',
+                shippingName: user.name || prev.shippingName || '',
+                shippingPhone: user.phone ? user.phone.replace(/^91/, '') : (prev.shippingPhone || '')
+            }));
+        }
+    }, [user]);
 
     async function handleLogout() {
         if (typeof window !== 'undefined') {

@@ -1,63 +1,151 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Phone, Lock, User, ShieldCheck, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Phone, Mail, Lock, User, Eye, EyeOff, CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 
-export default function CustomerLoginPage() {
+function LoginContent() {
     const router = useRouter();
-    const { setUser } = useShop();
+    const searchParams = useSearchParams();
+    const redirectUrl = searchParams.get('redirect') || '';
+    const { setUser, showToast } = useShop();
 
-    // User Login State
-    const [phone, setPhone] = useState('');
-    const [otp, setOtp] = useState('');
-    const [step, setStep] = useState(1); // 1: phone, 2: otp
+    const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
 
+    // Login Form State
+    const [loginIdentifier, setLoginIdentifier] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+    // Register Form State
+    const [regName, setRegName] = useState('');
+    const [regEmail, setRegEmail] = useState('');
+    const [regPhone, setRegPhone] = useState('');
+    const [regPassword, setRegPassword] = useState('');
+    const [regConfirmPassword, setRegConfirmPassword] = useState('');
+    const [showRegPassword, setShowRegPassword] = useState(false);
+
+    // UI Loading & Error States
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
-    const handleSendOTP = async (e) => {
+    useEffect(() => {
+        const mode = searchParams.get('mode');
+        if (mode === 'register') {
+            setActiveTab('register');
+        }
+    }, [searchParams]);
+
+    // Handle Existing User Login (Mobile / Email + Password)
+    const handleLoginSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setSuccessMessage('');
+
+        if (!loginIdentifier.trim()) {
+            setError('Please enter your Mobile Number or Email address.');
+            return;
+        }
+        if (!loginPassword.trim()) {
+            setError('Please enter your Password.');
+            return;
+        }
+
         setLoading(true);
         try {
-            const res = await fetch('/api/auth/otp/send', {
+            const res = await fetch('/api/auth/customer/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, role: 'user' })
+                body: JSON.stringify({
+                    identifier: loginIdentifier.trim(),
+                    password: loginPassword.trim()
+                })
             });
+
             const data = await res.json();
-            if (res.ok) setStep(2);
-            else setError(data.error || 'Failed to send OTP');
+            if (res.ok && data.success) {
+                const customerData = { ...data.customer, login_at: Date.now() };
+                localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
+                setUser(customerData);
+                showToast('Login Successful! Welcome back.', 'success');
+
+                if (redirectUrl) {
+                    router.push(redirectUrl);
+                } else {
+                    router.push('/shop');
+                }
+            } else {
+                setError(data.error || 'Invalid Mobile/Email or Password. Please try again.');
+            }
         } catch (err) {
-            setError('Connection error. Please try again.');
+            console.error('Login Error:', err);
+            setError('Connection failed. Please check your internet connection.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleVerifyOTP = async (e) => {
+    // Handle New User Registration (Create Account)
+    const handleRegisterSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setSuccessMessage('');
+
+        if (!regName.trim()) {
+            setError('Please enter your Full Name.');
+            return;
+        }
+        if (!regEmail.trim() || !regEmail.includes('@')) {
+            setError('Please enter a valid Email Address.');
+            return;
+        }
+        const cleanDigits = regPhone.replace(/\D/g, '').slice(-10);
+        if (cleanDigits.length !== 10) {
+            setError('Please enter a valid 10-digit Mobile Number.');
+            return;
+        }
+        if (!regPassword || regPassword.length < 6) {
+            setError('Password must be at least 6 characters long.');
+            return;
+        }
+        if (regPassword !== regConfirmPassword) {
+            setError('New Password and Confirm Password do not match.');
+            return;
+        }
+
         setLoading(true);
         try {
-            const res = await fetch('/api/auth/otp/verify', {
+            const res = await fetch('/api/auth/customer/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, otp, role: 'user' })
+                body: JSON.stringify({
+                    name: regName.trim(),
+                    email: regEmail.trim(),
+                    phone: cleanDigits,
+                    password: regPassword
+                })
             });
+
             const data = await res.json();
-            if (res.ok) {
+            if (res.ok && data.success) {
                 const customerData = { ...data.customer, login_at: Date.now() };
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
-                router.push('/shop');
+                showToast('Account Created Successfully! Welcome to Vaiyaaree.', 'success');
+
+                if (redirectUrl) {
+                    router.push(redirectUrl);
+                } else {
+                    router.push('/shop');
+                }
             } else {
-                setError(data.error || 'Invalid OTP');
+                setError(data.error || 'Account creation failed. Please try again.');
             }
         } catch (err) {
-            setError('Verification failed. Try again.');
+            console.error('Register Error:', err);
+            setError('Connection failed. Please check your internet connection.');
         } finally {
             setLoading(false);
         }
@@ -65,129 +153,363 @@ export default function CustomerLoginPage() {
 
     return (
         <div style={{
-            minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'hsl(var(--bg-app))', padding: '1.5rem', fontFamily: 'var(--font-body)', color: 'hsl(var(--text-main))'
+            minHeight: '100vh',
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'linear-gradient(135deg, #fdfbf7 0%, #f7eae1 100%)',
+            padding: '2rem 1rem',
+            fontFamily: 'var(--font-roboto), sans-serif',
+            color: '#2b2623'
         }}>
             <div style={{
-                maxWidth: '440px', width: '100%', background: 'hsl(var(--bg-card))', padding: '2.5rem',
-                borderRadius: '1.5rem', border: '1px solid hsl(var(--border-subtle))', boxShadow: 'var(--shadow-card)'
+                maxWidth: '460px',
+                width: '100%',
+                margin: '0 auto',
+                background: '#ffffff',
+                padding: '2.5rem 2rem',
+                borderRadius: '20px',
+                border: '1px solid #f0e6df',
+                boxShadow: '0 15px 45px rgba(93, 8, 33, 0.08)'
             }}>
-                <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+                {/* Logo & Title Header */}
+                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
                         <div style={{
-                            width: '130px', height: '130px', background: 'transparent', borderRadius: '1rem',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 10px 25px hsl(var(--primary) / 0.2)', overflow: 'hidden', padding: '0.25rem'
+                            width: '80px',
+                            height: '80px',
+                            borderRadius: '16px',
+                            overflow: 'hidden',
+                            boxShadow: '0 8px 20px rgba(93, 8, 33, 0.12)',
+                            background: '#ffffff',
+                            padding: '6px'
                         }}>
-                            <img src="/images/cp-logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src="/images/cp-logo.png" alt="Vaiyaaree" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         </div>
                     </div>
-                    <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Vaiyaaree</h1>
-                    <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
-                        Customer Shop Portal
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 0.35rem' }}>Vaiyaaree</h1>
+                    <p style={{ fontSize: '0.85rem', color: '#5d0821', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase', margin: 0 }}>
+                        {redirectUrl.includes('checkout') ? 'Checkout Authorization' : 'Customer Shop Portal'}
                     </p>
                 </div>
 
-                {/* USER LOGIN FORM (Phone + OTP) */}
-                <>
-                    {step === 1 ? (
-                        <form onSubmit={handleSendOTP}>
-                            <div style={{ marginBottom: '2rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: 'hsl(var(--text-muted))' }}>
-                                    WhatsApp Number
-                                </label>
-                                <div style={{ position: 'relative' }}>
-                                    <Phone size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-dim))' }} />
-                                    <input
-                                        type="tel"
-                                        placeholder="Enter mobile number"
-                                        value={phone}
-                                        onChange={e => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                                        pattern="[0-9]{10}"
-                                        maxLength="10"
-                                        minLength="10"
-                                        required
-                                        style={{
-                                            width: '100%', padding: '1rem 1rem 1rem 3.5rem',
-                                            borderRadius: '0.9rem', border: '1px solid hsl(var(--border-subtle))',
-                                            background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', boxSizing: 'border-box',
-                                            fontSize: '1rem', outline: 'none', fontFamily: 'var(--font-body)'
-                                        }}
-                                    />
-                                </div>
-                            </div>
+                {/* Redirect Info Banner */}
+                {redirectUrl.includes('checkout') && (
+                    <div style={{
+                        background: 'rgba(93, 8, 33, 0.06)',
+                        border: '1px solid rgba(93, 8, 33, 0.2)',
+                        borderRadius: '10px',
+                        padding: '0.75rem 1rem',
+                        fontSize: '0.85rem',
+                        color: '#5d0821',
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        marginBottom: '1.5rem'
+                    }}>
+                        🛍️ Please login or create an account to complete your purchase. Your cart is preserved!
+                    </div>
+                )}
 
-                            {error && <div style={{ color: 'hsl(var(--danger))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>{error}</div>}
+                {/* Tabs Toggle: Login vs Create Account */}
+                <div style={{
+                    display: 'flex',
+                    background: '#f8f4ee',
+                    padding: '4px',
+                    borderRadius: '12px',
+                    marginBottom: '1.75rem',
+                    border: '1px solid #efe5db'
+                }}>
+                    <button
+                        onClick={() => { setActiveTab('login'); setError(''); setSuccessMessage(''); }}
+                        style={{
+                            flex: 1,
+                            padding: '0.75rem',
+                            border: 'none',
+                            borderRadius: '9px',
+                            background: activeTab === 'login' ? '#ffffff' : 'transparent',
+                            color: activeTab === 'login' ? '#5d0821' : '#777',
+                            fontWeight: activeTab === 'login' ? 700 : 600,
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                            boxShadow: activeTab === 'login' ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+                            transition: 'all 0.25s ease'
+                        }}
+                    >
+                        Existing User Login
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab('register'); setError(''); setSuccessMessage(''); }}
+                        style={{
+                            flex: 1,
+                            padding: '0.75rem',
+                            border: 'none',
+                            borderRadius: '9px',
+                            background: activeTab === 'register' ? '#ffffff' : 'transparent',
+                            color: activeTab === 'register' ? '#5d0821' : '#777',
+                            fontWeight: activeTab === 'register' ? 700 : 600,
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                            boxShadow: activeTab === 'register' ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+                            transition: 'all 0.25s ease'
+                        }}
+                    >
+                        Create Account
+                    </button>
+                </div>
 
+                {/* Error & Success Messages */}
+                {error && (
+                    <div style={{
+                        background: '#fdf2f2',
+                        border: '1px solid #f8b4b4',
+                        color: '#981b1b',
+                        padding: '0.85rem 1rem',
+                        borderRadius: '10px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        marginBottom: '1.5rem'
+                    }}>
+                        ⚠️ {error}
+                    </div>
+                )}
+                {successMessage && (
+                    <div style={{
+                        background: '#f0fdf4',
+                        border: '1px solid #bbf7d0',
+                        color: '#166534',
+                        padding: '0.85rem 1rem',
+                        borderRadius: '10px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        marginBottom: '1.5rem'
+                    }}>
+                        ✅ {successMessage}
+                    </div>
+                )}
 
-                            <button type="submit" disabled={loading} style={{
-                                width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: '#fff',
-                                border: 'none', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                                cursor: 'pointer', fontFamily: 'var(--font-body)'
-                            }}>
-                                {loading ? <Loader2 className="animate-spin" size={20} /> : <>Login <ArrowRight size={18} /></>}
-                            </button>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleVerifyOTP}>
-                            <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 1.25rem', background: 'hsl(var(--success) / 0.1)', borderRadius: '50px', color: 'hsl(var(--success))', fontSize: '0.85rem', fontWeight: 700 }}>
-                                    <CheckCircle2 size={18} /> Verifying {phone}
-                                </div>
-                            </div>
-
-                            <div style={{ marginBottom: '2rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.65rem', color: 'hsl(var(--text-muted))', textAlign: 'center' }}>
-                                    Enter 6-Digit Code
-                                </label>
+                {/* TAB 1: EXISTING USER LOGIN FORM */}
+                {activeTab === 'login' && (
+                    <form onSubmit={handleLoginSubmit}>
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Mobile Number or Email
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
                                 <input
                                     type="text"
-                                    maxLength={6}
-                                    placeholder="000000"
-                                    value={otp}
-                                    onChange={e => setOtp(e.target.value)}
+                                    value={loginIdentifier}
+                                    onChange={e => setLoginIdentifier(e.target.value)}
+                                    placeholder="Enter 10-digit Mobile or Email"
                                     required
                                     style={{
-                                        width: '100%', padding: '1.1rem',
-                                        borderRadius: '0.9rem', border: '1px solid hsl(var(--border-subtle))',
-                                        background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', boxSizing: 'border-box',
-                                        fontSize: '1.5rem', outline: 'none', letterSpacing: '8px', textAlign: 'center', fontFamily: 'var(--font-body)'
+                                        width: '100%',
+                                        padding: '0.85rem 1rem 0.85rem 2.75rem',
+                                        borderRadius: '10px',
+                                        border: '1px solid #ddd',
+                                        fontSize: '0.95rem',
+                                        outline: 'none',
+                                        background: '#faf9f6'
                                     }}
                                 />
                             </div>
+                        </div>
 
-                            {error && <div style={{ color: 'hsl(var(--danger))', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>{error}</div>}
+                        <div style={{ marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Password
+                                </label>
+                                <Link href="/forgot-password" style={{ fontSize: '0.8rem', color: '#5d0821', fontWeight: 700, textDecoration: 'none' }}>
+                                    Forgot Password?
+                                </Link>
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                <input
+                                    type={showLoginPassword ? "text" : "password"}
+                                    value={loginPassword}
+                                    onChange={e => setLoginPassword(e.target.value)}
+                                    placeholder="Enter your password"
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.85rem 2.75rem 0.85rem 2.75rem',
+                                        borderRadius: '10px',
+                                        border: '1px solid #ddd',
+                                        fontSize: '0.95rem',
+                                        outline: 'none',
+                                        background: '#faf9f6'
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                                    style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}
+                                >
+                                    {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
 
-                            <button type="submit" disabled={loading} style={{
-                                width: '100%', padding: '1.1rem', background: 'hsl(var(--primary))', color: 'white',
-                                border: 'none', borderRadius: '1rem', fontWeight: 700, fontSize: '1.1rem',
-                                cursor: 'pointer', boxShadow: '0 5px 15px hsl(var(--primary) / 0.2)', fontFamily: 'var(--font-body)'
-                            }}>
-                                {loading ? <Loader2 className="animate-spin" size={20} /> : 'Verify & Continue'}
-                            </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{
+                                width: '100%',
+                                padding: '1rem',
+                                marginTop: '1rem',
+                                background: '#5d0821',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                fontWeight: 800,
+                                fontSize: '0.95rem',
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                boxShadow: '0 6px 20px rgba(93, 8, 33, 0.2)',
+                                transition: 'all 0.25s ease'
+                            }}
+                        >
+                            {loading ? 'Logging in...' : 'Login →'}
+                        </button>
+                    </form>
+                )}
 
-                            <button type="button" onClick={() => setStep(1)} style={{
-                                width: '100%', marginTop: '1.5rem', background: 'none', border: 'none',
-                                color: 'hsl(var(--text-dim))', fontSize: '0.85rem', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, fontFamily: 'var(--font-body)'
-                            }}>
-                                Try a different number
-                            </button>
-                        </form>
-                    )}
-                </>
+                {/* TAB 2: NEW USER CREATE ACCOUNT FORM */}
+                {activeTab === 'register' && (
+                    <form onSubmit={handleRegisterSubmit}>
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Full Name <span style={{ color: '#5d0821' }}>*</span>
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                <input
+                                    type="text"
+                                    value={regName}
+                                    onChange={e => setRegName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
+                                    placeholder="Enter your full name"
+                                    required
+                                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
+                                />
+                            </div>
+                        </div>
 
-                <div style={{ marginTop: '3rem', textAlign: 'center', borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1.5rem' }}>
-                    <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-dim))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <ShieldCheck size={14} /> Secure Customer Portal
-                    </p>
-                </div>
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Email Address <span style={{ color: '#5d0821' }}>*</span>
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                <input
+                                    type="email"
+                                    value={regEmail}
+                                    onChange={e => setRegEmail(e.target.value)}
+                                    placeholder="your@email.com"
+                                    required
+                                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Mobile Number <span style={{ color: '#5d0821' }}>*</span>
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                <input
+                                    type="tel"
+                                    value={regPhone}
+                                    onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                                    placeholder="10-digit mobile number"
+                                    maxLength="10"
+                                    minLength="10"
+                                    required
+                                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                New Password <span style={{ color: '#5d0821' }}>*</span>
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                <input
+                                    type={showRegPassword ? "text" : "password"}
+                                    value={regPassword}
+                                    onChange={e => setRegPassword(e.target.value)}
+                                    placeholder="At least 6 characters"
+                                    minLength="6"
+                                    required
+                                    style={{ width: '100%', padding: '0.8rem 2.75rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRegPassword(!showRegPassword)}
+                                    style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}
+                                >
+                                    {showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Confirm Password <span style={{ color: '#5d0821' }}>*</span>
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                <input
+                                    type={showRegPassword ? "text" : "password"}
+                                    value={regConfirmPassword}
+                                    onChange={e => setRegConfirmPassword(e.target.value)}
+                                    placeholder="Re-enter password"
+                                    minLength="6"
+                                    required
+                                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{
+                                width: '100%',
+                                padding: '1rem',
+                                marginTop: '0.5rem',
+                                background: '#5d0821',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '10px',
+                                fontWeight: 800,
+                                fontSize: '0.95rem',
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                boxShadow: '0 6px 20px rgba(93, 8, 33, 0.2)',
+                                transition: 'all 0.25s ease'
+                            }}
+                        >
+                            {loading ? 'Creating Account...' : 'Create Account →'}
+                        </button>
+                    </form>
+                )}
             </div>
-
-            <style jsx>{`
-                .animate-spin { animation: spin 1s linear infinite; }
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-            `}</style>
         </div>
+    );
+}
+
+export default function CustomerLoginPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '4rem', textAlign: 'center' }}>Loading authentication page...</div>}>
+            <LoginContent />
+        </Suspense>
     );
 }

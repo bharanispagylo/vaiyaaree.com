@@ -13,6 +13,25 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+export async function sendEmail({ to, subject, html }) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.log(`[EMAIL-SERVICE] Logging mode (SMTP not configured) — To: ${to}, Subject: ${subject}`);
+        return { success: true, logged: true };
+    }
+    try {
+        const info = await transporter.sendMail({
+            from: process.env.SMTP_FROM || '"Vaiyaaree Sarees" <no-reply@vaiyaaree.com>',
+            to,
+            subject,
+            html
+        });
+        return { success: true, messageId: info.messageId };
+    } catch (err) {
+        console.error('[EMAIL-SERVICE] Error sending email:', err);
+        return { success: false, error: err.message };
+    }
+}
+
 // Helper for Status Badge HTML (Pure HTML inline styles)
 function getStatusBadgeHtml(status) {
     const s = (status || '').toUpperCase();

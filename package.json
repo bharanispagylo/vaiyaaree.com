@@ -13,6 +13,7 @@
     "dotenv": "^17.3.1",
     "jspdf": "^4.1.0",
     "lucide-react": "^0.572.0",
+    "mysql2": "^3.23.4",
     "next": "16.1.6",
     "nodemailer": "^8.0.4",
     "pdfkit": "^0.18.0",

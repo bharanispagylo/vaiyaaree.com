@@ -5,14 +5,17 @@ import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
+import CheckoutAuthModal from '@/components/CheckoutAuthModal';
 import Link from 'next/link';
 import styles from './checkout.module.css';
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, placeOrder, supabase, showToast } = useShop();
+    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, placeOrder, supabase, showToast, user } = useShop();
     const [placing, setPlacing] = useState(false);
     const [orderData, setOrderData] = useState(null);
+
+    const isUserLoggedIn = Boolean(user && user.id);
 
 
     // Sync shipping with billing when sameAsBilling is checked
@@ -288,106 +291,118 @@ export default function CheckoutPage() {
     }
 
     return (
-        <div className={styles.checkoutLayout}>
-            <div className={styles.checkoutLeft}>
-                {/* BILLING ADDRESS SECTION */}
-                <section className={styles.checkoutCard}>
-                    <h3 className={styles.cardTitle}>Billing Details</h3>
-                    <div className={styles.formGrid}>
-                        <div className={styles.formGroup}>
-                            <label>FULL NAME <span className={styles.requiredStar}>*</span></label>
-                            <input 
-                                type="text" 
-                                value={checkoutForm.billingName || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingName: e.target.value.replace(/[^a-zA-Z\s]/g, '') }))} 
-                                placeholder="Enter your full name" 
-                                pattern="[a-zA-Z\s]+"
-                                title="Only letters and spaces are allowed"
-                                required
-                            />
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label>PHONE NUMBER <span className={styles.requiredStar}>*</span></label>
-                            <input 
-                                type="tel" 
-                                value={checkoutForm.billingPhone || ''} 
-                                onChange={e => {
-                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
-                                    setCheckoutForm(p => ({
-                                        ...p,
-                                        billingPhone: val,
-                                        billingWhatsApp: (!p.billingWhatsApp || p.billingWhatsApp === p.billingPhone) ? val : p.billingWhatsApp
-                                    }));
-                                }} 
-                                placeholder="10-digit phone number" 
-                                pattern="[0-9]{10}"
-                                maxLength="10"
-                                minLength="10"
-                                required
-                            />
-                        </div>
-                    </div>
+        <>
+            {!isUserLoggedIn && (
+                <CheckoutAuthModal />
+            )}
 
-                    <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
-                        <div className={styles.formGroup}>
-                            <label>WHATSAPP NUMBER <span className={styles.requiredStar}>*</span></label>
-                            <input 
-                                type="tel" 
-                                value={checkoutForm.billingWhatsApp || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingWhatsApp: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
-                                placeholder="WhatsApp number for order updates" 
-                                pattern="[0-9]{10}"
-                                maxLength="10"
-                                minLength="10"
-                                required
-                            />
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label>EMAIL ADDRESS <span className={styles.requiredStar}>*</span></label>
-                            <input 
-                                type="email" 
-                                value={checkoutForm.billingEmail || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingEmail: e.target.value }))} 
-                                placeholder="your@email.com" 
-                                required
-                            />
-                        </div>
-                    </div>
+            <div style={{
+                filter: !isUserLoggedIn ? 'blur(6px)' : 'none',
+                pointerEvents: !isUserLoggedIn ? 'none' : 'auto',
+                userSelect: !isUserLoggedIn ? 'none' : 'auto',
+                opacity: !isUserLoggedIn ? 0.45 : 1,
+                transition: 'all 0.3s ease'
+            }}>
+                <div className={styles.checkoutLayout}>
+                    <div className={styles.checkoutLeft}>
+                        {/* BILLING ADDRESS SECTION */}
+                        <section className={styles.checkoutCard}>
+                            <h3 className={styles.cardTitle}>Billing Details</h3>
+                            <div className={styles.formGrid}>
+                                <div className={styles.formGroup}>
+                                    <label>FULL NAME <span className={styles.requiredStar}>*</span></label>
+                                    <input 
+                                        type="text" 
+                                        value={checkoutForm.billingName || ''} 
+                                        onChange={e => setCheckoutForm(p => ({ ...p, billingName: e.target.value.replace(/[^a-zA-Z\s]/g, '') }))} 
+                                        placeholder="Enter your full name" 
+                                        pattern="[a-zA-Z\s]+"
+                                        title="Only letters and spaces are allowed"
+                                        required
+                                    />
+                                </div>
+                                <div className={styles.formGroup}>
+                                    <label>PHONE NUMBER <span className={styles.requiredStar}>*</span></label>
+                                    <input 
+                                        type="tel" 
+                                        value={checkoutForm.billingPhone || ''} 
+                                        onChange={e => {
+                                            const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                            setCheckoutForm(p => ({
+                                                ...p,
+                                                billingPhone: val,
+                                                billingWhatsApp: (!p.billingWhatsApp || p.billingWhatsApp === p.billingPhone) ? val : p.billingWhatsApp
+                                            }));
+                                        }} 
+                                        placeholder="10-digit phone number" 
+                                        pattern="[0-9]{10}"
+                                        maxLength="10"
+                                        minLength="10"
+                                        required
+                                    />
+                                </div>
+                            </div>
 
-                    <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
-                        <label>BILLING ADDRESS <span className={styles.requiredStar}>*</span></label>
-                        <textarea 
-                            value={checkoutForm.billingAddress || ''} 
-                            onChange={e => setCheckoutForm(p => ({ ...p, billingAddress: e.target.value }))} 
-                            placeholder="House No, Building, Street, Area..." 
-                            rows={2} 
-                            required
-                        />
-                    </div>
+                            <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                                <div className={styles.formGroup}>
+                                    <label>WHATSAPP NUMBER <span className={styles.requiredStar}>*</span></label>
+                                    <input 
+                                        type="tel" 
+                                        value={checkoutForm.billingWhatsApp || ''} 
+                                        onChange={e => setCheckoutForm(p => ({ ...p, billingWhatsApp: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
+                                        placeholder="WhatsApp number for order updates" 
+                                        pattern="[0-9]{10}"
+                                        maxLength="10"
+                                        minLength="10"
+                                        required
+                                    />
+                                </div>
+                                <div className={styles.formGroup}>
+                                    <label>EMAIL ADDRESS <span className={styles.requiredStar}>*</span></label>
+                                    <input 
+                                        type="email" 
+                                        value={checkoutForm.billingEmail || ''} 
+                                        onChange={e => setCheckoutForm(p => ({ ...p, billingEmail: e.target.value }))} 
+                                        placeholder="your@email.com" 
+                                        required
+                                    />
+                                </div>
+                            </div>
 
-                    <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
-                        <div className={styles.formGroup}>
-                            <label>CITY / TOWN <span className={styles.requiredStar}>*</span></label>
-                            <input 
-                                type="text" 
-                                value={checkoutForm.billingCity || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingCity: e.target.value }))} 
-                                placeholder="City name" 
-                                required
-                            />
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label>STATE <span className={styles.requiredStar}>*</span></label>
-                            <select 
-                                value={checkoutForm.billingState || 'Tamil Nadu'} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
-                            >
-                                {states.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                    </div>
+                            <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
+                                <label>BILLING ADDRESS <span className={styles.requiredStar}>*</span></label>
+                                <textarea 
+                                    value={checkoutForm.billingAddress || ''} 
+                                    onChange={e => setCheckoutForm(p => ({ ...p, billingAddress: e.target.value }))} 
+                                    placeholder="House No, Building, Street, Area..." 
+                                    rows={2} 
+                                    required
+                                />
+                            </div>
 
-                    <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                            <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                                <div className={styles.formGroup}>
+                                    <label>CITY / TOWN <span className={styles.requiredStar}>*</span></label>
+                                    <input 
+                                        type="text" 
+                                        value={checkoutForm.billingCity || ''} 
+                                        onChange={e => setCheckoutForm(p => ({ ...p, billingCity: e.target.value }))} 
+                                        placeholder="City name" 
+                                        required
+                                    />
+                                </div>
+                                <div className={styles.formGroup}>
+                                    <label>STATE <span className={styles.requiredStar}>*</span></label>
+                                    <select 
+                                        value={checkoutForm.billingState || 'Tamil Nadu'} 
+                                        onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
+                                    >
+                                        {states.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                         <div className={styles.formGroup}>
                             <label>PINCODE <span className={styles.requiredStar}>*</span></label>
                             <input 
@@ -402,16 +417,8 @@ export default function CheckoutPage() {
                     </div>
                 </section>
 
-                {/* CONDITIONALLY RENDER SHIPPING DETAILS & PAYMENT ONLY AFTER BILLING DETAILS ARE FILLED OUT */}
-                {!isBillingComplete ? (
-                    <div className={styles.billingIncompleteNotice}>
-                        <MapPin size={22} style={{ flexShrink: 0 }} />
-                        <span>Please fill in all mandatory Billing Details above (Full Name, 10-digit Phone, 10-digit WhatsApp, Email, Address, City, State, Pincode) to display Shipping Details & Payment Options.</span>
-                    </div>
-                ) : (
-                    <div className={styles.unlockedSection}>
-                        {/* SHIPPING ADDRESS SECTION */}
-                        <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
+                {/* SHIPPING ADDRESS SECTION */}
+                <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
                             <h3 className={styles.cardTitle}>Shipping Details</h3>
                             
                             {/* Same as Billing Checkbox */}
@@ -610,8 +617,6 @@ export default function CheckoutPage() {
                                 )}
                             </div>
                         </section>
-                    </div>
-                )}
 
                 <p className={styles.privacyNote}>
                     Your personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.
@@ -691,5 +696,7 @@ export default function CheckoutPage() {
             {/* Razorpay SDK */}
             <Script src="https://checkout.razorpay.com/v1/checkout.js" />
         </div>
+        </div>
+        </>
     );
 }

@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
-
-/* Fonts are handled via system stack for build reliability */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Typography - Absolute Roboto Enforcement */
-  --font-roboto: 'Roboto', sans-serif;
-  --font-heading: 'Roboto', sans-serif;
-  --font-body: 'Roboto', sans-serif;
+  /* Typography - Premium Luxury E-Commerce Standard Font Family */
+  --font-roboto: 'Plus Jakarta Sans', sans-serif;
+  --font-heading: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
 
   /* ── Background Surfaces (Derived from Brand Logo) ── */
   --bg-app: 34 32% 94%;           /* #F6F0E8 - Warm linen cream background */
@@ -66,6 +64,18 @@
   margin: 0;
   padding: 0;
   font-family: var(--font-roboto), sans-serif;
+}
+
+/* Hide scrollbar utility for modals and carousels while maintaining scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 body {
