@@ -72,8 +72,7 @@ export async function processReturnRequest({ orderId, items, productId, customer
                         customer_id: customerId || null,
                         request_type: type,
                         reason: reason,
-                        status: 'PENDING',
-                        requested_from: requestedFrom || 'unknown'
+                        status: 'PENDING'
                     });
                 }
             }
@@ -89,8 +88,7 @@ export async function processReturnRequest({ orderId, items, productId, customer
                     customer_id: customerId || null,
                     request_type: type,
                     reason: reason,
-                    status: 'PENDING',
-                    requested_from: requestedFrom || 'website'
+                    status: 'PENDING'
                 });
             }
         }

@@ -129,7 +129,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
             ))}
 
             <style jsx global>{`
-                /* ── SCREEN PREVIEW ── */
+                /*  SCREEN PREVIEW  */
                 .label-print-container {
                     background: #e5e7eb;
                     min-height: 100vh;
@@ -334,7 +334,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                     color: #333;
                 }
 
-                /* ── PRINT STYLES ── */
+                /*  PRINT STYLES  */
                 @media print {
                     @page {
                         size: A4 portrait;

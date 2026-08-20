@@ -10,7 +10,7 @@ export async function POST(request) {
         }
 
         const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vaiyaaree.vercel.app';
-        const baseCaption = description || `🌸 New Arrival: ${name}\n\nPrice: ₹${(price || 0).toLocaleString()}\n\nShop now: ${shopUrl}`;
+        const baseCaption = description || ` New Arrival: ${name}\n\nPrice: ₹${(price || 0).toLocaleString()}\n\nShop now: ${shopUrl}`;
         const message = hashtags ? `${baseCaption}\n\n${hashtags}` : baseCaption;
 
         const fbUrl = `https://graph.facebook.com/v21.0/${pageId}/photos`;

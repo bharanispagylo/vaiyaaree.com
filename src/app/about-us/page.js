@@ -69,9 +69,7 @@ export default function AboutUsPage() {
                         {/* Social Icons */}
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem', alignItems: 'center' }}>
                             {[
-                                { icon: Facebook, label: 'Facebook', href: '#' },
-                                { icon: Twitter, label: 'Twitter', href: '#' },
-                                { icon: Instagram, label: 'Instagram', href: '#' },
+                                { icon: Instagram, label: 'Instagram', href: 'https://www.instagram.com/vaiyaaree' },
                             ].map((social, idx) => (
                                 <a
                                     key={idx}

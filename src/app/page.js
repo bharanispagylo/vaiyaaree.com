@@ -465,12 +465,12 @@ export default function HomePage() {
                     
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
                         <div style={{ background: '#fff', padding: '2rem', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: 'none', textAlign: 'center', width: '100%', maxWidth: '280px' }}>
-                           <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} style={{ width: '140px', margin: '0 auto 1rem', display: 'block' }} alt="QR" />
-                           <div style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.2rem' }}>+{process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}</div>
+                           <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}`} style={{ width: '140px', margin: '0 auto 1rem', display: 'block' }} alt="QR" />
+                           <div style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.2rem' }}>+{process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}</div>
                         </div>
                         
                         <Link 
-                            href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} 
+                            href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}`} 
                             target="_blank"
                             style={{ 
                                 display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 2rem', background: '#fff', color: '#5d0821', borderRadius: '4px', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', width: '100%', maxWidth: '280px', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', transition: 'transform 0.3s'

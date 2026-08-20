@@ -57,7 +57,7 @@ export function ShopProvider({ children }) {
         paymentMethod: 'COD'
     });
 
-    // ── EFFECTS ──
+    //  EFFECTS 
     useEffect(() => {
         setHasMounted(true);
         // Execute initial data fetches concurrently for fast startup performance
@@ -69,7 +69,7 @@ export function ShopProvider({ children }) {
         ]).catch(err => console.error('[APP INIT] Startup fetch error:', err));
     }, []);
 
-    // ── CART PERSISTENCE ──
+    //  CART PERSISTENCE 
     useEffect(() => {
         if (!hasMounted || !isCartLoaded) return; // Wait until we've loaded the real cart
         localStorage.setItem('cast_prince_cart', JSON.stringify(cart));
@@ -349,7 +349,7 @@ export function ShopProvider({ children }) {
 
         if (!isBlocked) {
             setIsCartOpen(true);
-            showToast(`✨ ${quantity}x ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
+            showToast(` ${quantity}x ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
         }
     }
 
@@ -467,8 +467,8 @@ export function ShopProvider({ children }) {
         }
 
         try {
-            const customerPhone = checkoutForm.billingPhone.replace(/\D/g, '');
-            const fullPhone = customerPhone.startsWith('91') ? customerPhone : `91${customerPhone}`;
+            const cleanDigits = checkoutForm.billingPhone.replace(/\D/g, '').slice(-10);
+            const fullPhone = `91${cleanDigits}`;
             
             // Build full addresses
             const fullBillingAddress = `${checkoutForm.billingAddress}, ${checkoutForm.billingCity} - ${checkoutForm.billingPincode} (${checkoutForm.billingState}, India)`.trim();
@@ -600,7 +600,8 @@ export function ShopProvider({ children }) {
                 paymentMethod: checkoutForm.paymentMethod,
                 cart: cart,
                 shippingCost: taxDetails.shipping,
-                shippingZoneId: taxDetails.activeZone?.id
+                shippingZoneId: taxDetails.activeZone?.id,
+                shippingState: checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState
             };
 
             const createRes = await fetch('/api/orders/create', {

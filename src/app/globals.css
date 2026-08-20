@@ -8,42 +8,42 @@
   --font-heading: 'Roboto', sans-serif;
   --font-body: 'Roboto', sans-serif;
 
-  /* ── Background Surfaces ── */
-  --bg-app: 220 14% 96%;          /* #f1f5f9 - Cool grey app background */
-  --bg-panel: 220 14% 5%;         /* #0d1117 - Deep dark for Sidebar/Header */
+  /* ── Background Surfaces (Derived from Brand Logo) ── */
+  --bg-app: 34 32% 94%;           /* #F6F0E8 - Warm linen cream background */
+  --bg-panel: 18 48% 10%;         /* #21120B - Deep rich espresso for Sidebar & Top Bar */
   --bg-card: 0 0% 100%;           /* #ffffff - Pure White for Cards */
   --bg-input: 0 0% 100%;          /* White inputs */
-  --bg-table-header: 215 28% 95%; /* #eef2f7 - Subtle cool grey for table headers */
+  --bg-table-header: 34 30% 90%;  /* #EFE6DA - Soft warm ivory for table headers */
 
-  /* ── Brand / Primary ── */
-  --primary: 220 14% 10%;         /* #171b22 - Deep charcoal brand */
-  --primary-light: 220 10% 25%;   /* Medium-dark charcoal */
-  --primary-dark: 220 14% 4%;     /* Near-black */
-  --primary-hover: 220 14% 18%;   /* Slightly lighter for hover */
+  /* ── Brand / Primary (Terracotta Rust from Logo) ── */
+  --primary: 15 50% 54%;          /* #C46B4E - Terracotta Rust primary brand */
+  --primary-light: 15 50% 95%;    /* #FDF6F3 - Soft warm terracotta tint */
+  --primary-dark: 15 55% 42%;      /* #A34F35 - Deeper terracotta */
+  --primary-hover: 15 52% 48%;    /* #B85C40 - Hover terracotta */
 
-  /* ── Secondary & Accent ── */
-  --secondary: 215 16% 47%;       /* #607d8b - Steel blue-grey */
-  --accent: 220 90% 56%;          /* #3b82f6 - Vibrant blue accent */
+  /* ── Secondary & Accent (Sage Green & Lotus Rose) ── */
+  --secondary: 90 16% 42%;        /* #6B7C5A - Muted Sage Green */
+  --accent: 9 52% 67%;            /* #D98A7D - Lotus Rose */
 
   /* ── Text Colors ── */
-  --text-main: 220 14% 10%;       /* #171b22 - Near-black primary text */
-  --text-muted: 220 9% 46%;       /* #6b7280 - Visible grey for secondary text */
-  --text-dim: 220 9% 60%;         /* #94a3b8 - Light grey for placeholders */
-  --text-on-primary: 0 0% 100%;   /* White text on dark backgrounds */
+  --text-main: 18 45% 10%;        /* #23140D - Deep espresso primary text */
+  --text-muted: 26 16% 40%;       /* #786657 - Warm taupe secondary text */
+  --text-dim: 26 14% 57%;         /* #A19082 - Warm dim grey for placeholders */
+  --text-on-primary: 0 0% 100%;   /* White text on dark/primary backgrounds */
 
   /* ── Borders ── */
-  --border-subtle: 220 13% 91%;   /* #e5e7eb - Light border */
-  --border-bright: 220 13% 86%;   /* #d1d5db - Slightly darker border */
+  --border-subtle: 33 24% 87%;    /* #EAE0D3 - Light warm border */
+  --border-bright: 33 24% 79%;    /* #D7C7B5 - Slightly darker warm border */
 
   /* ── Semantic / Functional Colors ── */
-  --success: 160 84% 39%;         /* #10b981 - Emerald green */
-  --success-light: 160 84% 95%;   /* #ecfdf5 - Light emerald bg */
-  --warning: 38 92% 50%;          /* #f59e0b - Amber */
-  --warning-light: 38 92% 95%;    /* #fffbeb - Light amber bg */
-  --danger: 0 84% 60%;            /* #ef4444 - Red */
-  --danger-light: 0 84% 97%;      /* #fef2f2 - Light red bg */
-  --info: 217 91% 60%;            /* #3b82f6 - Blue */
-  --info-light: 217 91% 96%;      /* #eff6ff - Light blue bg */
+  --success: 150 45% 40%;         /* #398862 - Elegant deep green */
+  --success-light: 150 45% 95%;   /* #F1F8F4 - Light green bg */
+  --warning: 34 80% 50%;          /* #D98B26 - Warm amber */
+  --warning-light: 34 80% 95%;    /* #FDF7ED - Light amber bg */
+  --danger: 5 70% 52%;            /* #CE3A33 - Warm red */
+  --danger-light: 5 70% 96%;      /* #FDF3F3 - Light red bg */
+  --info: 200 45% 45%;            /* #3E7C97 - Slate blue */
+  --info-light: 200 45% 95%;      /* #F0F6F9 - Light slate bg */
 
   /* ── Dimensions & Spacing ── */
   --radius-sm: 0.5rem;
@@ -52,13 +52,13 @@
   --sidebar-width: 16rem;
 
   /* ── Premium Effects ── */
-  --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.05);
-  --shadow-card: 0 10px 40px -10px rgb(0 0 0 / 0.08);
-  --shadow-glow: 0 0 20px -5px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 2px 6px 0 rgba(44, 26, 20, 0.04);
+  --shadow-card: 0 10px 40px -10px rgba(44, 26, 20, 0.08);
+  --shadow-glow: 0 0 20px -5px rgba(196, 107, 78, 0.2);
 
   /* ── Glassmorphism ── */
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: 1px solid rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: 1px solid rgba(234, 224, 211, 0.8);
 }
 
 * {

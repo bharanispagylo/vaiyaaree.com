@@ -5,7 +5,7 @@ import { processReturnRequest } from './returnService';
 import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
 import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 
-// ─── 1. CONFIGURATION & CLIENTS ───────────────────────────────────────────────
+//  1. CONFIGURATION & CLIENTS 
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -23,6 +23,27 @@ const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
 const WHATSAPP_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
 
 // --- UTILS ---
+
+export function formatInvoiceId(orderOrId) {
+    if (!orderOrId) return '#INV-0001';
+    let invNo = null;
+    let rawId = '';
+    if (typeof orderOrId === 'object') {
+        invNo = orderOrId.invoice_no;
+        rawId = orderOrId.id || orderOrId.orderId || '';
+    } else {
+        rawId = String(orderOrId);
+    }
+
+    if (invNo) {
+        const cleanInv = String(invNo).trim().replace(/^#/, '');
+        return `#${cleanInv}`;
+    }
+
+    const clean = String(rawId).trim().replace(/^#/, '');
+    const formatted = clean.replace(/^([A-Z]+-)?/i, 'INV-');
+    return `#${formatted}`;
+}
 const truncate = (str, limit) => (str && str.length > limit) ? str.substring(0, limit - 3) + "..." : str;
 
 // Normalize phone number to E.164 format (with country code)
@@ -88,7 +109,7 @@ const debugLog = (msg, obj = null) => {
     else console.log(`[WA-DEBUG][${timestamp}] ${msg}`);
 };
 
-// ─── PREMIUM IMAGE ASSETS ─────────────────────────────────────────────────────
+//  PREMIUM IMAGE ASSETS 
 
 // Updated with distinct Saree visuals
 // Updated with 15 Distinct Saree Colors/Styles
@@ -110,7 +131,7 @@ const PREMIUM_IMAGES = [
     'https://images.unsplash.com/photo-1500917293049-61da1dc08358?w=600&q=85', // Black
 ];
 
-// ─── TAX & SHIPPING RULES ──────────────────────────────────────────────────
+//  TAX & SHIPPING RULES 
 const HOME_STATE = 'Tamil Nadu';
 const GST_RATE = 0.05; // 5% for Sarees
 const FLAT_SHIPPING = 100;
@@ -121,7 +142,7 @@ const INDIAN_STATES = [
     "Rajasthan", "Madhya Pradesh", "Bihar", "Punjab", "Haryana", "Other"
 ];
 
-// ─── STREAM CONTROL ───────────────────────────────────────────────────────────
+//  STREAM CONTROL 
 const activeStreams = new Map();
 
 function cancelStream(to) {
@@ -168,11 +189,11 @@ function getPremiumImage(product) {
     return PREMIUM_IMAGES[index];
 }
 
-// ─── 2. WHATSAPP API HELPERS ──────────────────────────────────────────────────
+//  2. WHATSAPP API HELPERS 
 
 export async function sendRawMessage(to, payload) {
     if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.error('❌ [WA-ERROR] Credentials Missing! Check your environment variables.');
+        console.error(' [WA-ERROR] Credentials Missing! Check your environment variables.');
         return { error: 'Missing credentials' };
     }
 
@@ -198,24 +219,24 @@ export async function sendRawMessage(to, payload) {
         if (!response.ok) {
             const errorMsg = data.error?.message || 'Unknown Meta API Error';
             const errorCode = data.error?.code || 'No Code';
-            console.error(`❌ [WA-ERROR][${response.status}] ${errorMsg} (Code: ${errorCode})`);
+            console.error(` [WA-ERROR][${response.status}] ${errorMsg} (Code: ${errorCode})`);
 
             if (errorCode === 190 || response.status === 401) {
-                console.error('💡 TIP [ERROR 190 / 401 Authentication Error]:');
+                console.error(' TIP [ERROR 190 / 401 Authentication Error]:');
                 console.error('   Your Meta WHATSAPP_ACCESS_TOKEN has expired or is invalid.');
                 console.error('   1. Go to Meta Developer Dashboard (developers.facebook.com) -> WhatsApp -> API Setup.');
                 console.error('   2. Click "Generate Token" and copy the new temporary access token.');
                 console.error('   3. Replace WHATSAPP_ACCESS_TOKEN in your .env file with the new token.');
                 console.error('   4. Restart your Next.js dev server.');
             } else if (errorCode === 131030) {
-                console.error('💡 TIP [ERROR 131030 Recipient Not In Allowed List]:');
+                console.error(' TIP [ERROR 131030 Recipient Not In Allowed List]:');
                 console.error('   When using Meta Test / Sandbox Number, Meta ONLY permits sending messages to numbers listed in Meta Developer Console.');
                 console.error('   1. Go to Meta Developer Console (developers.facebook.com) -> WhatsApp -> API Setup.');
                 console.error('   2. Under "To", select "Manage phone number list" from the drop-down menu.');
                 console.error('   3. Add the recipient test phone number (e.g. +91 9876543210 or your test number) and submit the WhatsApp verification code.');
                 console.error('   4. Once added, Meta will allow the bot to send automated replies to that test number!');
             } else if (errorCode === 131005 || response.status === 403) {
-                console.error('💡 TIP [ERROR 131005 Access Denied]:');
+                console.error(' TIP [ERROR 131005 Access Denied]:');
                 console.error('   1. Expired Access Token? Meta 24-hour Temporary Access Tokens expire daily. Refresh WHATSAPP_ACCESS_TOKEN in .env');
                 console.error('   2. Test Recipient Missing? Add recipient phone to "To" list in Meta Developer Console -> WhatsApp -> API Setup.');
                 console.error('   3. Missing Permissions? Ensure your Token/System User has "whatsapp_business_messaging" & "whatsapp_business_management" permissions.');
@@ -227,7 +248,7 @@ export async function sendRawMessage(to, payload) {
         debugLog(`Message sent successfully to ${normalizedTo}`, { message_id: data.messages?.[0]?.id });
         return data;
     } catch (error) {
-        console.error('❌ [WA-NETWORK-ERROR]:', error);
+        console.error(' [WA-NETWORK-ERROR]:', error);
         return { error: 'Network failure', details: error.message };
     }
 }
@@ -325,7 +346,7 @@ export async function sendPdfBuffer(to, pdfBuffer, filename, caption) {
 }
 
 
-// ─── 3. CART MANAGEMENT & STOCK ───────────────────────────────────────────────
+//  3. CART MANAGEMENT & STOCK 
 
 async function getCart(phone) {
     const normalizedPhone = normalizePhoneNumber(phone);
@@ -437,23 +458,23 @@ async function deductStock(orderId) {
                     : current.alert_threshold;
 
                 if (newStock <= (alertThreshold || 0)) {
-                    const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '15551678232';
+                    const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || process.env.BUSINESS_PHONE || '8667793292';
                     const prodName = current.name || (item.variant_id ? 'Variant' : 'Product');
-                    await sendText(adminPhone, `⚠️ *LOW STOCK ALERT*\n\nProduct: *${prodName}*\nCurrent Stock: *${newStock}*\nThreshold: *${alertThreshold || 0}*`);
+                    await sendText(adminPhone, ` *LOW STOCK ALERT*\n\nProduct: *${prodName}*\nCurrent Stock: *${newStock}*\nThreshold: *${alertThreshold || 0}*`);
                 }
             }
         }
     }
 }
 
-// ─── 4. PDF INVOICE ───────────────────────────────────────────────────────────
+//  4. PDF INVOICE 
 
 // Invoice generation is now handled by API route
 // This avoids fs import on client side
 
-// ─── 5. FLOW FUNCTIONS ───────────────────────────────────────────────────────
+//  5. FLOW FUNCTIONS 
 
-// ─── PRODUCT INQUIRY via Catalog ID (printed on product image) ────────────────
+//  PRODUCT INQUIRY via Catalog ID (printed on product image) 
 // Customer reads the CAT-XXXXX code from the product image and texts it to the bot.
 
 // Generate lookup variants to fix common OCR misreads (e.g. 1→I, 0→O)
@@ -577,7 +598,7 @@ export async function handleProductInquiry(to, catalogId) {
 
         if (!product) {
             return sendText(to,
-                `❌ Product code *${catalogId.toUpperCase()}* not found.\n\nSend *Hi* to browse our full collection! ✨`
+                ` Product code *${catalogId.toUpperCase()}* not found.\n\nSend *Hi* to browse our full collection! `
             );
         }
 
@@ -604,21 +625,19 @@ export async function handleProductInquiry(to, catalogId) {
             ? (product.product_catalog_image_id.toUpperCase().startsWith('CAT-') ? product.product_catalog_image_id.toUpperCase() : `CAT-${product.product_catalog_image_id.toUpperCase()}`)
             : (catalogId ? (catalogId.toUpperCase().startsWith('CAT-') ? catalogId.toUpperCase() : `CAT-${catalogId.toUpperCase()}`) : null);
 
-        const catalogLine = catNo ? `🆔 *Product Catalogue No:* ${catNo}\n` : '';
+        const catalogLine = catNo ? ` *Product Catalogue No:* ${catNo}\n` : '';
 
         if (matchingOrder) {
             // Already ordered -> Show past order details
             const orderDate = new Date(matchingOrder.created_at).toLocaleDateString('en-IN', {
                 day: '2-digit', month: 'short', year: 'numeric'
             });
-            const displayInv = matchingOrder.invoice_no 
-                ? (matchingOrder.invoice_no.startsWith('#') ? matchingOrder.invoice_no : `#${matchingOrder.invoice_no}`)
-                : `#${String(matchingOrder.id).replace(/^[A-Z]+-/, 'INV-')}`;
+            const displayInv = formatInvoiceId(matchingOrder);
             const caption =
-                `🛍️ *${product.name}*\n` +
+                ` *${product.name}*\n` +
                 catalogLine +
                 `--------------------------\n` +
-                `You have already ordered this item in a past order! 💖\n\n` +
+                `You have already ordered this item in a past order! \n\n` +
                 `• *Invoice No:* ${displayInv}\n` +
                 `• *Order Date:* ${orderDate}\n` +
                 `• *Status:* *${matchingOrder.status}*\n` +
@@ -627,8 +646,8 @@ export async function handleProductInquiry(to, catalogId) {
 
             const buttons = [
                 { id: "menu_track", title: "Track Order" },
-                { id: `addcart_${product.id}`, title: "🛒 Buy Again" },
-                { id: "menu_main", title: "🏠 Main Menu" }
+                { id: `addcart_${product.id}`, title: " Buy Again" },
+                { id: "menu_main", title: " Main Menu" }
             ];
             return await sendImageButtons(to, imgUrl, caption, buttons);
         }
@@ -642,30 +661,30 @@ export async function handleProductInquiry(to, catalogId) {
                 : `In Stock`;
 
         const desc = product.description
-            ? `\n📝 ${product.description.substring(0, 120)}${product.description.length > 120 ? '...' : ''}`
+            ? `\n ${product.description.substring(0, 120)}${product.description.length > 120 ? '...' : ''}`
             : '';
 
         const caption =
-            `📦 *${product.name}*\n` +
+            ` *${product.name}*\n` +
             catalogLine +
-            (product.category ? `🏷️ ${product.category}\n` : '') +
-            `💎 *₹${(product.price || 0).toLocaleString()}*\n` +
+            (product.category ? ` ${product.category}\n` : '') +
+            ` *₹${(product.price || 0).toLocaleString()}*\n` +
             `${stockStatus}${desc}`;
 
         const buttons = stock > 0
             ? [
-                { id: `addcart_${product.id}`, title: '🛒 Add to Cart' },
-                { id: 'menu_catalogue', title: '📖 Browse More' }
+                { id: `addcart_${product.id}`, title: ' Add to Cart' },
+                { id: 'menu_catalogue', title: ' Browse More' }
             ]
             : [
-                { id: 'menu_catalogue', title: '📖 Browse More' },
-                { id: 'menu_main', title: '🏠 Main Menu' }
+                { id: 'menu_catalogue', title: ' Browse More' },
+                { id: 'menu_main', title: ' Main Menu' }
             ];
 
         await sendImageButtons(to, imgUrl, caption, buttons);
     } catch (err) {
         console.error('[WA] handleProductInquiry error:', err);
-        await sendText(to, '⚠️ Could not load product details. Please send *Hi* to browse our catalogue.');
+        await sendText(to, ' Could not load product details. Please send *Hi* to browse our catalogue.');
     }
 }
 
@@ -677,7 +696,7 @@ export async function sendMainMenu(to) {
 
         // Fetch dynamic welcome message
         const rawWelcomeMsg = await getConfig('wa_welcome_message', 'Explore our premium saree collection and manage your orders:');
-        const welcomeMsg = `🌸 *Welcome to Vaiyaaree* 🌸\n\n${rawWelcomeMsg}`;
+        const welcomeMsg = ` *Welcome to Vaiyaaree* \n\n${rawWelcomeMsg}`;
 
         // Fetch welcome image or shop logo fallback
         let welcomeImg = await getConfig('wa_welcome_image', null) || await getConfig('shop_logo', null);
@@ -715,15 +734,15 @@ export async function sendMainMenu(to) {
             console.warn('[WA] sendButtons failed, falling back to sendText:', res.error);
             await sendText(to,
                 `${welcomeMsg}\n\n` +
-                `📌 *Quick Menu Commands:*\n` +
-                `• Reply *1* or *Catalogue* to browse sarees 💮\n` +
-                `• Reply *2* or *Orders* to track your orders 📦\n` +
-                `• Reply *3* or *Contact* for customer support 📞`
+                ` *Quick Menu Commands:*\n` +
+                `• Reply *1* or *Catalogue* to browse sarees \n` +
+                `• Reply *2* or *Orders* to track your orders \n` +
+                `• Reply *3* or *Contact* for customer support `
             );
         }
     } catch (err) {
         console.error('[WA] Fatal error in sendMainMenu:', err);
-        await sendText(to, '🌸 *Welcome to Vaiyaaree* 🌸\n\nReply *1* or *Catalogue* to browse our saree collection! 💮');
+        await sendText(to, ' *Welcome to Vaiyaaree* \n\nReply *1* or *Catalogue* to browse our saree collection! ');
     }
 }
 
@@ -741,7 +760,7 @@ export async function sendCatalog(to) {
     ]);
 }
 
-// ─── CATALOGUE FLOW (Dynamic categories from DB) ────────────────────────────
+//  CATALOGUE FLOW (Dynamic categories from DB) 
 
 const CATEGORY_EMOJIS = {};
 
@@ -767,7 +786,7 @@ export async function sendCatalogueCategories(to) {
     const categories = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
 
     if (categories.length === 0) {
-        return sendText(to, "⚠️ Our catalogue is being updated. Please check back soon!");
+        return sendText(to, " Our catalogue is being updated. Please check back soon!");
     }
 
     // Build list rows — max 10 rows in a WhatsApp list
@@ -796,7 +815,7 @@ export async function sendCatalogueCategories(to) {
         description: `Browse all ${allProducts.length} items`
     });
 
-    await sendList(to, "📖 SAREE CATALOGUE", `Explore our premium saree collection.\n\nWe have ${allProducts.length} beautiful items ready for you! ✨\n\nSelect a category or browse all:`, "Browse Collection", rows);
+    await sendList(to, " SAREE CATALOGUE", `Explore our premium saree collection.\n\nWe have ${allProducts.length} beautiful items ready for you! \n\nSelect a category or browse all:`, "Browse Collection", rows);
 }
 
 export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
@@ -821,9 +840,9 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
         searchFilter = searchTerm;
     }
 
-    if (startOffset === 0) await sendText(to, `📖 Loading *${categoryName}* catalogue...`);
+    if (startOffset === 0) await sendText(to, ` Loading *${categoryName}* catalogue...`);
 
-    // ─── LOG REQUEST FOR ADMIN ───
+    //  LOG REQUEST FOR ADMIN 
     if (typeId === 'all' && startOffset === 0) {
         console.log(`\n========== CUSTOMER VIEW ALL PRODUCTS REQUEST ==========`);
     }
@@ -838,19 +857,19 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
     if (queryError) {
         console.error(`[WA] Database Query Error:`, queryError);
-        return sendText(to, "⚠️ Sorry, I encountered an error while fetching the catalogue.");
+        return sendText(to, " Sorry, I encountered an error while fetching the catalogue.");
     }
 
     console.log(`[WA] Found ${prods?.length || 0} items for "${categoryName}" (Total in DB: ${totalCount})`);
 
     if (!prods || prods.length === 0) {
         if (startOffset === 0) {
-            return sendButtons(to, `⚠️ No sarees found in *${categoryName}* right now.`, [
-                { id: "menu_catalogue", title: "📖 Back to Catalogue" },
-                { id: "menu_main", title: "🏠 Main Menu" }
+            return sendButtons(to, ` No sarees found in *${categoryName}* right now.`, [
+                { id: "menu_catalogue", title: " Back to Catalogue" },
+                { id: "menu_main", title: " Main Menu" }
             ]);
         }
-        return sendText(to, "⚠️ No more items in this category.");
+        return sendText(to, " No more items in this category.");
     }
 
     for (const [idx, p] of prods.entries()) {
@@ -860,19 +879,19 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
         }
 
         const effectiveStock = p.stock - (p.alert_threshold || 0);
-        const stockStatus = effectiveStock <= 0 ? "❌ OUT OF STOCK" : effectiveStock <= 5 ? `⚠️ Only ${effectiveStock} left!` : "✅ In Stock";
+        const stockStatus = effectiveStock <= 0 ? " OUT OF STOCK" : effectiveStock <= 5 ? ` Only ${effectiveStock} left!` : " In Stock";
         const catNo = p.product_catalog_image_id
             ? (p.product_catalog_image_id.toUpperCase().startsWith('CAT-') ? p.product_catalog_image_id.toUpperCase() : `CAT-${p.product_catalog_image_id.toUpperCase()}`)
             : null;
-        const catalogLine = catNo ? `\n🆔 *Product Catalogue No:* ${catNo}` : '';
-        const groupTag = p.product_group ? `\n🏷️ ${p.product_group}` : '';
-        const caption = `📖 *${p.name}*${catalogLine}\n${p.description || ''}${groupTag}\n\n💎 *₹${p.price.toLocaleString()}*\n${stockStatus}`;
+        const catalogLine = catNo ? `\n *Product Catalogue No:* ${catNo}` : '';
+        const groupTag = p.product_group ? `\n ${p.product_group}` : '';
+        const caption = ` *${p.name}*${catalogLine}\n${p.description || ''}${groupTag}\n\n *₹${p.price.toLocaleString()}*\n${stockStatus}`;
 
         // Variable Product Logic: Change button label
         const isVariable = p.type === 'variant';
         const buttons = p.stock > 0
-            ? [{ id: `addcart_${p.id}`, title: isVariable ? "🎨 Select Option" : "🛒 Add to Cart" }]
-            : [{ id: "menu_catalogue", title: "📖 Back to Catalogue" }];
+            ? [{ id: `addcart_${p.id}`, title: isVariable ? " Select Option" : " Add to Cart" }]
+            : [{ id: "menu_catalogue", title: " Back to Catalogue" }];
 
         const imgUrl = getPremiumImage(p);
 
@@ -885,11 +904,11 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
             const sendResult = await sendImageButtons(to, imgUrl, caption, buttons);
 
             if (sendResult && sendResult.error) {
-                console.error(`   ❌ WA API Error for [${p.name}]:`, sendResult.error.message || sendResult.error);
+                console.error(`    WA API Error for [${p.name}]:`, sendResult.error.message || sendResult.error);
                 await sendText(to, caption + "\n[Image failed, but you can Add to Cart]");
             }
         } catch (err) {
-            console.error(`   ❌ Exception sending [${p.name}]:`, err.message);
+            console.error(`    Exception sending [${p.name}]:`, err.message);
             await sendText(to, caption + "\n[Image failed, but you can Add to Bag]");
         }
 
@@ -905,14 +924,14 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
     const hasMore = totalCount > nextOffset;
 
     if (hasMore) {
-        await sendButtons(to, `👇 Showing ${nextOffset} of ${totalCount} sarees in *${categoryName}*.`, [
-            { id: `ctlg_page_${typeId}_${nextOffset}`, title: "📜 Show Next 5" },
-            { id: "menu_catalogue", title: "📖 Back to Types" }
+        await sendButtons(to, ` Showing ${nextOffset} of ${totalCount} sarees in *${categoryName}*.`, [
+            { id: `ctlg_page_${typeId}_${nextOffset}`, title: " Show Next 5" },
+            { id: "menu_catalogue", title: " Back to Types" }
         ]);
     } else {
-        await sendButtons(to, `✅ That's all ${totalCount} saree${totalCount > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
-            { id: "menu_catalogue", title: "📖 More Types" },
-            { id: "menu_cart", title: "🛒 View Cart" }
+        await sendButtons(to, ` That's all ${totalCount} saree${totalCount > 1 ? 's' : ''} in *${categoryName}*!\n\nWhat would you like to do next?`, [
+            { id: "menu_catalogue", title: " More Types" },
+            { id: "menu_cart", title: " View Cart" }
         ]);
     }
 }
@@ -932,7 +951,7 @@ export async function handleAddToCart(to, productIdRaw) {
     const { data: variants } = await supabase.from('product_variants').select('*').eq('product_id', productId);
 
     const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
-    if (!product || !product.is_active || effectiveStock <= 0) return sendText(to, "⚠️ Sorry, this item is out of stock or no longer available.");
+    if (!product || !product.is_active || effectiveStock <= 0) return sendText(to, " Sorry, this item is out of stock or no longer available.");
 
     if (variants && variants.length > 0) {
         // Show variant selection list
@@ -942,7 +961,7 @@ export async function handleAddToCart(to, productIdRaw) {
             description: `₹${v.price.toLocaleString()} | Stock: ${v.stock}`
         }));
 
-        return await sendList(to, "🎨 SELECT OPTION", `Please select your preferred option for *${product.name}*:`, "Select Option", rows);
+        return await sendList(to, " SELECT OPTION", `Please select your preferred option for *${product.name}*:`, "Select Option", rows);
     }
 
     // No variants, add directly
@@ -950,16 +969,16 @@ export async function handleAddToCart(to, productIdRaw) {
     const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('product_id', productId).is('variant_id', null).single();
     const qty = cartItem ? cartItem.quantity : 1;
 
-    await sendButtons(to, `✅ *Added to Cart*\n${product.name}\nQty in Cart: ${qty}`, [
-        { id: `qty_inc_${productId}`, title: "➕ Add Another" },
-        { id: `qty_dec_${productId}`, title: "➖ Reduce Qty" },
-        { id: "menu_cart", title: "🛒 View Cart" }
+    await sendButtons(to, ` *Added to Cart*\n${product.name}\nQty in Cart: ${qty}`, [
+        { id: `qty_inc_${productId}`, title: " Add Another" },
+        { id: `qty_dec_${productId}`, title: " Reduce Qty" },
+        { id: "menu_cart", title: " View Cart" }
     ]);
 }
 
 export async function handleVariantSelection(to, variantId) {
     const { data: variant } = await supabase.from('product_variants').select('*, products(*)').eq('id', variantId).single();
-    if (!variant || variant.stock < 1) return sendText(to, "⚠️ Sorry, this option is out of stock.");
+    if (!variant || variant.stock < 1) return sendText(to, " Sorry, this option is out of stock.");
 
     const product = variant.products;
     await addToCart(to, product, 1, variant);
@@ -967,10 +986,10 @@ export async function handleVariantSelection(to, variantId) {
     const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('variant_id', variantId).single();
     const qty = cartItem ? cartItem.quantity : 1;
 
-    await sendButtons(to, `✅ *Added to Cart*\n${product.name} (${variant.name})\nQty in Cart: ${qty}`, [
-        { id: `vqty_inc_${variantId}`, title: "➕ Add Another" },
-        { id: `vqty_dec_${variantId}`, title: "➖ Reduce Qty" },
-        { id: "menu_cart", title: "🛒 View Cart" }
+    await sendButtons(to, ` *Added to Cart*\n${product.name} (${variant.name})\nQty in Cart: ${qty}`, [
+        { id: `vqty_inc_${variantId}`, title: " Add Another" },
+        { id: `vqty_dec_${variantId}`, title: " Reduce Qty" },
+        { id: "menu_cart", title: " View Cart" }
     ]);
 }
 
@@ -990,38 +1009,38 @@ export async function handleModifyQuantity(to, action, targetId, isVariant = fal
 
     if (newQty < 1) {
         await supabase.from('whatsapp_cart').delete().eq('id', item.id);
-        return sendText(to, `🗑️ Removed ${itemName} from cart.`);
+        return sendText(to, ` Removed ${itemName} from cart.`);
     } else {
         await supabase.from('whatsapp_cart').update({ quantity: newQty }).eq('id', item.id);
 
         const incId = isVariant ? `vqty_inc_${targetId}` : `qty_inc_${targetId}`;
         const decId = isVariant ? `vqty_dec_${targetId}` : `qty_dec_${targetId}`;
 
-        await sendButtons(to, `✅ *Quantity Updated*\n${itemName}\nNew Qty: ${newQty}`, [
-            { id: incId, title: "➕ Add Another" },
-            { id: decId, title: "➖ Reduce Qty" },
-            { id: "menu_cart", title: "🛒 View Cart" }
+        await sendButtons(to, ` *Quantity Updated*\n${itemName}\nNew Qty: ${newQty}`, [
+            { id: incId, title: " Add Another" },
+            { id: decId, title: " Reduce Qty" },
+            { id: "menu_cart", title: " View Cart" }
         ]);
     }
 }
 
 export async function handleViewCart(to) {
     const cart = await getCart(to);
-    if (!cart || cart.length === 0) return sendButtons(to, "Your cart is empty.", [{ id: "menu_browse", title: "🛍️ Shop Now" }]);
+    if (!cart || cart.length === 0) return sendButtons(to, "Your cart is empty.", [{ id: "menu_browse", title: " Shop Now" }]);
 
-    let msg = `🛒 *YOUR CART*\n\n`;
+    let msg = ` *YOUR CART*\n\n`;
     let total = 0;
     cart.forEach((item, i) => {
         total += item.price * item.quantity;
         const name = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
         msg += `${i + 1}. ${name} x${item.quantity} = ₹${(item.price * item.quantity).toLocaleString()}\n`;
     });
-    msg += `\n💎 *Total: ₹${total.toLocaleString()}*`;
+    msg += `\n *Total: ₹${total.toLocaleString()}*`;
 
     await sendButtons(to, msg, [
-        { id: "start_checkout", title: "✅ Place Order" },
-        { id: "menu_browse", title: "🛍️ Add More" },
-        { id: "edit_cart", title: "✏️ Edit Cart" }
+        { id: "start_checkout", title: " Place Order" },
+        { id: "menu_browse", title: " Add More" },
+        { id: "edit_cart", title: " Edit Cart" }
     ]);
 }
 
@@ -1038,7 +1057,7 @@ export async function handleEditCart(to) {
         }))
     }];
 
-    await sendList(to, "✏️ EDIT CART", "Select an item to change quantity or remove:", "Select Item", sections);
+    await sendList(to, " EDIT CART", "Select an item to change quantity or remove:", "Select Item", sections);
 }
 
 export async function handleCartItemOptions(to, cartItemId) {
@@ -1051,16 +1070,16 @@ export async function handleCartItemOptions(to, cartItemId) {
     const incId = isVariant ? `vqty_inc_${targetId}` : `qty_inc_${targetId}`;
     const decId = isVariant ? `vqty_dec_${targetId}` : `qty_dec_${targetId}`;
 
-    await sendButtons(to, `⚙️ *Edit Item*\n${itemName}\nQty: ${item.quantity}`, [
-        { id: incId, title: "➕ Increase" },
-        { id: decId, title: "➖ Reduce" },
-        { id: `remove_item_${item.id}`, title: "❌ Remove" }
+    await sendButtons(to, ` *Edit Item*\n${itemName}\nQty: ${item.quantity}`, [
+        { id: incId, title: " Increase" },
+        { id: decId, title: " Reduce" },
+        { id: `remove_item_${item.id}`, title: " Remove" }
     ]);
 }
 
 export async function handleRemoveItem(to, itemId) {
     await supabase.from('whatsapp_cart').delete().eq('id', itemId);
-    await sendText(to, "✅ Item removed from cart.");
+    await sendText(to, " Item removed from cart.");
     await handleViewCart(to);
 }
 
@@ -1108,19 +1127,19 @@ export async function startCheckout(to) {
     if (lastOrder && lastOrder.billing_address) {
         const billing = lastOrder.billing_address;
         await sendButtons(to,
-            `📝 *Checkout - Billing Address*\n\nWe found your saved billing address:\n\n` +
-            `👤 ${billing.name || lastOrder.customer_name || 'Customer'}\n` +
-            `� ${billing.mobile || to}\n` +
-            `📍 ${billing.address}\n\n` +
+            ` *Checkout - Billing Address*\n\nWe found your saved billing address:\n\n` +
+            ` ${billing.name || lastOrder.customer_name || 'Customer'}\n` +
+            ` ${billing.mobile || to}\n` +
+            ` ${billing.address}\n\n` +
             `Use this as your billing address?`,
             [
-                { id: `use_saved_billing_${orderId}`, title: "✅ Yes, Use This" },
-                { id: `new_billing_${orderId}`, title: "✏️ Enter New Address" }
+                { id: `use_saved_billing_${orderId}`, title: " Yes, Use This" },
+                { id: `new_billing_${orderId}`, title: " Enter New Address" }
             ]
         );
     } else {
         await sendText(to,
-            `📝 *Checkout - Billing Address*\n\n` +
+            ` *Checkout - Billing Address*\n\n` +
             `Please reply with your *billing details* in this format:\n\n` +
             `*Name, Mobile Number, Email, Full Address*\n\n` +
             `Example:\n_Lakshmi, 9876543210, lakshmi@email.com, 12 Main St, Bangalore, 560001_`
@@ -1151,7 +1170,7 @@ export async function handleSavedBilling(to, orderId) {
         // If no email exists, ask for it
         if (!lastOrder.customer_email && !lastOrder.billing_address.email) {
             await sendText(to,
-                `📧 *Email Address Required*\n\n` +
+                ` *Email Address Required*\n\n` +
                 `We need your email address to send order confirmation and updates.\n\n` +
                 `Please reply with your email address:\n\n` +
                 `Example: lakshmi@email.com`
@@ -1167,10 +1186,10 @@ export async function handleSavedBilling(to, orderId) {
 // Ask if shipping address is same as billing
 export async function askShippingSameAsBilling(to, orderId) {
     await sendButtons(to,
-        `🚚 *Shipping Address*\n\nIs your shipping address the *same* as your billing address?`,
+        ` *Shipping Address*\n\nIs your shipping address the *same* as your billing address?`,
         [
-            { id: `shipping_same_${orderId}`, title: "✅ Yes, Same Address" },
-            { id: `shipping_diff_${orderId}`, title: "✏️ Different Address" }
+            { id: `shipping_same_${orderId}`, title: " Yes, Same Address" },
+            { id: `shipping_diff_${orderId}`, title: " Different Address" }
         ]
     );
 }
@@ -1199,11 +1218,11 @@ export async function handleNewBillingAddress(to, orderId, text) {
     const parsed = parseAddressString(text, to);
 
     if (parsed.error) {
-        return await sendText(to, `⚠️ ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
+        return await sendText(to, ` ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
     }
 
     if (!parsed.email) {
-        return await sendText(to, "⚠️ Email is missing. Please try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode\n\nExample:\nLakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001");
+        return await sendText(to, " Email is missing. Please try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode\n\nExample:\nLakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001");
     }
 
     const billingAddress = {
@@ -1233,7 +1252,7 @@ export async function handleNewShippingAddress(to, orderId, text) {
     const parsed = parseAddressString(text, to);
 
     if (parsed.error) {
-        return await sendText(to, `⚠️ ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
+        return await sendText(to, ` ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
     }
 
     const shippingAddress = {
@@ -1323,12 +1342,12 @@ export async function askState(to, orderId) {
     // WhatsApp lists have a max 10 row limit — too few for all 28 Indian states.
     // Instead, prompt the user to type their state name.
     await sendButtons(to,
-        `📍 *Delivery State*\n\nWhich state are you in? Reply with your state name.\n\n` +
+        ` *Delivery State*\n\nWhich state are you in? Reply with your state name.\n\n` +
         `_e.g. Tamil Nadu, Kerala, Karnataka, Maharashtra, Delhi..._`,
         [
-            { id: `state_tamil_nadu_${orderId}`, title: '📍 Tamil Nadu' },
-            { id: `state_kerala_${orderId}`, title: '📍 Kerala' },
-            { id: `state_other_${orderId}`, title: '📍 Other State' }
+            { id: `state_tamil_nadu_${orderId}`, title: ' Tamil Nadu' },
+            { id: `state_kerala_${orderId}`, title: ' Kerala' },
+            { id: `state_other_${orderId}`, title: ' Other State' }
         ]
     );
 }
@@ -1368,9 +1387,9 @@ export async function askPaymentMode(to, orderId) {
     const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
     const total = order?.total_amount?.toLocaleString() || '0';
 
-    await sendButtons(to, `✅ *Address & Taxes Confirmed!*\n\n💰 *Total Billing: ₹${total}*\n(Inc. GST & Shipping)\n\nHow would you like to pay?`, [
-        { id: `pay_upi_${orderId}`, title: "📲 UPI / Online" },
-        { id: `pay_cod_${orderId}`, title: "💵 Cash on Delivery" }
+    await sendButtons(to, ` *Address & Taxes Confirmed!*\n\n *Total Billing: ₹${total}*\n(Inc. GST & Shipping)\n\nHow would you like to pay?`, [
+        { id: `pay_upi_${orderId}`, title: " UPI / Online" },
+        { id: `pay_cod_${orderId}`, title: " Cash on Delivery" }
     ]);
 }
 // Centralized Order Notification (Rich Message + Invoice)
@@ -1406,21 +1425,19 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
             .map(item => `• ${item.product_name} x${item.quantity} — ₹${(item.price_at_time * item.quantity).toLocaleString()}`)
             .join('\n');
 
-        const statusEmoji = isPaid ? '✅' : '🎉';
+        const statusEmoji = isPaid ? '' : '';
         const statusText = isPaid ? 'Payment Confirmed! Thank you!' : 'Hi ' + (order.customer_name || 'Customer') + '! Your order has been placed successfully.';
 
-        const displayInv = order.invoice_no 
-            ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
-            : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
+        const displayInv = formatInvoiceId(order || orderId);
 
         const message =
             `${statusEmoji} *Order Confirmed — Vaiyaaree* ${statusEmoji}\n\n` +
             `${statusText}\n\n` +
-            `🧾 *Invoice No:* ${displayInv}\n` +
-            `💰 *Grand Total:* ₹${total}\n` +
-            `🛍️ *Items:*\n${itemsList}\n\n` +
-            `📍 *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
-            `🌐 *Shop Online:* ${baseUrl}\n\n` +
+            ` *Invoice No:* ${displayInv}\n` +
+            ` *Grand Total:* ₹${total}\n` +
+            ` *Items:*\n${itemsList}\n\n` +
+            ` *Delivery Address:*\n${order.delivery_address || 'As provided'}\n\n` +
+            ` *Shop Online:* ${baseUrl}\n\n` +
             `Generating your PDF bill...`;
 
         for (const targetPhone of targets) {
@@ -1443,11 +1460,11 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
 
                             const imgUrl = product?.image_url;
                             if (imgUrl) {
-                                const caption = `🛍️ *Item:* ${item.product_name}\n` +
-                                    (catNo ? `🆔 *Product Catalogue No:* ${catNo}\n` : '') +
-                                    (item.variant_name ? `🎨 *Option:* ${item.variant_name}\n` : '') +
-                                    `💵 *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
-                                    `🔢 *Quantity:* ${item.quantity}`;
+                                const caption = ` *Item:* ${item.product_name}\n` +
+                                    (catNo ? ` *Product Catalogue No:* ${catNo}\n` : '') +
+                                    (item.variant_name ? ` *Option:* ${item.variant_name}\n` : '') +
+                                    ` *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
+                                    ` *Quantity:* ${item.quantity}`;
 
                                 await sendRawMessage(targetPhone, {
                                     messaging_product: "whatsapp",
@@ -1469,7 +1486,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                 }
 
                 try {
-                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '7558189732', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
+                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
                     try {
                         const { data: settingsData } = await supabase.from('app_settings').select('*');
                         if (settingsData) {
@@ -1481,9 +1498,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                         }
                     } catch (e) { }
 
-                    const displayInvPdf = order.invoice_no 
-                        ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
-                        : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
+                    const displayInvPdf = formatInvoiceId(order || orderId);
                     const pdfBuffer = await generateOrderPDFBuffer(order, settings);
                     await new Promise(r => setTimeout(r, 1000));
                     await sendPdfBuffer(targetPhone, pdfBuffer, `Invoice_${displayInvPdf.replace('#', '')}.pdf`, `Invoice — ${displayInvPdf}`);
@@ -1565,18 +1580,20 @@ export async function finalizeOrder(to, method, orderId) {
             const note = `Order+${orderId}`;
             const upiLink = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${rawAmount}&cu=INR&tn=${note}`;
 
+            const displayInv = formatInvoiceId(order || orderId);
+
             await sendText(to,
-                `📲 *UPI Payment — ₹${total}*\n\n` +
+                ` *UPI Payment — ₹${total}*\n\n` +
                 `Tap the link below to pay via Google Pay, PhonePe or any UPI app:\n\n` +
-                `👉 ${upiLink}\n\n` +
+                ` ${upiLink}\n\n` +
                 `UPI ID: *${upiId}*\n` +
                 `Amount: *₹${total}*\n` +
-                `Order ID: *#${orderId}*`
+                `Invoice No: *${displayInv}*`
             );
 
             // Ask customer to confirm AFTER payment — invoice sent only then
-            await sendButtons(to, `⏳ After completing the UPI payment, tap below to confirm:`, [
-                { id: `paid_confirm_${orderId}`, title: "✅ I Have Paid" }
+            await sendButtons(to, ` After completing the UPI payment, tap below to confirm:`, [
+                { id: `paid_confirm_${orderId}`, title: " I Have Paid" }
             ]);
         }
     } else {
@@ -1602,19 +1619,17 @@ export async function handlePaymentConfirmed(to, orderId) {
     });
 
     // Notify Admin to check payment
-    const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || '15551678232';
-    await sendText(adminPhone, `🔔 *PAYMENT VERIFICATION NEEDED*\n\nOrder: *#${orderId}*\nCustomer: ${to}\nStatus: Customer claims they have paid via UPI.\n\nPlease check your bank/UPI app and update order status.`);
+    const adminPhone = process.env.WHATSAPP_ADMIN_NUMBER || process.env.BUSINESS_PHONE || '8667793292';
+    await sendText(adminPhone, ` *PAYMENT VERIFICATION NEEDED*\n\nOrder: *#${orderId}*\nCustomer: ${to}\nStatus: Customer claims they have paid via UPI.\n\nPlease check your bank/UPI app and update order status.`);
 
     await clearCart(to);
     // Note: Stock is NOT deducted yet for unverified UPI to prevent "locking" stock with fake payments.
     // Stock will be deducted when admin marks it as PAID.
 
     const { data: ord } = await supabase.from('orders').select('invoice_no').eq('id', orderId).maybeSingle();
-    const displayInv = ord?.invoice_no 
-        ? (ord.invoice_no.startsWith('#') ? ord.invoice_no : `#${ord.invoice_no}`) 
-        : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
+    const displayInv = formatInvoiceId(ord || orderId);
 
-    return await sendText(to, "✅ *Payment Notification Received*\n\nThank you! We are verifying your payment. Once confirmed, you will receive your official invoice and tracking details.\n\nInvoice No: *" + displayInv + "*");
+    return await sendText(to, " *Payment Notification Received*\n\nThank you! We are verifying your payment. Once confirmed, you will receive your official invoice and tracking details.\n\nInvoice No: *" + displayInv + "*");
 }
 export async function handleCancelOrder(to, customerId) {
     // Normalize phone number to handle both formats (with/without country code)
@@ -1648,16 +1663,16 @@ export async function handleCancelOrder(to, customerId) {
 
     if (!orders?.length) {
         return sendButtons(to,
-            "❌ You don't have any active orders that can be cancelled.\n\nOrders that are already shipped or delivered cannot be cancelled.",
-            [{ id: "menu_main", title: "🏠 Main Menu" }]
+            " You don't have any active orders that can be cancelled.\n\nOrders that are already shipped or delivered cannot be cancelled.",
+            [{ id: "menu_main", title: " Main Menu" }]
         );
     }
 
-    let msg = "❌ *Cancel Order*\n\nYour recent orders:\n";
+    let msg = " *Cancel Order*\n\nYour recent orders:\n";
     orders.forEach((o, i) => {
         msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()} (${o.status})\n`;
     });
-    msg += "\n📋 *Please reply with the Order ID you want to cancel*\n\n_Example: ORD-123456_";
+    msg += "\n *Please reply with the Order ID you want to cancel*\n\n_Example: ORD-123456_";
 
     return sendText(to, msg);
 }
@@ -1691,16 +1706,16 @@ export async function processCancelOrder(to, orderId) {
 
     if (!order) {
         return sendButtons(to,
-            `❌ Order *${orderId}* not found or doesn't belong to you.\n\nPlease check the Order ID and try again.`,
-            [{ id: "menu_cancel_order", title: "Try Again" }, { id: "menu_main", title: "🏠 Main Menu" }]
+            ` Order *${orderId}* not found or doesn't belong to you.\n\nPlease check the Order ID and try again.`,
+            [{ id: "menu_cancel_order", title: "Try Again" }, { id: "menu_main", title: " Main Menu" }]
         );
     }
 
     // Check if order is already cancelled
     if (order.status === 'CANCELLED') {
         return sendButtons(to,
-            `❌ Order *${orderId}* has already been cancelled.\n\nNo further action needed.`,
-            [{ id: "menu_main", title: "🏠 Main Menu" }]
+            ` Order *${orderId}* has already been cancelled.\n\nNo further action needed.`,
+            [{ id: "menu_main", title: " Main Menu" }]
         );
     }
 
@@ -1708,8 +1723,8 @@ export async function processCancelOrder(to, orderId) {
     const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
     if (!cancellableStatuses.includes(order.status)) {
         return sendButtons(to,
-            `❌ Order *${orderId}* cannot be cancelled.\n\nStatus: ${order.status}\nOrders that are already shipped or delivered cannot be cancelled.`,
-            [{ id: "menu_main", title: "🏠 Main Menu" }]
+            ` Order *${orderId}* cannot be cancelled.\n\nStatus: ${order.status}\nOrders that are already shipped or delivered cannot be cancelled.`,
+            [{ id: "menu_main", title: " Main Menu" }]
         );
     }
 
@@ -1718,7 +1733,7 @@ export async function processCancelOrder(to, orderId) {
 
     // Ask for reason
     return sendText(to,
-        `⚠️ *Cancel Order: ${upperOrderId}*\n\n` +
+        ` *Cancel Order: ${upperOrderId}*\n\n` +
         `Please reply with the *reason* for your cancellation.\n\n` +
         `_Example: "Changed my mind" or "Need to change shipping address"_`
     );
@@ -1735,8 +1750,8 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
 
     if (existingOrder?.status === 'CANCELLED') {
         return sendButtons(to,
-            `❌ Order *${upperOrderId}* has already been cancelled.\n\nNo further action needed.`,
-            [{ id: "menu_main", title: "🏠 Main Menu" }]
+            ` Order *${upperOrderId}* has already been cancelled.\n\nNo further action needed.`,
+            [{ id: "menu_main", title: " Main Menu" }]
         );
     }
 
@@ -1834,12 +1849,10 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
         created_at: new Date().toISOString()
     });
 
-    const displayInv = (targetOrder?.invoice_no) 
-        ? (targetOrder.invoice_no.startsWith('#') ? targetOrder.invoice_no : `#${targetOrder.invoice_no}`) 
-        : `#${String(upperOrderId).replace(/^[A-Z]+-/, 'INV-')}`;
+    const displayInv = formatInvoiceId(targetOrder || upperOrderId);
 
     return sendButtons(to,
-        `✅ *Order Cancelled Successfully*\n\nInvoice No: *${displayInv}*\nReason: ${reason}\n\nYour order has been cancelled and stock has been restored.\n\nIf you have already paid, a refund will be processed within 5-7 business days.`,
+        ` *Order Cancelled Successfully*\n\nInvoice No: *${displayInv}*\nReason: ${reason}\n\nYour order has been cancelled and stock has been restored.\n\nIf you have already paid, a refund will be processed within 5-7 business days.`,
         [
             { id: "menu_catalogue", title: "Browse Products" },
             { id: "menu_main", title: "Main Menu" }
@@ -1885,7 +1898,7 @@ export async function handleRefundOrder(to) {
     }).slice(0, 10);
 
     if (!orders?.length) {
-        return sendButtons(to, "❌ You don't have any orders delivered within the last 10 days. Refund requests must be submitted within 10 days of delivery.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
+        return sendButtons(to, " You don't have any orders delivered within the last 10 days. Refund requests must be submitted within 10 days of delivery.", [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     let msg = "Refund Request\n\nYour delivered orders:\n";
@@ -1934,7 +1947,7 @@ export async function processRefundOrder(to, orderId) {
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
     if (deliveryDate < tenDaysAgo) {
-        return sendButtons(to, `❌ Order *${upperOrderId}* was delivered more than 10 days ago (on ${deliveryDate.toLocaleDateString()}). It is no longer eligible for refund.`, [{ id: "menu_main", title: "🏠 Main Menu" }]);
+        return sendButtons(to, ` Order *${upperOrderId}* was delivered more than 10 days ago (on ${deliveryDate.toLocaleDateString()}). It is no longer eligible for refund.`, [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Store that this user is now in "Waiting for Refund Reason" state for this order
@@ -1944,7 +1957,7 @@ export async function processRefundOrder(to, orderId) {
 }
 
 export async function handleReturnExchangeOrder(customerId, to) {
-    console.log('\n🔄 === HANDLE RETURN/EXCHANGE ORDER ===');
+    console.log('\n === HANDLE RETURN/EXCHANGE ORDER ===');
     console.log('ID:', customerId, 'Phone:', to);
 
     // Clear any previous state
@@ -1959,7 +1972,7 @@ export async function handleReturnExchangeOrder(customerId, to) {
 
     let allDelivered = [];
     for (const phone of phoneVariations) {
-        console.log(`📋 Checking orders for phone: ${phone}`);
+        console.log(` Checking orders for phone: ${phone}`);
         const { data, error } = await supabaseAdmin.from('orders')
             .select('id, status, total_amount, created_at')
             .eq('customer_phone', phone)
@@ -1972,7 +1985,7 @@ export async function handleReturnExchangeOrder(customerId, to) {
 
         if (data?.length) {
             allDelivered = data;
-            console.log('✅ Found delivered orders, stopping search');
+            console.log(' Found delivered orders, stopping search');
             break;
         }
     }
@@ -1980,8 +1993,8 @@ export async function handleReturnExchangeOrder(customerId, to) {
     console.log('Total delivered orders found:', allDelivered?.length || 0);
 
     if (!allDelivered?.length) {
-        console.log('❌ No delivered orders found - sending error message');
-        return sendButtons(to, "❌ No delivered orders found. Only delivered orders can be returned or exchanged.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
+        console.log(' No delivered orders found - sending error message');
+        return sendButtons(to, " No delivered orders found. Only delivered orders can be returned or exchanged.", [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Filter for 10-day delivery deadline
@@ -2009,12 +2022,12 @@ export async function handleReturnExchangeOrder(customerId, to) {
     }).slice(0, 10);
 
     if (!orders?.length) {
-        return sendButtons(to, "❌ No orders found eligible for return or exchange (delivery window exceeded or request already submitted).", [{ id: "menu_main", title: "🏠 Main Menu" }]);
+        return sendButtons(to, " No orders found eligible for return or exchange (delivery window exceeded or request already submitted).", [{ id: "menu_main", title: " Main Menu" }]);
     }
 
-    let msg = "🔄 *Return or Exchange*\n\nYour delivered orders:\n";
+    let msg = " *Return or Exchange*\n\nYour delivered orders:\n";
     orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
-    msg += "\n📋 *Please reply with the Order ID* you want to return/exchange\n\n_Example: ORD-123456_";
+    msg += "\n *Please reply with the Order ID* you want to return/exchange\n\n_Example: ORD-123456_";
     return sendText(to, msg);
 }
 
@@ -2035,7 +2048,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     }
 
     if (!order || order.status !== 'DELIVERED') {
-        return sendButtons(to, `❌ Order *${orderId}* not found or is not DELIVERED.\n\nOnly delivered orders can be returned or exchanged.`, [{ id: "menu_main", title: "🏠 Main Menu" }]);
+        return sendButtons(to, ` Order *${orderId}* not found or is not DELIVERED.\n\nOnly delivered orders can be returned or exchanged.`, [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Verify 10-day deadline
@@ -2052,15 +2065,15 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
     if (deliveryDate < tenDaysAgo) {
-        return sendButtons(to, `❌ Order *${upperOrderId}* was delivered more than 10 days ago (on ${deliveryDate.toLocaleDateString()}). It is no longer eligible for return or exchange.`, [{ id: "menu_main", title: "🏠 Main Menu" }]);
+        return sendButtons(to, ` Order *${upperOrderId}* was delivered more than 10 days ago (on ${deliveryDate.toLocaleDateString()}). It is no longer eligible for return or exchange.`, [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Store state: WAITING_RETURN_TYPE:ORDER_ID
     await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_TYPE:${upperOrderId}`);
 
     return sendButtons(to, `Order *${upperOrderId}* selected.\n\nWhat would you like to do?`, [
-        { id: `rectype_return_${upperOrderId}`, title: "🔄 Return & Refund" },
-        { id: `rectype_exchange_${upperOrderId}`, title: "👕 Exchange Item" }
+        { id: `rectype_return_${upperOrderId}`, title: " Return & Refund" },
+        { id: `rectype_exchange_${upperOrderId}`, title: " Exchange Item" }
     ]);
 }
 
@@ -2072,7 +2085,7 @@ export async function handleReturnExchangeTypeSelection(customerId, type, orderI
 }
 
 export async function submitReturnExchangeRequest(to, type, orderId, reason, customerId = null) {
-    console.log('\n💾 === SUBMIT RETURN/EXCHANGE REQUEST (INTERNAL) ===');
+    console.log('\n === SUBMIT RETURN/EXCHANGE REQUEST (INTERNAL) ===');
     console.log(`[RETURN] Order: ${orderId}, Type: ${type}`);
 
     try {
@@ -2098,7 +2111,7 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
 
         if (fetchErr || !order) {
             console.error(`[RETURN] Order #${orderId} not found:`, fetchErr);
-            return sendText(to, `❌ Sorry, I couldn't find Order *#${orderId}*. Please check the order ID and try again.`);
+            return sendText(to, ` Sorry, I couldn't find Order *#${orderId}*. Please check the order ID and try again.`);
         }
 
         const items = (order.order_items || []).map(item => ({
@@ -2120,26 +2133,26 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
 
         if (!result.success) {
             console.error('[RETURN] Service Failure:', result.error);
-            return sendButtons(to, `⚠️ Sorry, I encountered an error while saving your request: ${result.error || 'System error'}. Our team has been notified.`, [
-                { id: "menu_main", title: "🏠 Main Menu" }
+            return sendButtons(to, ` Sorry, I encountered an error while saving your request: ${result.error || 'System error'}. Our team has been notified.`, [
+                { id: "menu_main", title: " Main Menu" }
             ]);
         }
 
         await updateCustomerAdminNotes(to, null);
 
         if (result.alreadyExists) {
-            return sendButtons(to, `ℹ️ A ${type.toLowerCase()} request for Order *#${orderId}* has already been submitted.\n\nOur team is working on it!`, [
-                { id: "menu_main", title: "🏠 Main Menu" }
+            return sendButtons(to, `ℹ A ${type.toLowerCase()} request for Order *#${orderId}* has already been submitted.\n\nOur team is working on it!`, [
+                { id: "menu_main", title: " Main Menu" }
             ]);
         }
 
-        return sendButtons(to, `✅ *Request Submitted*\n\nYour ${type.toLowerCase()} request for Order *#${orderId}* has been received successfully.\n\nOur team will review it and update you shortly. Thank you!`, [
-            { id: "menu_main", title: "🏠 Main Menu" }
+        return sendButtons(to, ` *Request Submitted*\n\nYour ${type.toLowerCase()} request for Order *#${orderId}* has been received successfully.\n\nOur team will review it and update you shortly. Thank you!`, [
+            { id: "menu_main", title: " Main Menu" }
         ]);
     } catch (err) {
         console.error(`[RETURN] Critical Exception:`, err);
-        return sendButtons(to, `❌ Oops! I had trouble processing your request.\n\nError: ${err.message || 'Internal logic error'}\n\nPlease try again later.`, [
-            { id: "menu_main", title: "🏠 Main Menu" }
+        return sendButtons(to, ` Oops! I had trouble processing your request.\n\nError: ${err.message || 'Internal logic error'}\n\nPlease try again later.`, [
+            { id: "menu_main", title: " Main Menu" }
         ]);
     }
 }
@@ -2231,14 +2244,14 @@ export async function handleTrackOrder(to) {
 
     const orders = oList || [];
 
-    if (!orders?.length) return sendButtons(to, "No previous orders found.", [{ id: "menu_main", title: "🏠 Main Menu" }]);
+    if (!orders?.length) return sendButtons(to, "No previous orders found.", [{ id: "menu_main", title: " Main Menu" }]);
 
     const o = orders[0];
-    const sourceLabel = o.source === 'WEBSITE' ? '🌐 Website' : '📱 WhatsApp';
+    const sourceLabel = o.source === 'WEBSITE' ? ' Website' : ' WhatsApp';
     const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
 
     const buttons = [
-        { id: "menu_main", title: "🏠 Main Menu" }
+        { id: "menu_main", title: " Main Menu" }
     ];
 
     if (canCancel) {
@@ -2249,7 +2262,7 @@ export async function handleTrackOrder(to) {
     const catalogNoLine = catalogNoStr ? `Product Catalogue No: *${catalogNoStr}*\n` : '';
 
     await sendButtons(to,
-        `🛒 *Latest Order Details*\n\n` +
+        ` *Latest Order Details*\n\n` +
         `Order ID: *#${o.id}*\n` +
         catalogNoLine +
         `Source: *${sourceLabel}*\n` +
@@ -2261,11 +2274,11 @@ export async function handleTrackOrder(to) {
 }
 
 export async function handleContact(to) {
-    const contactMsg = await getConfig('wa_contact_message', `📞 *Contact Support*\n\nFor assistance, please call us at:\n+${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '91 75581 89732'}\n\nOr email:\nvaiyaaree.official@gmail.com`);
+    const contactMsg = await getConfig('wa_contact_message', ` *Contact Support*\n\nFor assistance, please call us at:\n+${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '91 75581 89732'}\n\nOr email:\nvaiyaaree.official@gmail.com`);
     await sendText(to, contactMsg);
 }
 
-// ─── IMAGE OCR: Read product catalog ID from customer screenshot ──────────────
+//  IMAGE OCR: Read product catalog ID from customer screenshot 
 // Uses OCR.space free API. The customer screenshots the product image (which has
 // a CAT-XXXXX code stamped on it) and sends it — bot reads the code via OCR.
 async function analyzeImageForCatalogId(mediaId) {
@@ -2279,10 +2292,10 @@ async function analyzeImageForCatalogId(mediaId) {
         const mediaJson = await mediaRes.json();
         const mediaUrl = mediaJson?.url;
         if (!mediaUrl) {
-            console.error('[OCR] ❌ No media URL in response:', JSON.stringify(mediaJson));
+            console.error('[OCR]  No media URL in response:', JSON.stringify(mediaJson));
             return { catalogId: null, detectedText: 'Failed to get image from WhatsApp' };
         }
-        console.log('[OCR] ✅ Got media URL, downloading image...');
+        console.log('[OCR]  Got media URL, downloading image...');
 
         // Step 2: Download image
         const imgRes = await fetch(mediaUrl, {
@@ -2317,7 +2330,7 @@ async function analyzeImageForCatalogId(mediaId) {
         }
 
         if (ocrJson.IsErroredOnProcessing && !detectedText) {
-            console.error('[OCR] ❌ OCR.space error:', ocrJson.ErrorMessage);
+            console.error('[OCR]  OCR.space error:', ocrJson.ErrorMessage);
             return { catalogId: null, detectedText: `Service Error: ${ocrJson.ErrorMessage}` };
         }
 
@@ -2334,7 +2347,7 @@ async function analyzeImageForCatalogId(mediaId) {
             const strictMatch = cleanLine.match(/CAT([A-Z0-9]{4,8})/);
             if (strictMatch) {
                 catalogId = strictMatch[1];
-                console.log('[OCR] ✅ Extracted code via strict CAT match:', catalogId);
+                console.log('[OCR]  Extracted code via strict CAT match:', catalogId);
                 break;
             }
         }
@@ -2355,7 +2368,7 @@ async function analyzeImageForCatalogId(mediaId) {
                     // Prevent extracting the brand name if it accidentally matches fallback
                     if (code.length >= 4 && !code.includes('HAA') && !code.includes('MAHAA')) {
                         catalogId = code;
-                        console.log('[OCR] ✅ Extracted code via fallback:', catalogId);
+                        console.log('[OCR]  Extracted code via fallback:', catalogId);
                         break;
                     }
                 }
@@ -2372,7 +2385,7 @@ async function analyzeImageForCatalogId(mediaId) {
 
 
 
-// ─── 6. ROUTER ───────────────────────────────────────────────────────────────
+//  6. ROUTER 
 
 // Message deduplication — WhatsApp often delivers the same webhook 2-3x
 // Store processed message IDs for 5 minutes, then clean up
@@ -2391,19 +2404,19 @@ function isDuplicate(msgId) {
 }
 
 export async function processIncomingMessage(body) {
-    console.log('\n🔍 === PROCESSING INCOMING MESSAGE ===');
+    console.log('\n === PROCESSING INCOMING MESSAGE ===');
     debugLog('Processing incoming message body:', body);
 
     try {
         const value = body.entry?.[0]?.changes?.[0]?.value;
         const message = value?.messages?.[0];
 
-        console.log('📨 Message extraction:');
+        console.log(' Message extraction:');
         console.log('  - Value exists:', !!value);
         console.log('  - Message exists:', !!message);
 
         if (!message) {
-            console.log('❌ No message found in body - exiting');
+            console.log(' No message found in body - exiting');
             debugLog('No message found in body');
             return;
         }
@@ -2413,7 +2426,7 @@ export async function processIncomingMessage(body) {
         const msgId = message.id;
         const text = message.text?.body?.toLowerCase().trim();
 
-        console.log('📝 Message details:');
+        console.log(' Message details:');
         console.log('  - From:', from);
         console.log('  - Type:', msgType);
         console.log('  - ID:', msgId);
@@ -2421,7 +2434,7 @@ export async function processIncomingMessage(body) {
 
         // --- DEDUPLICATION CHECK ---
         if (isDuplicate(msgId)) {
-            console.log('⚠️ Duplicate message detected - ignoring');
+            console.log(' Duplicate message detected - ignoring');
             debugLog(`Ignoring duplicate message ID: ${msgId}`);
             return;
         }
@@ -2479,24 +2492,24 @@ export async function processIncomingMessage(body) {
         const rawText = message.text?.body || message.button?.text || message.button?.payload || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || '';
         const messageText = rawText.toLowerCase().trim();
 
-        // 🛑 Stop any active stream for this user immediately
+        //  Stop any active stream for this user immediately
         cancelStream(from);
 
-        // 📸 IMAGE MESSAGE — Customer sent a screenshot of a product
+        //  IMAGE MESSAGE — Customer sent a screenshot of a product
         // Use Google Cloud Vision OCR to read the catalog ID stamped on the image
         if (msgType === 'image') {
             const mediaId = message.image?.id;
-            await sendText(from, '🔍 Searching in our catalogue... Please wait a moment!');
+            await sendText(from, ' Searching in our catalogue... Please wait a moment!');
             const ocrResult = await analyzeImageForCatalogId(mediaId);
             if (ocrResult?.catalogId) {
                 console.log(`[WA] OCR found catalog ID: ${ocrResult.catalogId} from ${from}`);
                 return await handleProductInquiry(from, ocrResult.catalogId);
             } else {
-                const debugInfo = ocrResult?.detectedText ? `\n\n🔍 *Detected Text:* ${ocrResult.detectedText.substring(0, 100)}...` : '';
+                const debugInfo = ocrResult?.detectedText ? `\n\n *Detected Text:* ${ocrResult.detectedText.substring(0, 100)}...` : '';
                 return await sendText(from,
-                    '❌ Could not read a product code from the image.\n\n' +
+                    ' Could not read a product code from the image.\n\n' +
                     'Please make sure the image shows the product code clearly (e.g. *CAT-AB12X*).\n' +
-                    'Or send *Hi* to browse our catalogue! 💮' + debugInfo
+                    'Or send *Hi* to browse our catalogue! ' + debugInfo
                 );
             }
         }
@@ -2505,7 +2518,7 @@ export async function processIncomingMessage(body) {
             const rawBodyText = message.text?.body?.trim() || message.button?.text?.trim() || message.button?.payload?.trim() || '';
             const cleanText = messageText ? messageText.replace(/[^\w\s]/gi, '').trim() : '';
 
-            // ─── STEP 1: RESET & HOME CARD (MENU) TRIGGERS ───
+            //  STEP 1: RESET & HOME CARD (MENU) TRIGGERS 
             const RESET_TRIGGERS = ['reset'];
             const MENU_TRIGGERS = ['hi', 'hii', 'hiii', 'hello', 'hlo', 'hey', 'hai', 'menu', 'start', '0', 'home', 'vaiyaaree', 'saree', 'sarees', 'card', 'home card', 'homecard', 'main menu', 'welcome', 'test', 'help', 'support', 'bot'];
 
@@ -2528,7 +2541,7 @@ export async function processIncomingMessage(body) {
                 return await sendMainMenu(from);
             }
 
-            // ─── STEP 2: KEYWORD COMMANDS ───
+            //  STEP 2: KEYWORD COMMANDS 
             if (['1', 'catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees', 'show sarees', 'view catalogue', 'view catalog'].includes(messageText)) return await sendCatalogueCategories(from);
             if (['2', 'track order', 'my orders', 'my order', 'orders', 'order status', 'track'].includes(messageText)) return await handleTrackOrder(from);
             if (['3', 'contact', 'contact us', 'support', 'customer care'].includes(messageText) || messageText === 'contact') return await handleContact(from);
@@ -2537,18 +2550,18 @@ export async function processIncomingMessage(body) {
 
             const returnKeywords = ['refund', 'return', 'exchange', 'refund order', 'return order', 'exchange order', 'returns', 'exchanges', 'retutn', 'return a product', 'exchange a product', 'i want to return', 'i want to exchange'];
             if (returnKeywords.includes(messageText)) {
-                console.log('✅ Return/Exchange keyword matched - calling handleReturnExchangeOrder');
+                console.log(' Return/Exchange keyword matched - calling handleReturnExchangeOrder');
                 try {
                     return await handleReturnExchangeOrder(customer.id, from);
                 } catch (error) {
-                    console.error('❌ handleReturnExchangeOrder failed:', error);
+                    console.error(' handleReturnExchangeOrder failed:', error);
                     throw error;
                 }
             }
 
-            if (messageText === 'stop') return await sendText(from, "✅ Stopped. Send *Hi* to start again.");
+            if (messageText === 'stop') return await sendText(from, " Stopped. Send *Hi* to start again.");
 
-            // ─── STEP 3: HANDLE ACTIVE CONVERSATION STATE ───
+            //  STEP 3: HANDLE ACTIVE CONVERSATION STATE 
             if (customer?.admin_notes) {
                 const notes = customer.admin_notes;
 
@@ -2577,7 +2590,7 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            // ─── STEP 4: ORDER ID LOOKUP ───
+            //  STEP 4: ORDER ID LOOKUP 
             const orderIdPatterns = [
                 /^(ORD|WEB|ORDER)-[A-Z0-9]+$/i,
                 /^[A-Z]{2,6}-?\d{4,}$/i,
@@ -2598,11 +2611,11 @@ export async function processIncomingMessage(body) {
                 console.log(`[WA] Detected order ID: ${matchedOrderId}`);
                 const { data: o } = await supabaseAdmin.from('orders').select('*').eq('id', matchedOrderId).maybeSingle();
                 if (o) {
-                    const sourceLabel = o.source === 'WEBSITE' ? '🌐 Website' : '📱 WhatsApp';
+                    const sourceLabel = o.source === 'WEBSITE' ? ' Website' : ' WhatsApp';
                     const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
                     const canReturn = o.status === 'DELIVERED';
 
-                    const buttons = [{ id: "menu_main", title: "🏠 Main Menu" }];
+                    const buttons = [{ id: "menu_main", title: " Main Menu" }];
 
                     if (canCancel) {
                         buttons.unshift({ id: `init_cancel_${o.id}`, title: "Cancel Order" });
@@ -2613,12 +2626,10 @@ export async function processIncomingMessage(body) {
                     const catalogNoStr = await getOrderCatalogNumbers(o.id);
                     const catalogNoLine = catalogNoStr ? `Product Catalogue No: *${catalogNoStr}*\n` : '';
 
-                    const displayInv = o.invoice_no 
-                        ? (o.invoice_no.startsWith('#') ? o.invoice_no : `#${o.invoice_no}`) 
-                        : `#${String(o.id).replace(/^[A-Z]+-/, 'INV-')}`;
+                    const displayInv = formatInvoiceId(o);
 
                     return await sendButtons(from,
-                        `🛒 *Order Details*\n\n` +
+                        ` *Order Details*\n\n` +
                         `Invoice No: *${displayInv}*\n` +
                         catalogNoLine +
                         `Source: *${sourceLabel}*\n` +
@@ -2632,7 +2643,7 @@ export async function processIncomingMessage(body) {
 
             // Handle YES confirmation for cancellation
             if (messageText === 'yes' || messageText === 'yes cancel' || messageText === 'cancel yes') {
-                return await sendText(from, "📋 Please tap the button above or reply with your Order ID to cancel.\n\nExample: ORD-123456");
+                return await sendText(from, " Please tap the button above or reply with your Order ID to cancel.\n\nExample: ORD-123456");
             }
 
             // Handle Website Checkout Redirection
@@ -2647,7 +2658,7 @@ export async function processIncomingMessage(body) {
                         if (order.status === 'DRAFT') {
                             await supabase.from('orders').update({ customer_phone: from }).eq('id', orderId);
                             await sendText(from,
-                                `📝 *Complete Your Order* (#${orderId})\n\n` +
+                                ` *Complete Your Order* (${formatInvoiceId(orderId)})\n\n` +
                                 `Please reply with your delivery details in this format:\n\n` +
                                 `*Name, Mobile Number, Email, Full Address*\n\n` +
                                 `Example:\n_Lakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore_`
@@ -2655,30 +2666,32 @@ export async function processIncomingMessage(body) {
                             return;
                         }
 
-                        await sendText(from, `Order Confirmed! (#${orderId})\n\nThank you, ${order.customer_name || 'Customer'}!\n\nDelivery Address:\n${order.delivery_address}\n\nTotal Billing: ₹${order.total_amount.toLocaleString()}`);
+                        const displayInv = formatInvoiceId(order || orderId);
+
+                        await sendText(from, `Order Confirmed! (${displayInv})\n\nThank you, ${order.customer_name || 'Customer'}!\n\nDelivery Address:\n${order.delivery_address}\n\nTotal Billing: ₹${order.total_amount.toLocaleString()}`);
 
                         if (order.payment_method === 'UPI' && order.status === 'AWAITING_PAYMENT') {
                             const rawAmount = order.total_amount || 0;
                             const upiId = 'samypranesh@okicici';
-                            const payeeName = 'Caste Print+Sarees';
+                            const payeeName = 'Vaiyaaree+Sarees';
                             const upiLink = `upi://pay?pa=${upiId}&pn=${payeeName}&am=${rawAmount}&cu=INR&tn=Order+${orderId}`;
 
                             await sendText(from,
-                                `📲 *UPI Payment — ₹${rawAmount.toLocaleString()}*\n\n` +
+                                ` *UPI Payment — ₹${rawAmount.toLocaleString()}*\n\n` +
                                 `Tap the link below to pay via GPay, PhonePe or any UPI app:\n\n` +
-                                `👉 ${upiLink}\n\n` +
+                                ` ${upiLink}\n\n` +
                                 `UPI ID: *${upiId}*`
                             );
 
-                            await sendButtons(from, `⏳ After completing the payment, tap below to confirm:`, [
-                                { id: `paid_confirm_${orderId}`, title: "✅ I Have Paid" }
+                            await sendButtons(from, ` After completing the payment, tap below to confirm:`, [
+                                { id: `paid_confirm_${orderId}`, title: " I Have Paid" }
                             ]);
                         } else if (order.payment_method === 'COD') {
-                            await sendText(from, "💵 Cash on delivery selected, order processing...");
+                            await sendText(from, " Cash on delivery selected, order processing...");
                             const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
 
                             try {
-                                let settings = { shop_name: 'Vaiyaaree', shop_phone: '7558189732', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
+                                let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
                                 const { data: settingsData } = await supabase.from('app_settings').select('*');
                                 if (settingsData) {
                                     settingsData.forEach(item => {
@@ -2688,12 +2701,12 @@ export async function processIncomingMessage(body) {
                                     });
                                 }
                                 const pdfBuffer = await generateOrderPDFBuffer(fullOrder, settings);
-                                await sendPdfBuffer(from, pdfBuffer, `Invoice_${orderId}.pdf`, `Invoice - Order #${orderId}`);
+                                await sendPdfBuffer(from, pdfBuffer, `Invoice_${displayInv.replace('#', '')}.pdf`, `Invoice — ${displayInv}`);
                             } catch (pdfErr) {
                                 console.error('[NOTIFY] Failed to send COD PDF:', pdfErr);
                             }
 
-                            await sendButtons(from, "💗 We will contact you shortly to confirm cash on delivery dispatch!\n\nTap below to manage your order:", [
+                            await sendButtons(from, " We will contact you shortly to confirm cash on delivery dispatch!\n\nTap below to manage your order:", [
                                 { id: "menu_track", title: "Track Order" },
                                 { id: "menu_my_orders", title: "View Order" },
                                 { id: `menu_cancel_order`, title: "Cancel Order" }
@@ -2704,7 +2717,7 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            // ─── STEP 5: DRAFT ORDER CHECK ───
+            //  STEP 5: DRAFT ORDER CHECK 
             const normalizedPhone = normalizePhoneNumber(from);
             const phoneVariations = [normalizedPhone];
             if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
@@ -2736,7 +2749,7 @@ export async function processIncomingMessage(body) {
                         }).eq('id', draft.id);
                         return await askShippingSameAsBilling(from, draft.id);
                     } else {
-                        await sendText(from, "⚠️ Invalid email format. Please enter a valid email address:");
+                        await sendText(from, " Invalid email format. Please enter a valid email address:");
                         return;
                     }
                 }
@@ -2757,7 +2770,7 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            // ─── STEP 6: SAFE CATALOG ID LOOKUP ───
+            //  STEP 6: SAFE CATALOG ID LOOKUP 
             // Matches explicit CAT- code (e.g. CAT-AB12X, cat_c3fnp)
             const catExplicitMatch = rawBodyText.match(/CAT[-\s_]?([A-Z0-9]{4,12})/i);
             if (catExplicitMatch) {
@@ -2785,7 +2798,7 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            // ─── STEP 7: PRODUCT TERM SEARCH & HOME CARD FALLBACK ───
+            //  STEP 7: PRODUCT TERM SEARCH & HOME CARD FALLBACK 
             const searchTerms = messageText.split(/\s+/).filter(w => w.length >= 3);
             for (const term of searchTerms) {
                 const cleanTerm = term.replace(/[^A-Z0-9]/gi, '');
@@ -2839,7 +2852,7 @@ export async function processIncomingMessage(body) {
             if (id === 'menu_track' || id === 'menu_my_orders') return await handleTrackOrder(from);
             if (id === 'menu_contact') return await handleContact(from);
 
-            // ── Catalogue flow: ctlg_ and ctlg_page_ ──
+            //  Catalogue flow: ctlg_ and ctlg_page_ 
             if (id.startsWith('ctlg_page_')) {
                 // Paginated catalogue: ctlg_page_silk_saree_50
                 const parts = id.replace('ctlg_page_', '').split('_');
@@ -2884,7 +2897,7 @@ export async function processIncomingMessage(body) {
                 const orderId = id.replace('new_billing_', '');
                 await supabase.from('orders').update({ billing_address: null }).eq('id', orderId);
                 return await sendText(from,
-                    `📝 *Enter New Billing Address*\n\n` +
+                    ` *Enter New Billing Address*\n\n` +
                     `Reply with your *billing details* in this format:\n\n` +
                     `*Name, Mobile Number, Email, Full Address*\n\n` +
                     `Example:\n_Lakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001_`
@@ -2901,7 +2914,7 @@ export async function processIncomingMessage(body) {
                 // Clear existing shipping address to trigger the draft check for next message
                 await supabase.from('orders').update({ shipping_address: null }).eq('id', orderId);
                 return await sendText(from,
-                    `📝 *Enter Shipping Address*\n\n` +
+                    ` *Enter Shipping Address*\n\n` +
                     `Reply with your *shipping details* in this format:\n\n` +
                     `*Name, Mobile Number, Email, Full Address, City, Pincode*\n\n` +
                     `Example:\n_Lakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001_`
@@ -2935,7 +2948,7 @@ export async function processIncomingMessage(body) {
                 const orderId = id.replace('new_addr_', '');
                 await supabase.from('orders').update({ delivery_address: null, customer_name: null }).eq('id', orderId);
                 return await sendText(from,
-                    `📝 *Enter New Delivery Details*\n\n` +
+                    ` *Enter New Delivery Details*\n\n` +
                     `Reply with your:\n_Name, Mobile Number, Full Address_\n\n` +
                     `Example:\n_Lakshmi, 9876543210, 12 Main St, Bangalore_`
                 );

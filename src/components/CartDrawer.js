@@ -117,7 +117,7 @@ export default function CartDrawer() {
 
                                             {isOutOfStock ? (
                                                 <div className={styles.notAvailableText}>
-                                                    ⚠️ Saree Not Available (Out of Stock)
+                                                     Saree Not Available (Out of Stock)
                                                 </div>
                                             ) : isStockLimitReached ? (
                                                 <div className={styles.stockLimitText}>

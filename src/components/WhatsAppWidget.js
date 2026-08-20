@@ -67,14 +67,14 @@ export default function WhatsAppWidget() {
                     >
                         <X size={14} />
                     </button>
-                    <p style={{ margin: 0, fontWeight: 600, color: '#5d0821', marginBottom: '4px' }}>Hi there! 👋</p>
+                    <p style={{ margin: 0, fontWeight: 600, color: '#5d0821', marginBottom: '4px' }}>Hi there!</p>
                     <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.4 }}>Need help with an order? Chat with us on WhatsApp!</p>
                 </div>
             )}
 
             {/* Main Button */}
             <a 
-                href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232'}`} 
+                href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{

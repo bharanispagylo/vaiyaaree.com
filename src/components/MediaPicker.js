@@ -101,7 +101,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
             
             if (!res.ok) {
                 if (data.error === 'Watermark already present') {
-                    alert('⚠️ Watermark detected! This image already has a CAT code and cannot be processed again.');
+                    alert(' Watermark detected! This image already has a CAT code and cannot be processed again.');
                 } else {
                     throw new Error(data.error || 'Upload failed');
                 }

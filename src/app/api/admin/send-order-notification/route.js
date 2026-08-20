@@ -2,6 +2,13 @@ import { sendText, sendRawMessage } from '@/services/whatsappService';
 import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '@/lib/emailService';
 import { supabase } from '@/lib/supabaseClient';
 
+function getDisplayInv(order, orderId) {
+    const raw = order?.invoice_no || orderId || order?.id || '';
+    const clean = String(raw).trim().replace(/^#/, '');
+    const inv = clean.replace(/^([A-Z]+-)?/i, 'INV-');
+    return inv.startsWith('#') ? inv : `#${inv}`;
+}
+
 // Build the correct WhatsApp message for a given status (mirrors update-status route logic)
 function buildStatusMessage(order, status, orderId) {
     const totalAmount = order.total_amount || 0;
@@ -9,9 +16,7 @@ function buildStatusMessage(order, status, orderId) {
     const brand = 'Vaiyaaree';
     const items = order.order_items || [];
     const itemsList = items.map(i => `• ${i.product_name} (x${i.quantity})`).join('\n');
-    const displayInv = order.invoice_no 
-        ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
-        : `#${String(orderId).replace(/^[A-Z]+-/, 'INV-')}`;
+    const displayInv = getDisplayInv(order, orderId);
     const invoiceUrl = `${appUrl}/shop/invoice?oid=${displayInv.replace('#', '')}`;
     
     // Common Shipping Block
@@ -24,7 +29,7 @@ function buildStatusMessage(order, status, orderId) {
             trackingUrl = trackingUrl.replace(/\{[^}]+\}/g, trackingNum);
         }
 
-        shipDetails.push(`\n🚚 *Shipping Details:*`);
+        shipDetails.push(`\n *Shipping Details:*`);
         shipDetails.push(`• Carrier: ${order.courier_name || 'N/A'}`);
         shipDetails.push(`• Tracking: ${trackingNum || 'N/A'}`);
         if (trackingUrl) shipDetails.push(`• Track: ${trackingUrl}`);
@@ -33,12 +38,12 @@ function buildStatusMessage(order, status, orderId) {
     switch (status) {
         case 'PLACED':
             return [
-                `✅ *ORDER CONFIRMED*`,
+                ` *ORDER CONFIRMED*`,
                 ``,
                 `Hi ${order.customer_name || 'Customer'}, your order ${displayInv} is confirmed!`,
-                `💰 Amount: ₹${totalAmount.toLocaleString()}`,
+                ` Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ` *Items:*\n${itemsList || '• Order Items'}`,
                 ...shipDetails,
                 ``,
                 `We are preparing your package for dispatch.`,
@@ -47,7 +52,7 @@ function buildStatusMessage(order, status, orderId) {
 
         case 'AWAITING_PAYMENT':
             return [
-                `⏳ *PAYMENT PENDING*`,
+                ` *PAYMENT PENDING*`,
                 ``,
                 `Your order ${displayInv} is awaiting payment.`,
                 `Amount Due: ₹${totalAmount.toLocaleString()}`,
@@ -60,13 +65,13 @@ function buildStatusMessage(order, status, orderId) {
 
         case 'PAID':
             return [
-                `💳 *PAYMENT RECEIVED*`,
+                ` *PAYMENT RECEIVED*`,
                 `--------------------------`,
                 `Invoice No: ${displayInv}`,
                 `Total Paid: ₹${totalAmount.toLocaleString()}`,
                 `Method: ${order.payment_method || 'UPI/Online'}`,
                 ``,
-                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ` *Items:*\n${itemsList || '• Order Items'}`,
                 ...shipDetails,
                 ``,
                 `View Full Bill: ${invoiceUrl}`,
@@ -77,12 +82,12 @@ function buildStatusMessage(order, status, orderId) {
 
         case 'PACKING':
             return [
-                `📦 *ORDER PACKING*`,
+                ` *ORDER PACKING*`,
                 ``,
                 `Hi! We are currently packing your order ${displayInv}.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ` *Items:*\n${itemsList || '• Order Items'}`,
                 ...shipDetails,
                 ``,
                 `It will be shipped shortly. Thank you!`,
@@ -91,14 +96,14 @@ function buildStatusMessage(order, status, orderId) {
 
         case 'SHIPPED':
             return [
-                `🚀 *ORDER SHIPPED*`,
+                ` *ORDER SHIPPED*`,
                 ``,
                 `Great news! Order ${displayInv} is on its way!`,
                 ``,
-                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ` *Items:*\n${itemsList || '• Order Items'}`,
                 ...shipDetails,
                 ``,
-                order.tracking_url ? `🔗 Track Here: ${order.tracking_url}` : `🔗 View Details: ${invoiceUrl}`,
+                order.tracking_url ? ` Track Here: ${order.tracking_url}` : ` View Details: ${invoiceUrl}`,
                 ``,
                 `Thank you for shopping with us!`,
                 `— ${brand}`
@@ -106,12 +111,12 @@ function buildStatusMessage(order, status, orderId) {
 
         case 'DELIVERED':
             return [
-                `🎉 *ORDER DELIVERED*`,
+                ` *ORDER DELIVERED*`,
                 ``,
                 `Order ${displayInv} has been delivered successfully!`,
                 `Total: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `Hope you love your new saree! 💖`,
+                `Hope you love your new saree! `,
                 `Type "Hi" to shop again anytime.`,
                 ``,
                 `— ${brand}`
@@ -119,7 +124,7 @@ function buildStatusMessage(order, status, orderId) {
 
         case 'CANCELLED':
             return [
-                `❌ *ORDER CANCELLED*`,
+                ` *ORDER CANCELLED*`,
                 ``,
                 `Order ${displayInv} has been cancelled.`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
@@ -131,13 +136,13 @@ function buildStatusMessage(order, status, orderId) {
 
         default:
             return [
-                `✅ *Order Update — ${brand}*`,
+                ` *Order Update — ${brand}*`,
                 ``,
                 `Invoice No: ${displayInv}`,
                 `Status: ${status}`,
                 `Amount: ₹${totalAmount.toLocaleString()}`,
                 ``,
-                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ` *Items:*\n${itemsList || '• Order Items'}`,
                 ...shipDetails,
                 ``,
                 `Thank you for your patience!`,
@@ -177,17 +182,19 @@ export async function POST(request) {
         const finalPhone = targetPhone || order.billing_phone || order.customer_phone;
         if (sendWhatsApp && finalPhone) {
             try {
+                const displayInv = getDisplayInv(order, orderId);
+
                 const message = statusOverride
                     ? buildStatusMessage(order, statusOverride, orderId)
                     : (
-                        `✅ *Order Confirmed — Vaiyaaree* 🎉\n\n` +
+                        ` *Order Confirmed — Vaiyaaree* \n\n` +
                         `Dear ${order.customer_name},\n\n` +
-                        `Your order #${orderId} has been placed successfully.\n\n` +
-                        `📦 *Order Details:*\n` +
+                        `Your order ${displayInv} has been placed successfully.\n\n` +
+                        ` *Order Details:*\n` +
                         `• Total Amount: ₹${order.total_amount?.toLocaleString() || '0'}\n` +
                         `• Payment Method: ${order.payment_method || 'N/A'}\n` +
                         `• Items: ${order.order_items?.length || 0} product(s)\n\n` +
-                        `Thank you for shopping with Vaiyaaree! 💖`
+                        `Thank you for shopping with Vaiyaaree! `
                     );
 
                 // Fetch product images
@@ -221,10 +228,10 @@ export async function POST(request) {
                     
                     // If there is only 1 item in the order, append its details directly to the main caption
                     if (order.order_items.length === 1) {
-                        caption += `\n\n🛍️ *Item:* ${firstItem.product_name}\n` +
-                            (firstItem.variant_name ? `🎨 *Option:* ${firstItem.variant_name}\n` : '') +
-                            `💵 *Price:* ₹${firstItem.price_at_time.toLocaleString()}\n` +
-                            `🔢 *Quantity:* ${firstItem.quantity}`;
+                        caption += `\n\n *Item:* ${firstItem.product_name}\n` +
+                            (firstItem.variant_name ? ` *Option:* ${firstItem.variant_name}\n` : '') +
+                            ` *Price:* ₹${firstItem.price_at_time.toLocaleString()}\n` +
+                            ` *Quantity:* ${firstItem.quantity}`;
                     }
 
                     await sendRawMessage(finalPhone, {
@@ -241,10 +248,10 @@ export async function POST(request) {
                     // Send remaining product images with their captions
                     for (let i = 1; i < itemsWithImages.length; i++) {
                         const item = itemsWithImages[i];
-                        const itemCaption = `🛍️ *Item:* ${item.product_name}\n` +
-                            (item.variant_name ? `🎨 *Option:* ${item.variant_name}\n` : '') +
-                            `💵 *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
-                            `🔢 *Quantity:* ${item.quantity}`;
+                        const itemCaption = ` *Item:* ${item.product_name}\n` +
+                            (item.variant_name ? ` *Option:* ${item.variant_name}\n` : '') +
+                            ` *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
+                            ` *Quantity:* ${item.quantity}`;
                         
                         await sendRawMessage(finalPhone, {
                             messaging_product: "whatsapp",

@@ -65,16 +65,16 @@ export default function CustomerLoginPage() {
 
             <div className={styles.card}>
                 <div className={styles.logo}>
-                    <div className={styles.logoIcon}>💮</div>
+                    <img src="/images/cp-logo.png" alt="Logo" style={{ width: '64px', height: '64px', objectFit: 'contain', margin: '0 auto' }} />
                     <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Vaiyaaree</h1>
                     <p className={styles.subtitle}>Welcome Back!</p>
                 </div>
 
                 {successMessage && (
-                    <div className={styles.success}>✅ {successMessage}</div>
+                    <div className={styles.success}>{successMessage}</div>
                 )}
                 {error && (
-                    <div className={styles.error}>⚠️ {error}</div>
+                    <div className={styles.error}>{error}</div>
                 )}
 
                 {step === 1 ? (
@@ -82,7 +82,6 @@ export default function CustomerLoginPage() {
                         <div className={styles.field}>
                             <label className={styles.label}>WhatsApp Number</label>
                             <div className={styles.inputWrap}>
-                                <span className={styles.inputIcon}>📱</span>
                                 <input
                                     className={styles.input}
                                     type="tel"
@@ -94,6 +93,7 @@ export default function CustomerLoginPage() {
                                     minLength="10"
                                     required
                                     autoComplete="tel"
+                                    style={{ paddingLeft: '1rem' }}
                                 />
                             </div>
                             <p className={styles.desc}>We'll send a code to your WhatsApp for verification.</p>
@@ -108,7 +108,6 @@ export default function CustomerLoginPage() {
                         <div className={styles.field}>
                             <label className={styles.label}>Enter 6-digit Code</label>
                             <div className={styles.inputWrap}>
-                                <span className={styles.inputIcon}>🔢</span>
                                 <input
                                     className={styles.input}
                                     type="text"
@@ -117,6 +116,7 @@ export default function CustomerLoginPage() {
                                     onChange={e => setOtpCode(e.target.value)}
                                     required
                                     maxLength={6}
+                                    style={{ paddingLeft: '1rem' }}
                                 />
                             </div>
                             <p className={styles.desc}>Check your WhatsApp for the verification code.</p>
@@ -136,7 +136,7 @@ export default function CustomerLoginPage() {
                     </form>
                 )}
 
-                <p className={styles.footer}>🔐 Secure Authentication via WhatsApp</p>
+                <p className={styles.footer}>Secure Authentication via WhatsApp</p>
 
                 <div style={{ marginTop: '20px', textAlign: 'center' }}>
                     <button

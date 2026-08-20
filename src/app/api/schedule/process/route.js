@@ -50,7 +50,7 @@ export async function GET(request) {
                 await supabase.from('scheduled_posts').update({ status: 'POSTING' }).eq('id', post.id);
 
                 const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vaiyaaree.vercel.app';
-                const baseCaption = post.caption || `🌸 ${post.product_name}\n\n💰 ₹${(post.product_price || 0).toLocaleString()}\n\n🛍️ Shop: ${shopUrl}`;
+                const baseCaption = post.caption || ` ${post.product_name}\n\n ₹${(post.product_price || 0).toLocaleString()}\n\n Shop: ${shopUrl}`;
                 const message = post.hashtags ? `${baseCaption}\n\n${post.hashtags}` : baseCaption;
 
                 const fbUrl = `https://graph.facebook.com/v21.0/${fbConfig.pageId}/photos`;

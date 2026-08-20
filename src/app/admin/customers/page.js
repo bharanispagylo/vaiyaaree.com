@@ -904,7 +904,7 @@ function CustomersPage() {
                                 </div>
                             </div>
 
-                            {/* ─── ANALYTICS VIEW ─── */}
+                            {/*  ANALYTICS VIEW  */}
                             {viewMode === 'analytics' && (
                                 <div className="animate-enter" style={{ paddingBottom: '3rem' }}>
                                     {/* Analytics Header with Back Button */}

@@ -10,7 +10,7 @@ import styles from './shop.module.css';
 export default function ShopPage() {
     const { products, loading, addToCart } = useShop();
 
-    // ── LOCAL UI STATE ──
+    //  LOCAL UI STATE 
     const searchParams = useSearchParams();
     const initialQuery = searchParams.get('q') || '';
     const initialCategory = searchParams.get('category') || 'All';
@@ -39,12 +39,12 @@ export default function ShopPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [currentPage]);
 
-    // ── OPTIONS ──
+    //  OPTIONS 
     const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);
     const availableBrands = useMemo(() => ['All', ...new Set(products.map(p => p.product_group).filter(Boolean))], [products]);
     const availableSareeTypes = ['All', 'Pure Silk', 'Soft Silk', 'Cotton', 'Georgette', 'Banarasi', 'Handloom', 'Chiffon', 'Net'];
 
-    // ── FILTERED DATA ──
+    //  FILTERED DATA 
     const filteredProducts = useMemo(() => {
         let filtered = [...products];
 

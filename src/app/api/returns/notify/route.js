@@ -79,14 +79,14 @@ export async function POST(request) {
         let message = '';
         if (status === 'PENDING' || status === 'SUBMITTED' || status === 'REQUESTED') {
             message = [
-                `📋 ${type} REQUEST RECEIVED`,
+                `${type} REQUEST RECEIVED`,
                 ``,
                 `Hi ${customerName || 'Customer'},`,
                 `We have received your ${type.toLowerCase()} request for Order #${orderId}.`,
                 ``,
                 `Product: ${productName}`,
                 `Reason: ${req.reason || 'Not specified'}`,
-                `Status: Under Review ⏳`,
+                `Status: Under Review`,
                 ``,
                 `Our customer support team will review your request and update you shortly.`,
                 ``,
@@ -94,7 +94,7 @@ export async function POST(request) {
             ].join('\n');
         } else if (status === 'APPROVED') {
             message = [
-                `✅ ${type} REQUEST APPROVED`,
+                `${type} REQUEST APPROVED`,
                 ``,
                 `Hi ${customerName || 'Customer'},`,
                 `Good news! Your ${type.toLowerCase()} request for Order #${orderId} has been approved.`,
@@ -108,7 +108,7 @@ export async function POST(request) {
             ].join('\n');
         } else if (status === 'REJECTED') {
             message = [
-                `❌ ${type} REQUEST REJECTED`,
+                `${type} REQUEST REJECTED`,
                 ``,
                 `Hi ${customerName || 'Customer'},`,
                 `Your ${type.toLowerCase()} request for Order #${orderId} was not approved.`,
@@ -122,7 +122,7 @@ export async function POST(request) {
             ].join('\n');
         } else if (status === 'COMPLETED') {
             message = [
-                `✨ ${type} COMPLETED`,
+                `${type} COMPLETED`,
                 ``,
                 `Hi ${customerName || 'Customer'},`,
                 `The ${type.toLowerCase()} process for your Order #${orderId} is now complete.`,

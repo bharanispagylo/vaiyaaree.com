@@ -58,7 +58,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
         return maxNo;
     };
 
-    // ─── 1. SPREADSHEET UPLOAD ON IMAGE UPLOAD PAGE ───
+    //  1. SPREADSHEET UPLOAD ON IMAGE UPLOAD PAGE 
     const handleSpreadsheetUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -208,7 +208,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
         }
     };
 
-    // ─── 2. ADD NEW PRODUCT ───
+    //  2. ADD NEW PRODUCT 
     const handleAddNewProduct = () => {
         const nextNo = getHighestProductNo() + 1;
         const newItem = {
@@ -229,7 +229,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
         setItems(prev => [...prev, newItem]);
     };
 
-    // ─── 3. ASSIGN IMAGE & DIGITAL SCAN VALIDATION ───
+    //  3. ASSIGN IMAGE & DIGITAL SCAN VALIDATION 
     const assignImage = async (index, rawImageUrl) => {
         const item = items[index];
         setOcrLoading(true);
@@ -435,7 +435,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                 animation: 'modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards'
             }} onClick={e => e.stopPropagation()}>
 
-                {/* ─── HEADER ─── */}
+                {/*  HEADER  */}
                 <div style={{
                     padding: '1.75rem 2.5rem', borderBottom: '1px solid #f1f5f9',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -504,7 +504,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                     </div>
                 )}
 
-                {/* ─── PRODUCT LIST (Table / List View matching diagram) ─── */}
+                {/*  PRODUCT LIST (Table / List View matching diagram)  */}
                 <div style={{ flex: 1, padding: '1.5rem 2.5rem', overflowY: 'auto', background: '#f8fafc' }}>
                     {items.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#64748b' }}>
@@ -680,7 +680,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                     )}
                 </div>
 
-                {/* ─── FOOTER ─── */}
+                {/*  FOOTER  */}
                 <div style={{
                     padding: '1.75rem 2.5rem', borderTop: '1px solid #f1f5f9',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -688,7 +688,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', fontSize: '0.85rem', fontWeight: 500 }}>
                         <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            💡
+                            
                         </div>
                         <span>Sequential Product Nos are preserved. Failed scans remain in Image Upload until re-uploaded.</span>
                     </div>
@@ -701,7 +701,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                             disabled={doneCount === 0}
                             style={{ padding: '0.7rem 2rem', background: '#0f172a' }}
                         >
-                            ✅ Complete ({doneCount} Processed)
+                             Complete ({doneCount} Processed)
                         </button>
                     </div>
                 </div>

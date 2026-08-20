@@ -4,7 +4,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.warn('⚠️ Missing Supabase Environment Variables');
+    console.warn(' Missing Supabase Environment Variables');
 }
 
 // Singleton — prevents creating a new client on every hot-reload

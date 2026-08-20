@@ -61,7 +61,7 @@ function ProductSelectDropdown({ products, selectedKey, onSelect, placeholder = 
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span style={{ fontSize: '1.15rem', fontWeight: 800, color: selectedProduct ? 'hsl(var(--primary))' : '#94a3b8' }}>
-                        {selectedProduct ? '☑' : '☐'}
+                        {selectedProduct ? '' : ''}
                     </span>
                     <span style={{ fontWeight: selectedProduct ? 700 : 500, color: selectedProduct ? 'hsl(var(--text-main))' : 'hsl(var(--text-muted))' }}>
                         {selectedProduct 
@@ -111,7 +111,7 @@ function ProductSelectDropdown({ products, selectedKey, onSelect, placeholder = 
                                 onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
                                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                             >
-                                <span style={{ fontSize: '1.1rem', color: '#94a3b8' }}>☐</span>
+                                <span style={{ fontSize: '1.1rem', color: '#94a3b8' }}></span>
                                 <span>{placeholder}</span>
                             </div>
 
@@ -141,7 +141,7 @@ function ProductSelectDropdown({ products, selectedKey, onSelect, placeholder = 
                                         }}
                                     >
                                         <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isSelected ? 'hsl(var(--primary))' : '#cbd5e1' }}>
-                                            {isSelected ? '☑' : '☐'}
+                                            {isSelected ? '' : ''}
                                         </span>
                                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                                             <span style={{ fontSize: '0.9rem', color: isSelected ? 'hsl(var(--primary))' : '#0f172a' }}>
@@ -365,6 +365,11 @@ export default function ProfilePage() {
                         : `#${String(o.id).replace(/^[A-Z]+-/, 'INV-')}`
                 }));
                 setOrders(formattedOrders);
+
+                // Instantly pass order IDs to fetchRefunds and fetchReturns for exact customer data loading
+                const userOrderIds = data.map(o => o.id);
+                fetchRefunds(userOrderIds);
+                fetchReturns(userOrderIds);
             }
         } catch (err) {
             console.error('Error fetching orders:', err);
@@ -394,17 +399,47 @@ export default function ProfilePage() {
     }
 
     // Fetch Refund Requests
-    async function fetchRefunds() {
-        if (!user?.id || !supabase) return;
+    async function fetchRefunds(userOrderIds = []) {
+        if (!user || !supabase) return;
         setLoadingRefunds(true);
         try {
+            let orderIds = Array.isArray(userOrderIds) && userOrderIds.length > 0 ? userOrderIds : [];
+            if (orderIds.length === 0) {
+                const digits = (user.phone || '').replace(/\D/g, '');
+                const phoneVariations = [];
+                if (digits) {
+                    phoneVariations.push(digits);
+                    if (digits.length === 10) phoneVariations.push('91' + digits);
+                    else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
+                }
+
+                let oQuery = supabase.from('orders').select('id');
+                if (user.id && phoneVariations.length > 0) {
+                    oQuery = oQuery.or(`customer_id.eq.${user.id},customer_phone.in.(${phoneVariations.join(',')})`);
+                } else if (user.id) {
+                    oQuery = oQuery.eq('customer_id', user.id);
+                } else if (phoneVariations.length > 0) {
+                    oQuery = oQuery.in('customer_phone', phoneVariations);
+                }
+                const { data: oData } = await oQuery;
+                orderIds = (oData || []).map(o => o.id);
+            }
+
+            if (orderIds.length === 0) {
+                setRefunds([]);
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('refunds')
-                .select('*, orders:order_id(id, invoice_no, created_at)')
-                .eq('customer_id', user.id)
+                .select('*, orders:order_id(id, created_at, customer_phone)')
+                .in('order_id', orderIds)
                 .order('created_at', { ascending: false });
+
             if (!error && data) {
                 setRefunds(data);
+            } else if (error) {
+                console.error('Fetch refunds query error:', error);
             }
         } catch (err) {
             console.error('Fetch refunds error:', err);
@@ -414,17 +449,50 @@ export default function ProfilePage() {
     }
 
     // Fetch Return Requests
-    async function fetchReturns() {
-        if (!user?.id || !supabase) return;
+    async function fetchReturns(userOrderIds = []) {
+        if (!user || !supabase) return;
         setLoadingReturns(true);
         try {
-            const { data, error } = await supabase
+            let orderIds = Array.isArray(userOrderIds) && userOrderIds.length > 0 ? userOrderIds : [];
+            if (orderIds.length === 0) {
+                const digits = (user.phone || '').replace(/\D/g, '');
+                const phoneVariations = [];
+                if (digits) {
+                    phoneVariations.push(digits);
+                    if (digits.length === 10) phoneVariations.push('91' + digits);
+                    else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
+                }
+
+                let oQuery = supabase.from('orders').select('id');
+                if (user.id && phoneVariations.length > 0) {
+                    oQuery = oQuery.or(`customer_id.eq.${user.id},customer_phone.in.(${phoneVariations.join(',')})`);
+                } else if (user.id) {
+                    oQuery = oQuery.eq('customer_id', user.id);
+                } else if (phoneVariations.length > 0) {
+                    oQuery = oQuery.in('customer_phone', phoneVariations);
+                }
+                const { data: oData } = await oQuery;
+                orderIds = (oData || []).map(o => o.id);
+            }
+
+            let query = supabase
                 .from('return_requests')
-                .select('*, products(id, name, image_url), orders:order_id(id, invoice_no, created_at)')
-                .eq('customer_id', user.id)
+                .select('*, products(id, name, image_url), orders:order_id(id, created_at)')
                 .order('created_at', { ascending: false });
+
+            if (user.id && orderIds.length > 0) {
+                query = query.or(`customer_id.eq.${user.id},order_id.in.(${orderIds.map(i => `"${i}"`).join(',')})`);
+            } else if (user.id) {
+                query = query.eq('customer_id', user.id);
+            } else if (orderIds.length > 0) {
+                query = query.in('order_id', orderIds);
+            }
+
+            const { data, error } = await query;
             if (!error && data) {
                 setReturns(data);
+            } else if (error) {
+                console.error('Fetch returns query error:', error);
             }
         } catch (err) {
             console.error('Fetch returns error:', err);
@@ -552,10 +620,10 @@ export default function ProfilePage() {
         try {
             const refundPayload = {
                 order_id: orderId,
-                customer_id: user.id,
-                product_id: productId && productId !== 'undefined' ? productId : null,
                 amount: parseFloat(refundForm.amount) || parseFloat(itemPrice) || 0,
                 reason: finalReason,
+                refund_method: refundForm.upiId ? 'UPI' : 'ORIGINAL',
+                bank_account_details: refundForm.upiId || null,
                 status: 'REQUESTED',
                 notes: refundForm.upiId ? `UPI Payout ID: ${refundForm.upiId}` : 'Original payment method'
             };
@@ -576,8 +644,8 @@ export default function ProfilePage() {
             setRefundForm({ orderItemKey: '', reason: 'Defective Product', otherReason: '', amount: '', upiId: '' });
             fetchRefunds();
         } catch (err) {
-            console.error('Error submitting refund:', err);
-            showToast('Failed to submit refund request', 'error');
+            console.error('Error submitting refund:', err?.message || err);
+            showToast(err?.message || 'Failed to submit refund request', 'error');
         } finally {
             setSubmittingRefund(false);
         }
@@ -1347,7 +1415,7 @@ export default function ProfilePage() {
                                                 <p className={styles.addressName}>{addr.full_name}</p>
                                                 <p className={styles.addressLine}>{addr.address_line}</p>
                                                 <p className={styles.addressLocation}>{addr.city}, {addr.state} {addr.pincode}</p>
-                                                <p className={styles.addressPhone}>📞 +{addr.phone}</p>
+                                                <p className={styles.addressPhone}> +{addr.phone}</p>
                                                 <button type="button" onClick={() => deleteAddress(addr.id)} className={styles.deleteAddressBtn}>
                                                     Delete Address
                                                 </button>
@@ -1451,7 +1519,7 @@ export default function ProfilePage() {
                                                 <p className={styles.addressName}>{addr.full_name}</p>
                                                 <p className={styles.addressLine}>{addr.address_line}</p>
                                                 <p className={styles.addressLocation}>{addr.city}, {addr.state} {addr.pincode}</p>
-                                                <p className={styles.addressPhone}>📞 +{addr.phone}</p>
+                                                <p className={styles.addressPhone}> +{addr.phone}</p>
                                                 <button type="button" onClick={() => deleteAddress(addr.id)} className={styles.deleteAddressBtn}>
                                                     Delete Address
                                                 </button>
@@ -1582,11 +1650,11 @@ export default function ProfilePage() {
                                                     : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
 
                                                 const st = (r.status || 'REQUESTED').toUpperCase();
-                                                let badgeText = '⏳ Under Review';
+                                                let badgeText = 'Under Review';
                                                 let badgeClass = styles.badgeRequested;
-                                                if (st === 'APPROVED') { badgeText = '✅ Approved & Processing'; badgeClass = styles.badgeApproved; }
-                                                else if (st === 'COMPLETED') { badgeText = '💰 Refund Credited'; badgeClass = styles.badgeCompleted; }
-                                                else if (st === 'REJECTED') { badgeText = '❌ Request Declined'; badgeClass = styles.badgeRejected; }
+                                                if (st === 'APPROVED') { badgeText = 'Approved & Processing'; badgeClass = styles.badgeApproved; }
+                                                else if (st === 'COMPLETED') { badgeText = 'Refund Credited'; badgeClass = styles.badgeCompleted; }
+                                                else if (st === 'REJECTED') { badgeText = 'Request Declined'; badgeClass = styles.badgeRejected; }
 
                                                 return (
                                                     <tr key={r.id}>
@@ -1718,11 +1786,11 @@ export default function ProfilePage() {
                                                     : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
 
                                                 const st = (r.status || 'PENDING').toUpperCase();
-                                                let badgeText = '⏳ Under Review';
+                                                let badgeText = 'Under Review';
                                                 let badgeClass = styles.badgePending;
-                                                if (st === 'APPROVED') { badgeText = '✅ Approved & Scheduled'; badgeClass = styles.badgeApproved; }
-                                                else if (st === 'COMPLETED') { badgeText = '✨ Return Completed'; badgeClass = styles.badgeCompleted; }
-                                                else if (st === 'REJECTED') { badgeText = '❌ Request Declined'; badgeClass = styles.badgeRejected; }
+                                                if (st === 'APPROVED') { badgeText = 'Approved & Scheduled'; badgeClass = styles.badgeApproved; }
+                                                else if (st === 'COMPLETED') { badgeText = 'Return Completed'; badgeClass = styles.badgeCompleted; }
+                                                else if (st === 'REJECTED') { badgeText = 'Request Declined'; badgeClass = styles.badgeRejected; }
 
                                                 return (
                                                     <tr key={r.id}>

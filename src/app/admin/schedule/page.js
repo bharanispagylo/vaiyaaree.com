@@ -300,7 +300,7 @@ export default function SchedulePostPage() {
         <>
         <div className="animate-enter">
             {showCreator ? (
-                /* ═══ SCHEDULE POST CREATOR - SPLIT LAYOUT ═══ */
+                /*  SCHEDULE POST CREATOR - SPLIT LAYOUT  */
                 <>
                     <div className="admin-header-row" style={{ marginBottom: '1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -331,7 +331,7 @@ export default function SchedulePostPage() {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
-                        {/* ═══ LEFT: FORM ═══ */}
+                        {/*  LEFT: FORM  */}
                         <div className="card" style={{ padding: '1.5rem' }}>
                             {/* Select Product */}
                             <div style={{ marginBottom: '1.5rem' }}>
@@ -424,7 +424,7 @@ export default function SchedulePostPage() {
                             </button>
                         </div>
 
-                        {/* ═══ RIGHT: LIVE PREVIEW ═══ */}
+                        {/*  RIGHT: LIVE PREVIEW  */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '2rem' }}>
                             {/* Facebook Preview */}
                             {previewPlatform === 'facebook' && (
@@ -495,7 +495,7 @@ export default function SchedulePostPage() {
                     </div>
                 </>
             ) : (
-                /* ═══ SCHEDULE LIST VIEW ═══ */
+                /*  SCHEDULE LIST VIEW  */
                 <>
                     <div className="admin-header-row">
                         <div>

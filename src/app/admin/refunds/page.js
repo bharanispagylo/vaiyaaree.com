@@ -473,7 +473,7 @@ export default function RefundsPage() {
                     </table>
                 )}
 
-                {/* ── Table Pagination ── */}
+                {/*  Table Pagination  */}
                 {totalRefundPages > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
                         <button onClick={() => setRefundsPage(p => Math.max(1, p - 1))} disabled={refundsPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: refundsPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>

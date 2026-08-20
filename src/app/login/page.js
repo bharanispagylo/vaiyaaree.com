@@ -75,11 +75,11 @@ export default function CustomerLoginPage() {
                 <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
                         <div style={{
-                            width: '80px', height: '80px', background: '#000', borderRadius: '50%',
+                            width: '130px', height: '130px', background: 'transparent', borderRadius: '1rem',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 10px 20px hsl(var(--primary) / 0.2)', overflow: 'hidden'
+                            boxShadow: '0 10px 25px hsl(var(--primary) / 0.2)', overflow: 'hidden', padding: '0.25rem'
                         }}>
-                            <img src="/images/cp-logo.png" alt="CP Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src="/images/cp-logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         </div>
                     </div>
                     <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Vaiyaaree</h1>

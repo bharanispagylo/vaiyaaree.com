@@ -185,7 +185,7 @@ export default function AdminTopBar({ onMenuClick }) {
             {/* Right side — Admin Profile Display ONLY (No Standalone Logout Button) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }} ref={dropdownRef}>
                 
-                {/* ─── ADMIN PROFILE CARD / CHIP ─── */}
+                {/*  ADMIN PROFILE CARD / CHIP  */}
                 <div style={{ position: 'relative' }}>
                     <button
                         onClick={() => setShowDropdown(!showDropdown)}
@@ -214,11 +214,11 @@ export default function AdminTopBar({ onMenuClick }) {
                             width: '34px',
                             height: '34px',
                             borderRadius: '50%',
-                            background: '#ffffff',
+                            background: 'hsl(var(--primary))',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: '#000000',
+                            color: '#ffffff',
                             fontWeight: 800,
                             fontSize: '0.9rem',
                             flexShrink: 0
@@ -231,7 +231,7 @@ export default function AdminTopBar({ onMenuClick }) {
                             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap' }}>
                                 {displayName}
                             </span>
-                            <span style={{ fontSize: '0.7rem', color: '#a5b4fc', fontWeight: 600, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.7rem', color: 'hsl(var(--accent))', fontWeight: 600, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
                                 {displayRole}
                             </span>
                         </div>
@@ -248,14 +248,14 @@ export default function AdminTopBar({ onMenuClick }) {
                         />
                     </button>
 
-                    {/* ─── DROPDOWN POPOVER MENU ─── */}
+                    {/*  DROPDOWN POPOVER MENU  */}
                     {showDropdown && (
                         <div style={{
                             position: 'absolute',
                             top: 'calc(100% + 0.6rem)',
                             right: 0,
                             width: '270px',
-                            background: '#111827',
+                            background: 'hsl(var(--bg-panel))',
                             border: '1px solid rgba(255, 255, 255, 0.15)',
                             borderRadius: '16px',
                             padding: '1.1rem',
@@ -270,11 +270,11 @@ export default function AdminTopBar({ onMenuClick }) {
                                     width: '44px',
                                     height: '44px',
                                     borderRadius: '50%',
-                                    background: '#ffffff',
+                                    background: 'hsl(var(--primary))',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    color: '#000000',
+                                    color: '#ffffff',
                                     fontWeight: 800,
                                     fontSize: '1.1rem',
                                     flexShrink: 0
@@ -285,7 +285,7 @@ export default function AdminTopBar({ onMenuClick }) {
                                     <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {displayName}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#a5b4fc', fontWeight: 500 }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'hsl(var(--accent))', fontWeight: 500 }}>
                                         {displayUsername}
                                     </div>
                                     <div style={{

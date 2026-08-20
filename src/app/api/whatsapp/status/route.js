@@ -40,20 +40,20 @@ export async function GET() {
                     };
 
                     if (errCode === 190 || metaRes.status === 401) {
-                        status.recommendation.push('⚠️ EXPIRED META ACCESS TOKEN: Generate a new WHATSAPP_ACCESS_TOKEN in Meta Developer Console -> WhatsApp -> API Setup and update .env');
+                        status.recommendation.push(' EXPIRED META ACCESS TOKEN: Generate a new WHATSAPP_ACCESS_TOKEN in Meta Developer Console -> WhatsApp -> API Setup and update .env');
                     } else if (errCode === 131030) {
-                        status.recommendation.push('⚠️ RECIPIENT NOT IN ALLOWED LIST: Add your recipient phone number to the "To" test number list in Meta Console.');
+                        status.recommendation.push(' RECIPIENT NOT IN ALLOWED LIST: Add your recipient phone number to the "To" test number list in Meta Console.');
                     }
                 }
             } catch (err) {
                 status.metaApiTest = { success: false, error: err.message };
             }
         } else {
-            status.recommendation.push('⚠️ Missing WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_ACCESS_TOKEN in .env file.');
+            status.recommendation.push(' Missing WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_ACCESS_TOKEN in .env file.');
         }
 
         if (!appUrl || appUrl.includes('localhost')) {
-            status.recommendation.push('⚠️ Webhook URL should be an HTTPS tunnel (e.g. ngrok or Cloudflare tunnel) so Meta can reach your server.');
+            status.recommendation.push(' Webhook URL should be an HTTPS tunnel (e.g. ngrok or Cloudflare tunnel) so Meta can reach your server.');
         }
 
         return NextResponse.json(status);

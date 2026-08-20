@@ -16,7 +16,7 @@ export default function SettingsPage() {
     return (
         <div className="animate-enter">
             <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: 800 }}>Caste Print Settings</h1>
+                <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: 800 }}>Vaiyaaree Settings</h1>
                 <p>Manage your store preferences and configuration</p>
             </div>
 
@@ -43,7 +43,7 @@ export default function SettingsPage() {
                 {/* Settings Content */}
                 <div className="card" style={{ padding: '2.5rem' }}>
 
-                    {/* ─── GENERAL TAB ─── */}
+                    {/*  GENERAL TAB  */}
                     {activeTab === 'General' && (
                         <>
                             <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -52,7 +52,7 @@ export default function SettingsPage() {
                             <div style={{ display: 'grid', gap: '1.75rem', maxWidth: '600px' }}>
                                 <div>
                                     <label className="label">Store Name</label>
-                                    <input className="input-field" defaultValue="Caste Print Premium" />
+                                    <input className="input-field" defaultValue="Vaiyaaree Sarees" />
                                 </div>
                                 <div>
                                     <label className="label">Store Description (SEO)</label>
@@ -72,7 +72,7 @@ export default function SettingsPage() {
                         </>
                     )}
 
-                    {/* ─── BUSINESS & TAX TAB ─── */}
+                    {/*  BUSINESS & TAX TAB  */}
                     {activeTab === 'Business & Tax' && (
                         <>
                             <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -101,7 +101,7 @@ export default function SettingsPage() {
                         </>
                     )}
 
-                    {/* ─── SHIPPING TAB ─── */}
+                    {/*  SHIPPING TAB  */}
                     {activeTab === 'Shipping & Delivery' && (
                         <>
                             <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -130,7 +130,7 @@ export default function SettingsPage() {
                         </>
                     )}
 
-                    {/* ─── SOCIAL & SUPPORT TAB ─── */}
+                    {/*  SOCIAL & SUPPORT TAB  */}
                     {activeTab === 'Social & Support' && (
                         <>
                             <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

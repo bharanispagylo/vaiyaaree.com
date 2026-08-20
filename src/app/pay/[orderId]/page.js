@@ -81,7 +81,7 @@ function PaymentPageInner({ orderId }) {
         fetchOrder();
     }, [orderId, searchParams]);
 
-    // ────────────── Razorpay Handler ──────────────
+    //  Razorpay Handler 
     const handleRazorpay = useCallback(async () => {
         if (!sdkReady) {
             setError('Payment system is loading. Please try again in a moment.');
@@ -103,7 +103,7 @@ function PaymentPageInner({ orderId }) {
                 key: data.keyId,
                 amount: data.amount,
                 currency: data.currency || 'INR',
-                name: "Caste Print",
+                name: "Vaiyaaree",
                 description: `Payment for Order #${orderId}`,
                 image: '/favicon.ico',
                 order_id: data.razorpayOrderId,
@@ -150,7 +150,7 @@ function PaymentPageInner({ orderId }) {
         }
     }, [sdkReady, orderId, order]);
 
-    // ────────────── PhonePe Handler ──────────────
+    //  PhonePe Handler 
     const handlePhonePe = useCallback(async () => {
         setActiveGateway('phonepe');
         setError('');
@@ -175,7 +175,7 @@ function PaymentPageInner({ orderId }) {
         }
     }, [orderId]);
 
-    // ── Loading ──
+    //  Loading 
     if (loading) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))' }}>
             <div style={{ textAlign: 'center' }}>
@@ -185,14 +185,14 @@ function PaymentPageInner({ orderId }) {
         </div>
     );
 
-    // ── Order Not Found ──
+    //  Order Not Found 
     if (!order && paymentStatus === 'failed' && !error.includes('failed')) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--bg-app))', color: 'hsl(var(--danger))', fontSize: '1.2rem' }}>
             Order not found.
         </div>
     );
 
-    // ── Success Screen ──
+    //  Success Screen 
     if (paymentStatus === 'success') return (
         <div style={{ minHeight: '100vh', background: 'hsl(var(--bg-app))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', fontFamily: 'var(--font-body)' }}>
             <div style={{ background: 'white', border: '1px solid hsl(var(--border-subtle))', borderRadius: 24, padding: '3rem 2.5rem', maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-card)' }}>
@@ -201,7 +201,7 @@ function PaymentPageInner({ orderId }) {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h1 style={{ color: 'hsl(var(--text-main))', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.5rem', fontFamily: 'var(--font-heading)' }}>Payment Successful! 🎉</h1>
+                <h1 style={{ color: 'hsl(var(--text-main))', fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.5rem', fontFamily: 'var(--font-heading)' }}>Payment Successful!</h1>
                 <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1.5rem' }}>Order <span style={{ color: 'hsl(var(--primary))', fontWeight: 700, fontFamily: 'var(--font-body)' }}>#{orderId}</span> has been confirmed.</p>
 
                 <div style={{ background: 'hsl(var(--bg-app))', borderRadius: 16, padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'left', border: '1px solid hsl(var(--border-subtle))' }}>
@@ -218,7 +218,7 @@ function PaymentPageInner({ orderId }) {
                     </div>
                 </div>
 
-                <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', marginBottom: '2rem' }}>📲 Invoice sent to your WhatsApp number</p>
+                <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', marginBottom: '2rem' }}>Invoice sent to your WhatsApp number</p>
 
                 <button
                     onClick={() => router.push('/shop')}
@@ -235,7 +235,7 @@ function PaymentPageInner({ orderId }) {
         </div>
     );
 
-    // ── Main Checkout Page ──
+    //  Main Checkout Page 
     return (
         <>
             <Script src="https://checkout.razorpay.com/v1/checkout.js" onLoad={() => setSdkReady(true)} strategy="afterInteractive" />
@@ -246,7 +246,7 @@ function PaymentPageInner({ orderId }) {
                     {/* Header */}
                     <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                         <h2 style={{ color: 'hsl(var(--text-main))', fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Checkout</h2>
-                        <p style={{ color: 'hsl(var(--primary))', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem', fontWeight: 700 }}>Caste Print — Secure Payment</p>
+                        <p style={{ color: 'hsl(var(--primary))', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem', fontWeight: 700 }}>Vaiyaaree — Secure Payment</p>
                     </div>
 
                     {/* Order Summary Card */}
@@ -273,7 +273,7 @@ function PaymentPageInner({ orderId }) {
                     {/* Error */}
                     {error && (
                         <div style={{ background: 'hsl(var(--danger) / 0.1)', border: '1px solid hsl(var(--danger) / 0.3)', color: 'hsl(var(--danger))', padding: '1rem', borderRadius: 16, marginBottom: '1.5rem', fontSize: '0.875rem', fontWeight: 600 }}>
-                            ⚠️ {error}
+                            {error}
                         </div>
                     )}
 
@@ -331,7 +331,7 @@ function PaymentPageInner({ orderId }) {
                                 <span key={m} style={{ background: '#1e1e1e', border: '1px solid #2a2a2a', color: '#666', padding: '0.2rem 0.5rem', borderRadius: 6, fontSize: '0.65rem' }}>{m}</span>
                             ))}
                         </div>
-                        <p style={{ color: '#333', fontSize: '0.7rem' }}>🔒 Secured by Razorpay & PhonePe · 256-bit SSL</p>
+                        <p style={{ color: '#333', fontSize: '0.7rem' }}>Secured by Razorpay & PhonePe · 256-bit SSL</p>
                     </div>
                 </div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

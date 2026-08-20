@@ -61,7 +61,8 @@ export default function CheckoutPage() {
             showToast('Please enter a valid 10-digit Phone Number', 'error');
             return;
         }
-        if (!checkoutForm.billingWhatsApp || checkoutForm.billingWhatsApp.trim().length !== 10) {
+        const effectiveWhatsApp = checkoutForm.billingWhatsApp?.trim() || checkoutForm.billingPhone?.trim();
+        if (!effectiveWhatsApp || effectiveWhatsApp.length !== 10) {
             showToast('Please enter a valid 10-digit WhatsApp Number', 'error');
             return;
         }
@@ -103,7 +104,7 @@ export default function CheckoutPage() {
                 if (checkoutForm.paymentMethod === 'ONLINE') {
                     await initiateRazorpayPayment(data);
                 } else {
-                    showToast('🎉 Order placed successfully! Redirecting to your orders...', 'success');
+                    showToast(' Order placed successfully! Redirecting to your orders...', 'success');
                     router.push('/my-orders');
                 }
             }
@@ -129,8 +130,8 @@ export default function CheckoutPage() {
                 key: rzpData.keyId,
                 amount: rzpData.amount,
                 currency: rzpData.currency,
-                name: "Caste Print",
-                description: "Order Payment for Caste Print",
+                name: "Vaiyaaree",
+                description: "Order Payment for Vaiyaaree",
                 order_id: rzpData.razorpayOrderId,
                 handler: async function (response) {
                     // Verify payment
@@ -145,7 +146,7 @@ export default function CheckoutPage() {
                     });
                     const verifyData = await verifyRes.json();
                     if (verifyData.success) {
-                        showToast('🎉 Payment verified! Redirecting to your orders...', 'success');
+                        showToast(' Payment verified! Redirecting to your orders...', 'success');
                         router.push('/my-orders');
                     } else {
                         showToast('Payment verification failed', 'error');
@@ -185,7 +186,7 @@ export default function CheckoutPage() {
 
     const goToWhatsApp = (orderId) => {
         const message = encodeURIComponent(`Hi! I just placed an order #${orderId} on your website. Please confirm.`);
-        const bizPhone = process.env.NEXT_PUBLIC_BUSINESS_PHONE || '15551678232';
+        const bizPhone = process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292';
         window.open(`https://wa.me/${bizPhone}?text=${message}`, '_blank');
     };
 
@@ -310,7 +311,14 @@ export default function CheckoutPage() {
                             <input 
                                 type="tel" 
                                 value={checkoutForm.billingPhone || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingPhone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
+                                onChange={e => {
+                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                    setCheckoutForm(p => ({
+                                        ...p,
+                                        billingPhone: val,
+                                        billingWhatsApp: (!p.billingWhatsApp || p.billingWhatsApp === p.billingPhone) ? val : p.billingWhatsApp
+                                    }));
+                                }} 
                                 placeholder="10-digit phone number" 
                                 pattern="[0-9]{10}"
                                 maxLength="10"
@@ -597,7 +605,7 @@ export default function CheckoutPage() {
                                         fontSize: '0.85rem', 
                                         color: '#92400e' 
                                     }}>
-                                        💳 COD is only available for orders within India. Please pay online for international shipping.
+                                         COD is only available for orders within India. Please pay online for international shipping.
                                     </div>
                                 )}
                             </div>

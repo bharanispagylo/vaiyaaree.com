@@ -633,7 +633,7 @@ export default function CMSPage() {
                                     <div style={{ fontSize: '0.75rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Live Page Preview</div>
                                     <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#fff' }}>{document.querySelector('input[name="title"]')?.value || currentPage?.title || 'Untitled Page'}</h3>
                                 </div>
-                                <button onClick={() => setShowPreview(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Close Preview ✕</button>
+                                <button onClick={() => setShowPreview(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Close Preview </button>
                             </div>
                             <div style={{ flex: 1, overflowY: 'auto', padding: '3rem 2rem', background: '#fff' }}>
                                 <div style={{ maxWidth: '800px', margin: '0 auto' }}>

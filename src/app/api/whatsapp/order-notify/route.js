@@ -73,26 +73,28 @@ export async function POST(request) {
             return Response.json({ error: 'Missing customerPhone' }, { status: 400 });
         }
 
-        // ── Build the order confirmation message ──────────────────────────────
+        //  Build the order confirmation message 
         const itemsText = items.map(i => `  • ${i.name} x${i.qty} = ₹${((i.price * i.qty) || 0).toLocaleString()}`).join('\n');
-        const paymentText = paymentMethod === 'COD' ? '💵 Cash on Delivery' : '📲 UPI / Online';
+        const paymentText = paymentMethod === 'COD' ? 'Cash on Delivery' : 'UPI / Online';
+        const cleanId = String(orderId || '').trim().replace(/^#/, '');
+        const displayInv = `#${cleanId.replace(/^([A-Z]+-)?/i, 'INV-')}`;
 
         const message =
-            `💮 *Caste Print — ORDER CONFIRMED!*\n\n` +
-            `✅ Your website order has been placed successfully!\n\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `📋 *Order ID:* #${orderId}\n` +
-            `👤 *Name:* ${customerName}\n` +
-            `📍 *Delivery Address:*\n${address}\n\n` +
-            `🛍️ *Items Ordered:*\n${itemsText}\n\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `💰 *Total Amount:* ₹${(total || 0).toLocaleString()}\n` +
-            `💳 *Payment:* ${paymentText}\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `*Vaiyaaree — ORDER CONFIRMED!*\n\n` +
+            `Your website order has been placed successfully!\n\n` +
+            `\n` +
+            `*Invoice No:* ${displayInv}\n` +
+            `*Name:* ${customerName}\n` +
+            `*Delivery Address:*\n${address}\n\n` +
+            `*Items Ordered:*\n${itemsText}\n\n` +
+            `\n` +
+            `*Total Amount:* ₹${(total || 0).toLocaleString()}\n` +
+            `*Payment:* ${paymentText}\n` +
+            `\n\n` +
             (paymentMethod === 'UPI'
-                ? `📲 *UPI Payment Details:*\nUPI ID: *samypranesh@okicici*\nAmount: *₹${(total || 0).toLocaleString()}*\n\nPlease complete the payment and reply *PAID ✓* to confirm.\n\n`
+                ? `*UPI Payment Details:*\nUPI ID: *samypranesh@okicici*\nAmount: *₹${(total || 0).toLocaleString()}*\n\nPlease complete the payment and reply *PAID* to confirm.\n\n`
                 : `Our team will contact you to confirm your delivery date.\n\n`) +
-            `💗 Thank you for shopping with *Caste Print*!\n` +
+            `Thank you for shopping with *Vaiyaaree*!\n` +
             `Tap the buttons below to manage your orders.`;
 
         await sendButtons(customerPhone, message, [

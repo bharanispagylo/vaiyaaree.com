@@ -143,10 +143,10 @@ export default function ProductDetailsPage() {
     return (
         <div className={styles.productContainer}>
 
-            {/* ── Main Two-Column Section ── */}
+            {/*  Main Two-Column Section  */}
             <div className={styles.mainSection}>
 
-                {/* ── LEFT: Image Gallery ── */}
+                {/*  LEFT: Image Gallery  */}
                 <div className={styles.imageGallery}>
 
                     {/* Main Image */}
@@ -192,7 +192,7 @@ export default function ProductDetailsPage() {
                     )}
                 </div>
 
-                {/* ── RIGHT: Product Info ── */}
+                {/*  RIGHT: Product Info  */}
                 <div className={styles.productDetails}>
 
                     {/* Category */}
@@ -311,7 +311,7 @@ export default function ProductDetailsPage() {
                                     alignItems: 'center',
                                     gap: '6px'
                                 }}>
-                                    ⚠️ Saree Not Available for higher quantity (Maximum {currentStock} in stock)
+                                     Saree Not Available for higher quantity (Maximum {currentStock} in stock)
                                 </div>
                             )}
                         </div>
@@ -345,7 +345,7 @@ export default function ProductDetailsPage() {
                 </div>
             </div>
 
-            {/* ── Related Products ── */}
+            {/*  Related Products  */}
             {relatedProducts.length > 0 && (
                 <section className={styles.relatedSection}>
                     <div className={styles.relatedHeader}>
@@ -359,7 +359,7 @@ export default function ProductDetailsPage() {
                 </section>
             )}
 
-            {/* ── Zoom Modal ── */}
+            {/*  Zoom Modal  */}
             {isZoomed && (
                 <div className={styles.zoomModal} onClick={() => setIsZoomed(false)}>
                     <button

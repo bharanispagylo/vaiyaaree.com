@@ -209,10 +209,11 @@
 
 .formGroup input,
 .formGroup select,
+.formGroupFull input,
 .formGroupFull textarea,
 .formGroupFull select {
     background: hsl(var(--text-main) / 0.03);
-    border: 1px solid hsl(var(--text-main) / 0.12);
+    border: 1px solid hsl(var(--text-main) / 0.2);
     border-radius: 12px;
     padding: 0.9rem 1.15rem;
     color: hsl(var(--text-main));
@@ -224,6 +225,7 @@
 
 .formGroup input:focus,
 .formGroup select:focus,
+.formGroupFull input:focus,
 .formGroupFull textarea:focus,
 .formGroupFull select:focus {
     border-color: hsl(var(--primary));

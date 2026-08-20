@@ -1414,7 +1414,7 @@ export default function OrdersPage() {
 
                     <>
                     <div className="no-print">
-                        {/* ─── MAIN LIST VIEW ─── */}
+                        {/*  MAIN LIST VIEW  */}
                         {(!selectedOrder || isCourierFromTable) && !isAddingOrder && (
                             <div className="orders-list-section">
                                 {/* Header */}
@@ -1775,7 +1775,7 @@ export default function OrdersPage() {
                                                 </div>
                                             )}
 
-                                            {/* ── Table Pagination ── */}
+                                            {/*  Table Pagination  */}
                                             {totalOrderPages > 1 && (
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '1.5rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle))', flexWrap: 'wrap' }}>
                                                     <button onClick={() => setOrdersPage(p => Math.max(1, p - 1))} disabled={ordersPage === 1} className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: ordersPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
@@ -1808,7 +1808,7 @@ export default function OrdersPage() {
                                         </div>
                                     </div>
                                 )}
-                        {/* ─── ORDER DETAILS PAGE ─── */}
+                        {/*  ORDER DETAILS PAGE  */}
                         {selectedOrder && !isCourierFromTable && (
                             <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                                 <div className="card shadow-premium" style={{
@@ -2656,7 +2656,7 @@ export default function OrdersPage() {
                             </div>
                         )}
 
-                        {/* ─── ADD MANUAL ORDER PAGE ─── */}
+                        {/*  ADD MANUAL ORDER PAGE  */}
                         {isAddingOrder && (
                             <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                                 <div className="card shadow-premium" style={{
@@ -2888,7 +2888,7 @@ export default function OrdersPage() {
                                                                 try {
                                                                     const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('MAN', supabase);
 
-                                                                    // ────── NORMALISE PHONE & SYNC CUSTOMER ──────
+                                                                    //  NORMALISE PHONE & SYNC CUSTOMER 
                                                                     const cleanPhone = newOrder.billing_phone.replace(/\D/g, '');
                                                                     const normalizedPhone = cleanPhone.startsWith('91') ? cleanPhone : (cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone);
 
@@ -2916,7 +2916,6 @@ export default function OrdersPage() {
 
                                                                     const { error: ordErr } = await supabase.from('orders').insert({
                                                                         id: orderId,
-                                                                        invoice_no: invoiceNo,
                                                                         customer_name: newOrder.customer_name,
                                                                         customer_email: newOrder.billing_email || null,
                                                                         customer_phone: normalizedPhone,
@@ -2982,7 +2981,7 @@ export default function OrdersPage() {
                                                                         created_at: new Date().toISOString()
                                                                     });
 
-                                                                    // ────── DEDUCT STOCK & LOG HISTORY ──────
+                                                                    //  DEDUCT STOCK & LOG HISTORY 
                                                                     for (const item of newOrder.items) {
                                                                         const { data: prod } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
                                                                         if (prod) {
@@ -3001,7 +3000,7 @@ export default function OrdersPage() {
                                                                         }
                                                                     }
 
-                                                                    // ────── SEND NOTIFICATIONS ──────
+                                                                    //  SEND NOTIFICATIONS 
                                                                     if (newOrder.send_notifications !== 'none') {
                                                                         try {
                                                                             const response = await fetch('/api/admin/send-order-notification', {

@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
         const data = await res.json();
         setLoading(false);
         if (res.ok) {
-            setSuccess('✅ Password changed successfully! Redirecting to login...');
+            setSuccess('Password changed successfully! Redirecting to login...');
             setTimeout(() => router.push('/login'), 2000);
         } else {
             setError(data.error || 'Something went wrong.');
@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
 
             <div className={styles.card}>
                 <div className={styles.logo}>
-                    <div className={styles.logoIcon}>{step === 1 ? '🔑' : '🔒'}</div>
+                    <img src="/images/cp-logo.png" alt="Logo" style={{ width: '56px', height: '56px', objectFit: 'contain', margin: '0 auto' }} />
                     <h1 className={styles.brand}>Reset Password</h1>
                     <p className={styles.subtitle}>
                         {step === 1 ? 'Enter your Recovery PIN' : 'Set a New Password'}
@@ -78,7 +78,6 @@ export default function ForgotPasswordPage() {
                         <div className={styles.field}>
                             <label className={styles.label}>Recovery PIN</label>
                             <div className={styles.inputWrap}>
-                                <span className={styles.inputIcon}>🔐</span>
                                 <input
                                     className={styles.input}
                                     type="number"
@@ -87,17 +86,18 @@ export default function ForgotPasswordPage() {
                                     onKeyDown={(e) => { if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault(); }}
                                     onChange={e => setPin(e.target.value)}
                                     required
+                                    style={{ paddingLeft: '1rem' }}
                                 />
                             </div>
                             <p style={{ fontSize: '12px', color: 'hsl(var(--text-muted))', marginTop: '6px' }}>
-                                💡 Default PIN is <strong style={{ color: 'hsl(var(--primary))' }}>1234</strong> — change it in .env.local after reset
+                                Default PIN is <strong style={{ color: 'hsl(var(--primary))' }}>1234</strong> — change it in .env.local after reset
                             </p>
                         </div>
 
-                        {error && <div className={styles.error}>⚠️ {error}</div>}
+                        {error && <div className={styles.error}>{error}</div>}
 
                         <button className={styles.btn} type="submit" disabled={loading}>
-                            {loading ? <span className={styles.spinner} /> : '➡️ Next'}
+                            {loading ? <span className={styles.spinner} /> : 'Next'}
                         </button>
 
                         <button
@@ -115,7 +115,6 @@ export default function ForgotPasswordPage() {
                         <div className={styles.field}>
                             <label className={styles.label}>New Password</label>
                             <div className={styles.inputWrap}>
-                                <span className={styles.inputIcon}>🔒</span>
                                 <input
                                     className={styles.input}
                                     type={showPass ? 'text' : 'password'}
@@ -123,17 +122,14 @@ export default function ForgotPasswordPage() {
                                     value={newPassword}
                                     onChange={e => setNewPassword(e.target.value)}
                                     required
+                                    style={{ paddingLeft: '1rem' }}
                                 />
-                                <button type="button" className={styles.eyeBtn} onClick={() => setShowPass(v => !v)} tabIndex={-1}>
-                                    {showPass ? '🙈' : '👁️'}
-                                </button>
                             </div>
                         </div>
 
                         <div className={styles.field}>
                             <label className={styles.label}>Confirm New Password</label>
                             <div className={styles.inputWrap}>
-                                <span className={styles.inputIcon}>🔒</span>
                                 <input
                                     className={styles.input}
                                     type={showPass ? 'text' : 'password'}
@@ -141,11 +137,12 @@ export default function ForgotPasswordPage() {
                                     value={confirmPassword}
                                     onChange={e => setConfirmPassword(e.target.value)}
                                     required
+                                    style={{ paddingLeft: '1rem' }}
                                 />
                             </div>
                         </div>
 
-                        {error && <div className={styles.error}>⚠️ {error}</div>}
+                        {error && <div className={styles.error}>{error}</div>}
                         {success && (
                             <div style={{ background: 'hsl(var(--success) / 0.12)', border: '1px solid hsl(var(--success) / 0.3)', color: 'hsl(var(--success))', borderRadius: '10px', padding: '10px 14px', fontSize: '13px' }}>
                                 {success}
@@ -153,12 +150,12 @@ export default function ForgotPasswordPage() {
                         )}
 
                         <button className={styles.btn} type="submit" disabled={loading}>
-                            {loading ? <span className={styles.spinner} /> : '✅ Change Password'}
+                            {loading ? <span className={styles.spinner} /> : 'Change Password'}
                         </button>
                     </form>
                 )}
 
-                <p className={styles.footer}>🔐 Caste Print — Admin Portal</p>
+                <p className={styles.footer}>Vaiyaaree — Admin Portal</p>
             </div>
         </div>
     );

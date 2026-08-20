@@ -110,7 +110,7 @@ export default function InvoicesPage() {
         shop_gstin: '8473939083',
         bill_terms: '',
         bill_footer: 'Thank you for shopping with Vaiyaaree!',
-        business_phone: '15551678232',
+        business_phone: '+91 86677 93292',
         company_vat_tin: '33132028969',
         company_cst_no: '1091562',
         company_pan_no: 'AAIFG6568K',
@@ -429,7 +429,7 @@ export default function InvoicesPage() {
                 </div>
             )}
 
-            {/* ────── INVOICE VIEW (FULL PAGE) ────── */}
+            {/*  INVOICE VIEW (FULL PAGE)  */}
             {selectedInvoice && (
                 <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>

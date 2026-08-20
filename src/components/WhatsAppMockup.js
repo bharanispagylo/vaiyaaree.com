@@ -11,13 +11,13 @@ export default function WhatsAppMockup() {
         { sender: 'user', text: 'Hi', time: '10:00 AM' },
         { 
             sender: 'bot', 
-            text: "✨ *Welcome to Vaiyaaree!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n🛍️ *Shop Online:*\nhttps://vaiyaaree.vercel.app/shop", 
+            text: " *Welcome to Vaiyaaree!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n *Shop Online:*\nhttps://vaiyaaree.vercel.app/shop", 
             time: '10:01 AM' 
         },
         { 
             sender: 'bot', 
             text: "Explore our collection and manage:", 
-            buttons: ["📖 View Catalogue", "My Orders", "Contact Us"],
+            buttons: [" View Catalogue", "My Orders", "Contact Us"],
             time: '10:01 AM' 
         },
     ];
@@ -93,7 +93,7 @@ export default function WhatsAppMockup() {
                     alignItems: 'center',
                     gap: '10px'
                 }}>
-                    <div style={{ width: '35px', height: '35px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                         <img src="/images/cp-logo.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="Logo" />
                     </div>
                     <div style={{ flex: 1 }}>

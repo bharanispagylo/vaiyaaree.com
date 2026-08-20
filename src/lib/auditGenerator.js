@@ -121,7 +121,9 @@ export async function generateAuditPDF({ timeframe, orders = [], products = [], 
         bank_account: "170902000000962",
         bank_ifsc: "SBI0001709",
         bank_upi: "vaiyaaree@upi",
-        business_phone: "15551678232",
+        business_phone: "+91 86677 93292",
+        business_website: "www.vaiyaaree.com",
+        instagram_handle: "@vaiyaaree",
         business_email: "info@vaiyaaree.com"
     };
 

@@ -73,7 +73,7 @@ export default function BroadcastPage() {
         load();
     }, []);
 
-    // ─── HELPERS ────────────────────────────────────────────────────
+    //  HELPERS 
     const getTier = (spent) => {
         if (spent >= 15000) return 'VIP';
         if (spent >= 7000) return 'Gold';
@@ -90,7 +90,7 @@ export default function BroadcastPage() {
         }
     };
 
-    // ─── PRODUCT GROUPS ─────────────────────────────────────────────
+    //  PRODUCT GROUPS 
     const productGroups = ['ALL', ...new Set(products.map(p => p.product_group).filter(Boolean))];
     const productCategories = [...new Set(products.map(p => p.category).filter(Boolean))];
 
@@ -100,7 +100,7 @@ export default function BroadcastPage() {
         return matchGroup && matchSearch;
     });
 
-    // ─── CUSTOMER TIERS ─────────────────────────────────────────────
+    //  CUSTOMER TIERS 
     const filteredCustomers = customers.filter(c => {
         const tier = getTier(c.totalSpent);
         const matchTier = customerTierFilter === 'ALL' || tier === customerTierFilter;
@@ -108,7 +108,7 @@ export default function BroadcastPage() {
         return matchTier && matchSearch;
     });
 
-    // ─── SELECTION HANDLERS ─────────────────────────────────────────
+    //  SELECTION HANDLERS 
     const toggleProduct = (id) => {
         setSelectedProducts(prev => {
             const next = new Set(prev);
@@ -151,7 +151,7 @@ export default function BroadcastPage() {
         });
     };
 
-    // ─── BROADCAST SENDER ───────────────────────────────────────────
+    //  BROADCAST SENDER 
     const startBroadcast = async () => {
         const targetCustomers = customers.filter(c => selectedCustomers.has(c.phone));
         const targetProducts = products.filter(p => selectedProducts.has(p.id));
@@ -251,7 +251,7 @@ export default function BroadcastPage() {
     };
 
 
-    // ─── COMPUTED VALUES ────────────────────────────────────────────
+    //  COMPUTED VALUES 
     const selectedProductsList = products.filter(p => selectedProducts.has(p.id));
     const selectedCustomersList = customers.filter(c => selectedCustomers.has(c.phone));
 
@@ -360,7 +360,7 @@ export default function BroadcastPage() {
             
 
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {/* ═══ TAB CONTENT ═══ */}
+                {/*  TAB CONTENT  */}
                 <div className="animate-enter" key={activeTab}>
                     {activeTab === 'PRODUCTS' && (
                         <div className="card" style={{ padding: '1.5rem', borderRadius: '0 0 20px 20px', borderTop: 'none' }}>
@@ -728,7 +728,7 @@ export default function BroadcastPage() {
                 <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: notification.type === 'error' ? 'hsl(var(--destructive))' : 'hsl(var(--success))', color: 'white', padding: '1rem 1.5rem', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 1000, animation: 'slideUp 0.3s', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     {notification.type === 'error' ? <Megaphone size={18} /> : <CheckCircle2 size={18} />}
                     <span style={{ fontWeight: 600 }}>{notification.message}</span>
-                    <button onClick={() => setNotification(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: '8px', opacity: 0.8 }}>✕</button>
+                    <button onClick={() => setNotification(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: '8px', opacity: 0.8 }}></button>
                 </div>
             )}
 

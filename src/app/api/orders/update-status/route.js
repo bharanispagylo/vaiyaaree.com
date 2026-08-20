@@ -49,7 +49,7 @@ async function sendWhatsAppText(to, text) {
         if (data.error) {
             console.error('WA notification error:', data.error);
         } else {
-            console.log(`✅ WhatsApp notification sent to ${to}`);
+            console.log(` WhatsApp notification sent to ${to}`);
         }
         return data;
     } catch (error) {
@@ -116,13 +116,13 @@ async function getStatusMessage(orderId, status, order, items = []) {
             }
 
             return [
-                `🚀 *ORDER SHIPPED*`,
+                ` *ORDER SHIPPED*`,
                 ``,
                 `Great news! Order ${displayInv} is on its way!`,
                 ``,
-                `🛍️ *Items:*\n${itemsList || '• Order Items'}`,
+                ` *Items:*\n${itemsList || '• Order Items'}`,
                 ``,
-                `🚚 *Shipping Details:*`,
+                ` *Shipping Details:*`,
                 `• Carrier: ${order.courier_name || 'N/A'}`,
                 `• Tracking: ${trackingNum || 'N/A'}`,
                 trackingUrl ? `• Track: ${trackingUrl}` : `• Details: ${appUrl}`,
@@ -286,7 +286,7 @@ export async function POST(request) {
             
             if (status === 'PAID') {
                 try {
-                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '7558189732', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
+                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
                     try {
                         const { data: settingsData } = await supabase.from('app_settings').select('*');
                         if (settingsData) {
@@ -314,7 +314,7 @@ export async function POST(request) {
             await sendOrderStatusEmail(finalOrder, status); // fallback just in case
         }
 
-        console.log(`✅ Order ${orderId} → ${status} | Notifications sent to ${targetPhones.size} phones and ${targetEmails.size} emails.`);
+        console.log(` Order ${orderId} → ${status} | Notifications sent to ${targetPhones.size} phones and ${targetEmails.size} emails.`);
 
         return new Response(JSON.stringify({
             success: true,

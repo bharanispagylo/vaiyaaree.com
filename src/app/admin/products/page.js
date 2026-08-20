@@ -993,7 +993,7 @@ export default function ProductsPage() {
     return (
         <>
             <div className="animate-enter">
-                {/* ─── MAIN LIST VIEW (Hidden when a sub-page is active) ─── */}
+                {/*  MAIN LIST VIEW (Hidden when a sub-page is active)  */}
                 {!isEditing && !showHistory && !importModal && (
                     <>
                         {/* Header */}
@@ -1151,7 +1151,7 @@ export default function ProductsPage() {
                             </div>
                         </div>
 
-                        {/* ─── ANALYTICS VIEW ─── */}
+                        {/*  ANALYTICS VIEW  */}
                         {viewMode === 'analytics' && (
                             <div className="animate-enter">
                                 {/* Time Filters */}
@@ -1220,7 +1220,7 @@ export default function ProductsPage() {
                             </div>
                         )}
 
-                        {/* ─── TABLE VIEW ─── */}
+                        {/*  TABLE VIEW  */}
                         {viewMode === 'table' && (
                             <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
                                 {loading ? (
@@ -1383,7 +1383,7 @@ export default function ProductsPage() {
                             </div>
                         )}
 
-                        {/* ─── CARD VIEW ─── */}
+                        {/*  CARD VIEW  */}
                         {viewMode === 'card' && (
                             <div>
                                 {loading ? (
@@ -1494,7 +1494,7 @@ export default function ProductsPage() {
                     </>
                 )}
 
-                {/* ─── EDIT / ADD PRODUCT PAGE ─── */}
+                {/*  EDIT / ADD PRODUCT PAGE  */}
                 {isEditing && (
                     <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                         <div className="card shadow-premium" style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: '#ffffff' }}>
@@ -1630,7 +1630,7 @@ export default function ProductsPage() {
                                                                         urls.splice(idx, 1);
                                                                         return urls.join(',');
                                                                     });
-                                                                }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
+                                                                }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}></button>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -1742,7 +1742,7 @@ export default function ProductsPage() {
                                                                     urls.splice(idx, 1);
                                                                     return urls;
                                                                 });
-                                                            }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>✕</button>
+                                                            }} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: '#ef4444', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}></button>
                                                         </div>
                                                     ))}
                                                     </div>
@@ -2077,7 +2077,7 @@ export default function ProductsPage() {
                     </div>
                 )}
 
-                {/* ─── IMPORT EXCEL PAGE ─── */}
+                {/*  IMPORT EXCEL PAGE  */}
                 {importModal && (
                     <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                         <div className="card shadow-premium" style={{

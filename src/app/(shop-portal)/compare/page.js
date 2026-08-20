@@ -45,7 +45,7 @@ export default function ComparePage() {
                             <th style={{ width: '20%', padding: '1.5rem', background: '#f8fafc', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>Features</th>
                             {compareItems.map(p => (
                                 <th key={p.id} style={{ width: `${80 / Math.max(1, compareItems.length)}%`, padding: '1.5rem', background: '#fff', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', position: 'relative' }}>
-                                    <button onClick={() => toggleCompare(p)} title="Remove" style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+                                    <button onClick={() => toggleCompare(p)} title="Remove" style={{ position: 'absolute', top: '1rem', right: '1rem', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8' }}></button>
                                     <div style={{ width: '100%', aspectRatio: '3/4', background: '#f1f5f9', borderRadius: '8px', overflow: 'hidden', marginBottom: '1rem' }}>
                                         {p.image_url ? (
                                             <img src={p.image_url.split(',')[0]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={p.name} />

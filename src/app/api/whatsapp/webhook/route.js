@@ -9,7 +9,7 @@ export async function GET(request) {
     const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'aiswarya_secret';
 
     if (mode === 'subscribe' && token === verifyToken) {
-        console.log('✅ WEBHOOK VERIFIED SUCCESSFULLY!');
+        console.log(' WEBHOOK VERIFIED SUCCESSFULLY!');
         return new Response(challenge, {
             status: 200,
             headers: { 'Content-Type': 'text/plain' },
@@ -23,7 +23,7 @@ export async function GET(request) {
         });
     }
 
-    console.error('❌ WEBHOOK VERIFICATION FAILED: Token mismatch or invalid mode');
+    console.error(' WEBHOOK VERIFICATION FAILED: Token mismatch or invalid mode');
     return new Response('Forbidden', { status: 403 });
 }
 
@@ -51,18 +51,18 @@ export async function POST(request) {
             
             try {
                 await processIncomingMessage(body);
-                console.log('✅ processIncomingMessage completed successfully');
+                console.log(' processIncomingMessage completed successfully');
             } catch (processError) {
-                console.error('❌ processIncomingMessage failed:', processError);
+                console.error(' processIncomingMessage failed:', processError);
                 console.error('Stack trace:', processError.stack);
             }
         } else {
-            console.log('⚠️ No messages found in webhook payload');
+            console.log(' No messages found in webhook payload');
         }
 
         return new Response('OK', { status: 200 });
     } catch (err) {
-        console.error('❌ WEBHOOK ERROR:', err);
+        console.error(' WEBHOOK ERROR:', err);
         console.error('Stack trace:', err.stack);
         return new Response('OK', { status: 200 });
     }

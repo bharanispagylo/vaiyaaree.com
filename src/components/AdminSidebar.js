@@ -122,11 +122,11 @@ export default function AdminSidebar({ isOpen }) {
                 borderBottom: '1px solid hsl(var(--border-subtle))'
             }}>
                 <div style={{
-                    width: '40px', height: '40px',
+                    width: '56px', height: '56px',
                     filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.2))'
                 }}>
                     <img src={logo} 
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} 
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '0.5rem' }} 
                         alt="Logo" 
                         onError={(e) => { e.target.onerror = null; e.target.src = '/images/cp-logo.png'; }}
                     />
@@ -256,7 +256,7 @@ export default function AdminSidebar({ isOpen }) {
                 })}
             </nav>
 
-            {/* ─── LOGOUT BUTTON — always visible at bottom ─── */}
+            {/*  LOGOUT BUTTON — always visible at bottom  */}
             <div style={{ marginTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1rem' }}>
                 <button
                     onClick={handleLogout}

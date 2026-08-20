@@ -81,14 +81,14 @@ export async function POST(request) {
         let message = '';
         if (status === 'REQUESTED' || status === 'PENDING' || status === 'SUBMITTED') {
             message = [
-                `📋 REFUND REQUEST RECEIVED`,
+                `REFUND REQUEST RECEIVED`,
                 ``,
                 `Hi ${customerName || 'Customer'},`,
                 `We have received your refund request for Order #${orderId}.`,
                 ``,
                 `Amount: ₹${amount.toLocaleString('en-IN')}`,
                 `Reason: ${refund.reason || 'Not specified'}`,
-                `Status: Under Review ⏳`,
+                `Status: Under Review`,
                 ``,
                 `Our accounts team is reviewing your request and will notify you once processed.`,
                 ``,
@@ -99,7 +99,7 @@ export async function POST(request) {
                 `REFUND APPROVED`,
                 ``,
                 `Hi ${customerName || 'Customer'},`,
-                `Status: APPROVED ✅`,
+                `Status: APPROVED`,
                 `Order ID: #${orderId}`,
                 `Refund Amount: ₹${amount.toLocaleString('en-IN')}`,
                 ``,
@@ -113,7 +113,7 @@ export async function POST(request) {
                 ``,
                 `Hi ${customerName || 'Customer'},`,
                 `Order ID: #${orderId}`,
-                `Status: REJECTED ❌`,
+                `Status: REJECTED`,
                 ``,
                 `Reason: ${notes || 'Please contact support for details.'}`,
                 ``,
@@ -127,12 +127,13 @@ export async function POST(request) {
                 ``,
                 `Hi ${customerName || 'Customer'},`,
                 `Order ID: #${orderId}`,
-                `Status: COMPLETED 💰`,
+                `Status: COMPLETED`,
                 `Refund Amount: ₹${amount.toLocaleString('en-IN')}`,
                 ``,
                 `The refund has been successfully processed and sent to your original payment method.`,
                 ``,
                 `Thank you for your patience!`,
+                ``,
                 `— ${brand}`
             ].join('\n');
         } else {

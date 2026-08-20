@@ -63,7 +63,7 @@ export default function ProductCard({ product, gridView = true }) {
                 </Link>
 
                 {product.stock <= 0 && <div className={styles.outOfStockOverlay}>Saree Not Available</div>}
-                {product.type === 'variant' && <div className={styles.variantBadge}>✨ Variants Available</div>}
+                {product.type === 'variant' && <div className={styles.variantBadge}> Variants Available</div>}
 
 
 

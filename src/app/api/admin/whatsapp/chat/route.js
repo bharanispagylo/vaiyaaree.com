@@ -26,8 +26,8 @@ export async function POST(req) {
         // If we have a product ID, send it as an interactive button message
         if (productId) {
             const buttons = [
-                { id: `addcart_${productId}`, title: '🛒 Add to Cart' },
-                { id: `menu_cart`, title: '🛍️ View Cart' }
+                { id: `addcart_${productId}`, title: ' Add to Cart' },
+                { id: `menu_cart`, title: ' View Cart' }
             ];
 
             let result;

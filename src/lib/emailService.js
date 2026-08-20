@@ -61,7 +61,7 @@ function getHeaderHtml(title = 'Vaiyaaree Sarees', shopLogo = '', subtitle = 'Pr
 // Helper for Standard HTML Email Footer
 function getFooterHtml(settings = {}) {
     const shopName = settings.shop_name || 'Vaiyaaree Sarees';
-    const shopPhone = settings.shop_phone || '7558189732';
+    const shopPhone = settings.shop_phone || '8667793292';
     const shopEmail = settings.shop_email || 'vaiyaaree.official@gmail.com';
     const shopAddress = settings.shop_address || 'Premium Saree Collections';
     const billTerms = settings.bill_terms || 'All sales are final. Returns accepted within 7 days of delivery.';
@@ -174,7 +174,7 @@ export async function sendOrderConfirmationEmail(order) {
 
     let settings = {
         shop_name: 'Vaiyaaree Sarees',
-        shop_phone: '7558189732',
+        shop_phone: '8667793292',
         shop_email: 'vaiyaaree.official@gmail.com',
         shop_address: 'Premium Saree Collections',
         bill_terms: 'All sales are final. Returns accepted within 7 days of delivery.',
@@ -262,7 +262,7 @@ export async function sendOrderConfirmationEmail(order) {
                                                 <td style="padding-bottom: 24px;">
                                                     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #faf5ff; border: 1px solid #f3e8ff; border-radius: 8px; padding: 16px; font-family: Arial, sans-serif;">
                                                         <tr>
-                                                            <td style="padding: 0 0 6px 0; font-weight: 700; color: #701a75; font-size: 14px;">📍 Delivery Address:</td>
+                                                            <td style="padding: 0 0 6px 0; font-weight: 700; color: #701a75; font-size: 14px;"> Delivery Address:</td>
                                                         </tr>
                                                         <tr>
                                                             <td style="color: #475569; font-size: 14px; line-height: 1.5;">
@@ -417,7 +417,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
 
     let settings = {
         shop_name: 'Vaiyaaree Sarees',
-        shop_phone: '7558189732',
+        shop_phone: '8667793292',
         shop_email: 'vaiyaaree.official@gmail.com',
         shop_address: 'Premium Saree Collections',
         bill_terms: 'All sales are final. Returns accepted within 7 days of delivery.',
@@ -514,7 +514,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
                                                 <td style="padding-bottom: 24px;">
                                                     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; font-family: Arial, sans-serif;">
                                                         <tr>
-                                                            <td style="padding: 0 0 8px 0; font-weight: 700; color: #1e40af; font-size: 15px;">🚚 Courier & Shipping Details</td>
+                                                            <td style="padding: 0 0 8px 0; font-weight: 700; color: #1e40af; font-size: 15px;"> Courier & Shipping Details</td>
                                                         </tr>
                                                         <tr>
                                                             <td style="padding: 4px 0; color: #334155; font-size: 14px;"><strong>Carrier:</strong> ${order.courier_name || 'N/A'}</td>
@@ -686,7 +686,7 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
                                         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 30px 24px; text-align: center;">
                                             <tr>
                                                 <td>
-                                                    <div style="font-size: 42px; margin-bottom: 12px;">🔐</div>
+                                                    <div style="font-size: 42px; margin-bottom: 12px;"></div>
                                                     <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin: 0 0 10px 0;">Admin Password Reset</h2>
                                                     <p style="color: #475569; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0;">We received a request to reset your Vaiyaaree Sarees Admin Password. Use the 6-digit verification code below to proceed:</p>
 
@@ -776,7 +776,7 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
                                         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 30px 24px; text-align: center;">
                                             <tr>
                                                 <td>
-                                                    <div style="font-size: 42px; margin-bottom: 12px;">✅</div>
+                                                    <div style="font-size: 42px; margin-bottom: 12px;"></div>
                                                     <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin: 0 0 10px 0;">Password Reset Successful</h2>
                                                     <p style="color: #475569; font-size: 14px; line-height: 1.5; margin: 0 0 16px 0;">Your Vaiyaaree Sarees Admin password was successfully updated on <strong>${formattedDate}</strong>.</p>
                                                     <p style="color: #64748b; font-size: 13px; margin: 0;">If you did not perform this change, please contact system administration immediately.</p>

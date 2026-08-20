@@ -13,7 +13,7 @@ export async function POST(req) {
         let payload;
 
         if (product && product.image_url) {
-            // ── Message 1: Product Image + "Add to Cart" button ──
+            //  Message 1: Product Image + "Add to Cart" button 
             // Send product image with details and Add to Cart CTA
             payload = {
                 messaging_product: "whatsapp",
@@ -27,13 +27,13 @@ export async function POST(req) {
                         image: { link: product.image_url }
                     },
                     body: {
-                        text: `*${product.name}*\n💰 Price: ₹${(product.price || 0).toLocaleString()}\n\n${message}`
+                        text: `*${product.name}*\n Price: ₹${(product.price || 0).toLocaleString()}\n\n${message}`
                     },
-                    footer: { text: "Caste Print • Exclusive Collection" },
+                    footer: { text: "Vaiyaaree • Exclusive Collection" },
                     action: {
                         name: "cta_url",
                         parameters: {
-                            display_text: "🛒 Add to Cart",
+                            display_text: " Add to Cart",
                             url: addToCartUrl || shopUrl
                         }
                     }
@@ -42,7 +42,7 @@ export async function POST(req) {
 
             await sendRawMessage(to, payload);
 
-            // ── Message 2: "Shop Now" button to browse the full store ──
+            //  Message 2: "Shop Now" button to browse the full store 
             await sendRawMessage(to, {
                 messaging_product: "whatsapp",
                 recipient_type: "individual",
@@ -50,11 +50,11 @@ export async function POST(req) {
                 type: "interactive",
                 interactive: {
                     type: "cta_url",
-                    body: { text: "🛍️ Browse our full collection:" },
+                    body: { text: " Browse our full collection:" },
                     action: {
                         name: "cta_url",
                         parameters: {
-                            display_text: "🛍️ Shop Now",
+                            display_text: " Shop Now",
                             url: shopUrl
                         }
                     }
@@ -70,13 +70,13 @@ export async function POST(req) {
                 interactive: {
                     type: "cta_url",
                     body: {
-                        text: `${message}\n\n🛍️ Tap below to explore our collection!`
+                        text: `${message}\n\n Tap below to explore our collection!`
                     },
-                    footer: { text: "Caste Print • Premium Ethnic Wear" },
+                    footer: { text: "Vaiyaaree • Premium Ethnic Wear" },
                     action: {
                         name: "cta_url",
                         parameters: {
-                            display_text: "🛍️ Shop Now",
+                            display_text: " Shop Now",
                             url: shopUrl
                         }
                     }

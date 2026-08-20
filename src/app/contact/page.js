@@ -56,7 +56,7 @@ export default function ContactPage() {
                         <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5d0821', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}><Phone size={36} /></div>
                         <div>
                             <h4 style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '1.3rem' }}>Direct Line</h4>
-                            <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>+91 75581 89732</p>
+                            <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>+91 86677 93292</p>
                         </div>
                     </div>
                     <div style={{ background: '#fbfbfb', padding: '3rem', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
