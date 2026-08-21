@@ -26,6 +26,7 @@ const PAGE_TITLES = {
     '/admin/schedule': 'Schedule Post',
     '/admin/facebook': 'Meta Connect',
     '/admin/cms': 'CMS',
+    '/admin/coming-soon': 'Coming Soon Mode',
     '/admin/analytics': 'Analytics',
     '/admin/settings': 'Settings',
     '/admin/shop-settings': 'Shop Settings',

@@ -15,7 +15,8 @@ const defaultContextValue = {
     handleLogout: () => { }, showToast: () => { }, toast: { show: false, message: '', type: 'success' },
     cartTotal: 0, cartCount: 0, taxDetails: { cgst: 0, sgst: 0, igst: 0, shipping: 0, totalOrder: 0 },
     supabase: null, placeOrder: () => { },
-    isCartOpen: false, setIsCartOpen: () => { }, openCart: () => { }, closeCart: () => { }, toggleCart: () => { }
+    isCartOpen: false, setIsCartOpen: () => { }, openCart: () => { }, closeCart: () => { }, toggleCart: () => { },
+    comingSoonSettings: null, setComingSoonSettings: () => { }, fetchComingSoon: () => { }
 };
 
 const ShopContext = createContext(defaultContextValue);
@@ -34,6 +35,15 @@ export function ShopProvider({ children }) {
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [hasMounted, setHasMounted] = useState(false);
     const [isCartLoaded, setIsCartLoaded] = useState(false); // Guard for DB sync
+    const [comingSoonSettings, setComingSoonSettings] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const cached = sessionStorage.getItem('vaiyaaree_coming_soon');
+                if (cached) return JSON.parse(cached);
+            } catch (e) {}
+        }
+        return null;
+    });
 
     const [checkoutForm, setCheckoutForm] = useState({
         // Billing fields
@@ -65,9 +75,58 @@ export function ShopProvider({ children }) {
             fetchProducts(),
             fetchBusinessState(),
             fetchShippingRates(),
-            checkSession()
+            checkSession(),
+            fetchComingSoon()
         ]).catch(err => console.error('[APP INIT] Startup fetch error:', err));
     }, []);
+
+    const fetchComingSoon = async () => {
+        try {
+            const { data } = await supabase
+                .from('app_settings')
+                .select('key, value')
+                .in('key', [
+                    'coming_soon_enabled',
+                    'coming_soon_title',
+                    'coming_soon_subtitle',
+                    'coming_soon_launch_date',
+                    'coming_soon_phone',
+                    'coming_soon_email',
+                    'coming_soon_whatsapp',
+                    'coming_soon_instagram',
+                    'coming_soon_facebook',
+                    'shop_logo',
+                    'shop_name'
+                ]);
+
+            if (data && data.length > 0) {
+                const map = {};
+                data.forEach(item => { map[item.key] = item.value; });
+                const isEnabled = map.coming_soon_enabled === 'true' || map.coming_soon_enabled === '1' || map.coming_soon_enabled === true;
+                const csObj = isEnabled ? {
+                    enabled: true,
+                    title: map.coming_soon_title || 'We Are Weaving Something Extraordinary',
+                    subtitle: map.coming_soon_subtitle || 'Experience the timeless grace of authentic handloom silk & cotton sarees. Our grand digital boutique is opening soon.',
+                    launch_date: map.coming_soon_launch_date || '',
+                    phone: map.coming_soon_phone || '8667793292',
+                    email: map.coming_soon_email || 'vaiyaaree@gmail.com',
+                    whatsapp: map.coming_soon_whatsapp || '8667793292',
+                    instagram: map.coming_soon_instagram || '',
+                    facebook: map.coming_soon_facebook || '',
+                    logo: map.shop_logo || '/images/vaiyaaree-logo.png',
+                    shop_name: map.shop_name || 'Vaiyaaree Sarees'
+                } : null;
+
+                setComingSoonSettings(csObj);
+                if (typeof window !== 'undefined') {
+                    if (csObj) sessionStorage.setItem('vaiyaaree_coming_soon', JSON.stringify(csObj));
+                    else sessionStorage.removeItem('vaiyaaree_coming_soon');
+                }
+            }
+        } catch (e) {
+            console.error('Fetch coming soon error:', e);
+        }
+    };
 
     //  CART PERSISTENCE 
     useEffect(() => {
@@ -709,7 +768,8 @@ export function ShopProvider({ children }) {
             products, cart, loading, user, setUser, isSessionLoading, shippingZones, zoneMappings, businessState,
             checkoutForm, setCheckoutForm, addToCart, removeFromCart, updateQty,
             handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, supabase, placeOrder,
-            isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart
+            isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart,
+            comingSoonSettings, setComingSoonSettings, fetchComingSoon
         }}>
             {children}
         </ShopContext.Provider>

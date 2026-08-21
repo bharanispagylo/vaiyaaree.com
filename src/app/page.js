@@ -9,6 +9,7 @@ import { getProductUrl } from '@/lib/productUrl';
 import ShopHeader from '@/components/ShopHeader';
 import ShopFooter from '@/components/ShopFooter';
 import WhatsAppMockup from '@/components/WhatsAppMockup';
+import ComingSoonPage from '@/components/ComingSoonPage';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination, Navigation } from 'swiper/modules';
 
@@ -21,6 +22,7 @@ export default function HomePage() {
     const router = useRouter();
     const [page, setPage] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [comingSoonSettings, setComingSoonSettings] = useState(null);
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [exploreProducts, setExploreProducts] = useState([]);
     const [allCategories, setAllCategories] = useState([]);
@@ -65,6 +67,47 @@ export default function HomePage() {
     useEffect(() => {
         const fetchPageData = async () => {
             try {
+                // 1. Check Coming Soon mode FIRST
+                const { data: csData } = await supabase
+                    .from('app_settings')
+                    .select('key, value')
+                    .in('key', [
+                        'coming_soon_enabled',
+                        'coming_soon_title',
+                        'coming_soon_subtitle',
+                        'coming_soon_launch_date',
+                        'coming_soon_phone',
+                        'coming_soon_email',
+                        'coming_soon_whatsapp',
+                        'coming_soon_instagram',
+                        'coming_soon_facebook',
+                        'shop_logo',
+                        'shop_name'
+                    ]);
+
+                if (csData) {
+                    const csMap = {};
+                    csData.forEach(item => { csMap[item.key] = item.value; });
+                    if (csMap.coming_soon_enabled === 'true' || csMap.coming_soon_enabled === '1' || csMap.coming_soon_enabled === true) {
+                        setComingSoonSettings({
+                            enabled: true,
+                            title: csMap.coming_soon_title || 'We Are Weaving Something Extraordinary',
+                            subtitle: csMap.coming_soon_subtitle || 'Experience the timeless grace of authentic handloom silk & cotton sarees. Our grand digital boutique is opening soon.',
+                            launch_date: csMap.coming_soon_launch_date || '',
+                            phone: csMap.coming_soon_phone || '8667793292',
+                            email: csMap.coming_soon_email || 'vaiyaaree@gmail.com',
+                            whatsapp: csMap.coming_soon_whatsapp || '8667793292',
+                            instagram: csMap.coming_soon_instagram || '',
+                            facebook: csMap.coming_soon_facebook || '',
+                            logo: csMap.shop_logo || '/images/vaiyaaree-logo.png',
+                            shop_name: csMap.shop_name || 'Vaiyaaree Sarees'
+                        });
+                    } else {
+                        setComingSoonSettings(null);
+                    }
+                }
+
+                // 2. Fetch CMS Page & Store Data
                 const { data } = await supabase
                     .from('cms_pages')
                     .select('*')
@@ -126,7 +169,7 @@ export default function HomePage() {
                             if (Array.isArray(parsed) && parsed.length > 0) {
                                 setHeroSliderImages(parsed);
                             }
-                        } catch(e){}
+                        } catch (e) { }
                     }
 
                     const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
@@ -136,7 +179,7 @@ export default function HomePage() {
                             if (Array.isArray(parsed) && parsed.length > 0) {
                                 setGalleryImages(parsed);
                             }
-                        } catch(e){}
+                        } catch (e) { }
                     }
                 }
             } catch (err) {
@@ -174,6 +217,9 @@ export default function HomePage() {
     }, [heroBannerSlides.length]);
 
     if (loading) return null;
+    if (comingSoonSettings?.enabled) {
+        return <ComingSoonPage settings={comingSoonSettings} />;
+    }
     if (!page) return null;
 
     const currentSlide = heroBannerSlides[heroSliderIndex];
@@ -182,6 +228,8 @@ export default function HomePage() {
         <div style={{ minHeight: '100vh', background: '#fdfbf7', fontFamily: 'var(--font-roboto), sans-serif', color: '#2b2623' }}>
             <style dangerouslySetInnerHTML={{ __html: page.custom_css || '' }} />
             <ShopHeader />
+
+
 
             {/* Light Luxury Hero Banner Section (Vaiyaaree Theme) */}
             <div style={{
@@ -260,8 +308,8 @@ export default function HomePage() {
                                 transition: 'all 0.3s ease',
                                 fontFamily: 'var(--font-roboto), sans-serif'
                             }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#7a0c2e'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = '#5d0821'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = '#7a0c2e'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = '#5d0821'; e.currentTarget.style.transform = 'translateY(0)'; }}
                             >
                                 SHOP NOW &rarr;
                             </Link>
@@ -281,10 +329,10 @@ export default function HomePage() {
                             border: '6px solid #ffffff',
                             background: '#ffffff'
                         }}>
-                            <img 
-                                src={heroSliderImages[heroSliderIndex % heroSliderImages.length] || currentSlide.image} 
-                                alt={currentSlide.title} 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.8s ease' }} 
+                            <img
+                                src={heroSliderImages[heroSliderIndex % heroSliderImages.length] || currentSlide.image}
+                                alt={currentSlide.title}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.8s ease' }}
                             />
                         </div>
                     </div>
@@ -320,6 +368,7 @@ export default function HomePage() {
                 </div>
             </div>
 
+            HEROOOOO
             {/* Best Sellers Collection Section */}
             {featuredProducts.length > 0 && (
                 <div style={{ padding: '3rem 2rem 5rem', maxWidth: '1400px', margin: '0 auto' }}>
@@ -344,8 +393,8 @@ export default function HomePage() {
                                         boxShadow: '0 8px 30px rgba(0,0,0,0.05)',
                                         transition: 'transform 0.3s ease, box-shadow 0.3s ease'
                                     }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 16px 36px rgba(93, 8, 33, 0.12)'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.05)'; }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 16px 36px rgba(93, 8, 33, 0.12)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.05)'; }}
                                     >
                                         <div style={{ aspectRatio: '4/5', marginBottom: '1rem', overflow: 'hidden', borderRadius: '12px', background: '#faf6f2', position: 'relative' }}>
                                             <img src={product.image_url?.split(',')[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -390,8 +439,8 @@ export default function HomePage() {
                                         boxShadow: '0 8px 30px rgba(0,0,0,0.05)',
                                         transition: 'transform 0.3s ease, box-shadow 0.3s ease'
                                     }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 16px 36px rgba(93, 8, 33, 0.12)'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.05)'; }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 16px 36px rgba(93, 8, 33, 0.12)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.05)'; }}
                                     >
                                         <div style={{ aspectRatio: '4/5', marginBottom: '1rem', overflow: 'hidden', borderRadius: '12px', background: '#faf6f2', position: 'relative' }}>
                                             <img src={product.image_url?.split(',')[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -412,25 +461,25 @@ export default function HomePage() {
                 <section style={{ padding: '5rem 2rem 6rem', background: '#f8f4ee', borderTop: '1px solid #f0e6df' }}>
                     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
                         <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-                            <span style={{ 
-                                color: '#5d0821', 
-                                fontSize: '0.85rem', 
-                                fontWeight: 800, 
-                                letterSpacing: '0.2em', 
-                                textTransform: 'uppercase', 
-                                display: 'block', 
+                            <span style={{
+                                color: '#5d0821',
+                                fontSize: '0.85rem',
+                                fontWeight: 800,
+                                letterSpacing: '0.2em',
+                                textTransform: 'uppercase',
+                                display: 'block',
                                 marginBottom: '0.75rem',
-                                fontFamily: 'var(--font-roboto), sans-serif' 
+                                fontFamily: 'var(--font-roboto), sans-serif'
                             }}>
                                 CURATED WEAVES
                             </span>
-                            <h2 style={{ 
-                                fontSize: '2.25rem', 
-                                fontWeight: 700, 
-                                fontFamily: 'var(--font-roboto), sans-serif', 
-                                position: 'relative', 
-                                width: 'fit-content', 
-                                margin: '0 auto', 
+                            <h2 style={{
+                                fontSize: '2.25rem',
+                                fontWeight: 700,
+                                fontFamily: 'var(--font-roboto), sans-serif',
+                                position: 'relative',
+                                width: 'fit-content',
+                                margin: '0 auto',
                                 paddingBottom: '12px',
                                 color: '#1a1a1a'
                             }}>
@@ -442,24 +491,24 @@ export default function HomePage() {
                             </p>
                         </div>
 
-                        <div style={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
-                            gap: '2rem' 
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                            gap: '2rem'
                         }}>
                             {allCategories.map((cat) => (
                                 <Link key={cat.name} href={`/shop?category=${encodeURIComponent(cat.name)}`} style={{ textDecoration: 'none' }}>
-                                    <div 
-                                        style={{ 
-                                            position: 'relative', 
-                                            height: '380px', 
-                                            borderRadius: '16px', 
-                                            overflow: 'hidden', 
-                                            boxShadow: '0 12px 35px rgba(0,0,0,0.06)', 
-                                            cursor: 'pointer', 
+                                    <div
+                                        style={{
+                                            position: 'relative',
+                                            height: '380px',
+                                            borderRadius: '16px',
+                                            overflow: 'hidden',
+                                            boxShadow: '0 12px 35px rgba(0,0,0,0.06)',
+                                            cursor: 'pointer',
                                             background: '#ffffff',
                                             transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-                                        }} 
+                                        }}
                                         onMouseEnter={(e) => {
                                             e.currentTarget.style.transform = 'translateY(-8px)';
                                             e.currentTarget.style.boxShadow = '0 20px 45px rgba(93, 8, 33, 0.15)';
@@ -470,7 +519,7 @@ export default function HomePage() {
                                                 cta.style.background = '#5d0821';
                                                 cta.style.color = '#ffffff';
                                             }
-                                        }} 
+                                        }}
                                         onMouseLeave={(e) => {
                                             e.currentTarget.style.transform = 'translateY(0)';
                                             e.currentTarget.style.boxShadow = '0 12px 35px rgba(0,0,0,0.06)';
@@ -483,22 +532,22 @@ export default function HomePage() {
                                             }
                                         }}
                                     >
-                                        <div 
+                                        <div
                                             className="cat-bg-img"
-                                            style={{ 
-                                                position: 'absolute', 
-                                                inset: 0, 
+                                            style={{
+                                                position: 'absolute',
+                                                inset: 0,
                                                 backgroundImage: `url(${cat.image})`,
                                                 backgroundPosition: 'center center',
                                                 backgroundSize: 'cover',
                                                 backgroundRepeat: 'no-repeat',
                                                 transition: 'transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)'
-                                            }} 
+                                            }}
                                         />
 
-                                        <div style={{ 
-                                            position: 'absolute', 
-                                            inset: 0, 
+                                        <div style={{
+                                            position: 'absolute',
+                                            inset: 0,
                                             background: 'linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.15) 50%, transparent 100%)',
                                             display: 'flex',
                                             flexDirection: 'column',
@@ -506,11 +555,11 @@ export default function HomePage() {
                                             padding: '2rem 1.5rem',
                                         }}>
                                             <div>
-                                                <h3 style={{ 
-                                                    color: '#ffffff', 
-                                                    fontSize: '1.6rem', 
-                                                    fontWeight: 700, 
-                                                    letterSpacing: '0.06em', 
+                                                <h3 style={{
+                                                    color: '#ffffff',
+                                                    fontSize: '1.6rem',
+                                                    fontWeight: 700,
+                                                    letterSpacing: '0.06em',
                                                     textTransform: 'uppercase',
                                                     margin: 0,
                                                     fontFamily: 'var(--font-roboto), sans-serif',
@@ -518,23 +567,23 @@ export default function HomePage() {
                                                 }}>
                                                     {cat.name}
                                                 </h3>
-                                                
+
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.75rem' }}>
-                                                    <span style={{ 
-                                                        color: 'rgba(255, 255, 255, 0.88)', 
-                                                        fontSize: '0.85rem', 
+                                                    <span style={{
+                                                        color: 'rgba(255, 255, 255, 0.88)',
+                                                        fontSize: '0.85rem',
                                                         fontWeight: 500,
                                                         letterSpacing: '0.05em',
                                                         fontFamily: 'var(--font-roboto), sans-serif'
                                                     }}>
                                                         {cat.count > 0 ? `${cat.count} Saree${cat.count > 1 ? 's' : ''}` : 'View Collection'}
                                                     </span>
-                                                    <div 
+                                                    <div
                                                         className="cat-cta-btn"
-                                                        style={{ 
-                                                            padding: '0.45rem 1rem', 
-                                                            borderRadius: '20px', 
-                                                            background: 'rgba(255, 255, 255, 0.95)', 
+                                                        style={{
+                                                            padding: '0.45rem 1rem',
+                                                            borderRadius: '20px',
+                                                            background: 'rgba(255, 255, 255, 0.95)',
                                                             color: '#1a1a1a',
                                                             fontSize: '0.75rem',
                                                             fontWeight: 700,
@@ -563,7 +612,7 @@ export default function HomePage() {
                 <div style={{ padding: '4rem 8%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <span style={{ letterSpacing: '0.2rem', color: '#5d0821', fontWeight: 800, marginBottom: '1rem', fontSize: '0.75rem', fontFamily: 'var(--font-roboto), sans-serif' }}>HERITAGE & CRAFTSMANSHIP</span>
                     <h2 style={{ fontSize: '2.5rem', fontWeight: 700, margin: '0 0 1.5rem', lineHeight: 1.2, fontFamily: 'var(--font-roboto), sans-serif', color: '#1a1a1a', position: 'relative', paddingBottom: '15px' }}>
-                        Authentic Weaves, Timeless Grace
+                        Authentic Weaves, Timeless Grace,,,,,,
                         <div style={{ position: 'absolute', bottom: 0, left: 0, width: '60px', height: '2px', background: '#5d0821' }}></div>
                     </h2>
                     <p style={{ color: '#554f4b', lineHeight: 1.8, fontSize: '1.05rem', fontWeight: 400, maxWidth: '480px', fontFamily: 'var(--font-roboto), sans-serif' }}>
@@ -584,8 +633,8 @@ export default function HomePage() {
                         transition: 'all 0.3s ease',
                         fontFamily: 'var(--font-roboto), sans-serif'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#7a0c2e'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = '#5d0821'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#7a0c2e'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#5d0821'}
                     >
                         EXPLORE CATALOG &rarr;
                     </Link>
@@ -614,17 +663,17 @@ export default function HomePage() {
                             ))}
                         </div>
                     </div>
-                    
+
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.75rem' }}>
                         <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: 'none', textAlign: 'center', width: '100%', maxWidth: '280px' }}>
-                           <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}`} style={{ width: '140px', margin: '0 auto 1rem', display: 'block' }} alt="QR" />
-                           <div style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.15rem', fontFamily: 'var(--font-roboto), sans-serif' }}>+{process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}</div>
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}`} style={{ width: '140px', margin: '0 auto 1rem', display: 'block' }} alt="QR" />
+                            <div style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.15rem', fontFamily: 'var(--font-roboto), sans-serif' }}>+{process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}</div>
                         </div>
-                        
-                        <Link 
-                            href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}`} 
+
+                        <Link
+                            href={`https://wa.me/${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292'}`}
                             target="_blank"
-                            style={{ 
+                            style={{
                                 display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 2rem', background: '#ffffff', color: '#5d0821', borderRadius: '4px', textDecoration: 'none', fontWeight: 800, fontSize: '0.85rem', width: '100%', maxWidth: '280px', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)', transition: 'transform 0.3s', fontFamily: 'var(--font-roboto), sans-serif'
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
@@ -652,7 +701,7 @@ export default function HomePage() {
                         <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '50px', height: '2px', background: '#5d0821' }}></div>
                     </h2>
                 </div>
-                
+
                 <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="gallery-swiper-container">
                     <Swiper
                         modules={[Autoplay, Pagination, Navigation]}
@@ -675,13 +724,13 @@ export default function HomePage() {
                     >
                         {galleryImages.map((url, i) => (
                             <SwiperSlide key={i}>
-                                <div 
+                                <div
                                     onClick={() => setSelectedGalleryImage(url)}
-                                    style={{ 
-                                        aspectRatio: '4/5', 
-                                        borderRadius: '16px', 
-                                        overflow: 'hidden', 
-                                        position: 'relative', 
+                                    style={{
+                                        aspectRatio: '4/5',
+                                        borderRadius: '16px',
+                                        overflow: 'hidden',
+                                        position: 'relative',
                                         background: '#faf6f2',
                                         boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
                                         transition: 'transform 0.4s ease',
@@ -756,7 +805,7 @@ export default function HomePage() {
 
             {/* Modal for Zoomed Image */}
             {selectedGalleryImage && (
-                <div 
+                <div
                     style={{
                         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out',
@@ -765,19 +814,19 @@ export default function HomePage() {
                     onClick={() => setSelectedGalleryImage(null)}
                 >
                     <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
-                        <button 
-                            style={{ 
-                                position: 'absolute', top: '-40px', right: '-40px', background: 'none', border: 'none', 
+                        <button
+                            style={{
+                                position: 'absolute', top: '-40px', right: '-40px', background: 'none', border: 'none',
                                 color: '#ffffff', fontSize: '3rem', cursor: 'pointer', fontWeight: 200, padding: '10px',
-                                fontFamily: 'var(--font-roboto), sans-serif' 
+                                fontFamily: 'var(--font-roboto), sans-serif'
                             }}
                             onClick={(e) => { e.stopPropagation(); setSelectedGalleryImage(null); }}
                         >
                             &times;
                         </button>
-                        <img 
-                            src={selectedGalleryImage} 
-                            style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} 
+                        <img
+                            src={selectedGalleryImage}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
                             alt="Zoomed"
                             onClick={(e) => e.stopPropagation()}
                         />

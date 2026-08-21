@@ -64,6 +64,7 @@ const menuItems = [
     },
     { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
     { name: 'CMS', href: '/admin/cms', icon: Layout },
+    { name: 'Coming Soon', href: '/admin/coming-soon', icon: Clock },
     { name: 'User Management', href: '/admin/users', icon: Users },
     { name: 'Settings', href: '/admin/shop-settings', icon: Settings },
 ];

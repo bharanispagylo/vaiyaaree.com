@@ -3,13 +3,30 @@
 import { MessageCircle, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function WhatsAppWidget() {
     const pathname = usePathname();
     const [isVisible, setIsVisible] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
+    const [isComingSoon, setIsComingSoon] = useState(false);
 
     useEffect(() => {
+        // Check if coming soon is active
+        async function checkComingSoon() {
+            try {
+                const { data } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'coming_soon_enabled')
+                    .maybeSingle();
+                if (data?.value === 'true' || data?.value === '1') {
+                    setIsComingSoon(true);
+                }
+            } catch (e) {}
+        }
+        checkComingSoon();
+
         // Show after a short delay
         const timer = setTimeout(() => {
             setIsVisible(true);
@@ -27,7 +44,7 @@ export default function WhatsAppWidget() {
         };
     }, []);
 
-    if (pathname?.startsWith('/admin')) {
+    if (pathname?.startsWith('/admin') || isComingSoon) {
         return null;
     }
 

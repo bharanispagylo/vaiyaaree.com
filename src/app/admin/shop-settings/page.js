@@ -5,11 +5,14 @@ import { supabase } from '@/lib/supabaseClient';
 import {
     Store, Save, Image, FileText, MapPin,
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
-    Upload, Globe, Phone, Mail
+    Upload, Globe, Phone, Mail, Clock, ArrowRight
 } from 'lucide-react';
+import Link from 'next/link';
+import { useShop } from '@/context/ShopContext';
 import MediaPicker from '@/components/MediaPicker';
 
 export default function ShopSettingsPage() {
+    const { fetchComingSoon } = useShop();
     const [settings, setSettings] = useState({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -33,7 +36,13 @@ export default function ShopSettingsPage() {
 
             const settingsMap = {};
             data.forEach(item => {
-                settingsMap[item.key] = item.value;
+                let val = item.value;
+                if (typeof val === 'string') {
+                    val = val.replaceAll('vaiyaaree.official@gmail.com', 'vaiyaaree@gmail.com')
+                             .replaceAll('vaiyaaree.cbe@gmail.com', 'vaiyaaree@gmail.com')
+                             .replaceAll('info@vaiyaaree.com', 'vaiyaaree@gmail.com');
+                }
+                settingsMap[item.key] = val;
             });
             setSettings(settingsMap);
         } catch (err) {
@@ -63,6 +72,7 @@ export default function ShopSettingsPage() {
 
             if (error) throw error;
 
+            if (fetchComingSoon) await fetchComingSoon();
             setNotification({ message: 'Settings saved successfully!', type: 'success' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
@@ -224,6 +234,53 @@ export default function ShopSettingsPage() {
                                 onChange={(e) => handleUpdate('wa_contact_message', e.target.value)}
                             />
                         </div>
+                    </div>
+                </section>
+
+                {/* Coming Soon Mode Card */}
+                <section className="settings-card card shadow-premium full-width" style={{ borderLeft: `6px solid ${settings.coming_soon_enabled === 'true' ? '#16a34a' : '#94a3b8'}` }}>
+                    <div className="card-header" style={{ justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <Clock size={20} color="hsl(var(--primary))" />
+                            <h3>Coming Soon Page Mode</h3>
+                        </div>
+                        <Link href="/admin/coming-soon" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700, color: 'hsl(var(--primary))', textDecoration: 'none' }}>
+                            Full Coming Soon Controls <ArrowRight size={16} />
+                        </Link>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                            <p style={{ margin: 0, fontWeight: 700, color: '#1e293b' }}>
+                                Status: {settings.coming_soon_enabled === 'true' ? (
+                                    <span style={{ color: '#16a34a' }}>● ENABLED (Front Page displays Coming Soon)</span>
+                                ) : (
+                                    <span style={{ color: '#64748b' }}>○ DISABLED (Storefront Normal)</span>
+                                )}
+                            </p>
+                            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+                                Toggle to instantly show/hide the public Coming Soon launch page for visitors.
+                            </p>
+                        </div>
+                        <label className="toggle-switch" style={{ position: 'relative', display: 'inline-block', width: '56px', height: '30px' }}>
+                            <input
+                                type="checkbox"
+                                checked={settings.coming_soon_enabled === 'true'}
+                                onChange={(e) => handleUpdate('coming_soon_enabled', e.target.checked ? 'true' : 'false')}
+                                style={{ opacity: 0, width: 0, height: 0 }}
+                            />
+                            <span style={{
+                                position: 'absolute', cursor: 'pointer', inset: 0,
+                                backgroundColor: settings.coming_soon_enabled === 'true' ? '#16a34a' : '#cbd5e1',
+                                borderRadius: '30px', transition: '0.3s'
+                            }}>
+                                <span style={{
+                                    position: 'absolute', content: '""', height: '22px', width: '22px', left: '4px', bottom: '4px',
+                                    backgroundColor: 'white', borderRadius: '50%', transition: '0.3s',
+                                    transform: settings.coming_soon_enabled === 'true' ? 'translateX(26px)' : 'none',
+                                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                }}></span>
+                            </span>
+                        </label>
                     </div>
                 </section>
             </div>
