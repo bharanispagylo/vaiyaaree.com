@@ -368,7 +368,7 @@ export default function HomePage() {
                 </div>
             </div>
 
-            HEROOOOO
+
             {/* Best Sellers Collection Section */}
             {featuredProducts.length > 0 && (
                 <div style={{ padding: '3rem 2rem 5rem', maxWidth: '1400px', margin: '0 auto' }}>
@@ -612,7 +612,7 @@ export default function HomePage() {
                 <div style={{ padding: '4rem 8%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <span style={{ letterSpacing: '0.2rem', color: '#5d0821', fontWeight: 800, marginBottom: '1rem', fontSize: '0.75rem', fontFamily: 'var(--font-roboto), sans-serif' }}>HERITAGE & CRAFTSMANSHIP</span>
                     <h2 style={{ fontSize: '2.5rem', fontWeight: 700, margin: '0 0 1.5rem', lineHeight: 1.2, fontFamily: 'var(--font-roboto), sans-serif', color: '#1a1a1a', position: 'relative', paddingBottom: '15px' }}>
-                        Authentic Weaves, Timeless Grace,,,,,,
+                        Authentic Weaves, Timeless Grace
                         <div style={{ position: 'absolute', bottom: 0, left: 0, width: '60px', height: '2px', background: '#5d0821' }}></div>
                     </h2>
                     <p style={{ color: '#554f4b', lineHeight: 1.8, fontSize: '1.05rem', fontWeight: 400, maxWidth: '480px', fontFamily: 'var(--font-roboto), sans-serif' }}>
