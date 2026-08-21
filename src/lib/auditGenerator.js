@@ -124,7 +124,8 @@ export async function generateAuditPDF({ timeframe, orders = [], products = [], 
         business_phone: "+91 86677 93292",
         business_website: "www.vaiyaaree.com",
         instagram_handle: "@vaiyaaree",
-        business_email: "info@vaiyaaree.com"
+        business_email: "vaiyaaree@gmail.com",
+        shop_email: "vaiyaaree@gmail.com"
     };
 
     try {
@@ -158,16 +159,7 @@ export async function generateAuditPDF({ timeframe, orders = [], products = [], 
 
         if (tax === 0 && o.tax_amount) {
             tax = parseFloat(o.tax_amount) || 0;
-            // split evenly CGST / SGST for intra-state default
-            cgst = tax / 2;
-            sgst = tax / 2;
-        } else if (tax === 0 && o.total_amount > 0) {
-            // Saree 5% GST inclusive estimate
-            tax = Math.round((o.total_amount - (o.total_amount / 1.05)) * 100) / 100;
-            cgst = Math.round((tax / 2) * 100) / 100;
-            sgst = Math.round((tax - cgst) * 100) / 100;
         }
-
         totalCGST += cgst;
         totalSGST += sgst;
         totalIGST += igst;
@@ -252,10 +244,16 @@ export async function generateAuditPDF({ timeframe, orders = [], products = [], 
     doc.text(splitAddr, brandX, y + 7);
     const addrLineHeight = splitAddr.length * 3.5;
 
+    const displayAuditEmail = (branding.business_email || branding.shop_email || 'vaiyaaree@gmail.com')
+        .replaceAll('info@vaiyaaree.com', 'vaiyaaree@gmail.com')
+        .replaceAll('support@vaiyaaree.com', 'vaiyaaree@gmail.com')
+        .replaceAll('vaiyaaree.cbe@gmail.com', 'vaiyaaree@gmail.com')
+        .replaceAll('vaiyaaree.official@gmail.com', 'vaiyaaree@gmail.com');
+
     doc.setFontSize(8);
     doc.setTextColor(71, 85, 105);
     doc.text(`GSTIN: ${branding.shop_gstin || 'N/A'}  |  PAN: ${branding.company_pan_no || 'AAIFG6568K'}`, brandX, y + 7 + addrLineHeight);
-    doc.text(`Contact: ${branding.business_phone || 'N/A'}  |  ${branding.business_email || ''}`, brandX, y + 11 + addrLineHeight);
+    doc.text(`Contact: ${branding.business_phone || 'N/A'}  |  ${displayAuditEmail}`, brandX, y + 11 + addrLineHeight);
 
     // Report Header Badge Card (Right Side)
     const cardX = 125;

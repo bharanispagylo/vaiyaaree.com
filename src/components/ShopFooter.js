@@ -33,7 +33,7 @@ const ShopFooter = () => {
                         </div>
                         <div className={styles.infoItem}>
                             <Mail size={18} className={styles.infoIcon} />
-                            <p>vaiyaaree.cbe@gmail.com</p>
+                            <p>vaiyaaree@gmail.com</p>
                         </div>
                     </div>
                 </div>

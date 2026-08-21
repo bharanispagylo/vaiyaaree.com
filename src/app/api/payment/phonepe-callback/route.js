@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import { notifyOrderSuccess } from '@/services/whatsappService';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
@@ -6,10 +6,7 @@ import crypto from 'crypto';
 
 import { getGatewaySettings } from '@/lib/settings';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Using MySQL supabase client from @/lib/supabaseClient
 
 // PhonePe calls this endpoint after payment (GET redirect from browser OR POST webhook)
 export async function GET(request) {

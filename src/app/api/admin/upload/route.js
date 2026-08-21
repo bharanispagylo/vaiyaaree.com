@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import { detectWatermark, applyWatermark } from '@/lib/imageService';
 import { Buffer } from 'buffer';
 import { verifyAdmin } from '@/lib/auth';
@@ -8,10 +8,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 // Use SERVICE ROLE key - bypasses RLS entirely
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Using MySQL supabaseAdmin client from @/lib/supabaseClient
 
 const BUCKET_NAME = 'media';
 

@@ -112,7 +112,9 @@ export async function generateInvoicePDF(order) {
         bank_name: "STATE BANK INDIA",
         bank_account: "170902000000962",
         bank_ifsc: "SBI0001709",
-        bank_upi: "vaiyaaree@upi"
+        bank_upi: "vaiyaaree@upi",
+        business_email: "vaiyaaree@gmail.com",
+        shop_email: "vaiyaaree@gmail.com"
     };
 
     try {

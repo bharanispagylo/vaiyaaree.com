@@ -36,7 +36,7 @@ const DEFAULT_POLICIES = {
             <p>We do not sell, trade, or otherwise transfer to outside parties your personally identifiable information.</p>
 
             <h2 style="font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: #111;">Opting out</h2>
-            <p>If at any time you would like to unsubscribe from receiving future emails, you can email us at <strong>vaiyaaree.cbe@gmail.com</strong> and we will promptly remove you from all correspondence.</p>
+            <p>If at any time you would like to unsubscribe from receiving future emails, you can email us at <strong>vaiyaaree@gmail.com</strong> and we will promptly remove you from all correspondence.</p>
 
             <h2 style="font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: #111;">Contact us</h2>
             <p>If there are any questions regarding this privacy policy you may contact us using the information below:</p>
@@ -45,7 +45,7 @@ const DEFAULT_POLICIES = {
                 16, Dhanalakshmi Nagar Extension, Masakalipalayam Road,<br />
                 Uppili Palayam, Coimbatore, Tamil Nadu - 641015<br />
                 Phone: <strong>+91 86677 93292</strong><br />
-                Email: <strong>vaiyaaree.cbe@gmail.com</strong>
+                Email: <strong>vaiyaaree@gmail.com</strong>
             </p>
         `
     },
@@ -69,7 +69,7 @@ const DEFAULT_POLICIES = {
             <p>Once an order for a saree has been placed, changes or cancellations cannot be guaranteed. If you need to modify or cancel your order, please contact us as soon as possible, and we will do our best to accommodate your request.</p>
 
             <h2 style="font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: #111;">5. Contact Us</h2>
-            <p>If you have any questions or concerns regarding our return policy or any aspect of your saree purchase, please don’t hesitate to contact our customer service team at <strong>+91 86677 93292</strong> or Email <strong>vaiyaaree.cbe@gmail.com</strong>. We are here to assist you in any way we can.</p>
+            <p>If you have any questions or concerns regarding our return policy or any aspect of your saree purchase, please don’t hesitate to contact our customer service team at <strong>+91 86677 93292</strong> or Email <strong>vaiyaaree@gmail.com</strong>. We are here to assist you in any way we can.</p>
 
             <h2 style="font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: #111;">6. Changes to the Return Policy</h2>
             <p><strong>Vaiyaaree</strong> reserves the right to update or modify this return policy at any time without prior notice. Any changes will be effective immediately upon posting on our website.</p>
@@ -117,7 +117,7 @@ const DEFAULT_POLICIES = {
             <p>Please refer to our Returns and Exchanges Policy for information on returning or exchanging items.</p>
 
             <h2 style="font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: #111;">Contact Information</h2>
-            <p>If you have any questions or concerns regarding our shipping policy, please contact us at <strong>+91 86677 93292</strong> or Email <strong>vaiyaaree.cbe@gmail.com</strong>.</p>
+            <p>If you have any questions or concerns regarding our shipping policy, please contact us at <strong>+91 86677 93292</strong> or Email <strong>vaiyaaree@gmail.com</strong>.</p>
         `
     },
     'terms-conditions': {
@@ -176,7 +176,7 @@ const DEFAULT_POLICIES = {
             <h2 style="font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: #111;">DEVIATION, CHANGE, REVIEWING, ADJUSTMENTS OR MODIFICATION OF ORDER</h2>
             <ul style="padding-left: 1.5rem; margin-bottom: 1.5rem;">
                 <li style="margin-bottom: 0.5rem;"><strong>Vaiyaaree</strong> doesn't support/accept changes, modifications and cancellation to online bookings once they're made.</li>
-                <li style="margin-bottom: 0.5rem;">Reviewing of order placed, adjustment, change or modification of order, can be done through our customer care department by sending e-mail to <strong>vaiyaaree.cbe@gmail.com</strong> or calling <strong>+91 86677 93292</strong>, subject to receipt of full payment against such modified orders.</li>
+                <li style="margin-bottom: 0.5rem;">Reviewing of order placed, adjustment, change or modification of order, can be done through our customer care department by sending e-mail to <strong>vaiyaaree@gmail.com</strong> or calling <strong>+91 86677 93292</strong>, subject to receipt of full payment against such modified orders.</li>
                 <li style="margin-bottom: 0.5rem;">If you wish to review or adjust your purchase, please revert to the confirmation email/WhatsApp message and follow the instructions therein. Please note that you may be charged for your cancellation in accordance with the price difference if any after reviewing, alteration, and adjustment.</li>
             </ul>
         `
@@ -197,7 +197,7 @@ const DEFAULT_POLICIES = {
             <h2 style="font-size: 1.4rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; color: #111;">DEVIATION, CHANGE, REVIEWING, ADJUSTMENTS OR MODIFICATION OF ORDER</h2>
             <ul style="padding-left: 1.5rem; margin-bottom: 1.5rem;">
                 <li style="margin-bottom: 0.5rem;"><strong>Vaiyaaree</strong> doesn't support/accept changes, modifications and cancellation to online bookings once they're made.</li>
-                <li style="margin-bottom: 0.5rem;">Reviewing of order placed, adjustment, change or modification of order, can be done through our customer care department by sending e-mail to <strong>vaiyaaree.cbe@gmail.com</strong> or calling <strong>+91 86677 93292</strong>, subject to receipt of full payment against such modified orders.</li>
+                <li style="margin-bottom: 0.5rem;">Reviewing of order placed, adjustment, change or modification of order, can be done through our customer care department by sending e-mail to <strong>vaiyaaree@gmail.com</strong> or calling <strong>+91 86677 93292</strong>, subject to receipt of full payment against such modified orders.</li>
                 <li style="margin-bottom: 0.5rem;">If you wish to review or adjust your purchase, please revert to the confirmation email/WhatsApp message and follow the instructions therein. Please note that you may be charged for your cancellation in accordance with the price difference if any after reviewing, alteration, and adjustment.</li>
             </ul>
         `
@@ -249,6 +249,9 @@ export default function PolicyPage({ slug, title: fallbackTitle }) {
     }, [slug]);
 
     const activePage = page || DEFAULT_POLICIES[slug];
+    const sanitizedHtml = (activePage?.content || '')
+        .replaceAll('vaiyaaree.cbe@gmail.com', 'vaiyaaree@gmail.com')
+        .replaceAll('vaiyaaree.official@gmail.com', 'vaiyaaree@gmail.com');
 
     if (loading) return (
         <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'var(--font-body)' }}>
@@ -280,7 +283,7 @@ export default function PolicyPage({ slug, title: fallbackTitle }) {
                 </h1>
                 <div 
                     className="cms-content"
-                    dangerouslySetInnerHTML={{ __html: activePage.content }} 
+                    dangerouslySetInnerHTML={{ __html: sanitizedHtml }} 
                     style={{ 
                         fontSize: '1.05rem', 
                         lineHeight: 1.85, 

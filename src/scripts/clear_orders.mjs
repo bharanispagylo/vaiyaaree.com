@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 
@@ -10,7 +10,7 @@ if (!supabaseUrl || !supabaseKey) {
     process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Using MySQL supabase client from @/lib/supabaseClient
 
 async function clearOrdersAndResetSequence() {
     console.log('--- STARTING DATABASE CLEANUP FOR ORDERS & INVOICES ---');

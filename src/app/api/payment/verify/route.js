@@ -1,14 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import crypto from 'crypto';
 import { notifyOrderSuccess } from '@/services/whatsappService';
 // import { sendWhatsAppText } from '@/lib/whatsapp';
 
 import { getGatewaySettings } from '@/lib/settings';
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Using MySQL supabase client from @/lib/supabaseClient
 
 export async function POST(request) {
     try {

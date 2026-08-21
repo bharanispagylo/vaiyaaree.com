@@ -32,14 +32,10 @@ export default function MyOrdersPage() {
         if (!supabase) return;
         if (user) {
             fetchUserOrders();
-        } else {
-            // Give session check 800ms to hydrate user from local storage
-            const timer = setTimeout(() => {
-                setLoading(false);
-            }, 800);
-            return () => clearTimeout(timer);
+        } else if (!isSessionLoading) {
+            setLoading(false);
         }
-    }, [user, supabase]);
+    }, [user, supabase, isSessionLoading]);
 
     async function fetchUserOrders() {
         if (!supabase || !user) {
@@ -79,18 +75,9 @@ export default function MyOrdersPage() {
             if (error) {
                 console.error('Fetch Orders Query Error:', error);
             } else if (data) {
-                const enrichedData = await Promise.all((data || []).map(async (o) => {
-                    if (o.invoice_no) return o;
-                    const { count: c } = await supabase
-                        .from('orders')
-                        .select('id', { count: 'exact', head: true })
-                        .neq('status', 'DRAFT')
-                        .lte('created_at', o.created_at);
-
-                    return {
-                        ...o,
-                        invoice_no: o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(c || 1).padStart(4, '0')}`)
-                    };
+                const enrichedData = (data || []).map((o, idx) => ({
+                    ...o,
+                    invoice_no: o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String((data || []).length - idx).padStart(4, '0')}`)
                 }));
 
                 setOrders(enrichedData);

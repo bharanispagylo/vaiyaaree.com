@@ -1,9 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Using MySQL supabaseAdmin client from @/lib/supabaseClient
 
 /**
  * Verifies if the request is from an authorized admin.

@@ -1,6 +1,27 @@
 import nodemailer from 'nodemailer';
+import path from 'path';
+import fs from 'fs';
 import { supabase } from './supabaseClient';
 import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
+
+// Helper to get local Vaiyaaree logo attachment
+function getLogoAttachment() {
+    try {
+        const logoPath = path.join(process.cwd(), 'public', 'images', 'vaiyaaree-email-logo.jpg');
+        if (fs.existsSync(logoPath)) {
+            return {
+                filename: 'vaiyaaree-logo.jpg',
+                path: logoPath,
+                cid: 'vaiyaaree_email_logo_cid',
+                contentDisposition: 'inline',
+                contentType: 'image/jpeg'
+            };
+        }
+    } catch (e) {
+        // ignore
+    }
+    return null;
+}
 
 // Create transporter using environment variables or default settings
 const transporter = nodemailer.createTransport({
@@ -65,12 +86,14 @@ function getStatusBadgeHtml(status) {
 function getHeaderHtml(title = 'Vaiyaaree Sarees', shopLogo = '', subtitle = 'Premium Saree Collections') {
     return `
         <!-- HEADER -->
-        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #701a75 0%, #4c1d95 100%); border-top-left-radius: 12px; border-top-right-radius: 12px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #5d0821 0%, #3e0516 100%); border-top-left-radius: 12px; border-top-right-radius: 12px; border-bottom: 2px solid #dfaa5b;">
             <tr>
-                <td style="padding: 32px 20px; text-align: center;">
-                    ${shopLogo ? `<img src="${shopLogo}" alt="Vaiyaaree Sarees" style="max-height: 60px; width: auto; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;" />` : ''}
-                    <h1 style="color: #ffffff; font-size: 26px; font-weight: 700; margin: 0; font-family: 'Outfit', Arial, sans-serif; letter-spacing: 0.5px;">${title}</h1>
-                    ${subtitle ? `<p style="color: #f5d0fe; font-size: 12px; margin: 6px 0 0 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 500;">${subtitle}</p>` : ''}
+                <td style="padding: 28px 20px; text-align: center;">
+                    <div style="display: inline-block; background: #ffffff; padding: 6px 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.18);">
+                        <img src="cid:vaiyaaree_email_logo_cid" alt="Vaiyaaree Sarees" style="max-height: 54px; width: auto; display: block; margin: 0 auto;" />
+                    </div>
+                    <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 0; font-family: 'Outfit', Arial, sans-serif; letter-spacing: 0.5px;">${title}</h1>
+                    ${subtitle ? `<p style="color: #f3e5c8; font-size: 11px; margin: 6px 0 0 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 600;">${subtitle}</p>` : ''}
                 </td>
             </tr>
         </table>
@@ -81,13 +104,13 @@ function getHeaderHtml(title = 'Vaiyaaree Sarees', shopLogo = '', subtitle = 'Pr
 function getFooterHtml(settings = {}) {
     const shopName = settings.shop_name || 'Vaiyaaree Sarees';
     const shopPhone = settings.shop_phone || '8667793292';
-    const shopEmail = settings.shop_email || 'vaiyaaree.official@gmail.com';
+    const shopEmail = settings.shop_email || 'vaiyaaree@gmail.com';
     const shopAddress = settings.shop_address || 'Premium Saree Collections';
     const billTerms = settings.bill_terms || 'All sales are final. Returns accepted within 7 days of delivery.';
 
     return `
         <!-- FOOTER -->
-        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fdfbf7; border-top: 1px solid #f0e6d2; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
             <tr>
                 <td style="padding: 24px 20px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #64748b; line-height: 1.6;">
                     <p style="margin: 0 0 6px 0; font-weight: 700; font-size: 15px; color: #1e293b;">${shopName}</p>
@@ -96,8 +119,8 @@ function getFooterHtml(settings = {}) {
                     <div style="border-top: 1px solid #e2e8f0; margin: 12px auto; width: 80%;"></div>
                     <p style="margin: 0 0 6px 0;">
                         Need help? Contact us: 
-                        <a href="mailto:${shopEmail}" style="color: #701a75; font-weight: 600; text-decoration: none;">${shopEmail}</a> | 
-                        <a href="tel:${shopPhone}" style="color: #701a75; font-weight: 600; text-decoration: none;">+91 ${shopPhone}</a>
+                        <a href="mailto:${shopEmail}" style="color: #5d0821; font-weight: 600; text-decoration: none;">${shopEmail}</a> | 
+                        <a href="tel:${shopPhone}" style="color: #5d0821; font-weight: 600; text-decoration: none;">+91 ${shopPhone}</a>
                     </p>
                     <p style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;">&copy; ${new Date().getFullYear()} ${shopName}. All rights reserved.</p>
                 </td>
@@ -182,7 +205,7 @@ export async function sendOrderConfirmationEmail(order) {
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
 
-    const assetBaseUrl = 'https://aiswaryasaree.vercel.app';
+    const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
     if (shopLogo && !shopLogo.startsWith('http')) {
         let logoPath = shopLogo;
         if (!shopLogo.startsWith('/')) {
@@ -194,7 +217,7 @@ export async function sendOrderConfirmationEmail(order) {
     let settings = {
         shop_name: 'Vaiyaaree Sarees',
         shop_phone: '8667793292',
-        shop_email: 'vaiyaaree.official@gmail.com',
+        shop_email: 'vaiyaaree@gmail.com',
         shop_address: 'Premium Saree Collections',
         bill_terms: 'All sales are final. Returns accepted within 7 days of delivery.',
         bill_footer: 'Thank you for shopping with Vaiyaaree Sarees!'
@@ -226,11 +249,14 @@ export async function sendOrderConfirmationEmail(order) {
         hour12: true
     });
 
+    const logoAtt = getLogoAttachment();
+    const attachments = logoAtt ? [logoAtt] : [];
+
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Vaiyaaree Sarees" <orders@vaiyaaree.com>',
         to: order.customer_email || order.billing_email || order.customer_phone,
         subject: `Order Confirmation - #${order.id} | Vaiyaaree Sarees`,
-        attachments: [],
+        attachments,
         html: `
             <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
             <html xmlns="http://www.w3.org/1999/xhtml">
@@ -279,9 +305,9 @@ export async function sendOrderConfirmationEmail(order) {
                                             <!-- SHIPPING ADDRESS -->
                                             <tr>
                                                 <td style="padding-bottom: 24px;">
-                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #faf5ff; border: 1px solid #f3e8ff; border-radius: 8px; padding: 16px; font-family: Arial, sans-serif;">
+                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fdfbf7; border: 1px solid #f0e6d2; border-radius: 8px; padding: 16px; font-family: Arial, sans-serif;">
                                                         <tr>
-                                                            <td style="padding: 0 0 6px 0; font-weight: 700; color: #701a75; font-size: 14px;"> Delivery Address:</td>
+                                                            <td style="padding: 0 0 6px 0; font-weight: 700; color: #5d0821; font-size: 14px;"> Delivery Address:</td>
                                                         </tr>
                                                         <tr>
                                                             <td style="color: #475569; font-size: 14px; line-height: 1.5;">
@@ -356,10 +382,10 @@ export async function sendOrderConfirmationEmail(order) {
                                                     <table cellpadding="0" cellspacing="0" border="0">
                                                         <tr>
                                                             <td align="center" style="padding: 4px 6px;">
-                                                                <a href="${invoiceUrl}" target="_blank" style="display: inline-block; background-color: #701a75; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Download Invoice</a>
+                                                                <a href="${invoiceUrl}" target="_blank" style="display: inline-block; background-color: #5d0821; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Download Invoice</a>
                                                             </td>
                                                             <td align="center" style="padding: 4px 6px;">
-                                                                <a href="${orderUrl}" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Track Order</a>
+                                                                <a href="${orderUrl}" target="_blank" style="display: inline-block; background-color: #78283d; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Track Order</a>
                                                             </td>
                                                         </tr>
                                                     </table>
@@ -410,7 +436,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
 
-    const assetBaseUrl = 'https://aiswaryasaree.vercel.app';
+    const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
     if (shopLogo && !shopLogo.startsWith('http')) {
         let logoPath = shopLogo;
         if (!shopLogo.startsWith('/')) {
@@ -437,7 +463,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
     let settings = {
         shop_name: 'Vaiyaaree Sarees',
         shop_phone: '8667793292',
-        shop_email: 'vaiyaaree.official@gmail.com',
+        shop_email: 'vaiyaaree@gmail.com',
         shop_address: 'Premium Saree Collections',
         bill_terms: 'All sales are final. Returns accepted within 7 days of delivery.',
         bill_footer: 'Thank you for shopping with Vaiyaaree Sarees!'
@@ -494,11 +520,14 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
         trackingUrlClean = trackingUrlClean.replace(/\{[^}]+\}/g, order.tracking_number);
     }
 
+    const logoAtt = getLogoAttachment();
+    const attachments = logoAtt ? [logoAtt] : [];
+
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Vaiyaaree Sarees" <orders@vaiyaaree.com>',
         to: toEmails,
         subject: `${config.title} - #${order.id} | Vaiyaaree Sarees`,
-        attachments: [],
+        attachments,
         html: `
             <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
             <html xmlns="http://www.w3.org/1999/xhtml">
@@ -617,10 +646,10 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
                                                     <table cellpadding="0" cellspacing="0" border="0">
                                                         <tr>
                                                             <td align="center" style="padding: 4px 6px;">
-                                                                <a href="${invoiceUrl}" target="_blank" style="display: inline-block; background-color: #701a75; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Download Invoice</a>
+                                                                <a href="${invoiceUrl}" target="_blank" style="display: inline-block; background-color: #5d0821; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Download Invoice</a>
                                                             </td>
                                                             <td align="center" style="padding: 4px 6px;">
-                                                                <a href="${orderUrl}" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Track Order</a>
+                                                                <a href="${orderUrl}" target="_blank" style="display: inline-block; background-color: #78283d; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Track Order</a>
                                                             </td>
                                                         </tr>
                                                     </table>
@@ -671,7 +700,7 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
 
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
-    const assetBaseUrl = 'https://aiswaryasaree.vercel.app';
+    const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
     if (shopLogo && !shopLogo.startsWith('http')) {
         let logoPath = shopLogo;
         if (!shopLogo.startsWith('/')) {
@@ -680,10 +709,14 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
         shopLogo = assetBaseUrl + logoPath;
     }
 
+    const logoAtt = getLogoAttachment();
+    const attachments = logoAtt ? [logoAtt] : [];
+
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Vaiyaaree Sarees Security" <security@vaiyaaree.com>',
         to: toEmail,
         subject: `Password Reset Verification Code | Vaiyaaree Sarees Admin`,
+        attachments,
         html: `
             <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
             <html xmlns="http://www.w3.org/1999/xhtml">
@@ -711,8 +744,8 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
 
                                                     <table align="center" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto 20px auto;">
                                                         <tr>
-                                                            <td style="background-color: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px 32px; text-align: center;">
-                                                                <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #701a75; font-family: monospace;">${otp}</span>
+                                                            <td style="background-color: #fdfbf7; border: 2px dashed #e5c9ad; border-radius: 10px; padding: 16px 32px; text-align: center;">
+                                                                <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #5d0821; font-family: monospace;">${otp}</span>
                                                             </td>
                                                         </tr>
                                                     </table>
@@ -751,7 +784,7 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
 
     let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
-    const assetBaseUrl = 'https://aiswaryasaree.vercel.app';
+    const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
     if (shopLogo && !shopLogo.startsWith('http')) {
         let logoPath = shopLogo;
         if (!shopLogo.startsWith('/')) {
@@ -759,6 +792,9 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
         }
         shopLogo = assetBaseUrl + logoPath;
     }
+
+    const logoAtt = getLogoAttachment();
+    const attachments = logoAtt ? [logoAtt] : [];
 
     const formattedDate = new Date().toLocaleString('en-IN', {
         day: 'numeric',
@@ -774,6 +810,7 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
         from: process.env.SMTP_FROM || '"Vaiyaaree Sarees Security" <security@vaiyaaree.com>',
         to: toEmail,
         subject: `Your Admin Password Was Reset | Vaiyaaree Sarees Admin`,
+        attachments,
         html: `
             <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
             <html xmlns="http://www.w3.org/1999/xhtml">

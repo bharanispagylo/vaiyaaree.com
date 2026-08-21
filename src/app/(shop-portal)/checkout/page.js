@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin } from 'lucide-react';
+import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import CheckoutAuthModal from '@/components/CheckoutAuthModal';
 import Link from 'next/link';
@@ -99,91 +99,25 @@ export default function CheckoutPage() {
             return;
         }
 
+        // Validate payment method selected
+        if (checkoutForm.paymentMethod !== 'COD') {
+            showToast('Please select Cash on Delivery to place your order', 'error');
+            return;
+        }
+
         setPlacing(true);
         try {
             const data = await placeOrder();
 
             if (data) {
-                if (checkoutForm.paymentMethod === 'ONLINE') {
-                    await initiateRazorpayPayment(data);
-                } else {
-                    showToast(' Order placed successfully! Redirecting to your orders...', 'success');
-                    router.push('/my-orders');
-                }
+                setOrderData(data);
+                showToast('Your Placed Order Confirmed!', 'success');
             }
         } catch (err) {
             console.error('Checkout Error:', err);
+            showToast(err.message || 'Failed to place order', 'error');
         } finally {
             setPlacing(false);
-        }
-    };
-
-    const initiateRazorpayPayment = async (orderData) => {
-        try {
-            const res = await fetch('/api/payment/create-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: orderData.orderId })
-            });
-            const rzpData = await res.json();
-
-            if (rzpData.error) throw new Error(rzpData.error);
-
-            const options = {
-                key: rzpData.keyId,
-                amount: rzpData.amount,
-                currency: rzpData.currency,
-                name: "Vaiyaaree",
-                description: "Order Payment for Vaiyaaree",
-                order_id: rzpData.razorpayOrderId,
-                handler: async function (response) {
-                    // Verify payment
-                    const verifyRes = await fetch('/api/payment/verify', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature
-                        })
-                    });
-                    const verifyData = await verifyRes.json();
-                    if (verifyData.success) {
-                        showToast(' Payment verified! Redirecting to your orders...', 'success');
-                        router.push('/my-orders');
-                    } else {
-                        showToast('Payment verification failed', 'error');
-                    }
-                },
-                prefill: {
-                    name: checkoutForm.billingName,
-                    contact: checkoutForm.billingPhone
-                },
-                theme: { color: "#000000" }
-            };
-
-            if (!window.Razorpay) {
-                showToast('Payment system not loaded. Please refresh.', 'error');
-                return;
-            }
-
-            if (rzpData.keyId === 'rzp_test_placeholder') {
-                showToast('Payment is in Test Mode. Use real keys for live payments.', 'info');
-                // We'll still try to open it if they want to see the UI, 
-                // but real Razorpay SDK might reject this key.
-            }
-
-            const rzp = new window.Razorpay(options);
-
-            rzp.on('payment.failed', function (response) {
-                console.error('Payment failed:', response.error);
-                showToast(`Payment failed: ${response.error.description}`, 'error');
-            });
-
-            rzp.open();
-        } catch (err) {
-            console.error('Razorpay Error:', err);
-            showToast(err.message || 'Failed to initialize payment', 'error');
         }
     };
 
@@ -193,93 +127,7 @@ export default function CheckoutPage() {
         window.open(`https://wa.me/${bizPhone}?text=${message}`, '_blank');
     };
 
-    if (orderData) {
-        return (
-            <div className={styles.successView}>
-                <div className={styles.successCard}>
-                    <div className={styles.successBadge}>
-                        <CheckCircle size={48} color="#000000" />
-                    </div>
-                    <h2>Thank You for Your Order!</h2>
-                    <p className={styles.successSub}>We've received your order and sent a confirmation to your WhatsApp.</p>
-
-                    <div className={styles.successDetailsGrid}>
-                        <div className={styles.detailCard}>
-                            <Package size={20} />
-                            <div>
-                                <label>Order ID</label>
-                                <strong>#{orderData.orderId}</strong>
-                            </div>
-                        </div>
-                        <div className={styles.detailCard}>
-                            <Clock size={20} />
-                            <div>
-                                <label>Customer Name</label>
-                                <strong>{orderData.billingName || orderData.customerName}</strong>
-                            </div>
-                        </div>
-                        <div className={styles.detailCard}>
-                            <CreditCard size={20} />
-                            <div className={styles.taxBreakdownContainer}>
-                                <label>Payment Summary</label>
-                                <div className={styles.successTaxRow}>
-                                    <span>Subtotal</span>
-                                    <span>₹{orderData.subtotal?.toLocaleString() || (orderData.total - orderData.shipping - ((orderData.cgst || 0) + (orderData.sgst || 0) + (orderData.igst || 0))).toLocaleString()}</span>
-                                </div>
-                                <div className={styles.successTaxRow}>
-                                    <span>Shipping</span>
-                                    <span>{orderData.shipping > 0 ? `₹${orderData.shipping.toLocaleString()}` : 'FREE'}</span>
-                                </div>
-                                {orderData.cgst > 0 && (
-                                    <div className={styles.successTaxRow}>
-                                        <span>CGST (2.5%)</span>
-                                        <span>₹{orderData.cgst.toLocaleString()}</span>
-                                    </div>
-                                )}
-                                {orderData.sgst > 0 && (
-                                    <div className={styles.successTaxRow}>
-                                        <span>SGST (2.5%)</span>
-                                        <span>₹{orderData.sgst.toLocaleString()}</span>
-                                    </div>
-                                )}
-                                {orderData.igst > 0 && (
-                                    <div className={styles.successTaxRow}>
-                                        <span>IGST (5%)</span>
-                                        <span>₹{orderData.igst.toLocaleString()}</span>
-                                    </div>
-                                )}
-                                <div className={`${styles.successTaxRow} ${styles.successTotalRow}`}>
-                                    <span>Grand Total</span>
-                                    <strong>₹{orderData.total.toLocaleString()}.00</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={styles.successActions}>
-                        <button onClick={() => goToWhatsApp(orderData.orderId)} className={styles.waBtn}>
-                            <MessageCircle size={18} /> Chat with Us on WhatsApp
-                        </button>
-
-                        <a
-                            href={`/api/invoice/${orderData.orderId}?phone=${orderData.billingPhone || orderData.customerPhone || ''}`}
-                            target="_blank"
-                            className={styles.downloadBtn}
-                        >
-                            <Download size={18} /> Download Bill
-                        </a>
-                    </div>
-
-                    <div className={styles.navigationLinks}>
-                        <Link href="/my-orders" className={styles.secondaryBtn}>View My Orders</Link>
-                        <Link href="/shop" className={styles.secondaryBtn}>Continue Shopping</Link>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (cart.length === 0) {
+    if (cart.length === 0 && !orderData) {
         return (
             <div className={styles.emptyCheckout}>
                 <ShoppingBag size={64} style={{ opacity: 0.1, marginBottom: '2rem' }} />
@@ -548,8 +396,7 @@ export default function CheckoutPage() {
                                                 const newCountry = e.target.value;
                                                 setCheckoutForm(p => ({ 
                                                     ...p, 
-                                                    shippingCountry: newCountry,
-                                                    ...(p.paymentMethod === 'COD' && newCountry !== 'India' ? { paymentMethod: 'ONLINE' } : {})
+                                                    shippingCountry: newCountry
                                                 }));
                                             }}
                                             disabled={checkoutForm.sameAsBilling}
@@ -567,54 +414,6 @@ export default function CheckoutPage() {
                                         </select>
                                     </div>
                                 </div>
-                            </div>
-                        </section>
-
-                        <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
-                            <h3 className={styles.cardTitle}>Payment Method</h3>
-                            <div className={styles.paymentOptions}>
-                                <label className={`${styles.paymentRadio} ${checkoutForm.paymentMethod === 'ONLINE' ? styles.activeRadio : ''}`}>
-                                    <input type="radio" value="ONLINE" checked={checkoutForm.paymentMethod === 'ONLINE'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'ONLINE' }))} />
-                                    <div className={styles.paymentMeta}>
-                                        <span>Credit Card/Debit Card/NetBanking</span>
-                                        <div className={styles.razorpayBrand}>
-                                            <img src="https://cdn.razorpay.com/static/assets/logo_white.png" alt="Razorpay" className={styles.razorpayLogo} />
-                                            <span>Pay by Razorpay</span>
-                                        </div>
-                                    </div>
-                                </label>
-
-                                {checkoutForm.paymentMethod === 'ONLINE' && (
-                                    <div className={styles.paymentDesc}>
-                                        Pay securely by Credit or Debit card or Internet Banking through Razorpay.
-                                    </div>
-                                )}
-
-                                {(checkoutForm.shippingCountry === 'India' || (!checkoutForm.shippingCountry && checkoutForm.sameAsBilling)) && (
-                                    <label className={`${styles.paymentRadio} ${checkoutForm.paymentMethod === 'COD' ? styles.activeRadio : ''}`} style={{ marginTop: '1rem' }}>
-                                        <input type="radio" value="COD" checked={checkoutForm.paymentMethod === 'COD'} onChange={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))} />
-                                        <div className={styles.radioInfo}>
-                                            <Truck size={20} />
-                                            <div>
-                                                <div className={styles.radioTitle}>Cash on Delivery</div>
-                                                <div className={styles.radioDesc}>Pay when you receive the product</div>
-                                            </div>
-                                        </div>
-                                    </label>
-                                )}
-
-                                {checkoutForm.shippingCountry && checkoutForm.shippingCountry !== 'India' && !checkoutForm.sameAsBilling && (
-                                    <div style={{ 
-                                        marginTop: '1rem', 
-                                        padding: '0.75rem 1rem', 
-                                        background: '#fef3c7', 
-                                        borderRadius: '8px', 
-                                        fontSize: '0.85rem', 
-                                        color: '#92400e' 
-                                    }}>
-                                         COD is only available for orders within India. Please pay online for international shipping.
-                                    </div>
-                                )}
                             </div>
                         </section>
 
@@ -681,8 +480,27 @@ export default function CheckoutPage() {
                         </div>
                     </div>
 
+                    <div className={styles.summaryPaymentWrapper}>
+                        <div className={styles.summaryPaymentTitle}>Payment Method</div>
+                        <div 
+                            className={`${styles.summaryPaymentOption} ${checkoutForm.paymentMethod === 'COD' ? styles.codSelected : ''}`}
+                            onClick={() => setCheckoutForm(p => ({ ...p, paymentMethod: p.paymentMethod === 'COD' ? '' : 'COD' }))}
+                            role="button"
+                            tabIndex={0}
+                        >
+                            <div className={`${styles.customCheckbox} ${checkoutForm.paymentMethod === 'COD' ? styles.checkboxChecked : ''}`}>
+                                {checkoutForm.paymentMethod === 'COD' && <Check size={13} strokeWidth={3.5} />}
+                            </div>
+                            <Truck size={20} className={styles.truckIcon} />
+                            <div className={styles.paymentTextGroup}>
+                                <div className={styles.paymentOptionTitle}>Cash on Delivery</div>
+                                <div className={styles.paymentOptionDesc}>Pay when you receive the product</div>
+                            </div>
+                        </div>
+                    </div>
+
                     {placing && checkoutForm.paymentMethod === 'COD' && (
-                        <div style={{ marginBottom: '1rem', padding: '12px', background: '#f0fdf4', color: '#166534', borderRadius: '8px', fontSize: '14px', textAlign: 'center', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ marginBottom: '1rem', marginInline: '1.25rem', padding: '12px', background: '#f0fdf4', color: '#166534', borderRadius: '8px', fontSize: '14px', textAlign: 'center', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <strong>Cash on Delivery Selected</strong>
                             <span>Order is processing, please do not close the window...</span>
                         </div>
@@ -692,11 +510,29 @@ export default function CheckoutPage() {
                     </button>
                 </div>
             </aside>
+        </div>
+        </div>
 
-            {/* Razorpay SDK */}
-            <Script src="https://checkout.razorpay.com/v1/checkout.js" />
-        </div>
-        </div>
+        {/* Order Confirmed Pop-up Modal */}
+        {orderData && (
+            <div className={styles.modalOverlay}>
+                <div className={styles.modalContent}>
+                    <div className={styles.modalHeaderBadge}>
+                        <CheckCircle size={44} color="#16a34a" />
+                    </div>
+                    <h2 className={styles.modalTitle}>Your Placed Order Confirmed</h2>
+                    <p className={styles.modalSubtitle}>
+                        Thank you for your purchase! We have received your order and will process it shortly.
+                    </p>
+
+                    <div className={styles.modalActions}>
+                        <button onClick={() => router.push('/profile?tab=orders')} className={styles.modalPrimaryBtn}>
+                            View My Orders
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     );
 }

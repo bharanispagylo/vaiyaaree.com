@@ -1,22 +1,16 @@
 //  Vaiyaaree — WHATSAPP BUSINESS BOT (Premium Edition)
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import { processReturnRequest } from './returnService';
 import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
 import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 
 //  1. CONFIGURATION & CLIENTS 
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Using MySQL supabase client from @/lib/supabaseClient
 
 // Admin client for bypass RLS on customers and orders
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Using MySQL supabaseAdmin client from @/lib/supabaseClient
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
@@ -1486,7 +1480,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                 }
 
                 try {
-                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
+                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree@gmail.com', shop_address: 'Premium Saree Collections' };
                     try {
                         const { data: settingsData } = await supabase.from('app_settings').select('*');
                         if (settingsData) {
@@ -2280,7 +2274,7 @@ export async function handleTrackOrder(to) {
 }
 
 export async function handleContact(to) {
-    const contactMsg = await getConfig('wa_contact_message', ` *Contact Support*\n\nFor assistance, please call us at:\n+${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '91 75581 89732'}\n\nOr email:\nvaiyaaree.official@gmail.com`);
+    const contactMsg = await getConfig('wa_contact_message', ` *Contact Support*\n\nFor assistance, please call us at:\n+${process.env.NEXT_PUBLIC_BUSINESS_PHONE || '91 75581 89732'}\n\nOr email:\nvaiyaaree@gmail.com`);
     await sendText(to, contactMsg);
 }
 
@@ -2697,7 +2691,7 @@ export async function processIncomingMessage(body) {
                             const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
 
                             try {
-                                let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
+                                let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree@gmail.com', shop_address: 'Premium Saree Collections' };
                                 const { data: settingsData } = await supabase.from('app_settings').select('*');
                                 if (settingsData) {
                                     settingsData.forEach(item => {

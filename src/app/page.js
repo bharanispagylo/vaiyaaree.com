@@ -320,38 +320,6 @@ export default function HomePage() {
                 </div>
             </div>
 
-            {/* Feature Perks Bar */}
-            <div style={{ background: '#ffffff', borderBottom: '1px solid #f0e6df', padding: '2rem 1rem' }}>
-                <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '2rem' }}>
-                    {[
-                        { icon: Truck, title: "Free Shipping Nationwide", desc: "Completely free delivery across India" },
-                        { icon: Sparkles, title: "100% Authentic Handcraft", desc: "Direct from master weavers in Coimbatore" },
-                        { icon: MessageSquare, title: "WhatsApp Direct Order", desc: "Chat, view live fabrics & order via WhatsApp" },
-                        { icon: ShieldCheck, title: "Guaranteed Quality & Care", desc: "Hassle-free 10-day return & exchange window" }
-                    ].map((perk, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '0.5rem' }}>
-                            <div style={{
-                                width: '48px',
-                                height: '48px',
-                                borderRadius: '12px',
-                                background: 'rgba(93, 8, 33, 0.07)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#5d0821',
-                                flexShrink: 0
-                            }}>
-                                <perk.icon size={24} />
-                            </div>
-                            <div>
-                                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1a1a1a', fontFamily: 'var(--font-roboto), sans-serif' }}>{perk.title}</h4>
-                                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#777', fontFamily: 'var(--font-roboto), sans-serif' }}>{perk.desc}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
             {/* Best Sellers Collection Section */}
             {featuredProducts.length > 0 && (
                 <div style={{ padding: '3rem 2rem 5rem', maxWidth: '1400px', margin: '0 auto' }}>
@@ -750,6 +718,38 @@ export default function HomePage() {
                         transform: scale(1.03);
                     }
                 `}</style>
+            </div>
+
+            {/* Feature Perks Bar */}
+            <div style={{ background: '#ffffff', borderTop: '1px solid #f0e6df', borderBottom: '1px solid #f0e6df', padding: '2.5rem 1rem' }}>
+                <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '2rem' }}>
+                    {[
+                        { icon: Truck, title: "Free Shipping Nationwide", desc: "Completely free delivery across India" },
+                        { icon: Sparkles, title: "100% Authentic Handcraft", desc: "Direct from master weavers in Coimbatore" },
+                        { icon: MessageSquare, title: "WhatsApp Direct Order", desc: "Chat, view live fabrics & order via WhatsApp" },
+                        { icon: ShieldCheck, title: "Guaranteed Quality & Care", desc: "Hassle-free 10-day return & exchange window" }
+                    ].map((perk, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '0.5rem' }}>
+                            <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '12px',
+                                background: 'rgba(93, 8, 33, 0.07)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#5d0821',
+                                flexShrink: 0
+                            }}>
+                                <perk.icon size={24} />
+                            </div>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1a1a1a', fontFamily: 'var(--font-roboto), sans-serif' }}>{perk.title}</h4>
+                                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#777', fontFamily: 'var(--font-roboto), sans-serif' }}>{perk.desc}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <ShopFooter />

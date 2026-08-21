@@ -42,3 +42,12 @@ next-env.d.ts
 
 *.log
 .vercel
+
+# MySQL & Database Dumps / Backups
+*.sql
+*.sql.*
+*.sql.bak
+*.bak
+*.sqlite
+*.sqlite3
+*.db

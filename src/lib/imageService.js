@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import sharp from 'sharp';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { processOcr } from '@/lib/ocrProcessor';
@@ -12,10 +12,7 @@ try {
     console.log('[SERVICE] Could not load fallback font:', e.message);
 }
 
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Using MySQL supabaseAdmin client from @/lib/supabaseClient
 
 /**
  * Robust Watermark Detection using OCR + High Contrast Pre-processing

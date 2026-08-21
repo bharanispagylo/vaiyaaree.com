@@ -1,8 +1,7 @@
 // API Route: Update Order Status + Send WhatsApp Notification
-import { createClient } from '@supabase/supabase-js';
+import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import crypto from 'crypto';
 import { notifyOrderSuccess } from '@/services/whatsappService';
-import { supabase } from '@/lib/supabaseClient';
 import { sendOrderStatusEmail } from '@/lib/emailService';
 import { verifyAdmin } from '@/lib/auth';
 import { sendPdfBuffer } from '@/services/whatsappService';
@@ -286,7 +285,7 @@ export async function POST(request) {
             
             if (status === 'PAID') {
                 try {
-                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree.official@gmail.com', shop_address: 'Premium Saree Collections' };
+                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree@gmail.com', shop_address: 'Premium Saree Collections' };
                     try {
                         const { data: settingsData } = await supabase.from('app_settings').select('*');
                         if (settingsData) {
