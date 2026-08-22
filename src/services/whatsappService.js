@@ -7,11 +7,6 @@ import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 
 //  1. CONFIGURATION & CLIENTS 
 
-// Using MySQL supabase client from @/lib/supabaseClient
-
-// Admin client for bypass RLS on customers and orders
-// Using MySQL supabaseAdmin client from @/lib/supabaseClient
-
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
 const WHATSAPP_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN || '').trim();

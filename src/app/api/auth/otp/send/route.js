@@ -2,9 +2,6 @@ import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import { sendText } from '@/services/whatsappService';
 
-// Using MySQL supabase client from @/lib/supabaseClient
-
-
 export async function POST(req) {
     try {
         const { phone } = await req.json();

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { getAdminSettings } from '@/lib/settings';
+import { verifyPassword, hashPassword } from '@/lib/hash';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -19,7 +20,6 @@ export async function POST(req) {
             .maybeSingle();
 
         if (user) {
-            const { verifyPassword, hashPassword } = require('@/lib/hash');
             const isHashed = user.password && user.password.length === 64; // SHA-256 hex is 64 chars
             
             let isValid = false;

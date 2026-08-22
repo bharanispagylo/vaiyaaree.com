@@ -1,8 +1,6 @@
 import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import { sendText } from '@/services/whatsappService';
 
-// Using MySQL supabase client from @/lib/supabaseClient
-
 export async function POST(request) {
     try {
         const { to, orderId } = await request.json();

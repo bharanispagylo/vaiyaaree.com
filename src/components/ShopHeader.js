@@ -3,10 +3,26 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck, Heart, Activity } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck, Heart, Activity, Search } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import { useCompare } from '@/context/CompareContext';
 import styles from './ShopHeader.module.css';
+
+function formatPhoneDisplay(phone) {
+    if (!phone) return '';
+    const clean = String(phone).trim();
+    const digits = clean.replace(/\D/g, '');
+    if (digits.startsWith('91') && digits.length === 12) {
+        return `+91 ${digits.slice(2)}`;
+    }
+    if (digits.length === 10) {
+        return `+91 ${digits}`;
+    }
+    if (clean.startsWith('+')) {
+        return clean.replace(/^\+(\d{1,3})(\d+)/, '+$1 $2');
+    }
+    return digits ? `+91 ${digits}` : clean;
+}
 
 export default function ShopHeader() {
     const pathname = usePathname();
@@ -95,6 +111,9 @@ export default function ShopHeader() {
                                 placeholder="Search products..." 
                                 className={styles.searchInput} 
                             />
+                            <button type="submit" className={styles.searchBtn} aria-label="Search" title="Search">
+                                <Search size={16} />
+                            </button>
                         </form>
 
                         <div className={styles.headerActions}>
@@ -126,7 +145,7 @@ export default function ShopHeader() {
                                             <div className={styles.profileDropdown}>
                                                 <div className={styles.dropdownHeader}>
                                                     <p className={styles.dropdownName}>{user.name || 'Customer'}</p>
-                                                    <p className={styles.dropdownPhone}>{user.phone}</p>
+                                                    <p className={styles.dropdownPhone}>{formatPhoneDisplay(user.phone)}</p>
                                                 </div>
                                                 <div className={styles.divider}></div>
                                                 <Link href="/profile?tab=orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>

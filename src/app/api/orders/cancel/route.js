@@ -1,7 +1,5 @@
 import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 
-// Using MySQL supabase client from @/lib/supabaseClient
-
 export async function POST(request) {
     try {
         const { orderId, otp } = await request.json();

@@ -76,9 +76,13 @@ function TrackContent() {
                 candidates.add(`WEB-${numStr}`);
                 candidates.add(`ORD-${numStr}`);
                 candidates.add(`MAN-${numStr}`);
+                candidates.add(`INV-${padded4}`);
+                candidates.add(`INV-${numStr}`);
+                candidates.add(`#INV-${padded4}`);
+                candidates.add(`#INV-${numStr}`);
             }
 
-            const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%`).join(',');
+            const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%,invoice_no.eq.${c},invoice_no.ilike.%${c}%`).join(',');
 
             const { data: matches } = await supabase
                 .from('orders')

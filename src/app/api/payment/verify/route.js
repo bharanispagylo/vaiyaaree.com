@@ -5,8 +5,6 @@ import { notifyOrderSuccess } from '@/services/whatsappService';
 
 import { getGatewaySettings } from '@/lib/settings';
 
-// Using MySQL supabase client from @/lib/supabaseClient
-
 export async function POST(request) {
     try {
         const {

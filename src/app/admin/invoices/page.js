@@ -19,6 +19,27 @@ const numberToWords = (num) => {
     return str ? 'Rupees ' + str.trim() + ' Only' : 'Zero';
 };
 
+const formatDisplayPhoneNumber = (phone) => {
+    if (!phone) return '';
+    let cleaned = String(phone).replace(/\D/g, '');
+    if (cleaned.length === 12 && cleaned.startsWith('91')) {
+        const part1 = cleaned.substring(2, 7);
+        const part2 = cleaned.substring(7);
+        return `+91 ${part1} ${part2}`;
+    } else if (cleaned.length === 10) {
+        const part1 = cleaned.substring(0, 5);
+        const part2 = cleaned.substring(5);
+        return `+91 ${part1} ${part2}`;
+    } else if (cleaned.startsWith('91') && cleaned.length > 10) {
+        return `+${cleaned.substring(0, 2)} ${cleaned.substring(2)}`;
+    } else if (cleaned.length > 5) {
+        const part1 = cleaned.substring(0, 5);
+        const part2 = cleaned.substring(5);
+        return `+91 ${part1} ${part2}`;
+    }
+    return String(phone);
+};
+
 function filterInvoices(invoicesList, rawTerm) {
     if (!rawTerm || typeof rawTerm !== 'string') return invoicesList;
     const cleanTerm = rawTerm.trim().toLowerCase();
@@ -205,26 +226,26 @@ export default function InvoicesPage() {
             if (typeof addr === 'string') {
                 if (addr.startsWith('{') && addr.endsWith('}')) {
                     const parsed = JSON.parse(addr);
+                    const street = parsed.address || parsed.address_line || parsed.street || '';
                     const parts = [
-                        parsed.name,
-                        parsed.address,
+                        street,
                         parsed.city,
                         parsed.state,
                         parsed.pincode
                     ].filter(Boolean);
-                    return parts.join(', ');
+                    return parts.length > 0 ? parts.join(', ') : (parsed.name || addr);
                 }
                 return addr;
             }
             if (typeof addr === 'object') {
+                const street = addr.address || addr.address_line || addr.street || '';
                 const parts = [
-                    addr.name,
-                    addr.address,
+                    street,
                     addr.city,
                     addr.state,
                     addr.pincode
                 ].filter(Boolean);
-                return parts.join(', ');
+                return parts.length > 0 ? parts.join(', ') : (addr.name || '');
             }
         } catch (e) {
             return String(addr);
@@ -363,7 +384,8 @@ export default function InvoicesPage() {
                                 <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
                             ) : (
                                 invoices.map((inv) => {
-                                    const seqNum = inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
+                                    const raw = inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
+                                    const seqNum = `#${String(raw).replace(/^#+/, '')}`;
 
                                     return (
                                         <tr key={inv.id} onClick={() => openInvoice(inv)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
@@ -372,7 +394,7 @@ export default function InvoicesPage() {
                                             </td>
                                             <td>
                                                 <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{inv.customer_name || 'WhatsApp Customer'}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{inv.customer_phone}</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(inv.customer_phone)}</div>
                                             </td>
                                             <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{(inv.total_amount || 0).toLocaleString()}</td>
                                             <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{inv.payment_method || '—'}</td>
@@ -510,14 +532,14 @@ export default function InvoicesPage() {
                                                 <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '5px' }}>
                                                     <div><strong>Name</strong></div><div>: {selectedInvoice.customer_name}</div>
                                                     <div><strong>Address</strong></div><div>: {formatAddress(selectedInvoice.billing_address || selectedInvoice.delivery_address || selectedInvoice.shipping_address)}</div>
-                                                    <div><strong>Phone</strong></div><div>: {selectedInvoice.customer_phone}</div>
+                                                    <div><strong>Phone</strong></div><div>: {formatDisplayPhoneNumber(selectedInvoice.customer_phone)}</div>
                                                 </div>
                                             </td>
                                             <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', verticalAlign: 'top' }}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '5px' }}>
                                                     <div><strong>Name</strong></div><div>: {selectedInvoice.customer_name}</div>
                                                     <div><strong>Address</strong></div><div>: {formatAddress(selectedInvoice.shipping_address || selectedInvoice.delivery_address || selectedInvoice.billing_address)}</div>
-                                                    <div><strong>Phone</strong></div><div>: {selectedInvoice.customer_phone}</div>
+                                                    <div><strong>Phone</strong></div><div>: {formatDisplayPhoneNumber(selectedInvoice.customer_phone)}</div>
                                                 </div>
                                             </td>
                                         </tr>

@@ -1,4 +1,4 @@
-import { supabase as defaultSupabase } from '@/lib/supabaseClient';
+import { supabase as defaultSupabase } from './supabaseClient.js';
 
 /**
  * Generates the next sequential Order ID and Invoice Number across the entire application.

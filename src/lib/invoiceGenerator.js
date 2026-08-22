@@ -53,31 +53,52 @@ function formatAddress(addr) {
         if (typeof addr === 'string') {
             if (addr.startsWith('{') && addr.endsWith('}')) {
                 const parsed = JSON.parse(addr);
+                const street = parsed.address || parsed.address_line || parsed.street || '';
                 const parts = [
-                    parsed.name,
-                    parsed.address,
+                    street,
                     parsed.city,
                     parsed.state,
                     parsed.pincode
                 ].filter(Boolean);
-                return parts.join(', ');
+                return parts.length > 0 ? parts.join(', ') : (parsed.name || addr);
             }
             return addr;
         }
         if (typeof addr === 'object') {
+            const street = addr.address || addr.address_line || addr.street || '';
             const parts = [
-                addr.name,
-                addr.address,
+                street,
                 addr.city,
                 addr.state,
                 addr.pincode
             ].filter(Boolean);
-            return parts.join(', ');
+            return parts.length > 0 ? parts.join(', ') : (addr.name || '');
         }
     } catch (e) {
         return String(addr);
     }
     return String(addr);
+}
+
+function formatPhoneNumber(phone) {
+    if (!phone) return '';
+    let cleaned = String(phone).replace(/\D/g, '');
+    if (cleaned.length === 12 && cleaned.startsWith('91')) {
+        const part1 = cleaned.substring(2, 7);
+        const part2 = cleaned.substring(7);
+        return `+91 ${part1} ${part2}`;
+    } else if (cleaned.length === 10) {
+        const part1 = cleaned.substring(0, 5);
+        const part2 = cleaned.substring(5);
+        return `+91 ${part1} ${part2}`;
+    } else if (cleaned.startsWith('91') && cleaned.length > 10) {
+        return `+${cleaned.substring(0, 2)} ${cleaned.substring(2)}`;
+    } else if (cleaned.length > 5) {
+        const part1 = cleaned.substring(0, 5);
+        const part2 = cleaned.substring(5);
+        return `+91 ${part1} ${part2}`;
+    }
+    return String(phone);
 }
 
 const amountInWords = (num) => {
@@ -236,52 +257,69 @@ export async function generateInvoicePDF(order) {
     doc.setFillColor(249, 249, 249);
     doc.rect(margin, y, 190, 7, "FD");
     doc.line(105, y, 105, y + 7);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text("Billing Address :", margin + 2, y + 5);
     doc.text("Shipping Address :", 107, y + 5);
     
     y += 7;
 
-    // Billing & Shipping Details
-    doc.rect(margin, y, 190, 30);
-    doc.line(105, y, 105, y + 30);
-
-    let leftY = y + 5;
+    // Address text preparation
+    const billAddrText = formatAddress(order.billing_address || order.delivery_address || order.shipping_address) || "";
+    const shipAddrText = formatAddress(order.shipping_address || order.delivery_address || order.billing_address) || "";
     
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const billAddrLines = doc.splitTextToSize(billAddrText, 72);
+    const shipAddrLines = doc.splitTextToSize(shipAddrText, 72);
+    
+    const maxLines = Math.max(billAddrLines.length, shipAddrLines.length, 1);
+    const lineHeight = 4.2;
+    const detailsHeight = Math.max(28, 12 + (maxLines * lineHeight) + 6);
+
+    // Billing & Shipping Details Box
+    doc.rect(margin, y, 190, detailsHeight);
+    doc.line(105, y, 105, y + detailsHeight);
+
+    // Left Column (Billing)
+    let leftY = y + 4.5;
     doc.setFont("helvetica", "bold");
     doc.text("Name:", margin + 2, leftY);
     doc.setFont("helvetica", "normal");
-    doc.text(order.customer_name || 'Customer', margin + 15, leftY);
+    doc.text(order.customer_name || 'Customer', margin + 18, leftY);
     
+    leftY += 4.5;
     doc.setFont("helvetica", "bold");
-    doc.text("Address:", margin + 2, leftY + 5);
+    doc.text("Address:", margin + 2, leftY);
     doc.setFont("helvetica", "normal");
-    const billAddr = doc.splitTextToSize(formatAddress(order.billing_address || order.delivery_address || order.shipping_address) || "", 80);
-    doc.text(billAddr, margin + 17, leftY + 5);
+    doc.text(billAddrLines, margin + 18, leftY);
     
+    const billPhoneY = leftY + (billAddrLines.length * lineHeight);
     doc.setFont("helvetica", "bold");
-    doc.text("Phone:", margin + 2, leftY + 5 + (billAddr.length * 4) + 2);
+    doc.text("Phone:", margin + 2, billPhoneY);
     doc.setFont("helvetica", "normal");
-    doc.text(order.customer_phone || '', margin + 15, leftY + 5 + (billAddr.length * 4) + 2);
+    doc.text(formatPhoneNumber(order.customer_phone) || '', margin + 18, billPhoneY);
 
-    let rightY = y + 5;
+    // Right Column (Shipping)
+    let rightY = y + 4.5;
     doc.setFont("helvetica", "bold");
     doc.text("Name:", 107, rightY);
     doc.setFont("helvetica", "normal");
-    doc.text(order.customer_name || 'Customer', 120, rightY);
+    doc.text(order.customer_name || 'Customer', 123, rightY);
     
+    rightY += 4.5;
     doc.setFont("helvetica", "bold");
-    doc.text("Address:", 107, rightY + 5);
+    doc.text("Address:", 107, rightY);
     doc.setFont("helvetica", "normal");
-    const shipAddr = doc.splitTextToSize(formatAddress(order.shipping_address || order.delivery_address || order.billing_address) || "", 80);
-    doc.text(shipAddr, 122, rightY + 5);
+    doc.text(shipAddrLines, 123, rightY);
     
+    const shipPhoneY = rightY + (shipAddrLines.length * lineHeight);
     doc.setFont("helvetica", "bold");
-    doc.text("Phone:", 107, rightY + 5 + (shipAddr.length * 4) + 2);
+    doc.text("Phone:", 107, shipPhoneY);
     doc.setFont("helvetica", "normal");
-    doc.text(order.customer_phone || '', 120, rightY + 5 + (shipAddr.length * 4) + 2);
+    doc.text(formatPhoneNumber(order.customer_phone) || '', 123, shipPhoneY);
 
-    y += 30;
+    y += detailsHeight;
 
     // Items Header
     doc.setFillColor(240, 240, 240);

@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 // Use SERVICE ROLE key - bypasses RLS entirely
-// Using MySQL supabaseAdmin client from @/lib/supabaseClient
 
 const BUCKET_NAME = 'media';
 

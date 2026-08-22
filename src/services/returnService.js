@@ -1,8 +1,5 @@
 import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 
-// Service role client bypasses RLS
-// Using MySQL supabaseAdmin client from @/lib/supabaseClient
-
 /**
  * Core business logic for submitting a return/exchange request.
  * Can be called from API routes or directly from server-side services.

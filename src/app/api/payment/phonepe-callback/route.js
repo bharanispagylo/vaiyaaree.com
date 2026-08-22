@@ -6,8 +6,6 @@ import crypto from 'crypto';
 
 import { getGatewaySettings } from '@/lib/settings';
 
-// Using MySQL supabase client from @/lib/supabaseClient
-
 // PhonePe calls this endpoint after payment (GET redirect from browser OR POST webhook)
 export async function GET(request) {
     const { searchParams } = new URL(request.url);

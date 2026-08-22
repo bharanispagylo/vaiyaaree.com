@@ -108,42 +108,42 @@ export default function HomePage() {
                 }
 
                 // 2. Fetch CMS Page & Store Data
-                const { data } = await supabase
-                    .from('cms_pages')
-                    .select('*')
-                    .eq('slug', 'home')
-                    .eq('status', 'published')
-                    .single();
+                try {
+                    const { data: cmsData } = await supabase
+                        .from('cms_pages')
+                        .select('*')
+                        .eq('slug', 'home')
+                        .single();
 
-                if (data) {
-                    setPage(data);
-                    document.title = `${data.seo_title || data.title} | Vaiyaaree`;
+                    if (cmsData) {
+                        setPage(cmsData);
+                        if (typeof document !== 'undefined') {
+                            document.title = `${cmsData.seo_title || cmsData.title} | Vaiyaaree`;
+                        }
+                    }
+                } catch (cmsErr) {
+                    // Default title if no specific CMS home page exists
+                }
 
+                // 3. Always fetch Featured Products, Explore Products & Categories
+                try {
                     const { data: prods } = await supabase
                         .from('products')
                         .select('*')
-                        .eq('is_featured', true)
                         .eq('is_active', true)
                         .order('created_at', { ascending: false });
-                    setFeaturedProducts(prods || []);
 
-                    const { data: expProds } = await supabase
-                        .from('products')
-                        .select('*')
-                        .eq('product_group', 'EXPLORE')
-                        .eq('is_active', true)
-                        .order('created_at', { ascending: false });
-                    setExploreProducts(expProds || []);
+                    if (prods && prods.length > 0) {
+                        const featured = prods.filter(p => p.is_featured === 1 || p.is_featured === true);
+                        setFeaturedProducts(featured.length > 0 ? featured : prods.slice(0, 8));
 
-                    const { data: catData } = await supabase
-                        .from('products')
-                        .select('category, image_url')
-                        .eq('is_active', true);
-                    if (catData) {
+                        const explore = prods.filter(p => p.product_group === 'EXPLORE');
+                        setExploreProducts(explore.length > 0 ? explore : prods.slice(0, 8));
+
                         const uniqueCats = [];
                         const catMap = new Map();
                         const catCountMap = new Map();
-                        for (const p of catData) {
+                        for (const p of prods) {
                             if (p.category) {
                                 catCountMap.set(p.category, (catCountMap.get(p.category) || 0) + 1);
                                 if (!catMap.has(p.category)) {
@@ -161,26 +161,38 @@ export default function HomePage() {
                         }
                         setAllCategories(uniqueCats.slice(0, 6)); // Top 6 categories
                     }
+                } catch (prodErr) {
+                    console.error('Products Fetch Error:', prodErr);
+                }
 
+                // 4. Always fetch Hero Slider Images from App Settings
+                try {
                     const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
                     if (heroData?.value) {
-                        try {
-                            const parsed = JSON.parse(heroData.value);
-                            if (Array.isArray(parsed) && parsed.length > 0) {
-                                setHeroSliderImages(parsed);
-                            }
-                        } catch (e) { }
+                        const parsed = Array.isArray(heroData.value) 
+                            ? heroData.value 
+                            : (typeof heroData.value === 'string' ? JSON.parse(heroData.value) : null);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            setHeroSliderImages(parsed);
+                        }
                     }
+                } catch (e) {
+                    console.error('Hero Slider fetch error:', e);
+                }
 
+                // 5. Always fetch Gallery Images from App Settings
+                try {
                     const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
                     if (galleryData?.value) {
-                        try {
-                            const parsed = JSON.parse(galleryData.value);
-                            if (Array.isArray(parsed) && parsed.length > 0) {
-                                setGalleryImages(parsed);
-                            }
-                        } catch (e) { }
+                        const parsed = Array.isArray(galleryData.value) 
+                            ? galleryData.value 
+                            : (typeof galleryData.value === 'string' ? JSON.parse(galleryData.value) : null);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            setGalleryImages(parsed);
+                        }
                     }
+                } catch (e) {
+                    console.error('Gallery Images fetch error:', e);
                 }
             } catch (err) {
                 console.error('Home Page Data Error:', err);

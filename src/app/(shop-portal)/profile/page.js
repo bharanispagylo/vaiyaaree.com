@@ -12,6 +12,22 @@ import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
 import styles from './profile.module.css';
 
+function formatPhoneDisplay(phone) {
+    if (!phone) return '';
+    const clean = String(phone).trim();
+    const digits = clean.replace(/\D/g, '');
+    if (digits.startsWith('91') && digits.length === 12) {
+        return `+91 ${digits.slice(2)}`;
+    }
+    if (digits.length === 10) {
+        return `+91 ${digits}`;
+    }
+    if (clean.startsWith('+')) {
+        return clean.replace(/^\+(\d{1,3})(\d+)/, '+$1 $2');
+    }
+    return digits ? `+91 ${digits}` : clean;
+}
+
 function ProductSelectDropdown({ products, selectedKey, onSelect, placeholder = "-- Select Product --" }) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -292,9 +308,13 @@ export default function ProfilePage() {
                 candidates.add(`WEB-${numStr}`);
                 candidates.add(`ORD-${numStr}`);
                 candidates.add(`MAN-${numStr}`);
+                candidates.add(`INV-${padded4}`);
+                candidates.add(`INV-${numStr}`);
+                candidates.add(`#INV-${padded4}`);
+                candidates.add(`#INV-${numStr}`);
             }
 
-            const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%`).join(',');
+            const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%,invoice_no.eq.${c},invoice_no.ilike.%${c}%`).join(',');
 
             const { data: matches } = await supabase
                 .from('orders')
@@ -790,7 +810,7 @@ export default function ProfilePage() {
                     <div className={styles.avatarLarge}>{(user.name?.[0] || 'U').toUpperCase()}</div>
                     <div className={styles.headerInfo}>
                         <h2>{user.name}</h2>
-                        <p className={styles.userPhone}>+{user.phone} • {user.email || 'No email specified'}</p>
+                        <p className={styles.userPhone}>{formatPhoneDisplay(user.phone)} • {user.email || 'No email specified'}</p>
                     </div>
                 </div>
 
@@ -1415,7 +1435,7 @@ export default function ProfilePage() {
                                                 <p className={styles.addressName}>{addr.full_name}</p>
                                                 <p className={styles.addressLine}>{addr.address_line}</p>
                                                 <p className={styles.addressLocation}>{addr.city}, {addr.state} {addr.pincode}</p>
-                                                <p className={styles.addressPhone}> +{addr.phone}</p>
+                                                <p className={styles.addressPhone}>{formatPhoneDisplay(addr.phone)}</p>
                                                 <button type="button" onClick={() => deleteAddress(addr.id)} className={styles.deleteAddressBtn}>
                                                     Delete Address
                                                 </button>
@@ -1519,7 +1539,7 @@ export default function ProfilePage() {
                                                 <p className={styles.addressName}>{addr.full_name}</p>
                                                 <p className={styles.addressLine}>{addr.address_line}</p>
                                                 <p className={styles.addressLocation}>{addr.city}, {addr.state} {addr.pincode}</p>
-                                                <p className={styles.addressPhone}> +{addr.phone}</p>
+                                                <p className={styles.addressPhone}>{formatPhoneDisplay(addr.phone)}</p>
                                                 <button type="button" onClick={() => deleteAddress(addr.id)} className={styles.deleteAddressBtn}>
                                                     Delete Address
                                                 </button>

@@ -1,8 +1,6 @@
 import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 
-// Using MySQL supabase client from @/lib/supabaseClient
-
 export async function POST(request) {
     try {
         const body = await request.json();
@@ -98,6 +96,7 @@ export async function POST(request) {
         // 3. CREATE ORDER (Atomic)
         const { error: orderError } = await supabase.from('orders').insert({
             id: orderId,
+            invoice_no: invoiceNo,
             customer_id: customerId,
             customer_phone: customerPhone,
             customer_name: customerName,

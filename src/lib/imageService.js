@@ -12,8 +12,6 @@ try {
     console.log('[SERVICE] Could not load fallback font:', e.message);
 }
 
-// Using MySQL supabaseAdmin client from @/lib/supabaseClient
-
 /**
  * Robust Watermark Detection using OCR + High Contrast Pre-processing
  */

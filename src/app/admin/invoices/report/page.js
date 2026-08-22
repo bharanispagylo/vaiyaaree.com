@@ -26,19 +26,52 @@ const formatAddress = (addr) => {
         if (typeof addr === 'string') {
             if (addr.startsWith('{') && addr.endsWith('}')) {
                 const parsed = JSON.parse(addr);
-                const parts = [parsed.name, parsed.address, parsed.city, parsed.state, parsed.pincode].filter(Boolean);
-                return parts.join(', ');
+                const street = parsed.address || parsed.address_line || parsed.street || '';
+                const parts = [
+                    street,
+                    parsed.city,
+                    parsed.state,
+                    parsed.pincode
+                ].filter(Boolean);
+                return parts.length > 0 ? parts.join(', ') : (parsed.name || addr);
             }
             return addr;
         }
         if (typeof addr === 'object') {
-            const parts = [addr.name, addr.address, addr.city, addr.state, addr.pincode].filter(Boolean);
-            return parts.join(', ');
+            const street = addr.address || addr.address_line || addr.street || '';
+            const parts = [
+                street,
+                addr.city,
+                addr.state,
+                addr.pincode
+            ].filter(Boolean);
+            return parts.length > 0 ? parts.join(', ') : (addr.name || '');
         }
     } catch (e) {
         return String(addr);
     }
     return String(addr);
+};
+
+const formatDisplayPhoneNumber = (phone) => {
+    if (!phone) return '';
+    let cleaned = String(phone).replace(/\D/g, '');
+    if (cleaned.length === 12 && cleaned.startsWith('91')) {
+        const part1 = cleaned.substring(2, 7);
+        const part2 = cleaned.substring(7);
+        return `+91 ${part1} ${part2}`;
+    } else if (cleaned.length === 10) {
+        const part1 = cleaned.substring(0, 5);
+        const part2 = cleaned.substring(5);
+        return `+91 ${part1} ${part2}`;
+    } else if (cleaned.startsWith('91') && cleaned.length > 10) {
+        return `+${cleaned.substring(0, 2)} ${cleaned.substring(2)}`;
+    } else if (cleaned.length > 5) {
+        const part1 = cleaned.substring(0, 5);
+        const part2 = cleaned.substring(5);
+        return `+91 ${part1} ${part2}`;
+    }
+    return String(phone);
 };
 
 export default function InvoiceReportPage() {
@@ -228,7 +261,7 @@ export default function InvoiceReportPage() {
             'Order ID': o.id,
             'Date': new Date(o.created_at).toLocaleDateString(),
             'Customer': o.customer_name,
-            'Phone': o.customer_phone,
+            'Phone': formatDisplayPhoneNumber(o.customer_phone),
             'Location': o.shipping_state || 'N/A',
             'Amount': o.total_amount,
             'Status': o.status,
@@ -414,14 +447,14 @@ export default function InvoiceReportPage() {
                                             <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '5px' }}>
                                                 <div><strong>Name</strong></div><div>: {selectedInvoice.customer_name}</div>
                                                 <div><strong>Address</strong></div><div>: {formatAddress(selectedInvoice.billing_address || selectedInvoice.delivery_address || selectedInvoice.shipping_address)}</div>
-                                                <div><strong>Phone</strong></div><div>: {selectedInvoice.customer_phone}</div>
+                                                <div><strong>Phone</strong></div><div>: {formatDisplayPhoneNumber(selectedInvoice.customer_phone)}</div>
                                             </div>
                                         </td>
                                         <td style={{ padding: '5px', width: '50%', borderBottom: '1px solid black', verticalAlign: 'top' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '5px' }}>
                                                 <div><strong>Name</strong></div><div>: {selectedInvoice.customer_name}</div>
                                                 <div><strong>Address</strong></div><div>: {formatAddress(selectedInvoice.shipping_address || selectedInvoice.delivery_address || selectedInvoice.billing_address)}</div>
-                                                <div><strong>Phone</strong></div><div>: {selectedInvoice.customer_phone}</div>
+                                                <div><strong>Phone</strong></div><div>: {formatDisplayPhoneNumber(selectedInvoice.customer_phone)}</div>
                                             </div>
                                         </td>
                                     </tr>
@@ -843,7 +876,8 @@ export default function InvoiceReportPage() {
                                 </tr>
                             ) : (
                                 paginatedOrders.map((o) => {
-                                    const seqNum = o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
+                                    const raw = o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
+                                    const seqNum = `#${String(raw).replace(/^#+/, '')}`;
 
                                     return (
                                         <tr 
@@ -859,7 +893,7 @@ export default function InvoiceReportPage() {
                                             <td style={{ padding: '0.65rem 1rem', fontSize: '0.85rem' }}>{new Date(o.created_at).toLocaleDateString()}</td>
                                             <td style={{ padding: '0.65rem 1rem' }}>
                                                 <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{o.customer_phone}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(o.customer_phone)}</div>
                                             </td>
                                             <td style={{ padding: '0.65rem 1rem', fontSize: '0.85rem' }}>{o.shipping_state || 'N/A'}</td>
                                             <td style={{ padding: '0.65rem 1rem', textAlign: 'right', fontWeight: 800 }}>₹{o.total_amount.toLocaleString()}</td>

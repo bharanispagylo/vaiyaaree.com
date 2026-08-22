@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabaseClient';
 import { getAdminSettings } from '@/lib/settings';
 import { sendAdminPasswordResetSuccessEmail } from '@/lib/emailService';
+import { hashPassword } from '@/lib/hash';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +46,6 @@ export async function POST(req) {
         }
 
         // 2. Hash password if needed and update specific user in admin_users table
-        const { hashPassword } = require('@/lib/hash');
         const hashedPassword = hashPassword(newPassword);
 
         if (username) {

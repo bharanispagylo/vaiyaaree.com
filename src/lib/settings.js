@@ -1,6 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
-
-// Using MySQL supabase client from @/lib/supabaseClient
+import { supabase, supabaseAdmin } from './supabaseClient.js';
 
 export async function getAdminSettings() {
     try {

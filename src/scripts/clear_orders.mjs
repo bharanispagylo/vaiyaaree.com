@@ -8,10 +8,6 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 if (!supabaseUrl || !supabaseKey) {
     console.error('Supabase credentials missing!');
     process.exit(1);
-}
-
-// Using MySQL supabase client from @/lib/supabaseClient
-
 async function clearOrdersAndResetSequence() {
     console.log('--- STARTING DATABASE CLEANUP FOR ORDERS & INVOICES ---');
 

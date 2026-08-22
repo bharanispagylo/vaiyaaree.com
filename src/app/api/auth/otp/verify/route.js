@@ -2,9 +2,6 @@ import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import { cookies } from 'next/headers';
 
-// Using MySQL supabase client from @/lib/supabaseClient
-
-
 export async function POST(req) {
     try {
         const { phone, otp, role } = await req.json();

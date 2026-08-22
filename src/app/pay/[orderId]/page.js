@@ -2,10 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import Script from 'next/script';
-
-// Using MySQL supabase client from @/lib/supabaseClient
 
 // Inner component that uses useSearchParams (must be wrapped in Suspense)
 function PaymentPageInner({ orderId }) {

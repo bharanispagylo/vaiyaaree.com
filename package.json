@@ -1,6 +1,7 @@
 {
   "name": "vaiyaaree",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "cross-env UV_THREADPOOL_SIZE=4 NODE_OPTIONS=--max-old-space-size=4096 next dev --webpack",
@@ -13,7 +14,7 @@
     "dotenv": "^17.3.1",
     "jspdf": "^4.1.0",
     "lucide-react": "^0.572.0",
-    "mysql2": "^3.23.4",
+    "mysql2": "^3.12.0",
     "next": "16.1.6",
     "nodemailer": "^8.0.4",
     "pdfkit": "^0.18.0",

@@ -26,14 +26,34 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 const STATUS_OPTIONS = ['PLACED', 'AWAITING_PAYMENT', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
 const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP', 'MANUAL'];
 
-// Helper: parse Supabase UTC timestamps reliably (adds 'Z' if missing so JS treats it as UTC → converts to IST)
-const toIST = (dStr, opts) => {
+// Helper: format invoice number with clean, single # prefix (never ##)
+const formatOrderInvoice = (o) => {
+    if (!o) return '#INV-0001';
+    const raw = o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
+    const clean = String(raw).replace(/^#+/, '');
+    return `#${clean}`;
+};
+
+// Helper: parse UTC/MySQL timestamps reliably into IST (Asia/Kolkata)
+const toIST = (dStr, opts = {}) => {
     if (!dStr) return '';
-    let s = String(dStr);
+    let s = String(dStr).trim();
     if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
     if (!s.endsWith('Z') && !s.includes('+')) s += 'Z';
     try {
-        return new Date(s).toLocaleString('en-IN', opts);
+        const d = new Date(s);
+        if (isNaN(d.getTime())) return dStr;
+        return d.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: 'numeric',
+            month: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            ...opts
+        });
     } catch (e) { return dStr; }
 };
 
@@ -1610,7 +1630,7 @@ export default function OrdersPage() {
                                                                                     transition: 'background 0.2s'
                                                                                 }}
                                                                             >
-                                                                                <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>#{order.invoice_no || (order.id ? String(order.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001')}</td>
+                                                                                <td style={{ fontWeight: 600, color: selectedOrder?.id === order.id ? 'hsl(var(--primary))' : 'inherit' }}>{formatOrderInvoice(order)}</td>
                                                                                 <td style={{ textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleSelectItem(order.id); }}>
                                                                                     <input
                                                                                         type="checkbox"
@@ -1816,7 +1836,7 @@ export default function OrdersPage() {
                                 }}>
                                     <div style={{ padding: '1.5rem 2rem', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details #{selectedOrder.invoice_no || (selectedOrder.id ? String(selectedOrder.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001')}</h2>
+                                            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details {formatOrderInvoice(selectedOrder)}</h2>
                                             <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '4px', flexWrap: 'wrap' }}>
                                                 <span>Placed on {toIST(selectedOrder.created_at)}</span>
                                                 {(() => {
@@ -3661,7 +3681,7 @@ export default function OrdersPage() {
                     <div className="animate-enter card shadow-premium" style={{ padding: '0', maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', background: '#fff', borderRadius: '16px' }}>
                         <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
                             <div>
-                                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Order #{infoModalOrder.invoice_no || (infoModalOrder.id ? String(infoModalOrder.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001')}</h3>
+                                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Order {formatOrderInvoice(infoModalOrder)}</h3>
                                 <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Placed on {toIST(infoModalOrder.created_at)}</div>
                             </div>
                             <button onClick={() => setInfoModalOrder(null)} className="btn btn-secondary" style={{ padding: '0.5rem' }}><X size={18} /></button>
