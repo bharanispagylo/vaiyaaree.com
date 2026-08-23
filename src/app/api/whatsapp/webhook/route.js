@@ -6,9 +6,10 @@ export async function GET(request) {
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
 
-    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'aiswarya_secret';
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'vaiyaaree_secret';
+    const legacyToken = 'aiswarya_secret';
 
-    if (mode === 'subscribe' && token === verifyToken) {
+    if (mode === 'subscribe' && (token === verifyToken || token === legacyToken)) {
         console.log(' WEBHOOK VERIFIED SUCCESSFULLY!');
         return new Response(challenge, {
             status: 200,

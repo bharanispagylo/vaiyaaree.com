@@ -114,6 +114,40 @@ class MySQLQueryBuilder {
         return this;
     }
 
+    contains(col, val) {
+        this.filters.push({ type: 'contains', col, val });
+        return this;
+    }
+
+    containedBy(col, val) {
+        this.filters.push({ type: 'containedBy', col, val });
+        return this;
+    }
+
+    filter(col, op, val) {
+        this.filters.push({ type: 'filter', col, op, val });
+        return this;
+    }
+
+    not(col, op, val) {
+        this.filters.push({ type: 'not', col, op, val });
+        return this;
+    }
+
+    match(query) {
+        if (query && typeof query === 'object') {
+            for (const [col, val] of Object.entries(query)) {
+                this.filters.push({ type: 'eq', col, val });
+            }
+        }
+        return this;
+    }
+
+    overlaps(col, val) {
+        this.filters.push({ type: 'overlaps', col, val });
+        return this;
+    }
+
     order(col, { ascending = true } = {}) {
         this.orders.push({ col, ascending });
         return this;
@@ -187,16 +221,53 @@ class MySQLQueryBuilder {
 
 const mockStorage = {
     from: (bucket) => ({
-        getPublicUrl: (path) => ({
-            data: { publicUrl: path?.startsWith('http') ? path : (path?.startsWith('/') ? path : `/uploads/${path}`) }
+        getPublicUrl: (filePath) => ({
+            data: { publicUrl: filePath?.startsWith('http') ? filePath : (filePath?.startsWith('/') ? filePath : `/uploads/${bucket}/${filePath}`) }
         }),
-        upload: async (path, file) => {
-            return { data: { path }, error: null };
+        upload: async (filePath, fileData) => {
+            if (typeof window === 'undefined') {
+                try {
+                    const fs = await import('fs');
+                    const path = await import('path');
+                    const targetPath = path.join(process.cwd(), 'public', 'uploads', bucket, filePath);
+                    const targetDir = path.dirname(targetPath);
+                    await fs.promises.mkdir(targetDir, { recursive: true });
+                    const buf = Buffer.isBuffer(fileData) ? fileData : Buffer.from(await fileData.arrayBuffer());
+                    await fs.promises.writeFile(targetPath, buf);
+                } catch (e) {
+                    console.error('[STORAGE LOCAL ERROR]:', e);
+                    return { data: null, error: e };
+                }
+            }
+            return { data: { path: filePath }, error: null };
         },
-        list: async (path, options) => {
+        list: async (folder, options) => {
+            if (typeof window === 'undefined') {
+                try {
+                    const fs = await import('fs');
+                    const path = await import('path');
+                    const targetDir = path.join(process.cwd(), 'public', 'uploads', bucket, folder || '');
+                    if (!fs.existsSync(targetDir)) return { data: [], error: null };
+                    const entries = await fs.promises.readdir(targetDir, { withFileTypes: true });
+                    const items = entries.filter(e => e.isFile()).map(e => ({ name: e.name, id: e.name }));
+                    return { data: items, error: null };
+                } catch (e) {
+                    return { data: [], error: null };
+                }
+            }
             return { data: [], error: null };
         },
         remove: async (paths) => {
+            if (typeof window === 'undefined') {
+                try {
+                    const fs = await import('fs');
+                    const path = await import('path');
+                    for (const p of paths) {
+                        const targetPath = path.join(process.cwd(), 'public', 'uploads', bucket, p);
+                        await fs.promises.unlink(targetPath).catch(() => {});
+                    }
+                } catch (e) {}
+            }
             return { data: [], error: null };
         }
     })

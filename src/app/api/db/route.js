@@ -4,6 +4,13 @@ import { executeMysqlQuery } from '@/lib/mysqlQueryEngine';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+/**
+ * POST /api/db
+ * Core database API — receives Supabase-style query payloads from client-side
+ * and executes them directly against MySQL.
+ * DO NOT add WhatsApp or other webhook logic here.
+ * WhatsApp webhook is at /api/whatsapp/webhook
+ */
 export async function POST(request) {
     try {
         const text = await request.text();

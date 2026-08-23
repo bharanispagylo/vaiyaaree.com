@@ -7,15 +7,23 @@ import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
 // Helper to get local Vaiyaaree logo attachment
 function getLogoAttachment() {
     try {
-        const logoPath = path.join(process.cwd(), 'public', 'images', 'vaiyaaree-email-logo.jpg');
-        if (fs.existsSync(logoPath)) {
-            return {
-                filename: 'vaiyaaree-logo.jpg',
-                path: logoPath,
-                cid: 'vaiyaaree_email_logo_cid',
-                contentDisposition: 'inline',
-                contentType: 'image/jpeg'
-            };
+        const candidates = [
+            path.join(process.cwd(), 'public', 'images', 'vaiyaaree-email-logo.jpg'),
+            path.join(process.cwd(), 'public', 'images', 'vaiyaaree-logo.png'),
+            path.join(process.cwd(), 'public', 'logo.png'),
+            path.join(process.cwd(), 'public', 'images', 'logo.png')
+        ];
+        for (const logoPath of candidates) {
+            if (fs.existsSync(logoPath)) {
+                const ext = path.extname(logoPath).toLowerCase();
+                return {
+                    filename: path.basename(logoPath),
+                    path: logoPath,
+                    cid: 'vaiyaaree_email_logo_cid',
+                    contentDisposition: 'inline',
+                    contentType: ext === '.png' ? 'image/png' : 'image/jpeg'
+                };
+            }
         }
     } catch (e) {
         // ignore

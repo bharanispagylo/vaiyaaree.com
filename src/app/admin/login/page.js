@@ -54,7 +54,7 @@ export default function AdminLoginPage() {
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             boxShadow: '0 10px 25px hsl(var(--primary) / 0.2)', overflow: 'hidden', padding: '0.25rem'
                         }}>
-                            <img src="/images/cp-logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src="/images/vaiyaaree-logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} />
                         </div>
                     </div>
                     <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', margin: '1rem 0 0.5rem' }}>Vaiyaaree</h1>

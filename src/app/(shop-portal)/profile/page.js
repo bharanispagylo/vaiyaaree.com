@@ -11,6 +11,7 @@ import {
 import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
 import styles from './profile.module.css';
+import ReturnWizard from '@/components/ReturnWizard';
 
 function formatPhoneDisplay(phone) {
     if (!phone) return '';
@@ -1698,139 +1699,23 @@ export default function ProfilePage() {
                         </section>
                     )}
 
-                    {/* TAB 5: RETURN REQUESTS & FORM (Matching Handwritten Note 5) */}
+                    {/* TAB 5: RETURN REQUESTS — ReturnWizard component */}
                     {activeTab === 'return' && (
                         <section className={styles.profileSection}>
                             <div className={styles.sectionHeader}>
                                 <div>
                                     <h3 className={styles.sectionTitle}><RotateCcw size={20} /> Return & Exchange Requests</h3>
-                                    <p className={styles.sectionSubtitle}>Submit product return or exchange requests</p>
+                                    <p className={styles.sectionSubtitle}>Submit a return or exchange for delivered products</p>
                                 </div>
                             </div>
-
-                            {/* Return Request Form */}
-                            <div className={styles.requestFormCard}>
-                                <h4 style={{ margin: '0 0 1.25rem 0', fontWeight: 800 }}>Create New Return Request</h4>
-                                <form onSubmit={handleSubmitReturn}>
-                                    <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            CHOOSE PRODUCT *
-                                        </label>
-                                        <ProductSelectDropdown 
-                                            products={eligibleReturnProducts}
-                                            selectedKey={returnForm.orderItemKey}
-                                            placeholder="-- Select Delivered Product --"
-                                            onSelect={(item) => {
-                                                if (!item) {
-                                                    setReturnForm({ ...returnForm, orderItemKey: '' });
-                                                } else {
-                                                    setReturnForm({ ...returnForm, orderItemKey: item.key });
-                                                }
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div className={styles.formGrid} style={{ marginBottom: '1.25rem' }}>
-                                        <div className={styles.formGroup}>
-                                            <label>REQUEST TYPE *</label>
-                                            <select 
-                                                value={returnForm.requestType} 
-                                                onChange={(e) => setReturnForm({ ...returnForm, requestType: e.target.value })}
-                                            >
-                                                <option value="RETURN">Return Product</option>
-                                                <option value="EXCHANGE">Exchange Product</option>
-                                            </select>
-                                        </div>
-
-                                        <div className={styles.formGroup}>
-                                            <label>REASON *</label>
-                                            <select 
-                                                value={returnForm.reason} 
-                                                onChange={(e) => setReturnForm({ ...returnForm, reason: e.target.value })}
-                                            >
-                                                <option value="Wrong Item Delivered">Wrong Item / Size Received</option>
-                                                <option value="Defective / Damaged">Defective or Damaged Product</option>
-                                                <option value="Quality Not as Expected">Quality Not as Expected</option>
-                                                <option value="Changed Mind">Changed Mind</option>
-                                                <option value="Other">Other Reason</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {returnForm.reason === 'Other' && (
-                                        <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
-                                            <label>SPECIFY REASON *</label>
-                                            <textarea 
-                                                rows={3} 
-                                                placeholder="Please specify details regarding your return request..."
-                                                value={returnForm.otherReason}
-                                                onChange={(e) => setReturnForm({ ...returnForm, otherReason: e.target.value })}
-                                                required
-                                            />
-                                        </div>
-                                    )}
-
-                                    <button type="submit" className={styles.formSubmitBtn} disabled={submittingReturn}>
-                                        <Send size={16} />
-                                        {submittingReturn ? 'Submitting...' : 'Submit Return Request'}
-                                    </button>
-                                </form>
-                            </div>
-
-                            {/* Return Requests Table (Matching Handwritten Table Layout) */}
-                            <h4 style={{ margin: '0 0 1rem 0', fontWeight: 800 }}>Submitted Return Requests History</h4>
-                            {loadingReturns ? (
-                                <div className={styles.loadingState}>Loading return requests...</div>
-                            ) : returns.length === 0 ? (
-                                <div className={styles.emptyState}>
-                                    <RotateCcw size={40} style={{ opacity: 0.2 }} />
-                                    <p>No return requests submitted yet.</p>
-                                </div>
-                            ) : (
-                                <div className={styles.tableContainer}>
-                                    <table className={styles.dataTable}>
-                                        <thead>
-                                            <tr>
-                                                <th>Return ID</th>
-                                                <th>Order ID</th>
-                                                <th>Product</th>
-                                                <th>Type</th>
-                                                <th>Reason</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {returns.map(r => {
-                                                const displayOrderInv = r.orders?.invoice_no 
-                                                    ? (r.orders.invoice_no.startsWith('#') ? r.orders.invoice_no : `#${r.orders.invoice_no}`)
-                                                    : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
-
-                                                const st = (r.status || 'PENDING').toUpperCase();
-                                                let badgeText = 'Under Review';
-                                                let badgeClass = styles.badgePending;
-                                                if (st === 'APPROVED') { badgeText = 'Approved & Scheduled'; badgeClass = styles.badgeApproved; }
-                                                else if (st === 'COMPLETED') { badgeText = 'Return Completed'; badgeClass = styles.badgeCompleted; }
-                                                else if (st === 'REJECTED') { badgeText = 'Request Declined'; badgeClass = styles.badgeRejected; }
-
-                                                return (
-                                                    <tr key={r.id}>
-                                                        <td style={{ whiteSpace: 'nowrap' }}><strong>#{String(r.id).substring(0, 8)}</strong></td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}><strong>{displayOrderInv}</strong></td>
-                                                        <td>{r.products?.name || 'Order Item'}</td>
-                                                        <td><strong>{r.request_type || 'RETURN'}</strong></td>
-                                                        <td>{r.reason}</td>
-                                                        <td>
-                                                            <span className={badgeClass}>
-                                                                {badgeText}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
+                            <ReturnWizard
+                                user={user}
+                                supabase={supabase}
+                                addresses={addresses}
+                                orders={orders}
+                                returns={returns}
+                                onSuccess={fetchReturns}
+                            />
                         </section>
                     )}
 

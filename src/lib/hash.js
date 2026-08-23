@@ -7,7 +7,7 @@ import crypto from 'crypto';
 export function hashPassword(password) {
     if (!password) return '';
     // We use a salt from environment variables if available
-    const salt = process.env.PASSWORD_SALT || 'aiswarya_default_salt';
+    const salt = process.env.PASSWORD_SALT || 'vaiyaaree_default_salt';
     return crypto.createHash('sha256').update(password + salt).digest('hex');
 }
 
@@ -15,5 +15,12 @@ export function hashPassword(password) {
  * Verifies a password against a hash.
  */
 export function verifyPassword(password, hash) {
-    return hashPassword(password) === hash;
+    if (!password || !hash) return false;
+    const currentHash = hashPassword(password);
+    if (currentHash === hash) return true;
+
+    // Backward compatibility with legacy salt
+    const legacySalt = 'aiswarya_default_salt';
+    const legacyHash = crypto.createHash('sha256').update(password + legacySalt).digest('hex');
+    return legacyHash === hash;
 }

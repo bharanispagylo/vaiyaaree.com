@@ -58,7 +58,7 @@ async function sendWhatsAppText(to, text) {
 
 async function getStatusMessage(orderId, status, order, items = []) {
     const totalAmount = order.total_amount || 0;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://mathematically-foliaged-palmer.ngrok-free.dev');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.vaiyaaree.com');
     const brand = 'Vaiyaaree';
     const displayInv = order.invoice_no 
         ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)

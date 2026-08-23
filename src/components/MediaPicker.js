@@ -49,7 +49,24 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                 .select('value')
                 .eq('key', 'watermark_images')
                 .single();
-            if (data?.value) setWatermarkImages(JSON.parse(data.value));
+            if (data?.value) {
+                const val = data.value;
+                if (Array.isArray(val)) {
+                    setWatermarkImages(val.filter(Boolean));
+                } else if (typeof val === 'string') {
+                    const trimmed = val.trim();
+                    if (trimmed.startsWith('[') || trimmed.startsWith('{') || trimmed.startsWith('"')) {
+                        try {
+                            const parsed = JSON.parse(trimmed);
+                            setWatermarkImages(Array.isArray(parsed) ? parsed.filter(Boolean) : [parsed]);
+                        } catch (e) {
+                            setWatermarkImages([trimmed]);
+                        }
+                    } else if (trimmed) {
+                        setWatermarkImages([trimmed]);
+                    }
+                }
+            }
         } catch (err) {
             console.error('Error fetching watermark settings in picker:', err);
         }

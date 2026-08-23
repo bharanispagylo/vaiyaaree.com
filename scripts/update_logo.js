@@ -8,7 +8,7 @@ async function updateLogo() {
     console.log('Updating logo setting...');
     const { error } = await supabase.from('app_settings').upsert({
         key: 'shop_logo',
-        value: '/images/cp-logo.png'
+        value: '/images/vaiyaaree-logo.png'
     });
     if (error) console.error('Error:', error);
     else console.log('Logo setting updated to local path.');

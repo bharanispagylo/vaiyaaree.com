@@ -146,11 +146,18 @@ function parseFilters(filters) {
                     const orClauses = [];
                     for (const p of parts) {
                         const eqMatch = p.match(/^([a-zA-Z0-9_]+)\.eq\.(.*)$/);
+                        const neqMatch = p.match(/^([a-zA-Z0-9_]+)\.neq\.(.*)$/);
                         const inMatch = p.match(/^([a-zA-Z0-9_]+)\.in\.\((.*)\)$/);
                         const ilikeMatch = p.match(/^([a-zA-Z0-9_]+)\.ilike\.(.*)$/);
+                        const isNullMatch = p.match(/^([a-zA-Z0-9_]+)\.is\.null$/);
+                        const isNotNullMatch = p.match(/^([a-zA-Z0-9_]+)\.is\.not\.null$/);
+                        
                         if (eqMatch) {
                             orClauses.push(`\`${eqMatch[1]}\` = ?`);
                             params.push(formatValueForMySQL(eqMatch[2]));
+                        } else if (neqMatch) {
+                            orClauses.push(`\`${neqMatch[1]}\` != ?`);
+                            params.push(formatValueForMySQL(neqMatch[2]));
                         } else if (inMatch) {
                             const inVals = inMatch[2].split(',').map(s => s.trim().replace(/^['"]|['"]$/g, ''));
                             if (inVals.length > 0) {
@@ -161,11 +168,84 @@ function parseFilters(filters) {
                         } else if (ilikeMatch) {
                             orClauses.push(`\`${ilikeMatch[1]}\` LIKE ?`);
                             params.push(formatValueForMySQL(ilikeMatch[2]));
+                        } else if (isNotNullMatch) {
+                            orClauses.push(`\`${isNotNullMatch[1]}\` IS NOT NULL`);
+                        } else if (isNullMatch) {
+                            orClauses.push(`\`${isNullMatch[1]}\` IS NULL`);
                         }
                     }
                     if (orClauses.length > 0) {
                         whereClauses.push(`(${orClauses.join(' OR ')})`);
                     }
+                }
+                break;
+            case 'contains':
+            case 'overlaps':
+                if (Array.isArray(val)) {
+                    if (val.length === 0) {
+                        whereClauses.push('1 = 0');
+                    } else {
+                        const subClauses = val.map(() => `\`${col}\` LIKE ?`);
+                        whereClauses.push(`(${subClauses.join(' OR ')})`);
+                        params.push(...val.map(item => `%${String(item).replace(/"/g, '')}%`));
+                    }
+                } else if (typeof val === 'string') {
+                    whereClauses.push(`\`${col}\` LIKE ?`);
+                    params.push(`%${val}%`);
+                } else if (val !== null && val !== undefined) {
+                    whereClauses.push(`\`${col}\` LIKE ?`);
+                    params.push(`%${JSON.stringify(val)}%`);
+                }
+                break;
+            case 'containedBy':
+                whereClauses.push(`\`${col}\` LIKE ?`);
+                params.push(`%${String(val)}%`);
+                break;
+            case 'filter':
+                if (f.op === 'cs' || f.op === 'contains') {
+                    let searchItem = val;
+                    if (typeof val === 'string' && (val.startsWith('[') || val.startsWith('{'))) {
+                        try {
+                            const p = JSON.parse(val);
+                            if (Array.isArray(p) && p.length > 0) searchItem = p[0];
+                        } catch (e) {}
+                    }
+                    whereClauses.push(`\`${col}\` LIKE ?`);
+                    params.push(`%${String(searchItem).replace(/^[{"']+|[}"']+$/g, '')}%`);
+                } else if (f.op === 'eq') {
+                    whereClauses.push(`\`${col}\` = ?`);
+                    params.push(formatValueForMySQL(val));
+                } else if (f.op === 'neq') {
+                    whereClauses.push(`\`${col}\` != ?`);
+                    params.push(formatValueForMySQL(val));
+                } else if (f.op === 'in') {
+                    if (Array.isArray(val) && val.length > 0) {
+                        const placeholders = val.map(() => '?').join(', ');
+                        whereClauses.push(`\`${col}\` IN (${placeholders})`);
+                        params.push(...val.map(formatValueForMySQL));
+                    }
+                } else {
+                    whereClauses.push(`\`${col}\` = ?`);
+                    params.push(formatValueForMySQL(val));
+                }
+                break;
+            case 'not':
+                if (f.op === 'eq') {
+                    whereClauses.push(`\`${col}\` != ?`);
+                    params.push(formatValueForMySQL(val));
+                } else if (f.op === 'in' && Array.isArray(val) && val.length > 0) {
+                    const placeholders = val.map(() => '?').join(', ');
+                    whereClauses.push(`\`${col}\` NOT IN (${placeholders})`);
+                    params.push(...val.map(formatValueForMySQL));
+                } else if (f.op === 'is') {
+                    if (val === null) whereClauses.push(`\`${col}\` IS NOT NULL`);
+                    else {
+                        whereClauses.push(`\`${col}\` != ?`);
+                        params.push(formatValueForMySQL(val));
+                    }
+                } else {
+                    whereClauses.push(`NOT (\`${col}\` = ?)`);
+                    params.push(formatValueForMySQL(val));
                 }
                 break;
         }
@@ -265,10 +345,40 @@ async function handleSelect({
         const sql = `SELECT ${selectFields} FROM \`${table}\` ${whereSql} ${orderSql} ${limitSql}`.trim();
         [rows] = await pool.query(sql, queryParams);
     } catch (err) {
-        if (err.code === 'ER_BAD_FIELD_ERROR' && selectFields !== '*') {
-            // Automatic resilience: fallback to SELECT * if any requested column is missing
-            const fallbackSql = `SELECT * FROM \`${table}\` ${whereSql} ${orderSql} ${limitSql}`.trim();
-            [rows] = await pool.query(fallbackSql, queryParams);
+        if (err.code === 'ER_BAD_FIELD_ERROR') {
+            try {
+                // Discover actual valid columns of the table
+                const [colRows] = await pool.query(`SHOW COLUMNS FROM \`${table}\``);
+                const validCols = new Set(colRows.map(c => c.Field));
+
+                // Filter out non-existent columns from SELECT
+                let safeSelect = '*';
+                if (selectFields !== '*') {
+                    const requested = cleanColumns.split(',').map(c => c.trim()).filter(c => validCols.has(c));
+                    if (requested.length > 0) {
+                        safeSelect = requested.map(c => `\`${c}\``).join(', ');
+                    }
+                }
+
+                // Filter out non-existent columns from WHERE filters
+                const safeFilters = (filters || []).filter(f => !f.col || validCols.has(f.col) || f.type === 'or');
+                const { whereSql: safeWhereSql, params: safeParams } = parseFilters(safeFilters);
+
+                // Build safe queryParams with limit/offset
+                const safeQueryParams = [...safeParams];
+                if (limit !== undefined && limit !== null) {
+                    safeQueryParams.push(Number(limit));
+                    if (offset !== undefined && offset !== null) {
+                        safeQueryParams.push(Number(offset));
+                    }
+                }
+
+                const retrySql = `SELECT ${safeSelect} FROM \`${table}\` ${safeWhereSql} ${orderSql} ${limitSql}`.trim();
+                [rows] = await pool.query(retrySql, safeQueryParams);
+            } catch (retryErr) {
+                console.error(`[MySQL Engine] Auto-resilience failed for ${table}:`, retryErr.message);
+                return { data: isSingle ? null : (isMaybeSingle ? null : []), error: { message: err.message, code: err.code }, count: totalCount };
+            }
         } else {
             throw err;
         }
@@ -329,6 +439,97 @@ async function handleSelect({
                     products: prodParsed.find(p => p.id === v.product_id) || null
                 }));
             }
+        } else if (table === 'return_requests') {
+            const prodIds = [...new Set(processedRows.map(r => r.product_id).filter(Boolean))];
+            const custIds = [...new Set(processedRows.map(r => r.customer_id).filter(Boolean))];
+            const orderIds = [...new Set(processedRows.map(r => r.order_id).filter(Boolean))];
+            const returnDbIds = processedRows.map(r => r.id).filter(Boolean);
+
+            let prodMap = {}, custMap = {}, orderMap = {}, shipMap = {}, imageMap = {};
+
+            if (prodIds.length > 0) {
+                const placeholders = prodIds.map(() => '?').join(', ');
+                const [prodRows] = await pool.query(`SELECT * FROM \`products\` WHERE \`id\` IN (${placeholders})`, prodIds);
+                prodRows.map(parseJsonFields).forEach(p => { prodMap[p.id] = p; });
+            }
+
+            if (custIds.length > 0) {
+                const placeholders = custIds.map(() => '?').join(', ');
+                const [custRows] = await pool.query(`SELECT * FROM \`customers\` WHERE \`id\` IN (${placeholders})`, custIds);
+                custRows.map(parseJsonFields).forEach(c => { custMap[c.id] = c; });
+            }
+
+            if (orderIds.length > 0) {
+                const placeholders = orderIds.map(() => '?').join(', ');
+                const [orderRows] = await pool.query(`SELECT * FROM \`orders\` WHERE \`id\` IN (${placeholders})`, orderIds);
+                orderRows.map(parseJsonFields).forEach(o => {
+                    if (!o.invoice_no && o.id) {
+                        const num = String(o.id).replace(/\D/g, '');
+                        o.invoice_no = num ? `INV-${num.padStart(4, '0')}` : `INV-${o.id}`;
+                    } else if (o.invoice_no) {
+                        o.invoice_no = String(o.invoice_no).replace(/^#+/, '');
+                    }
+                    orderMap[o.id] = o;
+                });
+            }
+
+            if (returnDbIds.length > 0) {
+                const placeholders = returnDbIds.map(() => '?').join(', ');
+                const [shipRows] = await pool.query(`SELECT * FROM \`return_shipping\` WHERE \`return_request_id\` IN (${placeholders}) ORDER BY \`created_at\` DESC`, returnDbIds);
+                shipRows.map(parseJsonFields).forEach(s => {
+                    if (!shipMap[s.return_request_id]) shipMap[s.return_request_id] = s;
+                });
+
+                const [imgRows] = await pool.query(`SELECT * FROM \`return_images\` WHERE \`return_request_id\` IN (${placeholders}) ORDER BY \`uploaded_at\` ASC`, returnDbIds);
+                imgRows.map(parseJsonFields).forEach(img => {
+                    if (!imageMap[img.return_request_id]) imageMap[img.return_request_id] = [];
+                    imageMap[img.return_request_id].push(img);
+                });
+            }
+
+            processedRows = processedRows.map(r => {
+                const orderObj = orderMap[r.order_id] || null;
+                let custObj = custMap[r.customer_id] || null;
+
+                // Resilient fallback for customer info if not matched by customer_id directly
+                if (!custObj && orderObj) {
+                    custObj = {
+                        id: r.customer_id || null,
+                        name: orderObj.customer_name || 'Customer',
+                        phone: orderObj.customer_phone || '',
+                        email: orderObj.customer_email || ''
+                    };
+                }
+
+                return {
+                    ...r,
+                    products: prodMap[r.product_id] || null,
+                    customers: custObj,
+                    orders: orderObj,
+                    return_shipping: shipMap[r.id] || null,
+                    return_images: imageMap[r.id] || [],
+                    images: imageMap[r.id] || []
+                };
+            });
+        } else if (table === 'refunds' && hasOrdersRel) {
+            const orderIds = [...new Set(processedRows.map(r => r.order_id).filter(Boolean))];
+            if (orderIds.length > 0) {
+                const placeholders = orderIds.map(() => '?').join(', ');
+                const [orderRows] = await pool.query(`SELECT * FROM \`orders\` WHERE \`id\` IN (${placeholders})`, orderIds);
+                const orderParsed = orderRows.map(parseJsonFields).map(o => {
+                    if (!o.invoice_no && o.id) {
+                        const num = String(o.id).replace(/\D/g, '');
+                        o.invoice_no = num ? `INV-${num.padStart(4, '0')}` : `INV-${o.id}`;
+                    } else if (o.invoice_no) {
+                        o.invoice_no = String(o.invoice_no).replace(/^#+/, '');
+                    }
+                    return o;
+                });
+                processedRows = processedRows.map(ref => ({
+                    ...ref,
+                    orders: orderParsed.find(o => o.id === ref.order_id) || null
+                }));
+            }
         }
     }
 
@@ -346,18 +547,32 @@ async function handleSelect({
     return { data: processedRows, error: null, count: totalCount };
 }
 
+const AUTO_INCREMENT_TABLES = new Set([
+    'return_shipping',
+    'return_images',
+    'return_status_logs',
+    'return_inspections',
+    'return_courier_shipments',
+    'courier_companies'
+]);
+
 async function handleInsert({ table, data, returnColumns, isSingle }) {
     if (!data) return { data: null, error: { message: 'Insert data is empty' } };
     const items = Array.isArray(data) ? data : [data];
     if (items.length === 0) return { data: [], error: null };
 
+    const isAutoIncrement = AUTO_INCREMENT_TABLES.has(table);
     const insertedIds = [];
 
     for (const item of items) {
         const rowToInsert = { ...item };
         
-        // Auto-generate UUID if ID is missing
-        if (!rowToInsert.id && table !== 'app_settings') {
+        if (isAutoIncrement) {
+            // Omit id if null/undefined or if it's a non-numeric string UUID so MySQL assigns auto-increment INT
+            if (!rowToInsert.id || (typeof rowToInsert.id === 'string' && isNaN(Number(rowToInsert.id)))) {
+                delete rowToInsert.id;
+            }
+        } else if (!rowToInsert.id && table !== 'app_settings') {
             try {
                 const { randomUUID } = await import('crypto');
                 rowToInsert.id = randomUUID();
@@ -376,8 +591,13 @@ async function handleInsert({ table, data, returnColumns, isSingle }) {
         const placeholders = keys.map(() => '?').join(', ');
         const values = keys.map(k => formatValueForMySQL(rowToInsert[k]));
 
-        await pool.query(`INSERT INTO \`${table}\` (${colNames}) VALUES (${placeholders})`, values);
-        if (rowToInsert.id) insertedIds.push(rowToInsert.id);
+        const [result] = await pool.query(`INSERT INTO \`${table}\` (${colNames}) VALUES (${placeholders})`, values);
+        
+        if (rowToInsert.id) {
+            insertedIds.push(rowToInsert.id);
+        } else if (result && result.insertId) {
+            insertedIds.push(result.insertId);
+        }
     }
 
     // If returnColumns requested (e.g. .insert().select()), fetch fresh rows from DB

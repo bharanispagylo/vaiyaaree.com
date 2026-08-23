@@ -2364,7 +2364,7 @@ export default function ProductsPage() {
                                             <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f0f2f5' }}>
                                                     <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Facebook size={16} /></div>
-                                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Aiswarya Saree</div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Vaiyaaree</div>
                                                 </div>
                                                 <div style={{ padding: '12px', fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                                                     {(() => {
@@ -2395,7 +2395,7 @@ export default function ProductsPage() {
                                             <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content', margin: '0 auto', width: '100%', maxWidth: '400px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
                                                     <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Instagram size={14} /></div>
-                                                    <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>aiswaryasaree</div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>vaiyaaree</div>
                                                 </div>
                                                 {previewModal.product.image_url && (
                                                     <div style={{ width: '100%', height: '300px', overflow: 'hidden', background: '#f1f5f9' }}>
@@ -2407,7 +2407,7 @@ export default function ProductsPage() {
                                                         <Heart size={18} /> <MessageSquare size={18} /> <Share2 size={18} />
                                                     </div>
                                                     <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
-                                                        <span style={{ fontWeight: 700 }}>aiswaryasaree</span>{' '}
+                                                        <span style={{ fontWeight: 700 }}>vaiyaaree</span>{' '}
                                                         {(() => {
                                                             const parts = previewModal.caption.split('\n\n#');
                                                             return (

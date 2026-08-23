@@ -72,10 +72,10 @@ const menuItems = [
 export default function AdminSidebar({ isOpen }) {
     const pathname = usePathname();
     const router = useRouter();
-    const [logo, setLogo] = useState('/images/cp-logo.png');
+    const [logo, setLogo] = useState('/images/vaiyaaree-logo.png');
     const [openSubMenus, setOpenSubMenus] = useState([]); // Start collapsed, let useEffect expand the active one
     const getLogoUrl = (url) => {
-        if (!url) return '/images/cp-logo.png';
+        if (!url) return '/images/vaiyaaree-logo.png';
         if (url.startsWith('http') || url.startsWith('/')) return url;
         return `/images/${url}`;
     };
@@ -86,7 +86,7 @@ export default function AdminSidebar({ isOpen }) {
                 if (data?.value) setLogo(getLogoUrl(data.value));
             } catch (err) {
                 console.error('Fetch Logo Error:', err);
-                setLogo('/images/cp-logo.png');
+                setLogo('/images/vaiyaaree-logo.png');
             }
         }
         fetchLogo();
@@ -129,7 +129,7 @@ export default function AdminSidebar({ isOpen }) {
                     <img src={logo} 
                         style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '0.5rem' }} 
                         alt="Logo" 
-                        onError={(e) => { e.target.onerror = null; e.target.src = '/images/cp-logo.png'; }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = '/images/vaiyaaree-logo.png'; }}
                     />
                 </div>
                 <div>

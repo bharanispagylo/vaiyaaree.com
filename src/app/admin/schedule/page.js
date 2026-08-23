@@ -436,9 +436,9 @@ export default function SchedulePostPage() {
                                     <div style={{ padding: '1rem' }}>
                                         <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
-                                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '0.8rem' }}>A</div>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '0.8rem' }}>V</div>
                                                 <div>
-                                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Aiswarya Saree</div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Vaiyaaree</div>
                                                     <div style={{ fontSize: '0.7rem', color: '#65676B' }}>{scheduleDate && scheduleTime ? new Date(`${scheduleDate}T${scheduleTime}`).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }) : 'Scheduled time'}</div>
                                                 </div>
                                             </div>
@@ -469,8 +469,8 @@ export default function SchedulePostPage() {
                                     <div style={{ padding: '1rem', display: 'flex', justifyContent: 'center' }}>
                                         <div style={{ width: '300px', background: 'white', borderRadius: '4px', border: '1px solid #ddd', overflow: 'hidden' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
-                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '0.7rem' }}>A</div>
-                                                <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>aiswaryasaree</div>
+                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '0.7rem' }}>V</div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>vaiyaaree</div>
                                             </div>
                                             {selectedProduct?.image_url ? (
                                                 <img src={selectedProduct.image_url} alt="" style={{ width: '300px', height: '300px', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
@@ -482,7 +482,7 @@ export default function SchedulePostPage() {
                                                     <Heart size={18} /> <MessageSquare size={18} /> <Share2 size={18} />
                                                 </div>
                                                 <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
-                                                    <span style={{ fontWeight: 700 }}>aiswaryasaree</span>{' '}
+                                                    <span style={{ fontWeight: 700 }}>vaiyaaree</span>{' '}
                                                     <span style={{ whiteSpace: 'pre-wrap' }}>{caption}</span>
                                                     <div style={{ color: '#00376b', display: 'block', marginTop: '1rem', fontWeight: 500 }}>{hashtags}</div>
                                                 </div>

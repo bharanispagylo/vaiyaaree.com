@@ -3,102 +3,195 @@ import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
 import { detectWatermark, applyWatermark } from '@/lib/imageService';
 import { Buffer } from 'buffer';
 import { verifyAdmin } from '@/lib/auth';
+import fs from 'fs';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Use SERVICE ROLE key - bypasses RLS entirely
+const ALLOWED_IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.ico', '.avif']);
 
-const BUCKET_NAME = 'media';
+// Helper to scan a directory recursively
+async function scanDirectory(dirPath, urlPrefix, folderTag) {
+    const results = [];
+    try {
+        if (!fs.existsSync(dirPath)) return results;
+        const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
 
-// GET - List all files in the media bucket including subfolders
+        for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            if (entry.isDirectory()) {
+                const subResults = await scanDirectory(fullPath, `${urlPrefix}/${entry.name}`, entry.name);
+                results.push(...subResults);
+            } else if (entry.isFile()) {
+                const ext = path.extname(entry.name).toLowerCase();
+                if (ALLOWED_IMAGE_EXTS.has(ext)) {
+                    try {
+                        const stats = await fs.promises.stat(fullPath);
+                        results.push({
+                            id: `file-${entry.name}-${stats.mtimeMs}`,
+                            name: entry.name,
+                            url: `${urlPrefix}/${entry.name}`,
+                            folder: folderTag || 'root',
+                            size: stats.size,
+                            created_at: stats.birthtime ? stats.birthtime.toISOString() : stats.mtime.toISOString(),
+                            updated_at: stats.mtime.toISOString(),
+                            isLocalFile: true
+                        });
+                    } catch (e) {}
+                }
+            }
+        }
+    } catch (err) {
+        console.error(`[SCAN] Error scanning ${dirPath}:`, err);
+    }
+    return results;
+}
+
+// GET - List all media files from local disk, products database, and app settings
 export async function GET(request) {
     try {
         const auth = await verifyAdmin(request);
         if (!auth.authorized) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
-        console.log('[GET] Starting to list media files...');
-        
-        let rootFiles = [];
-        let wmFiles = [];
-        let noWmFiles = [];
-        
-        try {
-            const result = await supabaseAdmin.storage.from(BUCKET_NAME).list('', {
-                limit: 500,
-                sortBy: { column: 'created_at', order: 'desc' },
-            });
-            rootFiles = result.data || [];
-        } catch (err) {
-            console.log('[GET] Root folder error:', err.message);
-        }
-
-        try {
-            const result = await supabaseAdmin.storage.from(BUCKET_NAME).list('with-watermark', {
-                limit: 500,
-                sortBy: { column: 'created_at', order: 'desc' },
-            });
-            wmFiles = result.data || [];
-        } catch (err) {
-            console.log('[GET] With-watermark folder error:', err.message);
-        }
-
-        try {
-            const result = await supabaseAdmin.storage.from(BUCKET_NAME).list('without-watermark', {
-                limit: 500,
-                sortBy: { column: 'created_at', order: 'desc' },
-            });
-            noWmFiles = result.data || [];
-        } catch (err) {
-            console.log('[GET] Without-watermark folder error:', err.message);
-        }
+        console.log('[GET] Starting to list all media and product images...');
 
         const allFiles = [];
-        
-        rootFiles.filter(f => f.id !== null && !f.name.startsWith('temp-check-')).forEach(file => {
-            try {
-                const { data: { publicUrl } } = supabaseAdmin.storage
-                    .from(BUCKET_NAME)
-                    .getPublicUrl(file.name);
-                allFiles.push({ ...file, url: publicUrl, folder: 'root' });
-            } catch (err) {
-                console.log('[GET] Error getting URL for root file:', file.name);
-            }
-        });
+        const seenUrls = new Set();
 
-        wmFiles.filter(f => f.id !== null).forEach(file => {
-            try {
-                const { data: { publicUrl } } = supabaseAdmin.storage
-                    .from(BUCKET_NAME)
-                    .getPublicUrl(`with-watermark/${file.name}`);
-                allFiles.push({ ...file, url: publicUrl, folder: 'with-watermark' });
-            } catch (err) {
-                console.log('[GET] Error getting URL for with-watermark file:', file.name);
-            }
-        });
+        const addFile = (fileItem) => {
+            if (!fileItem || !fileItem.url) return;
+            const normUrl = String(fileItem.url).trim();
+            if (!normUrl || seenUrls.has(normUrl)) return;
+            seenUrls.add(normUrl);
+            allFiles.push({
+                ...fileItem,
+                url: normUrl
+            });
+        };
 
-        noWmFiles.filter(f => f.id !== null && !f.name.startsWith('temp-check-')).forEach(file => {
-            try {
-                const { data: { publicUrl } } = supabaseAdmin.storage
-                    .from(BUCKET_NAME)
-                    .getPublicUrl(`without-watermark/${file.name}`);
-                allFiles.push({ ...file, url: publicUrl, folder: 'without-watermark' });
-            } catch (err) {
-                console.log('[GET] Error getting URL for without-watermark file:', file.name);
-            }
-        });
+        // 1. Scan public/uploads directory
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+        const uploadFiles = await scanDirectory(uploadsDir, '/uploads', 'uploads');
+        uploadFiles.forEach(addFile);
 
+        // 2. Scan public/images directory
+        const imagesDir = path.join(process.cwd(), 'public', 'images');
+        const publicImages = await scanDirectory(imagesDir, '/images', 'images');
+        publicImages.forEach(addFile);
+
+        // 3. Fetch product images from MySQL products table
+        try {
+            const { data: products } = await supabase
+                .from('products')
+                .select('id, name, sku, image_url, gallery_image, product_no, product_catalog_image_id, created_at')
+                .order('created_at', { ascending: false });
+
+            if (products && Array.isArray(products)) {
+                products.forEach((prod) => {
+                    const prodName = prod.name || `Product #${prod.product_no || prod.sku || prod.id}`;
+
+                    // Main product image
+                    if (prod.image_url) {
+                        const imgUrl = String(prod.image_url).trim();
+                        const fileName = imgUrl.split('/').pop()?.split('?')[0] || `${prod.sku || prod.id}.jpg`;
+                        addFile({
+                            id: `prod-${prod.id}`,
+                            name: `${prodName}`,
+                            url: imgUrl,
+                            folder: 'products',
+                            size: 0,
+                            created_at: prod.created_at || new Date().toISOString(),
+                            catalogId: prod.product_catalog_image_id || prod.sku || String(prod.product_no || ''),
+                            source: 'product_catalog'
+                        });
+                    }
+
+                    // Gallery images (stored in gallery_image)
+                    let galleryImages = prod.gallery_image || prod.gallery_urls;
+                    if (typeof galleryImages === 'string') {
+                        try {
+                            galleryImages = JSON.parse(galleryImages);
+                        } catch (e) {
+                            galleryImages = galleryImages.split(',').map(s => s.trim()).filter(Boolean);
+                        }
+                    }
+
+                    if (Array.isArray(galleryImages)) {
+                        galleryImages.forEach((galUrl, idx) => {
+                            if (!galUrl) return;
+                            const galUrlStr = String(galUrl).trim();
+                            addFile({
+                                id: `prod-gal-${prod.id}-${idx}`,
+                                name: `${prodName} (Gallery ${idx + 1})`,
+                                url: galUrlStr,
+                                folder: 'products',
+                                size: 0,
+                                created_at: prod.created_at || new Date().toISOString(),
+                                catalogId: prod.product_catalog_image_id || prod.sku || String(prod.product_no || ''),
+                                source: 'product_gallery'
+                            });
+                        });
+                    }
+                });
+            }
+        } catch (dbErr) {
+            console.error('[GET] Failed to fetch product images from DB:', dbErr);
+        }
+
+        // 4. Also fetch any images in app_settings (hero slider, gallery, watermark settings)
+        try {
+            const { data: settings } = await supabase
+                .from('app_settings')
+                .select('key, value')
+                .in('key', ['watermark_images', 'no_watermark_images', 'hero_slider_images', 'gallery_images']);
+
+            if (settings && Array.isArray(settings)) {
+                settings.forEach(setting => {
+                    let urls = setting.value;
+                    if (typeof urls === 'string') {
+                        try {
+                            urls = JSON.parse(urls);
+                        } catch (e) {
+                            urls = [urls];
+                        }
+                    }
+                    if (Array.isArray(urls)) {
+                        urls.forEach((url, i) => {
+                            if (url && typeof url === 'string' && url.trim()) {
+                                const cleanUrl = url.trim();
+                                const fileName = cleanUrl.split('/').pop()?.split('?')[0] || `setting-image-${i}.jpg`;
+                                addFile({
+                                    id: `setting-${setting.key}-${i}`,
+                                    name: fileName,
+                                    url: cleanUrl,
+                                    folder: setting.key.includes('watermark') ? 'watermark' : 'settings',
+                                    size: 0,
+                                    created_at: new Date().toISOString(),
+                                    source: 'app_settings'
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        } catch (settingsErr) {
+            console.error('[GET] Failed to fetch settings images:', settingsErr);
+        }
+
+        // Sort by created_at descending
         allFiles.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
         return NextResponse.json({ files: allFiles });
-        
+
     } catch (err) {
         console.error('GET Error:', err);
         return NextResponse.json({ files: [] }, { status: 200 });
     }
 }
 
-// POST - Upload a file (with optional watermarking)
+// POST - Upload a file (with local disk storage and optional watermarking)
 export async function POST(request) {
     try {
         const auth = await verifyAdmin(request);
@@ -106,7 +199,7 @@ export async function POST(request) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
         console.log('[UPLOAD] Starting upload process...');
-        
+
         const formData = await request.formData();
         const file = formData.get('file');
         const imageUrlParam = formData.get('imageUrl');
@@ -128,13 +221,21 @@ export async function POST(request) {
             fileNameHint = file.name || 'image.jpg';
         } else if (imageUrlParam) {
             console.log(`[UPLOAD] Fetching image from URL server-side: ${imageUrlParam}`);
-            const imgRes = await fetch(imageUrlParam);
-            if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imgRes.statusText}`);
-            const arrayBuffer = await imgRes.arrayBuffer();
-            buffer = Buffer.from(arrayBuffer);
-            const cleanUrl = imageUrlParam.split('?')[0];
-            fileExt = cleanUrl.split('.').pop() || 'jpg';
-            fileNameHint = cleanUrl.split('/').pop() || 'image.jpg';
+            if (imageUrlParam.startsWith('/') || !imageUrlParam.startsWith('http')) {
+                const relPath = imageUrlParam.startsWith('/') ? imageUrlParam.slice(1) : imageUrlParam;
+                const localFilePath = path.join(process.cwd(), 'public', relPath);
+                buffer = await fs.promises.readFile(localFilePath);
+                fileExt = relPath.split('.').pop() || 'jpg';
+                fileNameHint = relPath.split('/').pop() || 'image.jpg';
+            } else {
+                const imgRes = await fetch(imageUrlParam);
+                if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imgRes.statusText}`);
+                const arrayBuffer = await imgRes.arrayBuffer();
+                buffer = Buffer.from(arrayBuffer);
+                const cleanUrl = imageUrlParam.split('?')[0];
+                fileExt = cleanUrl.split('.').pop() || 'jpg';
+                fileNameHint = cleanUrl.split('/').pop() || 'image.jpg';
+            }
         } else {
             return NextResponse.json({ error: 'No file or imageUrl provided' }, { status: 400 });
         }
@@ -161,31 +262,24 @@ export async function POST(request) {
             });
         }
 
-        // 3. STORAGE & APPLICATION LOGIC
+        // 3. STORAGE & APPLICATION LOGIC (Save directly to public/uploads disk)
         let finalPublicUrl = '';
         let isNowWatermarked = hasWatermark;
         let finalId = catalogId || detectedCatalogId || Math.random().toString(36).substring(2, 7).toUpperCase();
         
-        // Use a unique filename even if the catalogId is the same, to prevent overwriting
-        // when multiple images are uploaded for the same product catalog code.
         const fileName = `${finalId}_${Date.now()}.${fileExt}`;
+        const baseUploadDir = path.join(process.cwd(), 'public', 'uploads');
 
         if (!hasWatermark && catalogId && requireClean) {
             // CASE 1: No watermark detected -> Store Clean AND Generate Watermark
             
-            // A. Save ORIGINAL (Clean) version (only if saveClean is true)
+            // A. Save ORIGINAL (Clean) version
             if (saveClean) {
-                const cleanPath = `without-watermark/${fileName}`;
-                console.log(`[STORAGE] Saving CLEAN image to: ${cleanPath}`);
-                const { error: cleanErr } = await supabaseAdmin.storage
-                    .from(BUCKET_NAME)
-                    .upload(cleanPath, buffer, {
-                        contentType: file.type || 'image/jpeg',
-                        upsert: true
-                    });
-                if (cleanErr) throw cleanErr;
-            } else {
-                console.log(`[STORAGE] Skipping saving clean version because saveClean is false`);
+                const cleanDir = path.join(baseUploadDir, 'without-watermark');
+                await fs.promises.mkdir(cleanDir, { recursive: true });
+                const cleanFilePath = path.join(cleanDir, fileName);
+                await fs.promises.writeFile(cleanFilePath, buffer);
+                console.log(`[STORAGE] Saved clean image to: ${cleanFilePath}`);
             }
 
             // B. Generate Watermarked version
@@ -193,37 +287,25 @@ export async function POST(request) {
             const watermarkedBuffer = await applyWatermark(buffer, finalId);
 
             // C. Save WATERMARKED version
-            const wmPath = `with-watermark/${fileName}`;
-            console.log(`[STORAGE] Saving WATERMARKED image to: ${wmPath}`);
-            const { error: wmErr } = await supabaseAdmin.storage
-                .from(BUCKET_NAME)
-                .upload(wmPath, watermarkedBuffer, {
-                    contentType: file.type || 'image/jpeg',
-                    upsert: true
-                });
-            if (wmErr) throw wmErr;
+            const wmDir = path.join(baseUploadDir, 'with-watermark');
+            await fs.promises.mkdir(wmDir, { recursive: true });
+            const wmFilePath = path.join(wmDir, fileName);
+            await fs.promises.writeFile(wmFilePath, watermarkedBuffer);
+            console.log(`[STORAGE] Saved watermarked image to: ${wmFilePath}`);
 
-            const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(wmPath);
-            finalPublicUrl = publicUrl;
+            finalPublicUrl = `/uploads/with-watermark/${fileName}`;
             isNowWatermarked = true;
 
         } else {
             // CASE 2: Already has watermark OR just a normal upload
-            // Store ONLY in the appropriate folder
             const folder = hasWatermark ? 'with-watermark' : 'without-watermark';
-            const finalPath = `${folder}/${fileName}`;
-            
-            console.log(`[STORAGE] Saving image to ${folder.toUpperCase()}: ${finalPath}`);
-            const { error: uploadError } = await supabaseAdmin.storage
-                .from(BUCKET_NAME)
-                .upload(finalPath, buffer, {
-                    contentType: file.type || 'image/jpeg',
-                    upsert: true
-                });
-            if (uploadError) throw uploadError;
+            const targetDir = path.join(baseUploadDir, folder);
+            await fs.promises.mkdir(targetDir, { recursive: true });
+            const targetFilePath = path.join(targetDir, fileName);
+            await fs.promises.writeFile(targetFilePath, buffer);
+            console.log(`[STORAGE] Saved image to: ${targetFilePath}`);
 
-            const { data: { publicUrl } } = supabaseAdmin.storage.from(BUCKET_NAME).getPublicUrl(finalPath);
-            finalPublicUrl = publicUrl;
+            finalPublicUrl = `/uploads/${folder}/${fileName}`;
         }
 
         // 4. UPDATE SETTINGS (For media library groups)
@@ -231,21 +313,29 @@ export async function POST(request) {
             const key = isNowWatermarked ? 'watermark_images' : 'no_watermark_images';
             const { data: settingData } = await supabaseAdmin.from('app_settings').select('value').eq('key', key).single();
             let list = [];
-            if (settingData?.value) try { list = JSON.parse(settingData.value); } catch(e) {}
+            if (settingData?.value) {
+                try {
+                    list = Array.isArray(settingData.value) ? settingData.value : JSON.parse(settingData.value);
+                } catch(e) {
+                    list = [settingData.value];
+                }
+            }
+            if (!Array.isArray(list)) list = [];
             if (!list.includes(finalPublicUrl)) {
                 list.push(finalPublicUrl);
                 await supabaseAdmin.from('app_settings').upsert({ key, value: JSON.stringify(list), updated_at: new Date() });
             }
-        } catch (e) {}
+        } catch (e) {
+            console.error('[UPLOAD] Settings update error:', e);
+        }
 
         return NextResponse.json({ 
             url: finalPublicUrl,
-            watermarkedUrl: finalPublicUrl, // backward compatibility
+            watermarkedUrl: finalPublicUrl,
             catalogId: finalId,
             hasWatermark: isNowWatermarked,
             processed: true
         });
-
 
     } catch (err) {
         console.error('[UPLOAD] Error:', err);
@@ -253,21 +343,40 @@ export async function POST(request) {
     }
 }
 
-// DELETE - Remove a file
+// DELETE - Remove a file from disk
 export async function DELETE(request) {
     try {
         const auth = await verifyAdmin(request);
         if (!auth.authorized) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
-        const { fileName } = await request.json();
-        if (!fileName) return NextResponse.json({ error: 'No filename' }, { status: 400 });
+        const { fileName, url } = await request.json();
+        const target = fileName || url;
+        if (!target) return NextResponse.json({ error: 'No filename or url provided' }, { status: 400 });
 
-        const { error } = await supabaseAdmin.storage
-            .from(BUCKET_NAME)
-            .remove([fileName]);
+        // If it's a local upload path, delete from disk
+        let relPath = target;
+        if (relPath.startsWith('/uploads/')) {
+            relPath = relPath.replace('/uploads/', '');
+        } else if (relPath.startsWith('/')) {
+            relPath = relPath.slice(1);
+        }
 
-        if (error) throw error;
+        const possiblePaths = [
+            path.join(process.cwd(), 'public', 'uploads', relPath),
+            path.join(process.cwd(), 'public', relPath)
+        ];
+
+        for (const p of possiblePaths) {
+            try {
+                if (fs.existsSync(p)) {
+                    await fs.promises.unlink(p);
+                    console.log(`[DELETE] Deleted local file: ${p}`);
+                }
+            } catch (e) {
+                console.error(`[DELETE] Error unlinking ${p}:`, e);
+            }
+        }
 
         return NextResponse.json({ success: true });
     } catch (err) {

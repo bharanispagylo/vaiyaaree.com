@@ -187,16 +187,8 @@ export default function CheckoutAuthModal({ onSuccess }) {
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
-                        <div style={{
-                            width: '56px',
-                            height: '56px',
-                            borderRadius: '14px',
-                            overflow: 'hidden',
-                            boxShadow: '0 6px 18px rgba(93, 8, 33, 0.12)',
-                            background: '#ffffff',
-                            padding: '4px'
-                        }}>
-                            <img src="/images/cp-logo.png" alt="Vaiyaaree" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        <div style={{ width: '48px', height: '48px', margin: '0 auto 1rem', background: '#fff', borderRadius: '12px', padding: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+                            <img src="/images/vaiyaaree-logo.png" alt="Vaiyaaree" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} />
                         </div>
                     </div>
                     <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 0.25rem' }}>

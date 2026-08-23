@@ -28,6 +28,19 @@ export default function MediaLibraryPage() {
 
     const BUCKET_NAME = 'media';
 
+    const formatFileSize = (bytes) => {
+        if (bytes == null || !Number.isFinite(Number(bytes)) || Number(bytes) <= 0) {
+            return '—';
+        }
+        const size = Number(bytes);
+        if (size < 1024) return `${size} B`;
+        if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+        if (size < 1024 * 1024 * 1024) {
+            return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+        }
+        return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    };
+
     const fetchFiles = async () => {
         setLoading(true);
         try {
@@ -38,13 +51,38 @@ export default function MediaLibraryPage() {
             const data = await res.json();
 
             if (!res.ok) throw new Error(data.error || 'Failed to load');
-            setFiles(data.files || []);
+            const normalized = (data.files || []).map(f => ({
+                ...f,
+                size: f.size ?? f.metadata?.size ?? 0,
+                metadata: f.metadata || { size: f.size ?? 0 }
+            }));
+            setFiles(normalized);
         } catch (err) {
             console.error('Error fetching media:', err);
             setNotification({ message: 'Failed to load media library: ' + err.message, type: 'error' });
         } finally {
             setLoading(false);
         }
+    };
+
+    const parseSettingImages = (value) => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value.filter(Boolean);
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (!trimmed) return [];
+            if (trimmed.startsWith('[') || trimmed.startsWith('{') || trimmed.startsWith('"')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+                    if (typeof parsed === 'string' && parsed) return [parsed];
+                } catch (e) {
+                    return [trimmed];
+                }
+            }
+            return [trimmed];
+        }
+        return [];
     };
 
     const fetchSettings = async () => {
@@ -54,10 +92,10 @@ export default function MediaLibraryPage() {
             const { data: wmData } = await supabase.from('app_settings').select('value').eq('key', 'watermark_images').single();
             const { data: noWmData } = await supabase.from('app_settings').select('value').eq('key', 'no_watermark_images').single();
 
-            if (heroData?.value) setHeroImages(JSON.parse(heroData.value));
-            if (galleryData?.value) setGalleryImages(JSON.parse(galleryData.value));
-            if (wmData?.value) setWatermarkImages(JSON.parse(wmData.value));
-            if (noWmData?.value) setNoWatermarkImages(JSON.parse(noWmData.value));
+            setHeroImages(parseSettingImages(heroData?.value));
+            setGalleryImages(parseSettingImages(galleryData?.value));
+            setWatermarkImages(parseSettingImages(wmData?.value));
+            setNoWatermarkImages(parseSettingImages(noWmData?.value));
         } catch (err) {
             console.error('Error fetching settings:', err);
         }
@@ -387,33 +425,40 @@ export default function MediaLibraryPage() {
                             return;
                         }
 
-                        // Also check gallery_urls (array check)
-                        const { data: usedInGallery } = await supabase
-                            .from('products')
-                            .select('name')
-                            .contains('gallery_urls', [fileToDelete.url])
-                            .maybeSingle();
+                        try {
+                            const { data: usedInGallery } = await supabase
+                                .from('products')
+                                .select('name')
+                                .contains('gallery_image', [fileToDelete.url])
+                                .maybeSingle();
 
-                        if (usedInGallery) {
-                            setNotification({
-                                message: `Cannot delete: Image is used in gallery of product "${usedInGallery.name}"`,
-                                type: 'error'
-                            });
-                            return;
+                            if (usedInGallery) {
+                                setNotification({
+                                    message: `Cannot delete: Image is used in gallery of product "${usedInGallery.name}"`,
+                                    type: 'error'
+                                });
+                                return;
+                            }
+                        } catch (galErr) {
+                            console.warn('[MEDIA] Gallery usage check skipped:', galErr);
                         }
 
-                        const { data: usedByVariant } = await supabase
-                            .from('product_variants')
-                            .select('id, name')
-                            .eq('image_url', fileToDelete.url)
-                            .maybeSingle();
+                        try {
+                            const { data: usedByVariant } = await supabase
+                                .from('product_variants')
+                                .select('id, name')
+                                .eq('image_url', fileToDelete.url)
+                                .maybeSingle();
 
-                        if (usedByVariant) {
-                            setNotification({
-                                message: `Cannot delete: Image is used by variant "${usedByVariant.name}"`,
-                                type: 'error'
-                            });
-                            return;
+                            if (usedByVariant) {
+                                setNotification({
+                                    message: `Cannot delete: Image is used by variant "${usedByVariant.name}"`,
+                                    type: 'error'
+                                });
+                                return;
+                            }
+                        } catch (varErr) {
+                            console.warn('[MEDIA] Variant usage check skipped:', varErr);
                         }
                     }
 
@@ -473,7 +518,10 @@ export default function MediaLibraryPage() {
     };
 
     const filteredFiles = files.filter(f => {
-        const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = !searchTerm || 
+            (f.name && f.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (f.url && f.url.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (f.catalogId && String(f.catalogId).toLowerCase().includes(searchTerm.toLowerCase()));
         if (!matchesSearch) return false;
 
         if (activeGroup === 'watermark') {
@@ -692,7 +740,7 @@ export default function MediaLibraryPage() {
                                     {file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}
                                 </div>
                                 <div style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>
-                                    {(file.metadata.size / 1024).toFixed(1)} KB • {new Date(file.created_at).toLocaleDateString()}
+                                    {formatFileSize(file.size ?? file.metadata?.size)} • {file.created_at ? new Date(file.created_at).toLocaleDateString() : 'Recent'}
                                 </div>
 
                                 {/* Actions Overlay */}
@@ -774,7 +822,7 @@ export default function MediaLibraryPage() {
                                             </div>
                                         </td>
                                         <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>{file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</td>
-                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{(file.metadata.size / 1024).toFixed(1)} KB</td>
+                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{formatFileSize(file.size ?? file.metadata?.size)}</td>
                                         <td style={{ minWidth: '180px' }}>
                                             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                                                 <button onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }} className={`btn ${heroImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>

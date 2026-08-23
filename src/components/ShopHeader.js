@@ -84,7 +84,7 @@ export default function ShopHeader() {
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
                         <Link href="/" className={styles.logoLink}>
-                            <img src="/images/cp-logo.png" alt="Vaiyaaree" className={styles.logoImg} onError={(e) => { e.target.onerror = null; e.target.src = '/images/cp-logo.svg'; }} />
+                            <img src="/images/vaiyaaree-logo.png" alt="Vaiyaaree" className={styles.logoImg} onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} suppressHydrationWarning />
                             <span className={styles.logoBrandName}>VAIYAAREE</span>
                         </Link>
                     </div>

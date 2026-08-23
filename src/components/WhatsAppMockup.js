@@ -94,7 +94,7 @@ export default function WhatsAppMockup() {
                     gap: '10px'
                 }}>
                     <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        <img src="/images/cp-logo.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="Logo" />
+                        <img src="/images/vaiyaaree-logo.png" style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="Logo" onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} />
                     </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Vaiyaaree Support</div>

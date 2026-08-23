@@ -1403,7 +1403,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
 
         console.log(`[NOTIFY] Targets for Order #${orderId}:`, targets);
 
-        let baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://mathematically-foliaged-palmer.ngrok-free.dev');
+        let baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.vaiyaaree.com');
         // Ensure no trailing slash for consistency
         if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 

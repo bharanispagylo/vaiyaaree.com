@@ -34,7 +34,7 @@ const formatAddress = (addr) => {
 };
 
 const STORE_INFO = {
-    name: "VAIYAAREE / AISHWARYA SAREE",
+    name: "VAIYAAREE",
     address: "123, Sample Street, Saree Market",
     city: "Salem, Tamil Nadu",
     pincode: "636001",

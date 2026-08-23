@@ -174,7 +174,7 @@ export default function ResetPasswordPage() {
                             background: '#ffffff',
                             padding: '6px'
                         }}>
-                            <img src="/images/cp-logo.png" alt="Vaiyaaree" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <img src="/images/vaiyaaree-logo.png" alt="Vaiyaaree" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} />
                         </div>
                     </div>
                     <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 0.35rem' }}>Reset Password</h1>

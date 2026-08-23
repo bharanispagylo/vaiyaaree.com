@@ -20,10 +20,11 @@ const ShopFooter = () => {
                 <div className={styles.footerColumn}>
                     <Link href="/" className={styles.footerLogo}>
                         <img 
-                            src="/images/cp-logo.png" 
+                            src="/images/vaiyaaree-logo.png" 
                             alt="Vaiyaaree" 
                             className={styles.logoImg} 
                             onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
+                            suppressHydrationWarning
                         />
                     </Link>
                     <div className={styles.contactInfo}>

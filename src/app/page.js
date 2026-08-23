@@ -169,11 +169,25 @@ export default function HomePage() {
                 try {
                     const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
                     if (heroData?.value) {
-                        const parsed = Array.isArray(heroData.value) 
-                            ? heroData.value 
-                            : (typeof heroData.value === 'string' ? JSON.parse(heroData.value) : null);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            setHeroSliderImages(parsed);
+                        let parsed = [];
+                        if (Array.isArray(heroData.value)) {
+                            parsed = heroData.value;
+                        } else if (typeof heroData.value === 'string') {
+                            const trimmed = heroData.value.trim();
+                            if (trimmed.startsWith('[') || trimmed.startsWith('{') || trimmed.startsWith('"')) {
+                                try {
+                                    const jsonParsed = JSON.parse(trimmed);
+                                    parsed = Array.isArray(jsonParsed) ? jsonParsed : [jsonParsed];
+                                } catch (e) {
+                                    parsed = [trimmed];
+                                }
+                            } else if (trimmed) {
+                                parsed = [trimmed];
+                            }
+                        }
+                        const validUrls = parsed.filter(Boolean);
+                        if (validUrls.length > 0) {
+                            setHeroSliderImages(validUrls);
                         }
                     }
                 } catch (e) {
@@ -184,11 +198,25 @@ export default function HomePage() {
                 try {
                     const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
                     if (galleryData?.value) {
-                        const parsed = Array.isArray(galleryData.value) 
-                            ? galleryData.value 
-                            : (typeof galleryData.value === 'string' ? JSON.parse(galleryData.value) : null);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
-                            setGalleryImages(parsed);
+                        let parsed = [];
+                        if (Array.isArray(galleryData.value)) {
+                            parsed = galleryData.value;
+                        } else if (typeof galleryData.value === 'string') {
+                            const trimmed = galleryData.value.trim();
+                            if (trimmed.startsWith('[') || trimmed.startsWith('{') || trimmed.startsWith('"')) {
+                                try {
+                                    const jsonParsed = JSON.parse(trimmed);
+                                    parsed = Array.isArray(jsonParsed) ? jsonParsed : [jsonParsed];
+                                } catch (e) {
+                                    parsed = [trimmed];
+                                }
+                            } else if (trimmed) {
+                                parsed = [trimmed];
+                            }
+                        }
+                        const validUrls = parsed.filter(Boolean);
+                        if (validUrls.length > 0) {
+                            setGalleryImages(validUrls);
                         }
                     }
                 } catch (e) {
