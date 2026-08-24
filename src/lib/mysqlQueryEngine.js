@@ -344,6 +344,11 @@ async function handleSelect({
     try {
         const sql = `SELECT ${selectFields} FROM \`${table}\` ${whereSql} ${orderSql} ${limitSql}`.trim();
         [rows] = await pool.query(sql, queryParams);
+
+        if (table === 'invoices' && rows.length === 0) {
+            await syncInvoicesFromOrders();
+            [rows] = await pool.query(sql, queryParams);
+        }
     } catch (err) {
         if (err.code === 'ER_BAD_FIELD_ERROR') {
             try {
@@ -443,7 +448,7 @@ async function handleSelect({
             const prodIds = [...new Set(processedRows.map(r => r.product_id).filter(Boolean))];
             const custIds = [...new Set(processedRows.map(r => r.customer_id).filter(Boolean))];
             const orderIds = [...new Set(processedRows.map(r => r.order_id).filter(Boolean))];
-            const returnDbIds = processedRows.map(r => r.id).filter(Boolean);
+            const returnDbIds = [...new Set(processedRows.map(r => r.id).concat(processedRows.map(r => r.return_id)).filter(Boolean))];
 
             let prodMap = {}, custMap = {}, orderMap = {}, shipMap = {}, imageMap = {};
 
@@ -501,22 +506,32 @@ async function handleSelect({
                     };
                 }
 
+                const matchedImages = [
+                    ...(imageMap[r.id] || []),
+                    ...(imageMap[r.return_id] || [])
+                ].filter((v, idx, arr) => arr.findIndex(t => (t.id || t.image_url) === (v.id || v.image_url)) === idx);
+
+                const matchedShip = shipMap[r.id] || shipMap[r.return_id] || null;
+
                 return {
                     ...r,
                     products: prodMap[r.product_id] || null,
                     customers: custObj,
                     orders: orderObj,
-                    return_shipping: shipMap[r.id] || null,
-                    return_images: imageMap[r.id] || [],
-                    images: imageMap[r.id] || []
+                    return_shipping: matchedShip,
+                    return_images: matchedImages,
+                    images: matchedImages
                 };
             });
-        } else if (table === 'refunds' && hasOrdersRel) {
+        } else if ((table === 'refunds' || table === 'refund_requests') && hasOrdersRel) {
             const orderIds = [...new Set(processedRows.map(r => r.order_id).filter(Boolean))];
+            const requestIds = [...new Set(processedRows.map(r => r.id).filter(Boolean))];
+            
+            let orderParsed = [];
             if (orderIds.length > 0) {
                 const placeholders = orderIds.map(() => '?').join(', ');
                 const [orderRows] = await pool.query(`SELECT * FROM \`orders\` WHERE \`id\` IN (${placeholders})`, orderIds);
-                const orderParsed = orderRows.map(parseJsonFields).map(o => {
+                orderParsed = orderRows.map(parseJsonFields).map(o => {
                     if (!o.invoice_no && o.id) {
                         const num = String(o.id).replace(/\D/g, '');
                         o.invoice_no = num ? `INV-${num.padStart(4, '0')}` : `INV-${o.id}`;
@@ -525,11 +540,22 @@ async function handleSelect({
                     }
                     return o;
                 });
-                processedRows = processedRows.map(ref => ({
-                    ...ref,
-                    orders: orderParsed.find(o => o.id === ref.order_id) || null
-                }));
             }
+
+            let shipmentMap = {};
+            if (table === 'refund_requests' && requestIds.length > 0) {
+                const shipPlaceholders = requestIds.map(() => '?').join(', ');
+                const [shipRows] = await pool.query(`SELECT * FROM \`refund_shipments\` WHERE \`refund_request_id\` IN (${shipPlaceholders})`, requestIds);
+                shipRows.map(parseJsonFields).forEach(s => {
+                    shipmentMap[s.refund_request_id] = s;
+                });
+            }
+
+            processedRows = processedRows.map(ref => ({
+                ...ref,
+                orders: orderParsed.find(o => o.id === ref.order_id) || null,
+                refund_shipments: shipmentMap[ref.id] || null
+            }));
         }
     }
 
@@ -553,8 +579,38 @@ const AUTO_INCREMENT_TABLES = new Set([
     'return_status_logs',
     'return_inspections',
     'return_courier_shipments',
-    'courier_companies'
+    'courier_companies',
+    'refund_shipments'
 ]);
+
+async function syncInvoicesFromOrders() {
+    try {
+        const [orders] = await pool.query(
+            `SELECT id, invoice_no, customer_name, customer_phone, customer_email, total_amount, status, created_at, billing_address, shipping_address
+             FROM orders WHERE invoice_no IS NOT NULL OR id IS NOT NULL`
+        );
+        for (const ord of orders) {
+            const invNo = ord.invoice_no || (ord.id ? String(ord.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${ord.id}`);
+            const invId = `INV-REC-${ord.id}`;
+            await pool.query(
+                `INSERT INTO invoices 
+                 (id, order_id, invoice_no, customer_name, customer_phone, customer_email, total_amount, subtotal, tax_amount, discount_amount, shipping_amount, billing_address, shipping_address, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, '0', '0', '0', ?, ?, ?, NOW())
+                 ON DUPLICATE KEY UPDATE customer_name=VALUES(customer_name), customer_phone=VALUES(customer_phone), customer_email=VALUES(customer_email), total_amount=VALUES(total_amount), updated_at=NOW()`,
+                [
+                    invId, ord.id, invNo,
+                    ord.customer_name || 'Customer', ord.customer_phone || '', ord.customer_email || '',
+                    String(ord.total_amount || 0), String(ord.total_amount || 0),
+                    typeof ord.billing_address === 'object' ? JSON.stringify(ord.billing_address) : (ord.billing_address || ''),
+                    typeof ord.shipping_address === 'object' ? JSON.stringify(ord.shipping_address) : (ord.shipping_address || ''),
+                    ord.created_at || new Date()
+                ]
+            );
+        }
+    } catch (e) {
+        console.error('[INVOICE-AUTO-SYNC-ERROR]', e);
+    }
+}
 
 async function handleInsert({ table, data, returnColumns, isSingle }) {
     if (!data) return { data: null, error: { message: 'Insert data is empty' } };
@@ -600,6 +656,10 @@ async function handleInsert({ table, data, returnColumns, isSingle }) {
         }
     }
 
+    if (table === 'orders') {
+        await syncInvoicesFromOrders();
+    }
+
     // If returnColumns requested (e.g. .insert().select()), fetch fresh rows from DB
     if (returnColumns !== null && insertedIds.length > 0) {
         const placeholders = insertedIds.map(() => '?').join(', ');
@@ -630,6 +690,10 @@ async function handleUpdate({ table, data, filters, returnColumns, isSingle }) {
 
     const sql = `UPDATE \`${table}\` SET ${setClauses.join(', ')} ${whereSql}`;
     await pool.query(sql, [...setParams, ...whereParams]);
+
+    if (table === 'orders') {
+        await syncInvoicesFromOrders();
+    }
 
     // Always fetch updated records back so .update().select() works
     const [updated] = await pool.query(`SELECT * FROM \`${table}\` ${whereSql}`, whereParams);

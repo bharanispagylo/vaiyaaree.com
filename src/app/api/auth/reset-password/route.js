@@ -23,6 +23,8 @@ export async function POST(req) {
             .from('app_settings')
             .select('value')
             .eq('key', 'admin_reset_otp')
+            .order('updated_at', { ascending: false })
+            .limit(1)
             .maybeSingle();
 
         if (otpError || !otpSetting || !otpSetting.value) {
@@ -31,18 +33,22 @@ export async function POST(req) {
 
         let storedOtp;
         try {
-            storedOtp = JSON.parse(otpSetting.value);
+            storedOtp = typeof otpSetting.value === 'string' ? JSON.parse(otpSetting.value) : otpSetting.value;
         } catch (e) {
-            return NextResponse.json({ error: 'Invalid OTP data.' }, { status: 400 });
+            return NextResponse.json({ error: 'Invalid OTP data structure in system.' }, { status: 400 });
+        }
+
+        if (!storedOtp || !storedOtp.code) {
+            return NextResponse.json({ error: 'No active OTP request found. Please request a new code.' }, { status: 400 });
         }
 
         // Check if OTP matches and is not expired
-        if (storedOtp.code !== otp.trim()) {
-            return NextResponse.json({ error: 'Invalid verification OTP code.' }, { status: 401 });
+        if (storedOtp.code.trim() !== otp.trim()) {
+            return NextResponse.json({ error: 'Invalid verification OTP code. Please check your email and try again.' }, { status: 401 });
         }
 
         if (Date.now() > storedOtp.expires_at) {
-            return NextResponse.json({ error: 'Verification OTP has expired. Please request a new code.' }, { status: 400 });
+            return NextResponse.json({ error: 'Verification OTP has expired. Please click Resend Code to request a new code.' }, { status: 400 });
         }
 
         // 2. Hash password if needed and update specific user in admin_users table

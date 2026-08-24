@@ -524,19 +524,18 @@ export default function MediaLibraryPage() {
             (f.catalogId && String(f.catalogId).toLowerCase().includes(searchTerm.toLowerCase()));
         if (!matchesSearch) return false;
 
+        const isWm = Boolean(f.hasWatermark || f.has_watermark || watermarkImages.includes(f.url) || (f.folder && f.folder.includes('with-watermark')));
         if (activeGroup === 'watermark') {
-            return watermarkImages.includes(f.url);
+            return isWm;
         } else if (activeGroup === 'no-watermark') {
-            // Show all images that are NOT watermarked (includes uncategorized)
-            return !watermarkImages.includes(f.url);
+            return !isWm;
         }
         return true; // 'all' group
     });
 
-    // Calculate actual counts based on files that exist
-    const actualWatermarkCount = files.filter(f => watermarkImages.includes(f.url)).length;
-    // 'Without watermark' = everything NOT in the watermark list (includes uncategorized images)
-    const actualNoWatermarkCount = files.filter(f => !watermarkImages.includes(f.url)).length;
+    // Calculate actual counts based on database records and settings
+    const actualWatermarkCount = files.filter(f => Boolean(f.hasWatermark || f.has_watermark || watermarkImages.includes(f.url) || (f.folder && f.folder.includes('with-watermark')))).length;
+    const actualNoWatermarkCount = files.filter(f => !Boolean(f.hasWatermark || f.has_watermark || watermarkImages.includes(f.url) || (f.folder && f.folder.includes('with-watermark')))).length;
 
     useEffect(() => {
         if (notification) {

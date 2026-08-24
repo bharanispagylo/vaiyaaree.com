@@ -369,51 +369,51 @@ export default function InvoicesPage() {
                         <div style={{ overflowX: 'auto', width: '100%' }}>
                             <table style={{ margin: 0, width: '100%' }}>
                                 <thead>
-                            <tr>
-                                <th>Invoice #</th>
-                                <th>Customer</th>
-                                <th style={{ textAlign: 'right' }}>Amount</th>
-                                <th style={{ textAlign: 'center' }}>Payment</th>
-                                <th style={{ textAlign: 'center' }}>Status</th>
-                                <th style={{ textAlign: 'left' }}>Date</th>
-                                <th style={{ textAlign: 'right' }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                             {invoices.length === 0 ? (
-                                <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
-                            ) : (
-                                invoices.map((inv) => {
-                                    const raw = inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
-                                    const seqNum = `#${String(raw).replace(/^#+/, '')}`;
+                                    <tr>
+                                        <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Invoice #</th>
+                                        <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Customer</th>
+                                        <th style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Amount</th>
+                                        <th style={{ textAlign: 'center', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Payment</th>
+                                        <th style={{ textAlign: 'center', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Status</th>
+                                        <th style={{ textAlign: 'left', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Date</th>
+                                        <th style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {invoices.length === 0 ? (
+                                        <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
+                                    ) : (
+                                        invoices.map((inv) => {
+                                            const raw = inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
+                                            const seqNum = `#${String(raw).replace(/^#+/, '')}`;
 
-                                    return (
-                                        <tr key={inv.id} onClick={() => openInvoice(inv)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                                            <td style={{ padding: '1rem 1.5rem' }}>
-                                                <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</span>
-                                            </td>
-                                            <td>
-                                                <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{inv.customer_name || 'WhatsApp Customer'}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(inv.customer_phone)}</div>
-                                            </td>
-                                            <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{(inv.total_amount || 0).toLocaleString()}</td>
-                                            <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>{inv.payment_method || '—'}</td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <span className={`badge ${getStatusReference(inv.status)}`}>{inv.status}</span>
-                                            </td>
-                                            <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>
-                                                {new Date(inv.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                            </td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <button onClick={(e) => { e.stopPropagation(); openInvoice(inv); }}
-                                                    className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Invoice">
-                                                    <Eye size={15} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
+                                            return (
+                                                <tr key={inv.id} onClick={() => openInvoice(inv)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+                                                    <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
+                                                        <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</span>
+                                                    </td>
+                                                    <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
+                                                        <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>{inv.customer_name || 'WhatsApp Customer'}</div>
+                                                        <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(inv.customer_phone)}</div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 700, color: 'hsl(var(--text-main))', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>₹{(inv.total_amount || 0).toLocaleString('en-IN')}</td>
+                                                    <td style={{ textAlign: 'center', fontSize: '0.85rem', color: 'hsl(var(--text-muted))', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>{inv.payment_method || '—'}</td>
+                                                    <td style={{ textAlign: 'center', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
+                                                        <span className={`badge ${getStatusReference(inv.status)}`} style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>{inv.status}</span>
+                                                    </td>
+                                                    <td style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
+                                                        {new Date(inv.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
+                                                        <button onClick={(e) => { e.stopPropagation(); openInvoice(inv); }}
+                                                            className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Invoice">
+                                                            <Eye size={15} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </div>

@@ -33,30 +33,38 @@ export const RETURN_STATUSES = {
     REJECTED: 'REJECTED',
 };
 
-// Controlled valid transitions (old → allowed new statuses)
+// ─── VALID STATUS TRANSITIONS ────────────────────────────────────────────────
 const VALID_TRANSITIONS = {
-    PENDING:                    ['RETURN_REQUESTED', 'RETURN_APPROVED', 'CUSTOMER_SHIPPING_PENDING', 'RETURN_REJECTED', 'CANCELLED'],
-    RETURN_REQUESTED:           ['RETURN_APPROVED', 'CUSTOMER_SHIPPING_PENDING', 'RETURN_REJECTED', 'CANCELLED'],
-    RETURN_APPROVED:            ['CUSTOMER_SHIPPING_PENDING', 'CUSTOMER_SHIPPED', 'IN_TRANSIT', 'RECEIVED_BY_COMPANY', 'CANCELLED'],
-    CUSTOMER_SHIPPING_PENDING:  ['CUSTOMER_SHIPPED', 'IN_TRANSIT', 'RECEIVED_BY_COMPANY', 'CANCELLED'],
-    CUSTOMER_SHIPPED:           ['CUSTOMER_SHIPPED', 'IN_TRANSIT', 'RECEIVED_BY_COMPANY'],
-    IN_TRANSIT:                 ['RECEIVED_BY_COMPANY'],
-    RECEIVED_BY_COMPANY:        ['INSPECTION_PENDING', 'UNDER_INSPECTION'],
-    INSPECTION_PENDING:         ['UNDER_INSPECTION'],
-    UNDER_INSPECTION:           ['INSPECTION_APPROVED', 'INSPECTION_REJECTED'],
-    INSPECTION_APPROVED:        ['REFUND_PENDING', 'REFUND_PROCESSING', 'EXCHANGE_PENDING', 'EXCHANGE_PROCESSING'],
-    INSPECTION_REJECTED:        ['RETURN_TO_CUSTOMER'],
-    REFUND_PENDING:             ['REFUND_PROCESSING'],
-    REFUND_PROCESSING:          ['REFUND_COMPLETED'],
-    REFUND_COMPLETED:           ['COMPLETED'],
-    EXCHANGE_PENDING:           ['EXCHANGE_PROCESSING'],
+    RETURN_REQUESTED:           ['RETURN_APPROVED', 'RETURN_REJECTED', 'APPROVED', 'REJECTED', 'CANCELLED', 'UNDER_REVIEW'],
+    UNDER_REVIEW:               ['RETURN_APPROVED', 'RETURN_REJECTED', 'APPROVED', 'REJECTED', 'CANCELLED'],
+    RETURN_APPROVED:            ['CUSTOMER_SHIPPED', 'IN_TRANSIT', 'RECEIVED_BY_COMPANY', 'RECEIVED', 'CANCELLED', 'RETURN_REQUIRED'],
+    APPROVED:                   ['CUSTOMER_SHIPPED', 'IN_TRANSIT', 'RECEIVED_BY_COMPANY', 'RECEIVED', 'RETURN_REQUIRED', 'INSPECTION_PASSED', 'INSPECTION_APPROVED', 'EXCHANGE_SHIPPED', 'REFUND_PROCESSING', 'CANCELLED'],
+    CUSTOMER_SHIPPING_PENDING:  ['CUSTOMER_SHIPPED', 'CANCELLED'],
+    CUSTOMER_SHIPPED:           ['IN_TRANSIT', 'RECEIVED_BY_COMPANY', 'RECEIVED', 'RETURN_RECEIVED', 'INSPECTION_PENDING', 'UNDER_INSPECTION', 'INSPECTION_PASSED', 'INSPECTION_APPROVED', 'EXCHANGE_SHIPPED', 'REFUND_PROCESSING', 'CANCELLED'],
+    IN_TRANSIT:                 ['RECEIVED_BY_COMPANY', 'RECEIVED', 'RETURN_RECEIVED', 'INSPECTION_PENDING', 'UNDER_INSPECTION', 'INSPECTION_PASSED', 'INSPECTION_APPROVED', 'CANCELLED'],
+    RECEIVED_BY_COMPANY:        ['INSPECTION_PENDING', 'UNDER_INSPECTION', 'INSPECTION_APPROVED', 'INSPECTION_REJECTED', 'INSPECTION_PASSED', 'INSPECTION_FAILED', 'EXCHANGE_PENDING', 'EXCHANGE_PROCESSING', 'REFUND_PENDING', 'REFUND_PROCESSING', 'REJECTED', 'APPROVED'],
+    RECEIVED:                   ['RECEIVED_BY_COMPANY', 'INSPECTION_PENDING', 'UNDER_INSPECTION', 'INSPECTION_APPROVED', 'INSPECTION_REJECTED', 'INSPECTION_PASSED', 'INSPECTION_FAILED', 'EXCHANGE_PENDING', 'EXCHANGE_PROCESSING', 'REFUND_PENDING', 'REFUND_PROCESSING', 'REJECTED', 'APPROVED'],
+    RETURN_RECEIVED:            ['INSPECTION_PENDING', 'UNDER_INSPECTION', 'INSPECTION_PASSED', 'INSPECTION_FAILED', 'INSPECTION_APPROVED', 'INSPECTION_REJECTED', 'EXCHANGE_SHIPPED', 'REFUND_PROCESSING', 'REJECTED', 'APPROVED'],
+    INSPECTION_PENDING:         ['UNDER_INSPECTION', 'INSPECTION_APPROVED', 'INSPECTION_REJECTED', 'INSPECTION_PASSED', 'INSPECTION_FAILED'],
+    UNDER_INSPECTION:           ['INSPECTION_APPROVED', 'INSPECTION_REJECTED', 'INSPECTION_PASSED', 'INSPECTION_FAILED'],
+    INSPECTION_APPROVED:        ['REFUND_PENDING', 'REFUND_PROCESSING', 'REFUND_COMPLETED', 'REFUNDED', 'EXCHANGE_PENDING', 'EXCHANGE_PROCESSING', 'EXCHANGE_SHIPPED', 'APPROVED', 'COMPLETED'],
+    INSPECTION_PASSED:          ['REFUND_PENDING', 'REFUND_PROCESSING', 'REFUND_COMPLETED', 'REFUNDED', 'EXCHANGE_PENDING', 'EXCHANGE_PROCESSING', 'EXCHANGE_SHIPPED', 'APPROVED', 'COMPLETED'],
+    INSPECTION_REJECTED:        ['REJECTED', 'RETURN_TO_CUSTOMER', 'RETURN_TO_CUSTOMER_SHIPPED', 'CANCELLED'],
+    INSPECTION_FAILED:          ['REJECTED', 'RETURN_TO_CUSTOMER', 'RETURN_TO_CUSTOMER_SHIPPED', 'CANCELLED'],
+    QUALITY_CHECK_FAILED:       ['REJECTED', 'RETURN_TO_CUSTOMER', 'CANCELLED'],
+    REFUND_PENDING:             ['REFUND_PROCESSING', 'REFUND_COMPLETED', 'REFUNDED'],
+    REFUND_PROCESSING:          ['REFUND_COMPLETED', 'REFUNDED', 'REFUND_FAILED', 'COMPLETED'],
+    REFUNDED:                   ['COMPLETED', 'RETURN_CLOSED'],
+    REFUND_COMPLETED:           ['COMPLETED', 'RETURN_CLOSED'],
+    EXCHANGE_PENDING:           ['EXCHANGE_PROCESSING', 'EXCHANGE_SHIPPED'],
     EXCHANGE_PROCESSING:        ['EXCHANGE_SHIPPED'],
-    EXCHANGE_SHIPPED:           ['EXCHANGE_DELIVERED'],
-    EXCHANGE_DELIVERED:         ['COMPLETED'],
+    EXCHANGE_SHIPPED:           ['EXCHANGE_DELIVERED', 'EXCHANGE_COMPLETED', 'COMPLETED'],
+    EXCHANGE_DELIVERED:         ['EXCHANGE_COMPLETED', 'COMPLETED'],
+    EXCHANGE_COMPLETED:         ['COMPLETED', 'RETURN_CLOSED'],
     RETURN_TO_CUSTOMER:         ['RETURN_TO_CUSTOMER_SHIPPED'],
     RETURN_TO_CUSTOMER_SHIPPED: ['RETURN_TO_CUSTOMER_DELIVERED'],
-    RETURN_TO_CUSTOMER_DELIVERED:['RETURN_CLOSED'],
-    APPROVED:                   ['CUSTOMER_SHIPPED', 'IN_TRANSIT', 'COMPLETED', 'CANCELLED'],
+    RETURN_TO_CUSTOMER_DELIVERED:['RETURN_CLOSED', 'COMPLETED'],
+    RETURN_REJECTED:            [],
     REJECTED:                   [],
     RETURN_CLOSED:              [],
     COMPLETED:                  [],
@@ -71,16 +79,36 @@ export function validateStatusTransition(oldStatus, newStatus) {
 }
 
 /**
- * Generate a human-readable Return ID: RET-YYYYMMDD-XXXX
+ * Generate a human-readable sequential Return ID: RET-0001, RET-0002...
  */
 export async function generateReturnId() {
-    const today = new Date();
-    const datePart = today.getFullYear().toString() +
-        String(today.getMonth() + 1).padStart(2, '0') +
-        String(today.getDate()).padStart(2, '0');
+    try {
+        const { data: lastRequests } = await supabaseAdmin
+            .from('return_requests')
+            .select('return_id')
+            .order('created_at', { ascending: false })
+            .limit(100);
 
-    const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `RET-${datePart}-${suffix}`;
+        let maxNumber = 0;
+        if (lastRequests && lastRequests.length > 0) {
+            for (const req of lastRequests) {
+                const retId = req.return_id || '';
+                const match = retId.match(/RET-(\d+)/i);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (!isNaN(num) && num > maxNumber) {
+                        maxNumber = num;
+                    }
+                }
+            }
+        }
+
+        const nextNumber = maxNumber + 1;
+        return `RET-${String(nextNumber).padStart(4, '0')}`;
+    } catch (err) {
+        console.error('Error generating sequential return ID:', err);
+        return `RET-${String(Date.now()).slice(-4)}`;
+    }
 }
 
 /**
@@ -218,11 +246,21 @@ export async function processReturnRequest({
 
         // 7. Save photos
         if (photoUrls && photoUrls.length > 0) {
-            const imageRows = photoUrls.map(url => ({
-                return_request_id: inserted.id,
-                image_url: url,
-                image_type: 'customer_photo',
-            }));
+            const imageRows = [];
+            photoUrls.forEach(url => {
+                imageRows.push({
+                    return_request_id: inserted.id,
+                    image_url: url,
+                    image_type: 'customer_photo',
+                });
+                if (inserted.return_id && inserted.return_id !== inserted.id) {
+                    imageRows.push({
+                        return_request_id: inserted.return_id,
+                        image_url: url,
+                        image_type: 'customer_photo',
+                    });
+                }
+            });
             await supabaseAdmin.from('return_images').insert(imageRows);
         }
 
@@ -276,6 +314,102 @@ export async function transitionReturnStatus({
         return { success: true };
     } catch (err) {
         console.error('[RETURN-SERVICE] Transition error:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Process return product inspection by admin
+ */
+export async function processReturnInspection({ returnRequestId, passed, notes, adminUser }) {
+    try {
+        const { data: current, error: fetchErr } = await supabaseAdmin
+            .from('return_requests')
+            .select('*, customers(*), orders(*)')
+            .eq('id', returnRequestId)
+            .single();
+
+        if (fetchErr || !current) return { success: false, error: 'Return request not found' };
+
+        const newInspectionStatus = passed ? 'PASSED' : 'FAILED';
+        const newReturnStatus = passed ? 'INSPECTION_PASSED' : 'INSPECTION_FAILED';
+
+        const extraUpdates = {
+            inspection_status: newInspectionStatus,
+            inspection_notes: notes || null,
+            inspected_at: new Date().toISOString(),
+            inspected_by: adminUser || 'admin',
+            status: newReturnStatus
+        };
+
+        const { error: updateErr } = await supabaseAdmin
+            .from('return_requests')
+            .update(extraUpdates)
+            .eq('id', returnRequestId);
+
+        if (updateErr) return { success: false, error: updateErr.message };
+
+        await logReturnStatus(returnRequestId, current.status, newReturnStatus, adminUser || 'admin', `Inspection: ${newInspectionStatus}. ${notes || ''}`);
+
+        // Dispatch Email & WhatsApp Notifications
+        try {
+            const { sendReturnStatusEmail } = await import('@/lib/emailService');
+            await sendReturnStatusEmail(current, newReturnStatus, { notes });
+        } catch (emailErr) {
+            console.error('[RETURN-INSPECTION-EMAIL-ERROR]', emailErr);
+        }
+
+        notifyReturnStatus(returnRequestId, newReturnStatus, { notes });
+
+        return { success: true, inspectionStatus: newInspectionStatus, returnStatus: newReturnStatus };
+    } catch (err) {
+        console.error('[RETURN-SERVICE] Inspection Error:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Process exchange replacement shipment dispatch by admin
+ */
+export async function processExchangeDispatch({ returnRequestId, courierName, trackingNumber, notes, adminUser }) {
+    try {
+        const { data: current, error: fetchErr } = await supabaseAdmin
+            .from('return_requests')
+            .select('*, customers(*), orders(*)')
+            .eq('id', returnRequestId)
+            .single();
+
+        if (fetchErr || !current) return { success: false, error: 'Return request not found' };
+
+        const extraUpdates = {
+            exchange_courier_name: courierName,
+            exchange_tracking_number: trackingNumber,
+            exchange_shipped_at: new Date().toISOString(),
+            status: 'EXCHANGE_SHIPPED'
+        };
+
+        const { error: updateErr } = await supabaseAdmin
+            .from('return_requests')
+            .update(extraUpdates)
+            .eq('id', returnRequestId);
+
+        if (updateErr) return { success: false, error: updateErr.message };
+
+        await logReturnStatus(returnRequestId, current.status, 'EXCHANGE_SHIPPED', adminUser || 'admin', `Dispatched replacement via ${courierName} (AWB: ${trackingNumber})`);
+
+        // Dispatch Email & WhatsApp Notifications
+        try {
+            const { sendReturnStatusEmail } = await import('@/lib/emailService');
+            await sendReturnStatusEmail(current, 'EXCHANGE_SHIPPED', { courierName, trackingNumber });
+        } catch (emailErr) {
+            console.error('[EXCHANGE-DISPATCH-EMAIL-ERROR]', emailErr);
+        }
+
+        notifyReturnStatus(returnRequestId, 'EXCHANGE_SHIPPED', { courierName, trackingNumber });
+
+        return { success: true };
+    } catch (err) {
+        console.error('[RETURN-SERVICE] Exchange Dispatch Error:', err);
         return { success: false, error: err.message };
     }
 }

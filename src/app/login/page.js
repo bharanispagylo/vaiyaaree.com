@@ -207,7 +207,7 @@ function LoginContent() {
                         textAlign: 'center',
                         marginBottom: '1.5rem'
                     }}>
-                        🛍️ Please login or create an account to complete your purchase. Your cart is preserved!
+                        Please login or create an account to complete your purchase. Your cart is preserved!
                     </div>
                 )}
 
@@ -270,7 +270,7 @@ function LoginContent() {
                         fontWeight: 600,
                         marginBottom: '1.5rem'
                     }}>
-                        ⚠️ {error}
+                        {error}
                     </div>
                 )}
                 {successMessage && (
@@ -284,7 +284,7 @@ function LoginContent() {
                         fontWeight: 600,
                         marginBottom: '1.5rem'
                     }}>
-                        ✅ {successMessage}
+                        {successMessage}
                     </div>
                 )}
 

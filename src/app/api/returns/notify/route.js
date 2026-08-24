@@ -43,7 +43,16 @@ async function sendWhatsAppText(to, text) {
 
 export async function POST(request) {
     try {
-        const { requestId, status, notes, courierData } = await request.json();
+        const {
+            requestId,
+            status,
+            notes,
+            courierData,
+            sendWhatsApp = true,
+            sendEmail = true,
+            phone: phoneOverride,
+            email: emailOverride
+        } = await request.json();
 
         if (!requestId || !status) {
             return new Response(JSON.stringify({ error: 'Missing requestId or status' }), { status: 400 });
@@ -60,13 +69,15 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Request not found' }), { status: 404 });
         }
 
-        let phone = req.customers?.phone;
+        let targetPhone = phoneOverride || req.customers?.phone;
+        let targetEmail = emailOverride || req.customers?.email;
         let customerName = req.customers?.name || 'Valued Customer';
 
-        if (!phone && req.order_id) {
-            const { data: ord } = await supabase.from('orders').select('customer_phone, customer_name').eq('id', req.order_id).single();
+        if ((!targetPhone || !targetEmail) && req.order_id) {
+            const { data: ord } = await supabase.from('orders').select('customer_phone, customer_email, customer_name').eq('id', req.order_id).single();
             if (ord) {
-                phone = ord.customer_phone;
+                if (!targetPhone) targetPhone = ord.customer_phone;
+                if (!targetEmail) targetEmail = ord.customer_email;
                 customerName = customerName === 'Valued Customer' ? (ord.customer_name || customerName) : customerName;
             }
         }
@@ -102,9 +113,9 @@ export async function POST(request) {
                 `📍 Next Step: Please ship the product to our company address using your preferred courier service (DTDC, Delhivery, India Post, etc.):`,
                 '',
                 `*Return Address:*`,
-                `VAIYAAREE`,
-                `12/34 Saree Avenue, Main Road`,
-                `Chennai, Tamil Nadu - 600001`,
+                `VAIYAAREE SAREES`,
+                `16, Dhanalakshmi Nagar Extension, Masakalipalayam Road`,
+                `Uppili Palayam, Coimbatore, Tamil Nadu - 641015`,
                 `India`,
                 '',
                 `After shipping, please click *"I've Shipped the Product"* on our website to submit your tracking details.`,
@@ -251,12 +262,29 @@ export async function POST(request) {
             ]
         };
 
-        const lines = templates[status];
-        if (phone && lines) {
+        const lines = templates[status] || templates.EXCHANGE_SHIPPED;
+        if (sendWhatsApp && targetPhone && lines) {
             const message = lines.join('\n');
-            await sendWhatsAppText(phone, message);
+            await sendWhatsAppText(targetPhone, message);
         } else {
-            console.log(`[RETURN-NOTIFY] No template for status: ${status}`);
+            console.log(`[RETURN-NOTIFY] WhatsApp skipped or targetPhone missing/disabled for status: ${status}`);
+        }
+
+        // Send Email Notification to Customer if enabled
+        if (sendEmail && targetEmail) {
+            try {
+                const { sendReturnStatusEmail } = await import('@/lib/emailService');
+                await sendReturnStatusEmail(req, status, {
+                    notes,
+                    courierName: courierData?.courierName || req.exchange_courier_name,
+                    trackingNumber: courierData?.awbNumber || req.exchange_tracking_number,
+                    recipientEmail: targetEmail
+                });
+            } catch (emailErr) {
+                console.error('[RETURN-NOTIFY-EMAIL-ERROR]', emailErr);
+            }
+        } else {
+            console.log(`[RETURN-NOTIFY] Email skipped or targetEmail missing/disabled for status: ${status}`);
         }
 
         return new Response(JSON.stringify({ success: true }), { status: 200 });

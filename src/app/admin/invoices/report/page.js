@@ -851,13 +851,13 @@ export default function InvoiceReportPage() {
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                         <thead>
-                            <tr>
-                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Invoice</th>
-                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Date</th>
-                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Customer</th>
-                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Location</th>
-                                <th style={{ textAlign: 'right', padding: '1rem 1.5rem' }}>Total</th>
-                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>Status</th>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid hsl(var(--border-subtle))' }}>
+                                <th style={{ textAlign: 'left', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Invoice</th>
+                                <th style={{ textAlign: 'left', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Date</th>
+                                <th style={{ textAlign: 'left', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Customer</th>
+                                <th style={{ textAlign: 'left', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Location</th>
+                                <th style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Total</th>
+                                <th style={{ textAlign: 'center', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -887,22 +887,23 @@ export default function InvoiceReportPage() {
                                             onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.04)'}
                                             onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                                         >
-                                            <td style={{ padding: '0.65rem 1rem' }}>
+                                            <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
                                                 <div style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</div>
                                             </td>
-                                            <td style={{ padding: '0.65rem 1rem', fontSize: '0.85rem' }}>{new Date(o.created_at).toLocaleDateString()}</td>
-                                            <td style={{ padding: '0.65rem 1rem' }}>
+                                            <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{new Date(o.created_at).toLocaleDateString('en-IN')}</td>
+                                            <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
                                                 <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
                                                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{formatDisplayPhoneNumber(o.customer_phone)}</div>
                                             </td>
-                                            <td style={{ padding: '0.65rem 1rem', fontSize: '0.85rem' }}>{o.shipping_state || 'N/A'}</td>
-                                            <td style={{ padding: '0.65rem 1rem', textAlign: 'right', fontWeight: 800 }}>₹{o.total_amount.toLocaleString()}</td>
-                                            <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
+                                            <td style={{ padding: '0.85rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{o.shipping_state || 'N/A'}</td>
+                                            <td style={{ padding: '0.85rem 1rem', textAlign: 'right', fontWeight: 800, whiteSpace: 'nowrap' }}>₹{(o.total_amount || 0).toLocaleString('en-IN')}</td>
+                                            <td style={{ padding: '0.85rem 1rem', textAlign: 'center', whiteSpace: 'nowrap' }}>
                                                 <span style={{
-                                                    fontSize: '0.65rem', fontWeight: 800, padding: '4px 10px', borderRadius: '99px',
-                                                    background: o.status === 'DELIVERED' || o.status === 'PAID' ? 'hsl(var(--primary))' : 'hsl(var(--bg-app))',
-                                                    color: o.status === 'DELIVERED' || o.status === 'PAID' ? 'white' : 'hsl(var(--text-main))',
-                                                    border: `1px solid ${o.status === 'DELIVERED' || o.status === 'PAID' ? 'transparent' : 'hsl(var(--border-subtle))'}`
+                                                    fontSize: '0.7rem', fontWeight: 800, padding: '4px 12px', borderRadius: '20px',
+                                                    display: 'inline-block', whiteSpace: 'nowrap',
+                                                    background: o.status === 'DELIVERED' || o.status === 'PAID' ? 'hsl(var(--primary))' : '#f1f5f9',
+                                                    color: o.status === 'DELIVERED' || o.status === 'PAID' ? 'white' : '#475569',
+                                                    border: `1px solid ${o.status === 'DELIVERED' || o.status === 'PAID' ? 'transparent' : '#cbd5e1'}`
                                                 }}>{o.status}</span>
                                             </td>
                                         </tr>

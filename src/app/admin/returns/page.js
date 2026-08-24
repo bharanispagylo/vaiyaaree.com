@@ -60,6 +60,35 @@ function formatPhone(phone) {
     return phone;
 }
 
+function formatAppDate(dateStr, includeTime = false) {
+    if (!dateStr) return 'N/A';
+    try {
+        const str = String(dateStr).trim().replace('Z', '').replace('T', ' ');
+        const [dPart, tPart] = str.split(' ');
+        if (!dPart || !dPart.includes('-')) return String(dateStr);
+        const [y, m, d] = dPart.split('-');
+
+        const dd = String(d).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+
+        if (!includeTime || !tPart) {
+            return `${dd}/${mm}/${y}`;
+        }
+
+        const [h, min] = tPart.split(':');
+        const hourNum = parseInt(h, 10);
+        if (isNaN(hourNum)) return `${dd}/${mm}/${y}`;
+        const ampm = hourNum >= 12 ? 'pm' : 'am';
+        const h12 = hourNum % 12 || 12;
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthStr = monthNames[parseInt(m, 10) - 1] || mm;
+
+        return `${dd} ${monthStr} ${y}, ${String(h12).padStart(2, '0')}:${min} ${ampm}`;
+    } catch (e) {
+        return String(dateStr);
+    }
+}
+
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
 export default function AdminReturnsPage() {
@@ -92,6 +121,132 @@ export default function AdminReturnsPage() {
     });
     const [refundForm, setRefundForm] = useState({ refundMethod: 'ORIGINAL', refundId: '', reimburseShipping: false });
     const [exchangeForm, setExchangeForm] = useState({ replacementProductId: '', replacementVariantId: '', exchangeNotes: '' });
+    const [exchangeShipForm, setExchangeShipForm] = useState({ courierName: '', trackingNumber: '' });
+
+    // Notification Modal state
+    const [showNotificationModal, setShowNotificationModal] = useState(false);
+    const [notificationTargetReturn, setNotificationTargetReturn] = useState(null);
+    const [sendWhatsAppChecked, setSendWhatsAppChecked] = useState(true);
+    const [sendEmailChecked, setSendEmailChecked] = useState(true);
+    const [notificationPhone, setNotificationPhone] = useState('');
+    const [notificationEmail, setNotificationEmail] = useState('');
+    const [sendingNotification, setSendingNotification] = useState(false);
+
+    function openNotificationModal(ret) {
+        const r = ret || detailReturn;
+        if (!r) return;
+        setNotificationTargetReturn(r);
+        const phone = r.customers?.phone || r.orders?.customer_phone || r.phone || '';
+        const email = r.customers?.email || r.orders?.customer_email || r.email || '';
+        setNotificationPhone(phone);
+        setNotificationEmail(email);
+        setSendWhatsAppChecked(Boolean(phone));
+        setSendEmailChecked(Boolean(email));
+        setShowNotificationModal(true);
+    }
+
+    async function sendCustomerNotification() {
+        if (!notificationTargetReturn) return;
+        if (!sendWhatsAppChecked && !sendEmailChecked) {
+            showNotification('Please select at least one notification channel (WhatsApp or Email)', 'error');
+            return;
+        }
+        setSendingNotification(true);
+        try {
+            const res = await fetch('/api/returns/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    requestId: notificationTargetReturn.id,
+                    status: notificationTargetReturn.status || 'EXCHANGE_SHIPPED',
+                    sendWhatsApp: sendWhatsAppChecked,
+                    sendEmail: sendEmailChecked,
+                    phone: notificationPhone,
+                    email: notificationEmail,
+                    courierData: {
+                        courierName: notificationTargetReturn.exchange_courier_name || 'Courier',
+                        awbNumber: notificationTargetReturn.exchange_tracking_number || 'N/A'
+                    }
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                showNotification(data.error || 'Failed to send notification', 'error');
+                return;
+            }
+            showNotification('Notification sent successfully to customer!');
+            setShowNotificationModal(false);
+        } catch (err) {
+            showNotification('Network error while sending notification', 'error');
+        } finally {
+            setSendingNotification(false);
+        }
+    }
+
+    async function submitInspection(passed) {
+        if (!detailReturn) return;
+        setActionLoading(true);
+        try {
+            const res = await fetch('/api/returns/inspect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    returnRequestId: detailReturn.id,
+                    passed,
+                    notes: inspectionForm.notes || actionNotes || null,
+                    adminUser: inspectionForm.inspector || 'admin'
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                showNotification(data.error || 'Inspection submission failed', 'error');
+                return;
+            }
+            showNotification(passed ? 'Inspection Passed Successfully!' : 'Inspection Marked Failed');
+            setActiveAction(null);
+            await openDetail({ id: detailReturn.id });
+            fetchReturns();
+        } catch (err) {
+            showNotification('Network error', 'error');
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function submitExchangeShip() {
+        if (!detailReturn || !exchangeShipForm.courierName || !exchangeShipForm.trackingNumber) {
+            showNotification('Please enter courier name and tracking number', 'error');
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const res = await fetch('/api/returns/exchange-ship', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    returnRequestId: detailReturn.id,
+                    courierName: exchangeShipForm.courierName,
+                    trackingNumber: exchangeShipForm.trackingNumber,
+                    adminUser: 'admin'
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                showNotification(data.error || 'Replacement dispatch failed', 'error');
+                return;
+            }
+            showNotification('Replacement saree dispatched (EXCHANGE_SHIPPED)!');
+            setActiveAction(null);
+            setExchangeShipForm({ courierName: '', trackingNumber: '' });
+            const updated = await openDetail({ id: detailReturn.id });
+            fetchReturns();
+            openNotificationModal(updated || detailReturn);
+        } catch (err) {
+            showNotification('Network error', 'error');
+        } finally {
+            setActionLoading(false);
+        }
+    }
 
     // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -177,20 +332,29 @@ export default function AdminReturnsPage() {
 
     // ── Direct Row Action (Approve / Reject directly from table) ──────────────
     async function performDirectRowAction(returnId, action, rejectionReason = '') {
+        if (actionLoading) return;
         setActionLoading(true);
+        const payload = {
+            action,
+            rejectionReason: rejectionReason || 'Request does not meet return conditions.',
+            actor: 'admin',
+        };
+        console.count("performDirectRowAction called");
+        console.log("RETURN ID:", returnId);
+        console.log("PATCH PAYLOAD:", payload);
+
         try {
             const res = await fetch(`/api/returns/${returnId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action,
-                    rejectionReason: rejectionReason || 'Request does not meet return conditions.',
-                    actor: 'admin',
-                }),
+                body: JSON.stringify(payload),
             });
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                showNotification(data.error || 'Action failed', 'error');
+            const result = await res.json().catch(() => null);
+            console.log("RETURN PATCH STATUS:", res.status);
+            console.log("RETURN PATCH RESPONSE:", result);
+
+            if (!res.ok || !result?.success) {
+                showNotification(result?.error || result?.message || 'Action failed', 'error');
                 return;
             }
             showNotification(action === 'approve' ? 'Return Approved! Customer notified to ship.' : 'Return Request Rejected');
@@ -199,7 +363,8 @@ export default function AdminReturnsPage() {
                 await openDetail({ id: returnId });
             }
         } catch (err) {
-            showNotification('Network error', 'error');
+            console.error("performDirectRowAction Error:", err);
+            showNotification(err.message || 'Network error', 'error');
         } finally {
             setActionLoading(false);
         }
@@ -207,27 +372,35 @@ export default function AdminReturnsPage() {
 
     // ── Admin action inside detail modal ──────────────────────────────────────
     async function performAction(action, extraBody = {}) {
-        if (!detailReturn) return;
+        if (!detailReturn || actionLoading) return;
         setActionLoading(true);
+        const payload = {
+            action,
+            notes: actionNotes || null,
+            rejectionReason: actionRejectionReason || null,
+            courierData: courierForm,
+            inspectionData: inspectionForm,
+            refundData: refundForm,
+            exchangeData: exchangeForm,
+            actor: 'admin',
+            ...extraBody,
+        };
+        console.count("performAction called");
+        console.log("RETURN ID:", detailReturn.id);
+        console.log("PATCH PAYLOAD:", payload);
+
         try {
             const res = await fetch(`/api/returns/${detailReturn.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action,
-                    notes: actionNotes || null,
-                    rejectionReason: actionRejectionReason || null,
-                    courierData: courierForm,
-                    inspectionData: inspectionForm,
-                    refundData: refundForm,
-                    exchangeData: exchangeForm,
-                    actor: 'admin',
-                    ...extraBody,
-                }),
+                body: JSON.stringify(payload),
             });
-            const data = await res.json();
-            if (!res.ok || !data.success) {
-                showNotification(data.error || 'Action failed', 'error');
+            const result = await res.json().catch(() => null);
+            console.log("RETURN PATCH STATUS:", res.status);
+            console.log("RETURN PATCH RESPONSE:", result);
+
+            if (!res.ok || !result?.success) {
+                showNotification(result?.error || result?.message || 'Action failed', 'error');
                 return;
             }
             showNotification('Action completed successfully');
@@ -237,7 +410,8 @@ export default function AdminReturnsPage() {
             await openDetail({ id: detailReturn.id });
             fetchReturns();
         } catch (err) {
-            showNotification('Network error', 'error');
+            console.error("performAction Error:", err);
+            showNotification(err.message || 'Network error', 'error');
         } finally {
             setActionLoading(false);
         }
@@ -344,148 +518,105 @@ export default function AdminReturnsPage() {
             </div>
         );
 
-        // ── CUSTOMER_SHIPPED / IN_TRANSIT ──────────────────────────────────
-        if (['CUSTOMER_SHIPPED', 'IN_TRANSIT'].includes(status)) return (
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <button style={btnStyle('#0891b2')} disabled={actionLoading} onClick={() => performAction('mark_received')}>
-                    <CheckCircle size={14} /> {actionLoading ? 'Processing...' : 'Mark as Received'}
-                </button>
+        // ── CUSTOMER_SHIPPED / RETURN_RECEIVED / INSPECTION_PENDING ───────────────
+        if (['CUSTOMER_SHIPPED', 'IN_TRANSIT', 'RETURN_RECEIVED', 'RECEIVED_BY_COMPANY', 'INSPECTION_PENDING', 'UNDER_INSPECTION'].includes(status)) return (
+            <div>
+                <div style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+                    <h5 style={{ margin: '0 0 0.5rem', fontWeight: 800, color: '#1e293b', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <ClipboardCheck size={16} color="#0891b2" /> 1. Return Product Quality Inspection
+                    </h5>
+                    <p style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.75rem' }}>
+                        Inspect the returned saree condition and record the result in database.
+                    </p>
+                    <div style={{ marginBottom: '0.75rem' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '0.25rem' }}>INSPECTION NOTES</label>
+                        <input type="text" placeholder="e.g. Item received in original fold, tags intact, no stains." value={inspectionForm.notes} onChange={e => setInspectionForm(f => ({ ...f, notes: e.target.value }))} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button style={btnStyle('#059669')} disabled={actionLoading} onClick={() => submitInspection(true)}>
+                            <CheckCircle size={16} /> Pass Inspection (INSPECTION_PASSED)
+                        </button>
+                        <button style={btnStyle('#dc2626')} disabled={actionLoading} onClick={() => submitInspection(false)}>
+                            <XCircle size={16} /> Fail Inspection (INSPECTION_FAILED)
+                        </button>
+                    </div>
+                </div>
+
+                {ret.type === 'EXCHANGE' && (
+                    <div style={{ background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: '12px', padding: '1rem' }}>
+                        <h5 style={{ margin: '0 0 0.5rem', fontWeight: 800, color: '#6d28d9', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Truck size={16} /> 2. Dispatch Replacement Saree (EXCHANGE_SHIPPED)
+                        </h5>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                            <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4c1d95', display: 'block', marginBottom: '0.2rem' }}>COURIER COMPANY *</label>
+                                <input type="text" placeholder="e.g. BlueDart, Delhivery" value={exchangeShipForm.courierName} onChange={e => setExchangeShipForm(f => ({ ...f, courierName: e.target.value }))} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4c1d95', display: 'block', marginBottom: '0.2rem' }}>TRACKING / AWB NUMBER *</label>
+                                <input type="text" placeholder="e.g. AWB987654321" value={exchangeShipForm.trackingNumber} onChange={e => setExchangeShipForm(f => ({ ...f, trackingNumber: e.target.value }))} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                            </div>
+                        </div>
+                        <button style={btnStyle('#7c3aed')} disabled={actionLoading || !exchangeShipForm.courierName || !exchangeShipForm.trackingNumber} onClick={submitExchangeShip}>
+                            <Truck size={14} /> {actionLoading ? 'Dispatching...' : 'Dispatch Replacement Saree'}
+                        </button>
+                    </div>
+                )}
             </div>
         );
 
-        // ── RECEIVED_BY_COMPANY ─────────────────────────────────────────────
-        if (status === 'RECEIVED_BY_COMPANY') return (
-            <button style={btnStyle('#d97706')} disabled={actionLoading} onClick={() => performAction('start_inspection')}>
-                <ClipboardCheck size={14} /> Start Inspection
-            </button>
-        );
-
-        // ── INSPECTION_PENDING ──────────────────────────────────────────────
-        if (status === 'INSPECTION_PENDING') return (
-            <button style={btnStyle('#d97706')} disabled={actionLoading} onClick={() => performAction('under_inspection')}>
-                <Eye size={14} /> Open Inspection Form
-            </button>
-        );
-
-        // ── UNDER_INSPECTION ────────────────────────────────────────────────
-        if (status === 'UNDER_INSPECTION') {
-            const checkRow = (label, field) => (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
-                    <input type="checkbox" checked={inspectionForm[field]}
-                        onChange={e => setInspectionForm(f => ({ ...f, [field]: e.target.checked }))}
-                        style={{ width: '16px', height: '16px', accentColor: 'hsl(var(--primary))' }} />
-                    {label}
-                </label>
-            );
-            const condSelect = (label, field) => (
-                <div>
-                    <label style={{ fontSize: '0.78rem', fontWeight: 700, display: 'block', marginBottom: '0.3rem', textTransform: 'uppercase', color: '#64748b' }}>{label}</label>
-                    <select value={inspectionForm[field]} onChange={e => setInspectionForm(f => ({ ...f, [field]: e.target.value }))}
-                        style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1.5px solid #e2e8f0' }}>
-                        <option value="GOOD">Good</option>
-                        <option value="FAIR">Fair</option>
-                        <option value="DAMAGED">Damaged</option>
-                        <option value="POOR">Poor</option>
-                    </select>
-                </div>
-            );
-            return (
-                <div style={panelStyle}>
-                    <h5 style={{ margin: '0 0 1rem', fontWeight: 700 }}>🔍 Product Inspection</h5>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-                        {condSelect('Packaging Condition', 'packagingCondition')}
-                        {condSelect('Product Condition', 'productCondition')}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem', background: '#fff', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem', gridColumn: '1/-1', textTransform: 'uppercase' }}>Condition Checks</div>
-                        {checkRow('Has Damage', 'hasDamage')}
-                        {checkRow('Has Stain', 'hasStain')}
-                        {checkRow('Signs of Usage', 'hasUsage')}
-                        {checkRow('Tags Intact', 'hasTags')}
-                        {checkRow('Accessories Present', 'hasAccessories')}
-                    </div>
-                    {actionInput('Inspector Name', inspectionForm.inspector, e => setInspectionForm(f => ({ ...f, inspector: e.target.value })))}
-                    <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 700, display: 'block', marginBottom: '0.3rem', textTransform: 'uppercase', color: '#64748b' }}>INSPECTION NOTES</label>
-                        <textarea value={inspectionForm.notes} onChange={e => setInspectionForm(f => ({ ...f, notes: e.target.value }))}
-                            rows={3} placeholder="Describe inspection findings..."
-                            style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1.5px solid #e2e8f0', boxSizing: 'border-box', resize: 'vertical' }} />
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                        <button style={btnStyle('#059669')} disabled={actionLoading} onClick={() => performAction('inspection_approve')}>
-                            <CheckCircle size={14} /> {actionLoading ? 'Saving...' : 'Approve Return'}
-                        </button>
-                        <button style={btnStyle('#dc2626')} disabled={actionLoading} onClick={() => setActiveAction('inspection_reject')}>
-                            <XCircle size={14} /> Reject Return
-                        </button>
-                    </div>
-                    {activeAction === 'inspection_reject' && (
-                        <div style={{ marginTop: '1rem' }}>
-                            <div style={{ marginBottom: '0.75rem' }}>
-                                <label style={{ fontSize: '0.78rem', fontWeight: 700, display: 'block', marginBottom: '0.3rem', color: '#dc2626', textTransform: 'uppercase' }}>REJECTION REASON *</label>
-                                <textarea value={actionRejectionReason} onChange={e => setActionRejectionReason(e.target.value)}
-                                    rows={2} placeholder="Why is inspection being rejected?"
-                                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1.5px solid #fca5a5', boxSizing: 'border-box', resize: 'vertical' }} />
-                            </div>
-                            <button style={btnStyle('#dc2626')} disabled={actionLoading || !actionRejectionReason} onClick={() => performAction('inspection_reject')}>
-                                {actionLoading ? 'Saving...' : 'Confirm Rejection'}
-                            </button>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        // ── INSPECTION_APPROVED ─────────────────────────────────────────────
-        if (status === 'INSPECTION_APPROVED') return (
+        // ── INSPECTION_PASSED / INSPECTION_APPROVED ──────────────────────────
+        if (['INSPECTION_PASSED', 'INSPECTION_APPROVED'].includes(status)) return (
             <div>
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    <button style={btnStyle('#059669')} onClick={() => setActiveAction('refund')}><IndianRupee size={14} /> Process Refund</button>
-                    <button style={btnStyle('#7c3aed')} onClick={() => setActiveAction('exchange')}><RotateCcw size={14} /> Process Exchange</button>
+                <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '12px', border: '1.5px solid #bbf7d0', marginBottom: '1rem' }}>
+                    <div style={{ color: '#166534', fontWeight: 800, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <CheckCircle size={18} /> Quality Inspection Passed
+                    </div>
+                    {ret.inspection_notes && <div style={{ fontSize: '0.82rem', color: '#15803d', marginTop: '0.3rem' }}>Notes: {ret.inspection_notes}</div>}
                 </div>
 
-                {activeAction === 'refund' && (
-                    <div style={panelStyle}>
-                        <h5 style={{ margin: '0 0 0.75rem', fontWeight: 700 }}>Process Refund</h5>
-                        <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>
-                            Refund amount is calculated server-side from actual order total.
-                        </p>
-                        <div style={{ marginBottom: '0.75rem' }}>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, display: 'block', marginBottom: '0.3rem', textTransform: 'uppercase', color: '#64748b' }}>REFUND METHOD</label>
-                            <select value={refundForm.refundMethod} onChange={e => setRefundForm(f => ({ ...f, refundMethod: e.target.value }))}
-                                style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1.5px solid #e2e8f0' }}>
-                                <option value="ORIGINAL">Original Payment Method</option>
-                                <option value="UPI">UPI Transfer</option>
-                                <option value="BANK_TRANSFER">Bank Transfer</option>
-                                <option value="STORE_CREDIT">Store Credit</option>
-                            </select>
+                <div style={{ background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+                    <h5 style={{ margin: '0 0 0.5rem', fontWeight: 800, color: '#6d28d9', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Truck size={16} /> Dispatch Replacement Saree (EXCHANGE_SHIPPED)
+                    </h5>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4c1d95', display: 'block', marginBottom: '0.2rem' }}>COURIER COMPANY *</label>
+                            <input type="text" placeholder="e.g. BlueDart, Delhivery" value={exchangeShipForm.courierName} onChange={e => setExchangeShipForm(f => ({ ...f, courierName: e.target.value }))} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                         </div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.85rem', fontWeight: 600 }}>
-                            <input type="checkbox" checked={refundForm.reimburseShipping} onChange={e => setRefundForm(f => ({ ...f, reimburseShipping: e.target.checked }))} style={{ width: '16px', height: '16px' }} />
-                            Reimburse Customer's Return Shipping Cost (if applicable)
-                        </label>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button style={btnStyle('#059669')} disabled={actionLoading} onClick={() => performAction('process_refund')}>
-                                {actionLoading ? 'Processing...' : 'Initiate Refund'}
-                            </button>
-                            <button style={outlineBtn} onClick={() => setActiveAction(null)}>Cancel</button>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4c1d95', display: 'block', marginBottom: '0.2rem' }}>TRACKING / AWB NUMBER *</label>
+                            <input type="text" placeholder="e.g. AWB987654321" value={exchangeShipForm.trackingNumber} onChange={e => setExchangeShipForm(f => ({ ...f, trackingNumber: e.target.value }))} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                         </div>
                     </div>
-                )}
+                    <button style={btnStyle('#7c3aed')} disabled={actionLoading || !exchangeShipForm.courierName || !exchangeShipForm.trackingNumber} onClick={submitExchangeShip}>
+                        <Truck size={14} /> {actionLoading ? 'Dispatching...' : 'Dispatch Replacement Saree'}
+                    </button>
+                </div>
+            </div>
+        );
 
-                {activeAction === 'exchange' && (
-                    <div style={panelStyle}>
-                        <h5 style={{ margin: '0 0 0.75rem', fontWeight: 700 }}>Process Exchange</h5>
-                        {actionInput('Replacement Product ID', exchangeForm.replacementProductId, e => setExchangeForm(f => ({ ...f, replacementProductId: e.target.value })), 'text', 'Product ID from database')}
-                        {actionInput('Exchange Notes', exchangeForm.exchangeNotes, e => setExchangeForm(f => ({ ...f, exchangeNotes: e.target.value })), 'text', 'Notes about exchange item')}
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button style={btnStyle('#7c3aed')} disabled={actionLoading} onClick={() => performAction('process_exchange')}>
-                                {actionLoading ? 'Processing...' : 'Start Exchange'}
-                            </button>
-                            <button style={outlineBtn} onClick={() => setActiveAction(null)}>Cancel</button>
-                        </div>
-                    </div>
-                )}
+        // ── EXCHANGE_SHIPPED ────────────────────────────────────────────────
+        if (status === 'EXCHANGE_SHIPPED') return (
+            <div style={{ background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ color: '#6d28d9', fontWeight: 800, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Truck size={18} /> Replacement Saree Dispatched (EXCHANGE_SHIPPED)
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#4c1d95' }}>
+                    <div>Courier: <strong>{ret.exchange_courier_name || 'Courier'}</strong></div>
+                    <div>Tracking Number: <strong style={{ fontFamily: 'monospace' }}>{ret.exchange_tracking_number || 'N/A'}</strong></div>
+                </div>
+                <button
+                    onClick={() => openNotificationModal(ret)}
+                    style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                        padding: '0.65rem 1.25rem', background: '#c2410c', color: '#fff',
+                        borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '0.85rem',
+                        cursor: 'pointer', boxShadow: '0 4px 12px rgba(194, 65, 12, 0.2)'
+                    }}
+                >
+                    <Send size={15} /> Send Notification
+                </button>
             </div>
         );
 
@@ -710,7 +841,7 @@ export default function AdminReturnsPage() {
                                         </td>
                                         <td><StatusBadge status={r.status} /></td>
                                         <td style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                                            {new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                            {formatAppDate(r.created_at, false)}
                                         </td>
                                         <td>
                                             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -809,7 +940,7 @@ export default function AdminReturnsPage() {
                                         <span style={{ marginLeft: '0.75rem' }}><StatusBadge status={detailReturn.status} /></span>
                                     </div>
                                     <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                                        Requested on: {new Date(detailReturn.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        Requested on: {formatAppDate(detailReturn.created_at, true)}
                                     </div>
                                 </div>
                                 <button onClick={() => setDetailReturn(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '0.4rem', cursor: 'pointer' }}>
@@ -835,17 +966,39 @@ export default function AdminReturnsPage() {
                                                             : `#INV-${detailReturn.order_id}`}
                                                     </strong>
                                                 </div>
-                                                <div><span style={{ color: '#64748b' }}>Requested Date:</span> <strong>{new Date(detailReturn.created_at).toLocaleDateString('en-IN')}</strong></div>
+                                                <div><span style={{ color: '#64748b' }}>Requested Date:</span> <strong>{formatAppDate(detailReturn.created_at, false)}</strong></div>
                                                 <div><span style={{ color: '#64748b' }}>Return Type:</span> <strong>{detailReturn.type || 'RETURN'}</strong></div>
-                                                <div style={{ gridColumn: 'span 2' }}><span style={{ color: '#64748b' }}>Reason:</span> <strong>{detailReturn.reason}</strong></div>
+                                                <div>
+                                                    <span style={{ color: '#64748b' }}>Condition:</span>{' '}
+                                                    {detailReturn.product_condition === 'DAMAGED' || (detailReturn.reason && detailReturn.reason.toLowerCase().includes('damage')) ? (
+                                                        <span style={{ padding: '0.2rem 0.55rem', borderRadius: '6px', background: '#fee2e2', color: '#991b1b', fontWeight: 800, fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                            <AlertCircle size={12} /> DAMAGED PRODUCT
+                                                        </span>
+                                                    ) : (
+                                                        <strong>{detailReturn.product_condition || 'Standard'}</strong>
+                                                    )}
+                                                </div>
+                                                <div><span style={{ color: '#64748b' }}>Reason:</span> <strong>{detailReturn.reason}</strong></div>
                                                 {detailReturn.description && <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#64748b' }}>Customer Notes:</span> {detailReturn.description}</div>}
                                             </div>
                                         </div>
 
                                         {/* 2. Customer Information */}
                                         <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e2e8f0' }}>
-                                            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                <User size={14} /> Customer Details
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                    <User size={14} /> Customer Details
+                                                </div>
+                                                <button
+                                                    onClick={() => openNotificationModal(detailReturn)}
+                                                    style={{
+                                                        padding: '0.35rem 0.85rem', borderRadius: '8px', border: 'none',
+                                                        background: '#c2410c', color: '#fff', fontSize: '0.78rem', fontWeight: 700,
+                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem'
+                                                    }}
+                                                >
+                                                    <Send size={14} /> Send Notification
+                                                </button>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', fontSize: '0.88rem' }}>
                                                 <div><span style={{ color: '#64748b' }}>Customer Name:</span> <strong style={{ color: '#1e293b' }}>{detailReturn.customers?.name || detailReturn.orders?.customer_name || 'Customer'}</strong></div>
@@ -865,7 +1018,7 @@ export default function AdminReturnsPage() {
                                                         src={detailReturn.products.image_url}
                                                         alt=""
                                                         onClick={() => setPreviewImage(detailReturn.products.image_url)}
-                                                        style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: '1.5.px solid #cbd5e1', cursor: 'pointer', flexShrink: 0 }}
+                                                        style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: '1.5px solid #cbd5e1', cursor: 'pointer', flexShrink: 0 }}
                                                     />
                                                 ) : (
                                                     <div style={{ width: '90px', height: '90px', borderRadius: '10px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -877,27 +1030,68 @@ export default function AdminReturnsPage() {
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', fontSize: '0.85rem', marginTop: '0.5rem' }}>
                                                         <div><span style={{ color: '#64748b' }}>Order Price:</span> <strong>₹{detailReturn.products?.price || detailReturn.orders?.total_amount || 0}</strong></div>
                                                         <div><span style={{ color: '#64748b' }}>Order ID:</span> <strong>#{detailReturn.order_id}</strong></div>
-                                                        <div><span style={{ color: '#64748b' }}>Order Date:</span> <strong>{new Date(detailReturn.orders?.created_at || detailReturn.created_at).toLocaleDateString('en-IN')}</strong></div>
+                                                        <div><span style={{ color: '#64748b' }}>Order Date:</span> <strong>{formatAppDate(detailReturn.orders?.created_at || detailReturn.created_at, false)}</strong></div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* 4. Customer Uploaded Return Photos */}
-                                        {detailReturn.images && detailReturn.images.length > 0 && (
-                                            <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e2e8f0' }}>
-                                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                    <Camera size={14} /> Customer Uploaded Return Photos ({detailReturn.images.length})
-                                                </div>
-                                                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                                    {detailReturn.images.map(img => (
-                                                        <div key={img.id} onClick={() => setPreviewImage(img.image_url)} style={{ cursor: 'pointer' }}>
-                                                            <img src={img.image_url} alt="" style={{ width: '84px', height: '84px', objectFit: 'cover', borderRadius: '8px', border: '1.5px solid #cbd5e1' }} />
+                                        {/* 4. Customer Uploaded Return / Damaged Product Photos */}
+                                        {(() => {
+                                            let photoArray = [];
+                                            
+                                            // 1. Array from images or return_images
+                                            if (Array.isArray(detailReturn.images)) photoArray.push(...detailReturn.images);
+                                            if (Array.isArray(detailReturn.return_images)) photoArray.push(...detailReturn.return_images);
+                                            if (Array.isArray(detailReturn.customer_photos)) photoArray.push(...detailReturn.customer_photos);
+
+                                            // 2. Parsed JSON from photo_urls field if present
+                                            if (detailReturn.photo_urls) {
+                                                try {
+                                                    const parsed = typeof detailReturn.photo_urls === 'string' ? JSON.parse(detailReturn.photo_urls) : detailReturn.photo_urls;
+                                                    if (Array.isArray(parsed)) photoArray.push(...parsed);
+                                                } catch (e) {}
+                                            }
+
+                                            // Filter duplicates and normalize to image URL string
+                                            const returnPhotos = photoArray
+                                                .map(img => typeof img === 'string' ? img : (img?.image_url || img?.url || img))
+                                                .filter(Boolean)
+                                                .filter((url, idx, arr) => arr.indexOf(url) === idx);
+
+                                            return (
+                                                <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e2e8f0' }}>
+                                                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                            <Camera size={16} /> Customer / Damaged Product Photos ({returnPhotos.length})
                                                         </div>
-                                                    ))}
+                                                        {detailReturn.product_condition === 'DAMAGED' || (detailReturn.reason && detailReturn.reason.toLowerCase().includes('damage')) ? (
+                                                            <span style={{ background: '#fee2e2', color: '#991b1b', fontSize: '0.7rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '20px' }}>
+                                                                ⚠️ Damaged Product Proof
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+
+                                                    {returnPhotos.length > 0 ? (
+                                                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                                            {returnPhotos.map((imgUrl, idx) => (
+                                                                <div key={idx} onClick={() => setPreviewImage(imgUrl)} style={{ cursor: 'pointer', position: 'relative' }}>
+                                                                    <img src={imgUrl} alt="Damaged product photo proof" style={{ width: '96px', height: '96px', objectFit: 'cover', borderRadius: '10px', border: '2px solid #4f46e5', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }} />
+                                                                    <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: '4px', padding: '1px 4px', fontSize: '0.65rem', fontWeight: 700 }}>
+                                                                        View
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ padding: '1.25rem', background: '#fff', borderRadius: '10px', border: '1px dashed #cbd5e1', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                                                            <Camera size={24} style={{ opacity: 0.3, marginBottom: '0.4rem' }} />
+                                                            <div>No product proof photos uploaded by customer during initial request submission.</div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
 
                                         {/* 5. Customer Shipped Courier Info (from return_shipping table) */}
                                         {detailReturn.returnShipping && (
@@ -908,7 +1102,7 @@ export default function AdminReturnsPage() {
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.88rem' }}>
                                                     <div><span style={{ color: '#64748b' }}>Courier Company:</span> <strong>{detailReturn.returnShipping.courier_company_name}</strong></div>
                                                     <div><span style={{ color: '#64748b' }}>Tracking / AWB Number:</span> <strong style={{ fontFamily: 'monospace', color: '#4f46e5' }}>{detailReturn.returnShipping.tracking_number}</strong></div>
-                                                    <div><span style={{ color: '#64748b' }}>Shipping Date:</span> <strong>{new Date(detailReturn.returnShipping.shipping_date).toLocaleDateString('en-IN')}</strong></div>
+                                                    <div><span style={{ color: '#64748b' }}>Shipping Date:</span> <strong>{formatAppDate(detailReturn.returnShipping.shipping_date, false)}</strong></div>
                                                     <div><span style={{ color: '#64748b' }}>Declared Cost:</span> <strong>{detailReturn.returnShipping.shipping_cost ? `₹${detailReturn.returnShipping.shipping_cost}` : 'Not specified'}</strong></div>
                                                 </div>
                                                 {detailReturn.returnShipping.receipt_url && (
@@ -939,10 +1133,10 @@ export default function AdminReturnsPage() {
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
                                                     <div><span style={{ color: '#94a3b8' }}>Packaging:</span> <strong>{detailReturn.inspection.packaging_condition}</strong></div>
                                                     <div><span style={{ color: '#94a3b8' }}>Product:</span> <strong>{detailReturn.inspection.product_condition}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Damage:</span> <strong>{detailReturn.inspection.has_damage ? '⚠️ Yes' : '✅ No'}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Stain:</span> <strong>{detailReturn.inspection.has_stain ? '⚠️ Yes' : '✅ No'}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Usage:</span> <strong>{detailReturn.inspection.has_usage ? '⚠️ Yes' : '✅ No'}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Tags:</span> <strong>{detailReturn.inspection.has_tags ? '✅ Intact' : '❌ Missing'}</strong></div>
+                                                    <div><span style={{ color: '#94a3b8' }}>Damage:</span> <strong style={{ color: detailReturn.inspection.has_damage ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_damage ? 'Yes' : 'No'}</strong></div>
+                                                    <div><span style={{ color: '#94a3b8' }}>Stain:</span> <strong style={{ color: detailReturn.inspection.has_stain ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_stain ? 'Yes' : 'No'}</strong></div>
+                                                    <div><span style={{ color: '#94a3b8' }}>Usage:</span> <strong style={{ color: detailReturn.inspection.has_usage ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_usage ? 'Yes' : 'No'}</strong></div>
+                                                    <div><span style={{ color: '#94a3b8' }}>Tags:</span> <strong style={{ color: detailReturn.inspection.has_tags ? '#166534' : '#dc2626' }}>{detailReturn.inspection.has_tags ? 'Intact' : 'Missing'}</strong></div>
                                                     <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#94a3b8' }}>Result:</span> <StatusBadge status={detailReturn.inspection.result === 'APPROVED' ? 'INSPECTION_APPROVED' : detailReturn.inspection.result === 'REJECTED' ? 'INSPECTION_REJECTED' : 'INSPECTION_PENDING'} /></div>
                                                     {detailReturn.inspection.rejection_reason && <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#dc2626' }}>Rejection Reason:</span> {detailReturn.inspection.rejection_reason}</div>}
                                                     {detailReturn.inspection.inspection_notes && <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#94a3b8' }}>Notes:</span> {detailReturn.inspection.inspection_notes}</div>}
@@ -971,7 +1165,7 @@ export default function AdminReturnsPage() {
                                                             </div>
                                                             {log.notes && <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{log.notes}</div>}
                                                             <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                                                                {new Date(log.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                                {formatAppDate(log.created_at, true)}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1001,6 +1195,115 @@ export default function AdminReturnsPage() {
                             <button onClick={() => setPreviewImage(null)} style={{ position: 'absolute', top: '-15px', right: '-15px', background: '#fff', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
                                 <X size={18} />
                             </button>
+                        </div>
+                    </div>
+                </ModalPortal>
+            )}
+
+            {/* ─── Send Notification Modal ─────────────────────────────────────── */}
+            {showNotificationModal && notificationTargetReturn && (
+                <ModalPortal>
+                    <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px'
+                    }} onClick={() => setShowNotificationModal(false)}>
+                        <div style={{
+                            background: '#fff', borderRadius: '24px', width: '100%', maxWidth: '460px',
+                            padding: '1.75rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                            border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '1.25rem'
+                        }} onClick={e => e.stopPropagation()}>
+                            
+                            {/* Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#1e293b' }}>
+                                    <Send size={20} color="hsl(var(--primary))" /> Send Notification
+                                </h3>
+                                <button onClick={() => setShowNotificationModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {/* WhatsApp Channel */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={sendWhatsAppChecked}
+                                            onChange={e => setSendWhatsAppChecked(e.target.checked)}
+                                            style={{ width: '18px', height: '18px', accentColor: '#10b981', cursor: 'pointer' }}
+                                        />
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <MessageSquare size={16} color="#10b981" /> WhatsApp
+                                        </span>
+                                    </label>
+                                    {sendWhatsAppChecked && (
+                                        <input
+                                            type="text"
+                                            value={notificationPhone}
+                                            onChange={e => setNotificationPhone(e.target.value)}
+                                            placeholder="+91 98765 43210"
+                                            style={{
+                                                width: '100%', padding: '0.75rem 0.85rem', borderRadius: '12px',
+                                                border: '1.5px solid #e2e8f0', fontSize: '0.9rem', color: '#1e293b', background: '#f8fafc',
+                                                boxSizing: 'border-box', outline: 'none'
+                                            }}
+                                        />
+                                    )}
+                                </div>
+
+                                {/* Email Channel */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={sendEmailChecked}
+                                            onChange={e => setSendEmailChecked(e.target.checked)}
+                                            style={{ width: '18px', height: '18px', accentColor: '#c2410c', cursor: 'pointer' }}
+                                        />
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <FileText size={16} color="#c2410c" /> Email
+                                        </span>
+                                    </label>
+                                    {sendEmailChecked && (
+                                        <input
+                                            type="text"
+                                            value={notificationEmail}
+                                            onChange={e => setNotificationEmail(e.target.value)}
+                                            placeholder="customer@example.com"
+                                            style={{
+                                                width: '100%', padding: '0.75rem 0.85rem', borderRadius: '12px',
+                                                border: '1.5px solid #e2e8f0', fontSize: '0.9rem', color: '#1e293b', background: '#f8fafc',
+                                                boxSizing: 'border-box', outline: 'none'
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Footer Buttons */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                                <button
+                                    onClick={() => setShowNotificationModal(false)}
+                                    style={{
+                                        padding: '0.65rem 1.5rem', borderRadius: '12px', border: '1.5px solid #e2e8f0',
+                                        background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={sendCustomerNotification}
+                                    disabled={sendingNotification || (!sendWhatsAppChecked && !sendEmailChecked)}
+                                    style={{
+                                        padding: '0.65rem 2rem', borderRadius: '12px', border: 'none',
+                                        background: '#c2410c', color: '#fff', fontWeight: 700, cursor: 'pointer',
+                                        opacity: sendingNotification || (!sendWhatsAppChecked && !sendEmailChecked) ? 0.6 : 1
+                                    }}
+                                >
+                                    {sendingNotification ? 'Sending...' : 'Send'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </ModalPortal>

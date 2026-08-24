@@ -409,8 +409,38 @@ export default function ProfilePage() {
                 .select('*')
                 .eq('customer_id', user.id)
                 .order('is_default', { ascending: false });
-            if (!error && data) {
+            
+            if (!error && data && data.length > 0) {
                 setAddresses(data);
+            } else {
+                // Fallback: Check if address exists in customers table and populate customer_addresses
+                const phone = user.phone || '';
+                const { data: custData } = await supabase
+                    .from('customers')
+                    .select('*')
+                    .or(`id.eq.${user.id},phone.eq.${phone}`)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (custData && (custData.address || custData.city || custData.state || custData.pincode)) {
+                    const newAddr = {
+                        id: `addr-${Date.now()}`,
+                        customer_id: user.id,
+                        name: custData.name || user.name || 'Default Address',
+                        phone: custData.phone || user.phone || '',
+                        address: custData.address || '',
+                        address_line: custData.address || '',
+                        city: custData.city || '',
+                        state: custData.state || '',
+                        pincode: custData.pincode || '',
+                        country: 'India',
+                        is_default: 1
+                    };
+                    await supabase.from('customer_addresses').insert(newAddr);
+                    setAddresses([newAddr]);
+                } else {
+                    setAddresses(data || []);
+                }
             }
         } catch (err) {
             console.error('Fetch addresses error:', err);
@@ -452,15 +482,21 @@ export default function ProfilePage() {
             }
 
             const { data, error } = await supabase
-                .from('refunds')
-                .select('*, orders:order_id(id, created_at, customer_phone)')
+                .from('refund_requests')
+                .select('*, orders:order_id(id, created_at, customer_phone, invoice_no), refund_shipments(*)')
                 .in('order_id', orderIds)
                 .order('created_at', { ascending: false });
 
             if (!error && data) {
                 setRefunds(data);
             } else if (error) {
-                console.error('Fetch refunds query error:', error);
+                // Fallback to legacy refunds table if refund_requests fails
+                const { data: legacyData } = await supabase
+                    .from('refunds')
+                    .select('*, orders:order_id(id, created_at, customer_phone)')
+                    .in('order_id', orderIds)
+                    .order('created_at', { ascending: false });
+                setRefunds(legacyData || []);
             }
         } catch (err) {
             console.error('Fetch refunds error:', err);
@@ -629,7 +665,7 @@ export default function ProfilePage() {
             return;
         }
 
-        const [orderId, productId, itemPrice] = refundForm.orderItemKey.split('::');
+        const [orderId, productId] = refundForm.orderItemKey.split('::');
         const finalReason = refundForm.reason === 'Other' ? refundForm.otherReason : refundForm.reason;
 
         if (!finalReason) {
@@ -639,26 +675,21 @@ export default function ProfilePage() {
 
         setSubmittingRefund(true);
         try {
-            const refundPayload = {
-                order_id: orderId,
-                amount: parseFloat(refundForm.amount) || parseFloat(itemPrice) || 0,
-                reason: finalReason,
-                refund_method: refundForm.upiId ? 'UPI' : 'ORIGINAL',
-                bank_account_details: refundForm.upiId || null,
-                status: 'REQUESTED',
-                notes: refundForm.upiId ? `UPI Payout ID: ${refundForm.upiId}` : 'Original payment method'
-            };
+            const res = await fetch('/api/refund-requests/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: orderId,
+                    order_item_id: productId && productId !== 'undefined' ? productId : null,
+                    customer_id: user.id,
+                    reason: finalReason,
+                    customer_note: refundForm.otherReason || null
+                })
+            });
 
-            const { data: insertedRefund, error } = await supabase.from('refunds').insert(refundPayload).select().single();
-            if (error) throw error;
-
-            // Trigger WhatsApp confirmation to customer
-            if (insertedRefund?.id) {
-                fetch('/api/refunds/notify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refundId: insertedRefund.id, status: 'REQUESTED' })
-                }).catch(err => console.error('WA Notify Error:', err));
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to submit refund request');
             }
 
             showToast('Refund request submitted successfully!');
@@ -669,6 +700,31 @@ export default function ProfilePage() {
             showToast(err?.message || 'Failed to submit refund request', 'error');
         } finally {
             setSubmittingRefund(false);
+        }
+    }
+
+    // Submit Refund Shipping Details (When status === 'RETURN_REQUIRED')
+    async function handleRefundShippingSubmit(refundRequestId, shippingData) {
+        try {
+            const res = await fetch('/api/refund-requests/submit-shipping', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    refundRequestId,
+                    ...shippingData
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to submit shipping details');
+            }
+
+            showToast('Shipping details submitted successfully!');
+            fetchRefunds();
+        } catch (err) {
+            console.error('Error submitting shipping details:', err?.message || err);
+            showToast(err?.message || 'Failed to submit shipping details', 'error');
         }
     }
 
@@ -1552,7 +1608,7 @@ export default function ProfilePage() {
                         </>
                     )}
 
-                    {/* TAB 4: REFUND REQUESTS & FORM (Matching Handwritten Note 4) */}
+                    {/* TAB 4: REFUND REQUESTS & FORM */}
                     {activeTab === 'refund' && (
                         <section className={styles.profileSection}>
                             <div className={styles.sectionHeader}>
@@ -1600,26 +1656,15 @@ export default function ProfilePage() {
                                         </div>
 
                                         <div className={styles.formGroup}>
-                                            <label>REFUND AMOUNT (₹)</label>
+                                            <label>ELIGIBLE REFUND AMOUNT (₹)</label>
                                             <input 
-                                                type="number" 
-                                                placeholder="Amount" 
-                                                value={refundForm.amount} 
-                                                onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })} 
+                                                type="text" 
+                                                readOnly
+                                                value={refundForm.amount ? `₹${Number(refundForm.amount).toLocaleString('en-IN')}` : 'Select a product to view amount'} 
+                                                disabled
+                                                style={{ background: 'hsl(var(--text-main) / 0.05)', cursor: 'not-allowed', color: 'hsl(var(--primary))', fontWeight: 700 }}
                                             />
                                         </div>
-                                    </div>
-
-                                    <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
-                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            UPI ID FOR DIRECT REFUND PAYOUT (OPTIONAL)
-                                        </label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="e.g. 9876543210@upi or name@okaxis (for direct bank transfer)" 
-                                            value={refundForm.upiId || ''} 
-                                            onChange={(e) => setRefundForm({ ...refundForm, upiId: e.target.value })} 
-                                        />
                                     </div>
 
                                     {refundForm.reason === 'Other' && (
@@ -1642,8 +1687,8 @@ export default function ProfilePage() {
                                 </form>
                             </div>
 
-                            {/* Refund Requests Table (Matching Handwritten Table Layout) */}
-                            <h4 style={{ margin: '0 0 1rem 0', fontWeight: 800 }}>Submitted Refund Requests History</h4>
+                            {/* Submitted Refund Requests History */}
+                            <h4 style={{ margin: '1.5rem 0 1rem 0', fontWeight: 800 }}>Submitted Refund Requests History</h4>
                             {loadingRefunds ? (
                                 <div className={styles.loadingState}>Loading refund requests...</div>
                             ) : refunds.length === 0 ? (
@@ -1652,48 +1697,172 @@ export default function ProfilePage() {
                                     <p>No refund requests submitted yet.</p>
                                 </div>
                             ) : (
-                                <div className={styles.tableContainer}>
-                                    <table className={styles.dataTable}>
-                                        <thead>
-                                            <tr>
-                                                <th>Refund ID</th>
-                                                <th>Order ID</th>
-                                                <th>Date</th>
-                                                <th>Amount</th>
-                                                <th>Reason</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {refunds.map(r => {
-                                                const displayOrderInv = r.orders?.invoice_no 
-                                                    ? (r.orders.invoice_no.startsWith('#') ? r.orders.invoice_no : `#${r.orders.invoice_no}`)
-                                                    : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                    {refunds.map(r => {
+                                        const displayOrderInv = r.orders?.invoice_no 
+                                            ? (r.orders.invoice_no.startsWith('#') ? r.orders.invoice_no : `#${r.orders.invoice_no}`)
+                                            : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
 
-                                                const st = (r.status || 'REQUESTED').toUpperCase();
-                                                let badgeText = 'Under Review';
-                                                let badgeClass = styles.badgeRequested;
-                                                if (st === 'APPROVED') { badgeText = 'Approved & Processing'; badgeClass = styles.badgeApproved; }
-                                                else if (st === 'COMPLETED') { badgeText = 'Refund Credited'; badgeClass = styles.badgeCompleted; }
-                                                else if (st === 'REJECTED') { badgeText = 'Request Declined'; badgeClass = styles.badgeRejected; }
+                                        const refundIdDisplay = r.refund_id || `RF-${String(r.id).substring(0, 8)}`;
+                                        const refStatus = (r.refund_status || r.status || 'REFUND_REQUESTED').toUpperCase();
+                                        const retStatus = (r.return_status || 'RETURN_REQUIRED').toUpperCase();
+                                        const amountDisplay = r.approved_amount || r.requested_amount || r.amount || 0;
 
-                                                return (
-                                                    <tr key={r.id}>
-                                                        <td><strong>#{String(r.id).substring(0, 8)}</strong></td>
-                                                        <td><strong>{displayOrderInv}</strong></td>
-                                                        <td>{new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                                        <td><strong>₹{(r.amount || 0).toLocaleString('en-IN')}</strong></td>
-                                                        <td>{r.reason || 'N/A'}</td>
-                                                        <td>
-                                                            <span className={badgeClass}>
-                                                                {badgeText}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                        let badgeColor = { bg: '#fef3c7', text: '#92400e', label: 'Refund Requested' };
+                                        if (refStatus === 'UNDER_REVIEW') badgeColor = { bg: '#fef3c7', text: '#92400e', label: 'Under Review' };
+                                        else if (refStatus === 'APPROVED') badgeColor = { bg: '#dbeafe', text: '#1e40af', label: 'Approved' };
+                                        else if (refStatus === 'RETURN_REQUIRED') badgeColor = { bg: '#fff7ed', text: '#c2410c', label: 'Return Required' };
+                                        else if (refStatus === 'CUSTOMER_SHIPPED') badgeColor = { bg: '#e0e7ff', text: '#3730a3', label: 'Customer Shipped' };
+                                        else if (refStatus === 'RETURN_RECEIVED') badgeColor = { bg: '#f0fdf4', text: '#15803d', label: 'Return Received' };
+                                        else if (refStatus === 'REFUND_PROCESSING') badgeColor = { bg: '#fef9c3', text: '#854d0e', label: 'Refund Processing' };
+                                        else if (refStatus === 'REFUNDED') badgeColor = { bg: '#dcfce7', text: '#166534', label: 'Refunded' };
+                                        else if (refStatus === 'REJECTED') badgeColor = { bg: '#fee2e2', text: '#991b1b', label: 'Rejected' };
+                                        else if (refStatus === 'CANCELLED') badgeColor = { bg: '#f3f4f6', text: '#4b5563', label: 'Cancelled' };
+                                        else if (refStatus === 'REFUND_FAILED') badgeColor = { bg: '#fee2e2', text: '#991b1b', label: 'Refund Failed' };
+
+                                        const shipment = Array.isArray(r.refund_shipments) ? r.refund_shipments[0] : (r.refund_shipments || null);
+
+                                        return (
+                                            <div key={r.id} style={{
+                                                background: '#ffffff', borderRadius: '14px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))',
+                                                padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                                            }}>
+                                                {/* Card Header */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.85rem' }}>
+                                                    <div>
+                                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--primary))', letterSpacing: '0.05em' }}>
+                                                            {refundIdDisplay}
+                                                        </span>
+                                                        <h4 style={{ margin: '2px 0 0', fontSize: '1.05rem', fontWeight: 800 }}>
+                                                            Invoice: {displayOrderInv}
+                                                        </h4>
+                                                        <span style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted))' }}>
+                                                            Requested on {new Date(r.created_at || r.requested_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                        <span style={{
+                                                            fontSize: '0.75rem', fontWeight: 800, padding: '0.3rem 0.75rem', borderRadius: '20px',
+                                                            background: badgeColor.bg, color: badgeColor.text
+                                                        }}>
+                                                            {badgeColor.label}
+                                                        </span>
+                                                        <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
+                                                            ₹{Number(amountDisplay).toLocaleString('en-IN')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Details */}
+                                                <div style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '0.85rem' }}>
+                                                    <strong>Reason:</strong> {r.reason || 'N/A'}
+                                                    {r.customer_note && (
+                                                        <div style={{ marginTop: '0.35rem', fontSize: '0.82rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '8px' }}>
+                                                            Note: {r.customer_note}
+                                                        </div>
+                                                    )}
+                                                    {r.admin_note && (
+                                                        <div style={{ marginTop: '0.35rem', fontSize: '0.82rem', color: '#1e40af', background: '#eff6ff', padding: '0.5rem 0.75rem', borderRadius: '8px' }}>
+                                                            Admin Note: {r.admin_note}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Section for RETURN_REQUIRED (Customer needs to ship saree) */}
+                                                {(refStatus === 'RETURN_REQUIRED' || refStatus === 'APPROVED') && (
+                                                    <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: '12px', padding: '1rem', marginTop: '1rem' }}>
+                                                        <h5 style={{ margin: '0 0 0.5rem 0', color: '#c2410c', fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <Truck size={16} /> Return Address & Shipping Required
+                                                        </h5>
+                                                        <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.82rem', color: '#9a3412' }}>
+                                                            Please ship your product to our return address below and submit courier details:
+                                                        </p>
+                                                        <div style={{ background: '#ffffff', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.84rem', color: '#1e293b', marginBottom: '1rem', fontWeight: 600 }}>
+                                                            🏢 <strong>VAIYAAREE Returns Dept.</strong><br />
+                                                            16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015
+                                                        </div>
+
+                                                        {/* Shipping Submission Form */}
+                                                        <form onSubmit={async (e) => {
+                                                            e.preventDefault();
+                                                            const fd = new FormData(e.target);
+                                                            let receiptUrl = '';
+                                                            const file = fd.get('receipt_file');
+                                                            if (file && file.name && file.size > 0) {
+                                                                const upFd = new FormData();
+                                                                upFd.append('file', file);
+                                                                try {
+                                                                    const upRes = await fetch('/api/refund-requests/upload-receipt', { method: 'POST', body: upFd });
+                                                                    const upData = await upRes.json();
+                                                                    if (upData.url) receiptUrl = upData.url;
+                                                                } catch (err) {
+                                                                    console.error('Receipt upload error:', err);
+                                                                }
+                                                            }
+                                                            handleRefundShippingSubmit(r.id, {
+                                                                courierCompany: fd.get('courier_company'),
+                                                                trackingNumber: fd.get('tracking_number'),
+                                                                shippingDate: fd.get('shipping_date'),
+                                                                shippingCost: fd.get('shipping_cost'),
+                                                                receiptUrl,
+                                                                customerNotes: fd.get('customer_notes')
+                                                            });
+                                                        }}>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>COURIER COMPANY *</label>
+                                                                    <input name="courier_company" required placeholder="e.g. DTDC, BlueDart" style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.85rem' }} />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>TRACKING / AWB NO *</label>
+                                                                    <input name="tracking_number" required placeholder="Tracking Number" style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.85rem' }} />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>SHIPPING DATE</label>
+                                                                    <input type="date" name="shipping_date" defaultValue={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.85rem' }} />
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>UPLOAD RECEIPT (OPTIONAL)</label>
+                                                                    <input type="file" name="receipt_file" accept="image/*,.pdf" style={{ fontSize: '0.8rem' }} />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>NOTES</label>
+                                                                    <input name="customer_notes" placeholder="Optional notes..." style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.85rem' }} />
+                                                                </div>
+                                                            </div>
+                                                            <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 700, background: '#c2410c', border: 'none', borderRadius: '8px' }}>
+                                                                Submit Courier Details
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                )}
+
+                                                {/* Section for CUSTOMER_SHIPPED */}
+                                                {shipment && (
+                                                    <div style={{ background: '#e0e7ff', borderRadius: '10px', padding: '0.75rem 1rem', marginTop: '0.75rem', fontSize: '0.82rem', color: '#3730a3', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        <div>
+                                                            <strong>Courier:</strong> {shipment.courier_company || 'N/A'} • <strong>Tracking:</strong> {shipment.tracking_number || 'N/A'}
+                                                            {shipment.shipping_date && <span> • <strong>Date:</strong> {shipment.shipping_date}</span>}
+                                                        </div>
+                                                        {shipment.receipt_url && (
+                                                            <a href={shipment.receipt_url} target="_blank" rel="noopener noreferrer" style={{ color: '#3730a3', fontWeight: 700, textDecoration: 'underline' }}>
+                                                                View Receipt
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Section for REFUNDED */}
+                                                {refStatus === 'REFUNDED' && (
+                                                    <div style={{ background: '#dcfce7', borderRadius: '10px', padding: '0.75rem 1rem', marginTop: '0.75rem', fontSize: '0.82rem', color: '#166534', fontWeight: 600 }}>
+                                                        ✅ Refund Completed! ₹{Number(amountDisplay).toLocaleString('en-IN')} has been returned to your original payment method.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </section>

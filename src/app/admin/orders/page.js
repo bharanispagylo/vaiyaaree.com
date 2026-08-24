@@ -1982,14 +1982,6 @@ export default function OrdersPage() {
                                                                     </div>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                                                         <div style={{ fontWeight: 800, fontSize: '1.25rem', color: 'hsl(var(--success))' }}>₹{(((item.quantity - (item.returned_quantity || 0)) * item.price_at_time) || 0).toLocaleString()}</div>
-                                                                        {['PAID', 'PACKING', 'SHIPPED', 'DELIVERED'].includes(selectedOrder.status) && (
-                                                                            <button
-                                                                                onClick={() => { setReturningItem(item); setReturnQty(1); }}
-                                                                                style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700 }}
-                                                                            >
-                                                                                <RefreshCw size={12} /> Return
-                                                                            </button>
-                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             )}

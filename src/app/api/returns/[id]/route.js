@@ -35,14 +35,27 @@ export async function GET(request, { params }) {
 
         const id = ret.id;
 
+        let { data: images } = await supabaseAdmin.from('return_images')
+            .select('*')
+            .eq('return_request_id', id)
+            .order('uploaded_at', { ascending: true });
+
+        if ((!images || images.length === 0) && ret.return_id) {
+            const { data: images2 } = await supabaseAdmin.from('return_images')
+                .select('*')
+                .eq('return_request_id', ret.return_id)
+                .order('uploaded_at', { ascending: true });
+            if (images2 && images2.length > 0) {
+                images = images2;
+            }
+        }
+
         const [
-            { data: images },
             { data: logs },
             { data: shipments },
             { data: returnShipping },
             { data: inspection },
         ] = await Promise.all([
-            supabaseAdmin.from('return_images').select('*').eq('return_request_id', id).order('uploaded_at', { ascending: true }),
             supabaseAdmin.from('return_status_logs').select('*').eq('return_request_id', id).order('created_at', { ascending: true }),
             supabaseAdmin.from('return_courier_shipments').select('*').eq('return_request_id', id).order('created_at', { ascending: true }),
             supabaseAdmin.from('return_shipping').select('*').eq('return_request_id', id).order('created_at', { ascending: false }).maybeSingle(),
@@ -75,7 +88,7 @@ export async function PATCH(request, { params }) {
         }
 
         const body = await request.json();
-        const { action, notes, rejectionReason, courierData, inspectionData, refundData, exchangeData, actor = 'admin' } = body;
+        const { action, status, notes, rejectionReason, courierData, inspectionData, refundData, exchangeData, actor = 'admin' } = body;
 
         // Fetch current state by ID or return_id
         let { data: ret } = await supabaseAdmin.from('return_requests').select('*').eq('id', rawId).maybeSingle();
@@ -87,9 +100,51 @@ export async function PATCH(request, { params }) {
         if (!ret) return NextResponse.json({ error: 'Return request not found' }, { status: 404 });
 
         const id = ret.id;
+        const currentStatus = ret.status;
+
+        // Normalize action or map status string if passed instead of action
+        let effectiveAction = (action || '').toString().toLowerCase().trim();
+        if (!effectiveAction && status) {
+            const s = status.toString().toUpperCase().trim();
+            const statusMap = {
+                'RETURN_APPROVED': 'approve',
+                'APPROVED': 'approve',
+                'RETURN_REJECTED': 'reject',
+                'REJECTED': 'reject',
+                'RECEIVED_BY_COMPANY': 'mark_received',
+                'RECEIVED': 'mark_received',
+                'INSPECTION_PENDING': 'start_inspection',
+                'UNDER_INSPECTION': 'under_inspection',
+                'INSPECTION_APPROVED': 'inspection_approve',
+                'INSPECTION_PASSED': 'inspection_approve',
+                'INSPECTION_REJECTED': 'inspection_reject',
+                'INSPECTION_FAILED': 'inspection_reject',
+                'REFUND_PROCESSING': 'process_refund',
+                'REFUND_COMPLETED': 'complete_refund',
+                'REFUNDED': 'complete_refund',
+                'EXCHANGE_PROCESSING': 'process_exchange',
+                'EXCHANGE_SHIPPED': 'ship_exchange',
+                'EXCHANGE_DELIVERED': 'exchange_delivered',
+                'RETURN_TO_CUSTOMER': 'return_to_customer',
+                'RETURN_TO_CUSTOMER_SHIPPED': 'mark_reverse_shipped',
+                'RETURN_TO_CUSTOMER_DELIVERED': 'mark_reverse_delivered',
+                'CANCELLED': 'cancel',
+            };
+            effectiveAction = statusMap[s] || s.toLowerCase();
+        }
+
+        console.log('=== RETURN PATCH ===');
+        console.log('Return ID:', id);
+        console.log('Current DB Status:', currentStatus);
+        console.log('Requested Action:', action);
+        console.log('Effective Action:', effectiveAction);
+        console.log('Requested Status:', status);
+        console.log('Return Type:', ret.type);
+        console.log('Order ID:', ret.order_id);
+
         let result;
 
-        switch (action) {
+        switch (effectiveAction) {
 
             // ── APPROVE RETURN REQUEST ────────────────────────────────────────
             case 'approve': {

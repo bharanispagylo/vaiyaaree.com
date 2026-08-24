@@ -46,22 +46,43 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendEmail({ to, subject, html }) {
+    let resultStatus = 'SENT';
+    let messageId = null;
+    let errorMessage = null;
+
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
         console.log(`[EMAIL-SERVICE] Logging mode (SMTP not configured) — To: ${to}, Subject: ${subject}`);
-        return { success: true, logged: true };
+        resultStatus = 'LOGGED_ONLY';
+    } else {
+        try {
+            const info = await transporter.sendMail({
+                from: process.env.SMTP_FROM || '"Vaiyaaree Sarees" <no-reply@vaiyaaree.com>',
+                to,
+                subject,
+                html
+            });
+            messageId = info.messageId;
+        } catch (err) {
+            console.error('[EMAIL-SERVICE] Error sending email:', err);
+            resultStatus = 'FAILED';
+            errorMessage = err.message;
+        }
     }
+
+    // Log record directly into MySQL email_logs table
     try {
-        const info = await transporter.sendMail({
-            from: process.env.SMTP_FROM || '"Vaiyaaree Sarees" <no-reply@vaiyaaree.com>',
-            to,
-            subject,
-            html
-        });
-        return { success: true, messageId: info.messageId };
-    } catch (err) {
-        console.error('[EMAIL-SERVICE] Error sending email:', err);
-        return { success: false, error: err.message };
+        const { default: pool } = await import('./mysql.js');
+        const logId = `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        await pool.execute(
+            `INSERT INTO email_logs (id, recipient_email, subject, status, message_id, error_message, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [logId, to, subject, resultStatus, messageId, errorMessage]
+        );
+    } catch (dbErr) {
+        console.error('[EMAIL-SERVICE-DB-LOG-ERROR]', dbErr);
     }
+
+    return { success: resultStatus !== 'FAILED', messageId, error: errorMessage };
 }
 
 // Helper for Status Badge HTML (Pure HTML inline styles)
@@ -869,6 +890,247 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
     } catch (error) {
         console.error('[ADMIN-OTP-SUCCESS-ERROR] Failed to send email:', error);
         return { success: false };
+    }
+}
+
+export async function sendReturnStatusEmail(returnReq, status, extraData = {}) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.log(`[EMAIL-SERVICE] Return Email Skipped (SMTP not configured) - Status: ${status}, Return ID: ${returnReq?.return_id || returnReq?.id}`);
+        return { success: true, logged: true };
+    }
+
+    try {
+        const recipientEmail = extraData.recipientEmail || extraData.email || returnReq.customers?.email || returnReq.orders?.customer_email;
+        if (!recipientEmail || recipientEmail.indexOf('@') === -1) {
+            return { success: false, error: 'No valid recipient email address' };
+        }
+
+        const returnId = returnReq.return_id || returnReq.id;
+        const orderId = returnReq.order_id || 'N/A';
+        const type = (returnReq.type || 'RETURN').toUpperCase();
+
+        const statusTitles = {
+            'RETURN_REQUESTED': 'Return/Exchange Request Received',
+            'APPROVED': 'Request Approved - Action Required',
+            'RETURN_REQUIRED': 'Return Shipping Required',
+            'CUSTOMER_SHIPPED': 'Return Package In Transit',
+            'RETURN_RECEIVED': 'Returned Item Received at Facility',
+            'INSPECTION_PASSED': 'Quality Inspection Passed',
+            'INSPECTION_FAILED': 'Quality Inspection Issue Found',
+            'EXCHANGE_SHIPPED': 'Replacement Saree Dispatched!',
+            'REJECTED': 'Return Request Rejected',
+            'CANCELLED': 'Return Request Cancelled'
+        };
+
+        const statusDescriptions = {
+            'RETURN_REQUESTED': `We have received your ${type.toLowerCase()} request for Order #${orderId}. Our verification team is reviewing it.`,
+            'APPROVED': `Your ${type.toLowerCase()} request #${returnId} for Order #${orderId} has been approved. Please ship the product back to our facility.`,
+            'RETURN_REQUIRED': `Please dispatch the product back to our return warehouse address.`,
+            'CUSTOMER_SHIPPED': `Thank you for sharing courier tracking details for #${returnId}. We are tracking your package.`,
+            'RETURN_RECEIVED': `Your returned package for #${returnId} has arrived at our facility and is queued for quality inspection.`,
+            'INSPECTION_PASSED': `Great news! Quality inspection for returned item #${returnId} has passed successfully.`,
+            'INSPECTION_FAILED': `Inspection for returned item #${returnId} encountered an issue: ${extraData.notes || 'Condition does not match policy requirements'}.`,
+            'EXCHANGE_SHIPPED': `Exciting news! Your replacement saree for #${returnId} has been packed and shipped via ${extraData.courierName || returnReq.exchange_courier_name || 'Courier'}.`,
+            'REJECTED': `Regrettably, your ${type.toLowerCase()} request #${returnId} could not be approved. Reason: ${extraData.reason || returnReq.rejection_reason || 'Policy criteria not met'}.`,
+            'CANCELLED': `Your return request #${returnId} has been cancelled.`
+        };
+
+        const title = statusTitles[status] || `Return Update: ${status}`;
+        const desc = statusDescriptions[status] || `Status update for return #${returnId}: ${status}`;
+        const logoAtt = getLogoAttachment();
+        const attachments = logoAtt ? [logoAtt] : [];
+
+        const mailOptions = {
+            from: process.env.SMTP_FROM || '"Vaiyaaree Sarees" <returns@vaiyaaree.com>',
+            to: recipientEmail,
+            subject: `${title} - #${returnId} | Order #${orderId}`,
+            attachments,
+            html: `
+                <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+                <html xmlns="http://www.w3.org/1999/xhtml">
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <title>${title} - Vaiyaaree Sarees</title>
+                </head>
+                <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; padding: 30px 10px;">
+                        <tr>
+                            <td align="center">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
+                                    <tr>
+                                        <td>
+                                            ${getHeaderHtml('Vaiyaaree Sarees', '', `${type} Request Status Update`)}
+                                            
+                                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 28px 24px;">
+                                                <tr>
+                                                    <td align="center" style="padding-bottom: 20px;">
+                                                        <h2 style="color: #1e293b; font-size: 22px; font-weight: 700; margin: 0 0 8px 0;">${title}</h2>
+                                                        <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0;">${desc}</p>
+                                                    </td>
+                                                </tr>
+
+                                                <!-- STATUS & RETURN INFO BOX -->
+                                                <tr>
+                                                    <td style="padding-bottom: 20px;">
+                                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px;">
+                                                            <tr>
+                                                                <td width="50%" style="padding: 4px 0; color: #475569; font-size: 14px;"><strong>Return ID:</strong> <span style="font-family: monospace; font-weight: 700;">${returnId}</span></td>
+                                                                <td width="50%" style="padding: 4px 0; text-align: right; color: #475569; font-size: 14px;"><strong>Order ID:</strong> <span style="font-weight: 700;">#${orderId}</span></td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td width="50%" style="padding: 4px 0; color: #475569; font-size: 14px;"><strong>Request Type:</strong> <span style="font-weight: 700; color: #4f46e5;">${type}</span></td>
+                                                                <td width="50%" style="padding: 4px 0; text-align: right; color: #475569; font-size: 14px;"><strong>Current Status:</strong> ${getStatusBadgeHtml(status)}</td>
+                                                            </tr>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+
+                                                ${(extraData.trackingNumber || returnReq.exchange_tracking_number) ? `
+                                                <!-- REPLACEMENT COURIER BOX -->
+                                                <tr>
+                                                    <td style="padding-bottom: 20px;">
+                                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #eff6ff; border: 1.5px solid #93c5fd; border-radius: 8px; padding: 16px;">
+                                                            <tr>
+                                                                <td style="font-weight: 700; color: #1e40af; font-size: 15px; padding-bottom: 6px;"> Replacement Shipment Info</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="color: #334155; font-size: 14px; padding: 3px 0;"><strong>Courier Partner:</strong> ${extraData.courierName || returnReq.exchange_courier_name || 'Courier Service'}</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="color: #334155; font-size: 14px; padding: 3px 0;"><strong>Tracking Number:</strong> <span style="font-family: monospace; font-weight: 700; color: #1d4ed8; background: #dbeafe; padding: 2px 6px; border-radius: 4px;">${extraData.trackingNumber || returnReq.exchange_tracking_number}</span></td>
+                                                            </tr>
+                                                        </table>
+                                                    </td>
+                                                </tr>` : ''}
+
+                                            </table>
+
+                                            ${getFooterHtml()}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        return { success: true };
+    } catch (err) {
+        console.error('[EMAIL-SERVICE] Error sending return email:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+export async function sendRefundStatusEmail(refundReq, status, extraData = {}) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.log(`[EMAIL-SERVICE] Refund Email Skipped (SMTP not configured) - Status: ${status}, Refund ID: ${refundReq?.refund_id || refundReq?.id}`);
+        return { success: true, logged: true };
+    }
+
+    try {
+        const recipientEmail = refundReq.customers?.email || refundReq.orders?.customer_email || extraData.recipientEmail;
+        if (!recipientEmail || recipientEmail.indexOf('@') === -1) {
+            return { success: false, error: 'No valid recipient email address' };
+        }
+
+        const refundId = refundReq.refund_id || refundReq.id;
+        const orderId = refundReq.order_id || 'N/A';
+        const amount = refundReq.approved_amount || refundReq.requested_amount || 0;
+
+        const statusTitles = {
+            'REFUND_REQUESTED': 'Refund Request Submitted',
+            'UNDER_REVIEW': 'Refund Under Verification',
+            'APPROVED': 'Refund Request Approved',
+            'RETURN_REQUIRED': 'Product Return Required for Refund',
+            'CUSTOMER_SHIPPED': 'Return Shipment Tracked',
+            'RETURN_RECEIVED': 'Returned Item Received',
+            'REFUND_PROCESSING': 'Refund Processing Initiated',
+            'REFUNDED': 'Refund Completed Successfully!',
+            'REJECTED': 'Refund Request Declined',
+            'CANCELLED': 'Refund Request Cancelled',
+            'REFUND_FAILED': 'Refund Gateway Processing Failed'
+        };
+
+        const statusDescriptions = {
+            'REFUND_REQUESTED': `Your refund request for Order #${orderId} of ₹${amount} has been logged.`,
+            'APPROVED': `Your refund request #${refundId} for ₹${amount} has been approved by admin.`,
+            'REFUND_PROCESSING': `We have initiated the refund transaction of ₹${amount} to your original payment method.`,
+            'REFUNDED': `Great news! Your refund of ₹${amount} for Order #${orderId} has been completed successfully. Reference ID: ${extraData.razorpay_refund_id || refundReq.razorpay_refund_id || 'PROCESSED'}.`,
+            'REJECTED': `Your refund request #${refundId} was declined. Reason: ${extraData.admin_note || refundReq.admin_note || 'Criteria not met'}.`
+        };
+
+        const title = statusTitles[status] || `Refund Update: ${status}`;
+        const desc = statusDescriptions[status] || `Status update for refund #${refundId}: ${status}`;
+        const logoAtt = getLogoAttachment();
+        const attachments = logoAtt ? [logoAtt] : [];
+
+        const mailOptions = {
+            from: process.env.SMTP_FROM || '"Vaiyaaree Sarees" <refunds@vaiyaaree.com>',
+            to: recipientEmail,
+            subject: `${title} - ₹${amount} | Order #${orderId}`,
+            attachments,
+            html: `
+                <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+                <html xmlns="http://www.w3.org/1999/xhtml">
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                    <title>${title} - Vaiyaaree Sarees</title>
+                </head>
+                <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; padding: 30px 10px;">
+                        <tr>
+                            <td align="center">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
+                                    <tr>
+                                        <td>
+                                            ${getHeaderHtml('Vaiyaaree Sarees', '', 'Refund Status Notification')}
+                                            
+                                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 28px 24px;">
+                                                <tr>
+                                                    <td align="center" style="padding-bottom: 20px;">
+                                                        <h2 style="color: #1e293b; font-size: 22px; font-weight: 700; margin: 0 0 8px 0;">${title}</h2>
+                                                        <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0;">${desc}</p>
+                                                    </td>
+                                                </tr>
+
+                                                <!-- REFUND INFO CARD -->
+                                                <tr>
+                                                    <td style="padding-bottom: 20px;">
+                                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 16px;">
+                                                            <tr>
+                                                                <td width="50%" style="padding: 4px 0; color: #166534; font-size: 14px;"><strong>Refund ID:</strong> <span style="font-family: monospace; font-weight: 700;">${refundId}</span></td>
+                                                                <td width="50%" style="padding: 4px 0; text-align: right; color: #166534; font-size: 14px;"><strong>Eligible Amount:</strong> <span style="font-size: 16px; font-weight: 800; color: #15803d;">₹${amount}</span></td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td width="50%" style="padding: 4px 0; color: #166534; font-size: 14px;"><strong>Order ID:</strong> <span style="font-weight: 700;">#${orderId}</span></td>
+                                                                <td width="50%" style="padding: 4px 0; text-align: right; color: #166534; font-size: 14px;"><strong>Status:</strong> ${getStatusBadgeHtml(status)}</td>
+                                                            </tr>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </table>
+
+                                            ${getFooterHtml()}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        return { success: true };
+    } catch (err) {
+        console.error('[EMAIL-SERVICE] Error sending refund email:', err);
+        return { success: false, error: err.message };
     }
 }
 

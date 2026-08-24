@@ -198,7 +198,7 @@ export default function ResetPasswordPage() {
                         fontWeight: 600,
                         marginBottom: '1.5rem'
                     }}>
-                        ⚠️ {error}
+                        {error}
                     </div>
                 )}
                 {successMessage && step !== 4 && (
@@ -212,7 +212,7 @@ export default function ResetPasswordPage() {
                         fontWeight: 600,
                         marginBottom: '1.5rem'
                     }}>
-                        ✅ {successMessage}
+                        {successMessage}
                     </div>
                 )}
 

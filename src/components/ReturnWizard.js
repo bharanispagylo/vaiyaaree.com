@@ -12,37 +12,37 @@ import ModalPortal from '@/components/ModalPortal';
 // ─── STATUS CONFIG ─────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-    RETURN_REQUESTED:           { label: 'Request Submitted', color: '#6366f1', bg: '#eef2ff', icon: '📋' },
-    RETURN_APPROVED:            { label: 'Approved — Please Courier Product', color: '#059669', bg: '#d1fae5', icon: '✅' },
-    RETURN_REJECTED:            { label: 'Request Rejected', color: '#dc2626', bg: '#fee2e2', icon: '❌' },
-    CUSTOMER_SHIPPED:           { label: 'Product Shipped by You', color: '#7c3aed', bg: '#ede9fe', icon: '🚚' },
-    IN_TRANSIT:                 { label: 'In Transit to Company', color: '#7c3aed', bg: '#ede9fe', icon: '🚚' },
-    RECEIVED_BY_COMPANY:        { label: 'Received by Company', color: '#0891b2', bg: '#e0f2fe', icon: '🏭' },
-    INSPECTION_PENDING:         { label: 'Inspection Pending', color: '#d97706', bg: '#fef3c7', icon: '🔍' },
-    UNDER_INSPECTION:           { label: 'Under Quality Inspection', color: '#d97706', bg: '#fef3c7', icon: '🔎' },
-    INSPECTION_APPROVED:        { label: 'Inspection Passed', color: '#059669', bg: '#d1fae5', icon: '✅' },
-    INSPECTION_REJECTED:        { label: 'Inspection Failed', color: '#dc2626', bg: '#fee2e2', icon: '❌' },
-    REFUND_PENDING:             { label: 'Refund Pending', color: '#d97706', bg: '#fef3c7', icon: '💰' },
-    REFUND_PROCESSING:          { label: 'Refund Processing', color: '#2563eb', bg: '#dbeafe', icon: '💳' },
-    REFUND_COMPLETED:           { label: 'Refund Completed', color: '#059669', bg: '#d1fae5', icon: '💚' },
-    EXCHANGE_PENDING:           { label: 'Exchange Pending', color: '#d97706', bg: '#fef3c7', icon: '🔄' },
-    EXCHANGE_PROCESSING:        { label: 'Exchange Processing', color: '#2563eb', bg: '#dbeafe', icon: '⚙️' },
-    EXCHANGE_SHIPPED:           { label: 'Exchange Shipped', color: '#7c3aed', bg: '#ede9fe', icon: '🚀' },
-    EXCHANGE_DELIVERED:         { label: 'Exchange Delivered', color: '#059669', bg: '#d1fae5', icon: '📬' },
-    RETURN_TO_CUSTOMER:         { label: 'Being Returned to You', color: '#d97706', bg: '#fef3c7', icon: '↩️' },
-    RETURN_TO_CUSTOMER_SHIPPED: { label: 'Shipped Back to You', color: '#7c3aed', bg: '#ede9fe', icon: '📤' },
-    RETURN_TO_CUSTOMER_DELIVERED:{ label: 'Returned to You', color: '#6b7280', bg: '#f3f4f6', icon: '📬' },
-    RETURN_CLOSED:              { label: 'Case Closed', color: '#6b7280', bg: '#f3f4f6', icon: '📌' },
-    COMPLETED:                  { label: 'Completed', color: '#059669', bg: '#d1fae5', icon: '🎉' },
-    CANCELLED:                  { label: 'Cancelled', color: '#6b7280', bg: '#f3f4f6', icon: '🚫' },
+    RETURN_REQUESTED:           { label: 'Request Submitted', color: '#6366f1', bg: '#eef2ff' },
+    RETURN_APPROVED:            { label: 'Approved — Please Courier Product', color: '#059669', bg: '#d1fae5' },
+    RETURN_REJECTED:            { label: 'Request Rejected', color: '#dc2626', bg: '#fee2e2' },
+    CUSTOMER_SHIPPED:           { label: 'Product Shipped by You', color: '#7c3aed', bg: '#ede9fe' },
+    IN_TRANSIT:                 { label: 'In Transit to Company', color: '#7c3aed', bg: '#ede9fe' },
+    RECEIVED_BY_COMPANY:        { label: 'Received by Company', color: '#0891b2', bg: '#e0f2fe' },
+    INSPECTION_PENDING:         { label: 'Inspection Pending', color: '#d97706', bg: '#fef3c7' },
+    UNDER_INSPECTION:           { label: 'Under Quality Inspection', color: '#d97706', bg: '#fef3c7' },
+    INSPECTION_APPROVED:        { label: 'Inspection Passed', color: '#059669', bg: '#d1fae5' },
+    INSPECTION_REJECTED:        { label: 'Inspection Failed', color: '#dc2626', bg: '#fee2e2' },
+    REFUND_PENDING:             { label: 'Refund Pending', color: '#d97706', bg: '#fef3c7' },
+    REFUND_PROCESSING:          { label: 'Refund Processing', color: '#2563eb', bg: '#dbeafe' },
+    REFUND_COMPLETED:           { label: 'Refund Completed', color: '#059669', bg: '#d1fae5' },
+    EXCHANGE_PENDING:           { label: 'Exchange Pending', color: '#d97706', bg: '#fef3c7' },
+    EXCHANGE_PROCESSING:        { label: 'Exchange Processing', color: '#2563eb', bg: '#dbeafe' },
+    EXCHANGE_SHIPPED:           { label: 'Exchange Shipped', color: '#7c3aed', bg: '#ede9fe' },
+    EXCHANGE_DELIVERED:         { label: 'Exchange Delivered', color: '#059669', bg: '#d1fae5' },
+    RETURN_TO_CUSTOMER:         { label: 'Being Returned to You', color: '#d97706', bg: '#fef3c7' },
+    RETURN_TO_CUSTOMER_SHIPPED: { label: 'Shipped Back to You', color: '#7c3aed', bg: '#ede9fe' },
+    RETURN_TO_CUSTOMER_DELIVERED:{ label: 'Returned to You', color: '#6b7280', bg: '#f3f4f6' },
+    RETURN_CLOSED:              { label: 'Case Closed', color: '#6b7280', bg: '#f3f4f6' },
+    COMPLETED:                  { label: 'Completed', color: '#059669', bg: '#d1fae5' },
+    CANCELLED:                  { label: 'Cancelled', color: '#6b7280', bg: '#f3f4f6' },
     // Legacy
-    PENDING:                    { label: 'Under Review', color: '#d97706', bg: '#fef3c7', icon: '⏳' },
-    APPROVED:                   { label: 'Approved — Please Courier Product', color: '#059669', bg: '#d1fae5', icon: '✅' },
-    REJECTED:                   { label: 'Rejected', color: '#dc2626', bg: '#fee2e2', icon: '❌' },
+    PENDING:                    { label: 'Under Review', color: '#d97706', bg: '#fef3c7' },
+    APPROVED:                   { label: 'Approved — Please Courier Product', color: '#059669', bg: '#d1fae5' },
+    REJECTED:                   { label: 'Rejected', color: '#dc2626', bg: '#fee2e2' },
 };
 
 function StatusBadge({ status }) {
-    const cfg = STATUS_CONFIG[status] || { label: status, color: '#6b7280', bg: '#f3f4f6', icon: '❓' };
+    const cfg = STATUS_CONFIG[status] || { label: status, color: '#6b7280', bg: '#f3f4f6' };
     return (
         <span style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
@@ -50,9 +50,38 @@ function StatusBadge({ status }) {
             background: cfg.bg, color: cfg.color,
             fontSize: '0.75rem', fontWeight: 700,
         }}>
-            <span>{cfg.icon}</span> {cfg.label}
+            {cfg.label}
         </span>
     );
+}
+
+function formatAppDate(dateStr, includeTime = false) {
+    if (!dateStr) return 'N/A';
+    try {
+        const str = String(dateStr).trim().replace('Z', '').replace('T', ' ');
+        const [dPart, tPart] = str.split(' ');
+        if (!dPart || !dPart.includes('-')) return String(dateStr);
+        const [y, m, d] = dPart.split('-');
+
+        const dd = String(d).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+
+        if (!includeTime || !tPart) {
+            return `${dd}/${mm}/${y}`;
+        }
+
+        const [h, min] = tPart.split(':');
+        const hourNum = parseInt(h, 10);
+        if (isNaN(hourNum)) return `${dd}/${mm}/${y}`;
+        const ampm = hourNum >= 12 ? 'pm' : 'am';
+        const h12 = hourNum % 12 || 12;
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthStr = monthNames[parseInt(m, 10) - 1] || mm;
+
+        return `${dd} ${monthStr} ${y}, ${String(h12).padStart(2, '0')}:${min} ${ampm}`;
+    } catch (e) {
+        return String(dateStr);
+    }
 }
 
 function ReturnTimeline({ logs }) {
@@ -80,7 +109,7 @@ function ReturnTimeline({ logs }) {
                         </div>
                         {log.notes && <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.1rem' }}>{log.notes}</div>}
                         <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.1rem' }}>
-                            {new Date(log.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            {formatAppDate(log.created_at, true)}
                         </div>
                     </div>
                 </div>
@@ -373,10 +402,13 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
     }
 
     const STEPS = ['Product', 'Reason', 'Photos', 'Review & Address'];
+    const isDamagedReason = form.productCondition === 'DAMAGED' || (form.reason && (form.reason.includes('Defective') || form.reason.includes('Damaged')));
+    const hasPhotoIfRequired = !isDamagedReason || photos.some(p => p.url);
+
     const canAdvance = [
         !!selectedItem,
         !!(form.reason),
-        true,
+        hasPhotoIfRequired,
         policyAccepted,
     ];
 
@@ -402,7 +434,7 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
                 </div>
                 
                 <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', maxWidth: '480px', margin: '0 auto 2rem', textAlign: 'left' }}>
-                    <h5 style={{ margin: '0 0 0.5rem', color: '#334155', fontWeight: 700 }}>📍 Next Steps:</h5>
+                    <h5 style={{ margin: '0 0 0.5rem', color: '#334155', fontWeight: 700 }}>Next Steps:</h5>
                     <ol style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.88rem', color: '#475569', lineHeight: 1.6 }}>
                         <li>Our team will review your request within 24–48 hours.</li>
                         <li>Once <strong>Approved</strong>, click <em>"I've Shipped the Product"</em> in your return history below.</li>
@@ -544,9 +576,9 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
                         </label>
                         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                             {[
-                                { v: 'ORIGINAL_PACKAGING', l: '📦 Original Packaging' },
-                                { v: 'GOOD', l: '👍 Good Condition' },
-                                { v: 'DAMAGED', l: '⚠️ Has Damage' },
+                                { v: 'ORIGINAL_PACKAGING', l: 'Original Packaging' },
+                                { v: 'GOOD', l: 'Good Condition' },
+                                { v: 'DAMAGED', l: 'Has Damage' },
                             ].map(({ v, l }) => (
                                 <label key={v} style={{
                                     display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -596,24 +628,36 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
             {/* ── Step 2: Photos ───────────────────────────────────────────── */}
             {step === 2 && (
                 <div>
-                    <h4 style={{ fontWeight: 800, marginBottom: '0.5rem' }}>Upload Product Photos</h4>
-                    <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-                        Upload clear photos of the product (optional, up to 5 photos). Photos help speed up approval.
-                    </p>
+                    <h4 style={{ fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Camera size={20} color="hsl(var(--primary))" /> Upload Product / Damaged Proof Photos
+                    </h4>
+                    
+                    {(form.productCondition === 'DAMAGED' || (form.reason && (form.reason.includes('Defective') || form.reason.includes('Damaged')))) ? (
+                        <div style={{ background: '#fee2e2', border: '1.5px solid #fca5a5', borderRadius: '12px', padding: '0.85rem 1rem', marginBottom: '1.25rem', color: '#991b1b', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+                            <div>Photo proof is required when selecting a damaged or defective item reason so our quality inspection team can approve your return.</div>
+                        </div>
+                    ) : (
+                        <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                            Upload clear photos of the product (up to 5 photos). Photos help speed up approval.
+                        </p>
+                    )}
 
                     <div
                         onClick={() => photos.length < 5 && fileInputRef.current?.click()}
                         style={{
-                            border: '2px dashed #cbd5e1', borderRadius: '14px', padding: '2rem',
+                            border: (form.productCondition === 'DAMAGED' || (form.reason && (form.reason.includes('Defective') || form.reason.includes('Damaged')))) && photos.length === 0 ? '2.5px dashed #ef4444' : '2px dashed #cbd5e1',
+                            borderRadius: '14px', padding: '2rem',
                             textAlign: 'center', cursor: photos.length < 5 ? 'pointer' : 'default',
-                            background: '#f8fafc', marginBottom: '1.25rem',
+                            background: (form.productCondition === 'DAMAGED' || (form.reason && (form.reason.includes('Defective') || form.reason.includes('Damaged')))) && photos.length === 0 ? '#fef2f2' : '#f8fafc',
+                            marginBottom: '1.25rem',
                             opacity: photos.length >= 5 ? 0.5 : 1,
-                            transition: 'border-color 0.2s',
+                            transition: 'all 0.2s',
                         }}
                     >
-                        <Camera size={32} style={{ opacity: 0.4, marginBottom: '0.75rem' }} />
-                        <p style={{ fontWeight: 600, color: '#334155' }}>
-                            {photos.length >= 5 ? 'Maximum 5 photos uploaded' : 'Click to upload product photos'}
+                        <Camera size={36} color={(form.productCondition === 'DAMAGED' || (form.reason && (form.reason.includes('Defective') || form.reason.includes('Damaged')))) && photos.length === 0 ? '#ef4444' : '#64748b'} style={{ opacity: 0.7, marginBottom: '0.75rem' }} />
+                        <p style={{ fontWeight: 700, color: (form.productCondition === 'DAMAGED' || (form.reason && (form.reason.includes('Defective') || form.reason.includes('Damaged')))) && photos.length === 0 ? '#b91c1c' : '#334155' }}>
+                            {photos.length >= 5 ? 'Maximum 5 photos uploaded' : 'Click to select & upload product photos'}
                         </p>
                         <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>JPG, PNG, WEBP • Max 5MB each</p>
                         <input
@@ -664,12 +708,12 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
                         </div>
                         <div style={{ background: '#fff', borderRadius: '10px', padding: '1rem', border: '1px solid #e0e7ff', color: '#1e1b4b', fontSize: '0.9rem', lineHeight: 1.6 }}>
                             <strong style={{ fontSize: '1rem', color: '#312e81' }}>VAIYAAREE SAREES</strong><br />
-                            12/34 Saree Avenue, Main Road<br />
-                            Chennai, Tamil Nadu - 600001<br />
+                            16, Dhanalakshmi Nagar Extension, Masakalipalayam Road<br />
+                            Uppili Palayam, Coimbatore, Tamil Nadu - 641015<br />
                             India
                         </div>
                         <p style={{ fontSize: '0.82rem', color: '#4338ca', marginTop: '0.75rem', marginBottom: 0, fontWeight: 600 }}>
-                            📌 Note: After your return request is approved by our team, you will send the package to this address using your preferred courier service (e.g. DTDC, Delhivery, India Post). Our company will not collect from your home address.
+                            <strong>Note:</strong> After your return request is approved by our team, you will send the package to this address using your preferred courier service (e.g. DTDC, Delhivery, India Post). Our company will not collect from your home address.
                         </p>
                     </div>
 
@@ -686,16 +730,27 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
-                            <div><span style={{ color: '#94a3b8' }}>Type:</span> <strong>{form.requestType === 'RETURN' ? '🔄 Return (Refund)' : '🔁 Exchange'}</strong></div>
+                            <div><span style={{ color: '#94a3b8' }}>Type:</span> <strong>{form.requestType === 'RETURN' ? 'Return (Refund)' : 'Exchange'}</strong></div>
                             <div><span style={{ color: '#94a3b8' }}>Reason:</span> <strong>{form.reason}</strong></div>
                             <div><span style={{ color: '#94a3b8' }}>Condition:</span> <strong>{form.productCondition?.replace(/_/g, ' ')}</strong></div>
                             <div><span style={{ color: '#94a3b8' }}>Photos Uploaded:</span> <strong>{photos.filter(p => p.url).length}</strong></div>
                         </div>
+
+                        {photos.filter(p => p.url).length > 0 && (
+                            <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem' }}>ATTACHED DAMAGED PRODUCT PROOF:</div>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    {photos.filter(p => p.url).map((p, idx) => (
+                                        <img key={idx} src={p.url || p.preview} alt="Proof" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Policy Acceptance */}
                     <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem' }}>
-                        <h5 style={{ margin: '0 0 0.5rem', fontWeight: 700, color: '#92400e' }}>📋 Return Policy</h5>
+                        <h5 style={{ margin: '0 0 0.5rem', fontWeight: 700, color: '#92400e' }}>Return Policy</h5>
                         <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.82rem', color: '#78350f', lineHeight: 1.6 }}>
                             <li>Returns must be submitted within 10 days of delivery.</li>
                             <li>Product must be in original condition with tags intact.</li>
@@ -798,7 +853,32 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
                                             <div style={{ fontSize: '0.88rem', color: '#334155', fontWeight: 600, marginTop: '0.3rem' }}>
                                                 {r.products?.name || 'Product'} • {r.type || r.request_type || 'RETURN'} • {r.reason}
                                             </div>
-                                            <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.15rem' }}>
+
+                                            {/* Quality Inspection Result Badge */}
+                                            {(r.inspection_status === 'PASSED' || r.status === 'INSPECTION_PASSED') && (
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#d1fae5', color: '#047857', fontSize: '0.75rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '12px', marginTop: '0.4rem' }}>
+                                                    <CheckCircle size={13} /> Quality Inspection Passed
+                                                </div>
+                                            )}
+                                            {(r.inspection_status === 'FAILED' || r.status === 'INSPECTION_FAILED') && (
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#fee2e2', color: '#b91c1c', fontSize: '0.75rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '12px', marginTop: '0.4rem' }}>
+                                                    <AlertCircle size={13} /> Inspection Issue: {r.inspection_notes || 'Failed check'}
+                                                </div>
+                                            )}
+
+                                            {/* Replacement Shipment (EXCHANGE_SHIPPED) Banner */}
+                                            {r.status === 'EXCHANGE_SHIPPED' && (
+                                                <div style={{ background: '#f5f3ff', border: '1.5px solid #c4b5fd', borderRadius: '10px', padding: '0.65rem 0.85rem', marginTop: '0.5rem', color: '#5b21b6', fontSize: '0.82rem' }}>
+                                                    <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                        <Truck size={15} /> Replacement Saree Dispatched!
+                                                    </div>
+                                                    <div style={{ marginTop: '0.25rem' }}>
+                                                        Courier: <strong>{r.exchange_courier_name || 'Courier Partner'}</strong> • AWB / Tracking #: <strong style={{ fontFamily: 'monospace' }}>{r.exchange_tracking_number || 'N/A'}</strong>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
                                                 Requested Date: {new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </div>
                                         </div>
@@ -928,11 +1008,11 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
                                 {/* Company Return Address Display */}
                                 <div style={{ background: '#eef2ff', borderRadius: '12px', padding: '1rem', border: '1px solid #c7d2fe' }}>
                                     <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#3730a3', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
-                                        📍 Send Package To This Address:
+                                        Send Package To This Address:
                                     </div>
                                     <div style={{ fontSize: '0.85rem', color: '#1e1b4b', lineHeight: 1.5, fontWeight: 600 }}>
                                         VAIYAAREE SAREES<br />
-                                        12/34 Saree Avenue, Main Road, Chennai, Tamil Nadu - 600001, India
+                                        16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015, India
                                     </div>
                                 </div>
 
@@ -1029,7 +1109,7 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
                                     >
                                         <Upload size={24} style={{ opacity: 0.5 }} />
                                         <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#334155' }}>
-                                            {shippingForm.uploadingReceipt ? 'Uploading receipt...' : shippingForm.receiptUrl ? '✅ Receipt Uploaded (Click to replace)' : 'Click to upload receipt photo/PDF'}
+                                            {shippingForm.uploadingReceipt ? 'Uploading receipt...' : shippingForm.receiptUrl ? 'Receipt Uploaded (Click to replace)' : 'Click to upload receipt photo/PDF'}
                                         </span>
                                         <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>JPG, PNG, PDF • Max 5MB</span>
                                         <input

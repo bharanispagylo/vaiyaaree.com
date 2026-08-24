@@ -120,6 +120,27 @@ export async function POST(request) {
 
         if (orderError) throw orderError;
 
+        // Save address into customer_addresses database table
+        if (customerId && shippingAddress) {
+            try {
+                const { saveCustomerAddress } = await import('@/services/customerAddressService');
+                await saveCustomerAddress({
+                    customerId,
+                    name: shippingAddress.full_name || shippingAddress.name || customerName,
+                    phone: shippingAddress.phone || customerPhone,
+                    address: shippingAddress.address_line || shippingAddress.address,
+                    address_line: shippingAddress.address_line || shippingAddress.address,
+                    city: shippingAddress.city,
+                    state: shippingAddress.state || shippingState,
+                    pincode: shippingAddress.pincode || shippingAddress.zip,
+                    country: shippingAddress.country || 'India',
+                    is_default: 1
+                });
+            } catch (addrErr) {
+                console.error('[ORDER-CREATE] Address save error:', addrErr);
+            }
+        }
+
         // 4. INSERT ITEMS
         const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
         if (itemsError) throw itemsError;

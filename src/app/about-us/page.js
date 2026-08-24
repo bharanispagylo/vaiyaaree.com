@@ -3,14 +3,36 @@
 import { useState, useEffect } from 'react';
 import ShopHeader from '@/components/ShopHeader';
 import ShopFooter from '@/components/ShopFooter';
-import { Facebook, Twitter, Instagram } from 'lucide-react';
+import { Instagram } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function AboutUsPage() {
     const [mounted, setMounted] = useState(false);
+    const [pageData, setPageData] = useState(null);
 
     useEffect(() => {
         setMounted(true);
         document.title = 'About Us | Vaiyaaree';
+
+        const fetchCmsAbout = async () => {
+            try {
+                const { data } = await supabase
+                    .from('cms_pages')
+                    .select('*')
+                    .or('slug.eq.about-us,slug.eq.about')
+                    .order('updated_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (data) {
+                    setPageData(data);
+                    document.title = `${data.seo_title || data.title || 'About Us'} | Vaiyaaree`;
+                }
+            } catch (err) {
+                console.error('Error fetching CMS About Us page:', err);
+            }
+        };
+        fetchCmsAbout();
     }, []);
 
     if (!mounted) {
@@ -25,6 +47,7 @@ export default function AboutUsPage() {
 
     return (
         <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'var(--font-body)', color: '#111' }}>
+            {pageData?.custom_css && <style dangerouslySetInnerHTML={{ __html: pageData.custom_css }} />}
             <ShopHeader />
 
             {/* Main 2-Column Content */}
@@ -38,27 +61,35 @@ export default function AboutUsPage() {
                     {/* Left Column: Brand Story */}
                     <div>
                         <div style={{ marginBottom: '1.8rem' }}>
-                            <h2 style={{ fontSize: '1.6rem', fontWeight: 600, color: '#111', margin: '0 0 0.25rem 0' }}>Vaiyaaree</h2>
+                            <h2 style={{ fontSize: '1.6rem', fontWeight: 600, color: '#111', margin: '0 0 0.25rem 0' }}>{pageData?.title || 'Vaiyaaree'}</h2>
                             <p style={{ fontSize: '0.95rem', color: '#666', margin: 0, fontWeight: 400 }}>A Vaiyaaree company</p>
                         </div>
 
-                        <div style={{ fontSize: '1.05rem', lineHeight: '1.85', color: '#444', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <p style={{ margin: 0 }}>
-                                Vaiyaaree sarees aims at offering a fantastic blend of style, fashion, colours and quality. Our journey began with a simple idea – to create a platform where saree lovers could find the most exquisite and authentic collection of sarees from all over India.
-                            </p>
-                            <p style={{ margin: 0 }}>
-                                Started as an Instagram-based business with South cotton printed sarees, we have been committed to promoting traditional Indian textiles and craftsmanship.
-                            </p>
-                            <p style={{ margin: 0 }}>
-                                Vaiyaaree sarees grew as a well trusted brand, well-received by its 100K+ Instagram followers, stands a testimony.
-                            </p>
-                            <p style={{ margin: 0 }}>
-                                We are passionate about providing our customers with a seamless shopping experience. Our team is always ready to assist you with any queries or concerns you may have. We pride ourselves on our customer-centric approach and our commitment to making every customer feel special. Our goal is to be your go-to destination for all your saree needs.
-                            </p>
-                            <p style={{ margin: 0 }}>
-                                Each print has a story to tell and each product is created with lot of love.
-                            </p>
-                        </div>
+                        {pageData?.content && pageData.content.trim() ? (
+                            <div 
+                                className="cms-content" 
+                                style={{ fontSize: '1.05rem', lineHeight: '1.85', color: '#444' }} 
+                                dangerouslySetInnerHTML={{ __html: pageData.content }} 
+                            />
+                        ) : (
+                            <div style={{ fontSize: '1.05rem', lineHeight: '1.85', color: '#444', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                <p style={{ margin: 0 }}>
+                                    Vaiyaaree sarees aims at offering a fantastic blend of style, fashion, colours and quality. Our journey began with a simple idea – to create a platform where saree lovers could find the most exquisite and authentic collection of sarees from all over India.
+                                </p>
+                                <p style={{ margin: 0 }}>
+                                    Started as an Instagram-based business with South cotton printed sarees, we have been committed to promoting traditional Indian textiles and craftsmanship.
+                                </p>
+                                <p style={{ margin: 0 }}>
+                                    Vaiyaaree sarees grew as a well trusted brand, well-received by its 100K+ Instagram followers, stands a testimony.
+                                </p>
+                                <p style={{ margin: 0 }}>
+                                    We are passionate about providing our customers with a seamless shopping experience. Our team is always ready to assist you with any queries or concerns you may have. We pride ourselves on our customer-centric approach and our commitment to making every customer feel special. Our goal is to be your go-to destination for all your saree needs.
+                                </p>
+                                <p style={{ margin: 0 }}>
+                                    Each print has a story to tell and each product is created with lot of love.
+                                </p>
+                            </div>
+                        )}
 
                         {/* Sign-off */}
                         <div style={{ marginTop: '2.5rem', color: '#222', fontSize: '1.05rem', lineHeight: '1.6' }}>
@@ -117,7 +148,7 @@ export default function AboutUsPage() {
                             border: '1px solid #eaeaea'
                         }}>
                             <img
-                                src="/images/about-us-saree.jpg"
+                                src={pageData?.featured_image || "/images/about-us-saree.jpg"}
                                 alt="Vaiyaaree About Us Saree"
                                 style={{
                                     width: '100%',

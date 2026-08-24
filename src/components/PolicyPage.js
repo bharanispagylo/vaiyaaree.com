@@ -223,11 +223,23 @@ export default function PolicyPage({ slug, title: fallbackTitle }) {
     useEffect(() => {
         const fetchPageData = async () => {
             try {
+                let querySlug = slug;
+                const slugAliases = {
+                    'terms-and-conditions': ['terms-and-conditions', 'terms-conditions'],
+                    'terms-conditions': ['terms-conditions', 'terms-and-conditions'],
+                    'refund-cancellation-policy': ['refund-cancellation-policy', 'refund-cancellation'],
+                    'refund-cancellation': ['refund-cancellation', 'refund-cancellation-policy']
+                };
+
+                const filterSlugs = slugAliases[slug] || [slug];
                 const { data } = await supabase
                     .from('cms_pages')
                     .select('*')
-                    .eq('slug', slug)
-                    .single();
+                    .in('slug', filterSlugs)
+                    .order('updated_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
                 if (data && data.content) {
                     setPage(data);
                     document.title = `${data.seo_title || data.title} | Vaiyaaree`;
@@ -257,7 +269,7 @@ export default function PolicyPage({ slug, title: fallbackTitle }) {
         <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'var(--font-body)' }}>
             <ShopHeader />
             <div style={{ padding: '8rem 2rem', maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.2rem', color: '#666' }}>Loading policy...</div>
+                <div style={{ fontSize: '1.2rem', color: '#666' }}>Loading page...</div>
             </div>
             <ShopFooter />
         </div>
@@ -276,11 +288,19 @@ export default function PolicyPage({ slug, title: fallbackTitle }) {
 
     return (
         <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'var(--font-body)' }}>
+            {activePage?.custom_css && <style dangerouslySetInnerHTML={{ __html: activePage.custom_css }} />}
             <ShopHeader />
             <div style={{ padding: '5rem 2rem 8rem', maxWidth: '850px', margin: '0 auto' }}>
                 <h1 style={{ fontSize: '2.5rem', fontWeight: 600, marginBottom: '2.5rem', color: '#111', borderBottom: '2px solid #f0e6d2', paddingBottom: '1rem' }}>
                     {activePage.title}
                 </h1>
+
+                {activePage?.featured_image && (
+                    <div style={{ marginBottom: '2rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid #eee' }}>
+                        <img src={activePage.featured_image} alt={activePage.title} style={{ width: '100%', maxHeight: '400px', objectFit: 'cover' }} />
+                    </div>
+                )}
+
                 <div 
                     className="cms-content"
                     dangerouslySetInnerHTML={{ __html: sanitizedHtml }} 

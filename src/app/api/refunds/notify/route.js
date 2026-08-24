@@ -53,13 +53,28 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Missing refundId or status' }), { status: 400 });
         }
 
-        const { data: refund, error: refundError } = await supabase
-            .from('refunds')
+        let refund = null;
+        let { data: reqData } = await supabase
+            .from('refund_requests')
             .select('*, orders:order_id(*)')
             .eq('id', refundId)
-            .single();
+            .maybeSingle();
 
-        if (refundError || !refund) {
+        if (reqData) {
+            refund = {
+                ...reqData,
+                amount: reqData.approved_amount || reqData.requested_amount || 0
+            };
+        } else {
+            const { data: oldRefund } = await supabase
+                .from('refunds')
+                .select('*, orders:order_id(*)')
+                .eq('id', refundId)
+                .maybeSingle();
+            refund = oldRefund;
+        }
+
+        if (!refund) {
             return new Response(JSON.stringify({ error: 'Refund not found' }), { status: 404 });
         }
 
@@ -152,6 +167,14 @@ export async function POST(request) {
 
         if (phone && message) {
             await sendWhatsAppText(phone, message);
+        }
+
+        // Send Email Notification to Customer
+        try {
+            const { sendRefundStatusEmail } = await import('@/lib/emailService');
+            await sendRefundStatusEmail(refund, status, { admin_note: notes });
+        } catch (emailErr) {
+            console.error('[REFUND-NOTIFY-EMAIL-ERROR]', emailErr);
         }
 
         return new Response(JSON.stringify({ success: true }), { status: 200 });

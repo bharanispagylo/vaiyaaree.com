@@ -5,6 +5,7 @@ import { Buffer } from 'buffer';
 import { verifyAdmin } from '@/lib/auth';
 import fs from 'fs';
 import path from 'path';
+import { ensureMediaLibraryTable, insertMediaRecord, fetchMediaRecords, deleteMediaRecord } from '@/services/mediaLibraryService';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -180,10 +181,28 @@ export async function GET(request) {
             console.error('[GET] Failed to fetch settings images:', settingsErr);
         }
 
-        // Sort by created_at descending
-        allFiles.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // Ensure database table exists and sync scanned files into media_library DB table
+        await ensureMediaLibraryTable();
+        
+        for (const fileItem of allFiles) {
+            await insertMediaRecord({
+                id: fileItem.id,
+                name: fileItem.name,
+                filename: fileItem.name,
+                url: fileItem.url,
+                folder: fileItem.folder || 'uploads',
+                size: fileItem.size || 0,
+                has_watermark: fileItem.folder === 'with-watermark' || fileItem.folder === 'watermark' ? 1 : 0,
+                catalog_id: fileItem.catalogId || null,
+                source: fileItem.source || 'disk'
+            });
+        }
 
-        return NextResponse.json({ files: allFiles });
+        // Return records from database table
+        const dbRecords = await fetchMediaRecords();
+        const mergedFiles = dbRecords.length > 0 ? dbRecords : allFiles;
+
+        return NextResponse.json({ files: mergedFiles });
 
     } catch (err) {
         console.error('GET Error:', err);
@@ -308,8 +327,20 @@ export async function POST(request) {
             finalPublicUrl = `/uploads/${folder}/${fileName}`;
         }
 
-        // 4. UPDATE SETTINGS (For media library groups)
+        // 4. INSERT RECORD INTO media_library DATABASE TABLE
         try {
+            await insertMediaRecord({
+                id: `media-${Date.now()}-${finalId}`,
+                name: fileNameHint || fileName,
+                filename: fileName,
+                url: finalPublicUrl,
+                folder: isNowWatermarked ? 'with-watermark' : 'without-watermark',
+                size: buffer ? buffer.length : 0,
+                has_watermark: isNowWatermarked ? 1 : 0,
+                catalog_id: finalId,
+                source: 'admin_upload'
+            });
+
             const key = isNowWatermarked ? 'watermark_images' : 'no_watermark_images';
             const { data: settingData } = await supabaseAdmin.from('app_settings').select('value').eq('key', key).single();
             let list = [];
@@ -326,7 +357,7 @@ export async function POST(request) {
                 await supabaseAdmin.from('app_settings').upsert({ key, value: JSON.stringify(list), updated_at: new Date() });
             }
         } catch (e) {
-            console.error('[UPLOAD] Settings update error:', e);
+            console.error('[UPLOAD] Database / Settings update error:', e);
         }
 
         return NextResponse.json({ 
@@ -343,7 +374,7 @@ export async function POST(request) {
     }
 }
 
-// DELETE - Remove a file from disk
+// DELETE - Remove a file from disk and media_library table
 export async function DELETE(request) {
     try {
         const auth = await verifyAdmin(request);
@@ -353,6 +384,13 @@ export async function DELETE(request) {
         const { fileName, url } = await request.json();
         const target = fileName || url;
         if (!target) return NextResponse.json({ error: 'No filename or url provided' }, { status: 400 });
+
+        // Delete from media_library database table
+        try {
+            await deleteMediaRecord(target);
+        } catch (dbDelErr) {
+            console.error('[DELETE] Error deleting record from media_library database table:', dbDelErr);
+        }
 
         // If it's a local upload path, delete from disk
         let relPath = target;

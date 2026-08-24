@@ -278,7 +278,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                         fontWeight: 600,
                         marginBottom: '1.25rem'
                     }}>
-                        ⚠️ {error}
+                        {error}
                     </div>
                 )}
 

@@ -120,9 +120,11 @@ export default function HomePage() {
                         if (typeof document !== 'undefined') {
                             document.title = `${cmsData.seo_title || cmsData.title} | Vaiyaaree`;
                         }
+                    } else {
+                        setPage({ title: 'Vaiyaaree Sarees', custom_css: '' });
                     }
                 } catch (cmsErr) {
-                    // Default title if no specific CMS home page exists
+                    setPage({ title: 'Vaiyaaree Sarees', custom_css: '' });
                 }
 
                 // 3. Always fetch Featured Products, Explore Products & Categories
@@ -260,14 +262,25 @@ export default function HomePage() {
     if (comingSoonSettings?.enabled) {
         return <ComingSoonPage settings={comingSoonSettings} />;
     }
-    if (!page) return null;
+    const activePage = page || { title: 'Vaiyaaree Sarees', custom_css: '' };
 
     const currentSlide = heroBannerSlides[heroSliderIndex];
 
     return (
         <div style={{ minHeight: '100vh', background: '#fdfbf7', fontFamily: 'var(--font-roboto), sans-serif', color: '#2b2623' }}>
-            <style dangerouslySetInnerHTML={{ __html: page.custom_css || '' }} />
+            <style dangerouslySetInnerHTML={{ __html: page?.custom_css || '' }} />
             <ShopHeader />
+
+            {/* CMS Custom Page Content (Reflects Admin CMS Page Builder Edits) */}
+            {page?.content && page.content.trim() && (
+                <div style={{ background: '#ffffff', borderBottom: '1px solid #f0e6df', padding: '2rem 1.5rem' }}>
+                    <div 
+                        className="cms-content-wrapper" 
+                        style={{ maxWidth: '1300px', margin: '0 auto', fontSize: '1.05rem', lineHeight: 1.7 }} 
+                        dangerouslySetInnerHTML={{ __html: page.content }} 
+                    />
+                </div>
+            )}
 
 
 

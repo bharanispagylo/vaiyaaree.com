@@ -39,7 +39,7 @@ export default function ProductsPage() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
     const [categoryFilter, setCategoryFilter] = useState('ALL');
-    const [sortBy, setSortBy] = useState('newest');
+    const [sortBy, setSortBy] = useState('product_no_asc');
     const [groupFilter, setGroupFilter] = useState('ALL');
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
     const [viewMode, setViewMode] = useState('table'); // 'table', 'card', or 'analytics'
@@ -248,11 +248,27 @@ export default function ProductsPage() {
                 query = query.eq('is_active', statusFilter === 'ACTIVE');
             }
             if (debouncedSearchTerm.trim()) {
-                const term = debouncedSearchTerm.trim();
-                query = query.or(`name.ilike.%${term}%,category.ilike.%${term}%,product_group.ilike.%${term}%`);
+                const rawTerm = debouncedSearchTerm.trim();
+                const cleanTerm = rawTerm.replace(/^#+/, '').trim();
+                const terms = Array.from(new Set([rawTerm, cleanTerm])).filter(Boolean);
+
+                const orConditions = [];
+                for (const t of terms) {
+                    orConditions.push(
+                        `name.ilike.%${t}%`,
+                        `category.ilike.%${t}%`,
+                        `product_group.ilike.%${t}%`,
+                        `product_catalog_image_id.ilike.%${t}%`,
+                        `sku.ilike.%${t}%`,
+                        `id.ilike.%${t}%`
+                    );
+                }
+                query = query.or(orConditions.join(','));
             }
 
-            if (sortBy === 'low_stock') {
+            if (sortBy === 'product_no_asc') {
+                query = query.order('created_at', { ascending: true });
+            } else if (sortBy === 'low_stock') {
                 query = query.order('stock', { ascending: true });
             } else if (sortBy === 'high_price') {
                 query = query.order('price', { ascending: false });
@@ -263,7 +279,17 @@ export default function ProductsPage() {
             const { data, count, error } = await query.range(from, to);
             if (error) throw error;
 
-            setProducts(data || []);
+            let finalProducts = data || [];
+            if (sortBy === 'product_no_asc') {
+                finalProducts.sort((a, b) => {
+                    const numA = a.product_no || (a.sku ? parseInt(a.sku) : 0) || 0;
+                    const numB = b.product_no || (b.sku ? parseInt(b.sku) : 0) || 0;
+                    if (numA && numB && !isNaN(numA) && !isNaN(numB)) return numA - numB;
+                    return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+                });
+            }
+
+            setProducts(finalProducts);
             setTotalCount(count || 0);
 
             fetchStatsAndAnalytics();
@@ -969,12 +995,17 @@ export default function ProductsPage() {
     const groups = ['ALL', ...new Set(allProductsData.map(p => p.product_group).filter(Boolean))];
 
     const statsFiltered = allProductsData.filter(p => {
-        const term = debouncedSearchTerm.toLowerCase();
-        const matchesSearch = (
-            (p.name || '').toLowerCase().includes(term) ||
-            (p.category || '').toLowerCase().includes(term) ||
-            (p.product_group || '').toLowerCase().includes(term) ||
-            (p.product_catalog_image_id || '').toLowerCase().includes(term)
+        const rawTerm = debouncedSearchTerm.toLowerCase().trim();
+        const cleanTerm = rawTerm.replace(/^#+/, '').trim();
+        const matchesSearch = !rawTerm || (
+            (p.name || '').toLowerCase().includes(rawTerm) ||
+            (p.category || '').toLowerCase().includes(rawTerm) ||
+            (p.product_group || '').toLowerCase().includes(rawTerm) ||
+            (p.product_catalog_image_id || '').toLowerCase().includes(rawTerm) ||
+            (p.sku || '').toLowerCase().includes(rawTerm) ||
+            (p.sku || '').toLowerCase().includes(cleanTerm) ||
+            (String(p.product_no || '')).includes(cleanTerm) ||
+            (p.id || '').toLowerCase().includes(rawTerm)
         );
         const matchesCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
         const matchesGroup = groupFilter === 'ALL' || p.product_group === groupFilter;
@@ -1098,6 +1129,7 @@ export default function ProductsPage() {
                                     className="admin-input"
                                     style={{ width: '100%', paddingLeft: '1rem', paddingRight: '2.5rem', height: '42px', fontSize: '0.85rem', appearance: 'none', cursor: 'pointer' }}
                                 >
+                                    <option value="product_no_asc">Product No: Ascending (#1001, #1002...)</option>
                                     <option value="newest">Newest First</option>
                                     <option value="low_stock">Low Stock First</option>
                                     <option value="high_price">Price: High to Low</option>
