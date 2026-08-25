@@ -150,35 +150,7 @@ export default function ComingSoonPage({ settings = {} }) {
                     </div>
                 </div>
 
-                {/* VIP Notify Me Form */}
-                <div className={styles.formContainer}>
-                    <div className={styles.formTitle}>
-                        <Sparkles size={16} color="#dfaa5b" />
-                        <span>Get VIP Early Access & Exclusive Launch Offer</span>
-                    </div>
 
-                    {!subscribed ? (
-                        <form onSubmit={handleSubscribe} className={styles.inputGroup}>
-                            <input
-                                type="text"
-                                value={emailOrPhone}
-                                onChange={(e) => setEmailOrPhone(e.target.value)}
-                                placeholder="Enter email address or mobile number..."
-                                className={styles.emailInput}
-                                required
-                            />
-                            <button type="submit" disabled={subscribing} className={styles.submitBtn}>
-                                {subscribing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                                <span>Notify Me</span>
-                            </button>
-                        </form>
-                    ) : (
-                        <div className={styles.successMsg}>
-                            <CheckCircle2 size={18} />
-                            <span>{responseMsg}</span>
-                        </div>
-                    )}
-                </div>
 
                 {/* Direct Action Buttons */}
                 <div className={styles.actionsRow}>

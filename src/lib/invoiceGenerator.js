@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { mysqlClient } from '@/lib/mysqlClient';
+import { mysqlClient } from './mysqlClient.js';
 
 async function urlToBase64(url) {
     try {
@@ -503,5 +503,15 @@ export async function generateInvoicePDF(order) {
     doc.text(branding.bill_footer || "Thank you for your business!", 105, y + 5, { align: "center" });
 
     return doc.output('arraybuffer');
+}
+
+export async function generateOrderPDFBuffer(order) {
+    try {
+        const arrayBuffer = await generateInvoicePDF(order);
+        return Buffer.from(arrayBuffer);
+    } catch (err) {
+        console.error('[PDF-GENERATION-ERROR]', err);
+        return null;
+    }
 }
 

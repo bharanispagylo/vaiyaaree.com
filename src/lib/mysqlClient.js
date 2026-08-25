@@ -156,6 +156,7 @@ class MySQLQueryBuilder {
                 orders: this.orders,
                 limit: this.limitVal,
                 offset: this.offsetVal,
+                countType: this.countType,
                 count: this.countType
             };
 

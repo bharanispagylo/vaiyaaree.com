@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 const menuItems = [
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
     { name: 'Products', href: '/admin/products', icon: ShoppingCart },
-    { name: 'Discounts & Coupons', href: '/admin/discounts', icon: Tag },
+    { name: 'Discount Rule', href: '/admin/discounts', icon: Tag },
     { 
         name: 'Orders', 
         icon: Package, 

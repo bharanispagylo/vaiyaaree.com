@@ -1017,7 +1017,8 @@ export default function ProductsPage() {
     const totalStock = statsFiltered.reduce((s, p) => s + (p.stock || 0), 0);
     const totalValue = statsFiltered.reduce((s, p) => s + ((p.price || 0) * (p.stock || 0)), 0);
 
-    const totalProductPages = Math.ceil(totalCount / PRODUCTS_PER_PAGE);
+    const totalCountToUse = totalCount > 0 ? totalCount : statsFiltered.length;
+    const totalProductPages = Math.ceil(totalCountToUse / PRODUCTS_PER_PAGE);
     const paginatedProducts = products;
     const filtered = products;
 
@@ -1031,7 +1032,7 @@ export default function ProductsPage() {
                         <div className="admin-header-row">
                             <div>
                                 <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
-                                <p>Manage your premium product collection • {totalCount} items</p>
+                                <p>Manage your premium product collection • {totalCountToUse} items</p>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button onClick={() => setImportedProductsForImage([])} className="btn btn-secondary">
@@ -1049,7 +1050,7 @@ export default function ProductsPage() {
                         {/* Stats */}
                         <div className="admin-grid-3">
                             {[
-                                { label: 'Total Products', value: totalCount, color: 'hsl(var(--primary))' },
+                                { label: 'Total Products', value: totalCountToUse, color: 'hsl(var(--primary))' },
                                 { label: 'Total Stock', value: `${totalStock} pcs`, color: 'hsl(var(--accent))' },
                                 { label: 'Inventory Value', value: `₹${totalValue.toLocaleString()}`, color: 'hsl(var(--success))' },
                             ].map(s => (
@@ -1178,7 +1179,7 @@ export default function ProductsPage() {
                                     </button>
                                 </div>
                                 <span style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600, marginLeft: '0.25rem' }}>
-                                    Showing {totalCount > 0 ? (productsPage - 1) * PRODUCTS_PER_PAGE + 1 : 0} - {Math.min(productsPage * PRODUCTS_PER_PAGE, totalCount)} of {totalCount} items
+                                    Showing {totalCountToUse > 0 ? (productsPage - 1) * PRODUCTS_PER_PAGE + 1 : 0} - {Math.min(productsPage * PRODUCTS_PER_PAGE, totalCountToUse)} of {totalCountToUse} items
                                 </span>
                             </div>
                         </div>
@@ -1529,7 +1530,7 @@ export default function ProductsPage() {
                 {/*  EDIT / ADD PRODUCT PAGE  */}
                 {isEditing && (
                     <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
-                        <div className="card shadow-premium" style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: '#ffffff' }}>
+                        <div className="card shadow-premium" style={{ width: '100%', maxWidth: '1500px', margin: '0 auto', padding: '2.5rem', border: '1px solid hsl(var(--border-subtle))', display: 'flex', flexDirection: 'column', borderRadius: '16px', background: '#ffffff' }}>
                             <div style={{ marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                     <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{currentProduct?.id ? 'Edit Product' : 'Add New Product'}</h2>

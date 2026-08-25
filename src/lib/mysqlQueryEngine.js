@@ -16,7 +16,7 @@ export async function executeMysqlQuery(payload) {
         orders = [],
         limit,
         offset,
-        countType,
+        countType = payload.countType || payload.count,
         isSingle = false,
         isMaybeSingle = false
     } = payload;

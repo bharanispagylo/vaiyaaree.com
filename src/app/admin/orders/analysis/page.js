@@ -145,7 +145,7 @@ export default function OrderAnalysisPage() {
     };
 
     return (
-        <div style={{ padding: '2rem 1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{ padding: '2rem 1.5rem', maxWidth: '1500px', margin: '0 auto', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff', overflow: 'hidden' }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>

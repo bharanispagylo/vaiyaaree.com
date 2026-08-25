@@ -36,7 +36,7 @@ export async function GET(request, { params }) {
         
         // Allow if it's an admin (has token) OR if the phone matches
         const isAdmin = authHeader && authHeader.includes(process.env.ADMIN_API_SECRET || 'fallback_secret');
-        const orderPhone = (order.customer_phone || '').replace(/\D/g, '');
+        const orderPhone = (order.customer_phone || order.billing_phone || '').replace(/\D/g, '');
         const normalizedInput = (inputPhone || '').replace(/\D/g, '');
 
         if (!isAdmin && (!inputPhone || (!orderPhone.includes(normalizedInput) && !normalizedInput.includes(orderPhone)))) {
@@ -49,7 +49,7 @@ export async function GET(request, { params }) {
         return new Response(pdfBuffer, {
             headers: {
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `inline; filename="invoice-${orderId}.pdf"`,
+                'Content-Disposition': `attachment; filename="Invoice_${orderId}.pdf"`,
                 'Cache-Control': 'no-cache'
             }
         });

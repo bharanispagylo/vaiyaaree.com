@@ -176,18 +176,20 @@ export default function HomePage() {
                             parsed = heroData.value;
                         } else if (typeof heroData.value === 'string') {
                             const trimmed = heroData.value.trim();
-                            if (trimmed.startsWith('[') || trimmed.startsWith('{') || trimmed.startsWith('"')) {
+                            if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
                                 try {
                                     const jsonParsed = JSON.parse(trimmed);
                                     parsed = Array.isArray(jsonParsed) ? jsonParsed : [jsonParsed];
                                 } catch (e) {
-                                    parsed = [trimmed];
+                                    parsed = trimmed.includes(',') ? trimmed.split(',') : [trimmed];
                                 }
+                            } else if (trimmed.includes(',')) {
+                                parsed = trimmed.split(',');
                             } else if (trimmed) {
                                 parsed = [trimmed];
                             }
                         }
-                        const validUrls = parsed.filter(Boolean);
+                        const validUrls = parsed.map(s => typeof s === 'string' ? s.trim() : s).filter(Boolean);
                         if (validUrls.length > 0) {
                             setHeroSliderImages(validUrls);
                         }
@@ -205,18 +207,20 @@ export default function HomePage() {
                             parsed = galleryData.value;
                         } else if (typeof galleryData.value === 'string') {
                             const trimmed = galleryData.value.trim();
-                            if (trimmed.startsWith('[') || trimmed.startsWith('{') || trimmed.startsWith('"')) {
+                            if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
                                 try {
                                     const jsonParsed = JSON.parse(trimmed);
                                     parsed = Array.isArray(jsonParsed) ? jsonParsed : [jsonParsed];
                                 } catch (e) {
-                                    parsed = [trimmed];
+                                    parsed = trimmed.includes(',') ? trimmed.split(',') : [trimmed];
                                 }
+                            } else if (trimmed.includes(',')) {
+                                parsed = trimmed.split(',');
                             } else if (trimmed) {
                                 parsed = [trimmed];
                             }
                         }
-                        const validUrls = parsed.filter(Boolean);
+                        const validUrls = parsed.map(s => typeof s === 'string' ? s.trim() : s).filter(Boolean);
                         if (validUrls.length > 0) {
                             setGalleryImages(validUrls);
                         }

@@ -241,7 +241,7 @@ export default function AdminDiscountsPage() {
             <header className="page-header">
                 <div>
                     <div className="breadcrumb">Promotions / Rules Engine</div>
-                    <h1>Discounts & Coupons</h1>
+                    <h1>Discount Rule</h1>
                     <p>Configure product sales, cart threshold offers, coupons, and promotional rules.</p>
                 </div>
                 <button onClick={() => handleOpenModal()} className="btn-primary-glow">

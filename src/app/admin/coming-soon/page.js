@@ -298,58 +298,7 @@ export default function AdminComingSoonPage() {
                     </div>
                 </section>
 
-                {/* VIP Subscribers List */}
-                <section className="settings-card full-width shadow-premium">
-                    <div className="card-header" style={{ justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <Users size={20} color="hsl(var(--primary))" />
-                            <h3>VIP Launch Notify Subscribers ({subscribers.length})</h3>
-                        </div>
-                        {subscribers.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={exportSubscribersCSV}
-                                className="btn-secondary-action"
-                                style={{ padding: '0.45rem 0.9rem', fontSize: '0.85rem' }}
-                            >
-                                <Download size={14} /> Export CSV
-                            </button>
-                        )}
-                    </div>
 
-                    {subscribers.length === 0 ? (
-                        <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-                            <Users size={40} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
-                            <p style={{ margin: 0, fontWeight: 500 }}>No subscribers have signed up yet.</p>
-                            <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>When visitors subscribe on the Coming Soon page, their contact info appears here.</p>
-                        </div>
-                    ) : (
-                        <div className="table-responsive">
-                            <table className="subscribers-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Email</th>
-                                        <th>Phone</th>
-                                        <th>Date Subscribed</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {subscribers.map((sub, idx) => (
-                                        <tr key={idx}>
-                                            <td style={{ fontWeight: 700, color: '#94a3b8' }}>{idx + 1}</td>
-                                            <td style={{ fontWeight: 600, color: '#1e293b' }}>{sub.email || '—'}</td>
-                                            <td style={{ color: '#475569' }}>{sub.phone || '—'}</td>
-                                            <td style={{ color: '#64748b', fontSize: '0.85rem' }}>
-                                                {sub.subscribed_at ? new Date(sub.subscribed_at).toLocaleString('en-IN') : '—'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </section>
             </div>
 
             <style jsx>{`

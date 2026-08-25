@@ -1,7 +1,29 @@
-// Helper for sending WhatsApp messages via Meta Cloud API
-const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+export function isValidPublicUrl(value) {
+    if (!value || typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    if (trimmed.includes('localhost') || trimmed.includes('127.0.0.1')) return false;
+    try {
+        const url = new URL(trimmed);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+export function toPublicImageUrl(imagePath) {
+    if (!imagePath || typeof imagePath !== 'string') return '';
+    let trimmed = imagePath.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        return isValidPublicUrl(trimmed) ? trimmed : '';
+    }
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/$/, '');
+    if (appUrl && (appUrl.startsWith('http://') || appUrl.startsWith('https://')) && !appUrl.includes('localhost') && !appUrl.includes('127.0.0.1')) {
+        const pathPart = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+        const fullUrl = `${appUrl}${pathPart}`;
+        return isValidPublicUrl(fullUrl) ? fullUrl : '';
+    }
+    return '';
+}
 
 export async function sendWhatsAppText(to, text) {
     if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {

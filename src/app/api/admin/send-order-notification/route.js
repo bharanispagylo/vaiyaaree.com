@@ -1,6 +1,7 @@
 import { sendText, sendRawMessage } from '@/services/whatsappService';
 import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '@/lib/emailService';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { isValidPublicUrl, toPublicImageUrl } from '@/lib/whatsapp';
 
 function getDisplayInv(order, orderId) {
     const raw = order?.invoice_no || orderId || order?.id || '';
@@ -177,6 +178,10 @@ export async function POST(request) {
         }
 
         const notifications = [];
+        let emailSent = false;
+        let whatsappSent = false;
+        let emailErrorMsg = null;
+        let waErrorMsg = null;
 
         // Send WhatsApp notification
         const finalPhone = targetPhone || order.billing_phone || order.customer_phone;
@@ -221,57 +226,54 @@ export async function POST(request) {
                     }
                 }
 
+                let waImageSent = false;
+
                 if (itemsWithImages.length > 0) {
-                    // Send first product image with the main message as the caption
                     const firstItem = itemsWithImages[0];
-                    let caption = message;
-                    
-                    // If there is only 1 item in the order, append its details directly to the main caption
-                    if (order.order_items.length === 1) {
-                        caption += `\n\n *Item:* ${firstItem.product_name}\n` +
-                            (firstItem.variant_name ? ` *Option:* ${firstItem.variant_name}\n` : '') +
-                            ` *Price:* ₹${firstItem.price_at_time.toLocaleString()}\n` +
-                            ` *Quantity:* ${firstItem.quantity}`;
-                    }
+                    const publicUrl = toPublicImageUrl(firstItem.image_url);
 
-                    await sendRawMessage(finalPhone, {
-                        messaging_product: "whatsapp",
-                        recipient_type: "individual",
-                        to: finalPhone,
-                        type: "image",
-                        image: {
-                            link: firstItem.image_url,
-                            caption: caption.substring(0, 1024)
+                    if (publicUrl) {
+                        let caption = message;
+                        if (order.order_items.length === 1) {
+                            caption += `\n\n *Item:* ${firstItem.product_name}\n` +
+                                (firstItem.variant_name ? ` *Option:* ${firstItem.variant_name}\n` : '') +
+                                ` *Price:* ₹${firstItem.price_at_time.toLocaleString()}\n` +
+                                ` *Quantity:* ${firstItem.quantity}`;
                         }
-                    });
 
-                    // Send remaining product images with their captions
-                    for (let i = 1; i < itemsWithImages.length; i++) {
-                        const item = itemsWithImages[i];
-                        const itemCaption = ` *Item:* ${item.product_name}\n` +
-                            (item.variant_name ? ` *Option:* ${item.variant_name}\n` : '') +
-                            ` *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
-                            ` *Quantity:* ${item.quantity}`;
-                        
-                        await sendRawMessage(finalPhone, {
+                        const rawRes = await sendRawMessage(finalPhone, {
                             messaging_product: "whatsapp",
                             recipient_type: "individual",
                             to: finalPhone,
                             type: "image",
                             image: {
-                                link: item.image_url,
-                                caption: itemCaption.substring(0, 1024)
+                                link: publicUrl,
+                                caption: caption.substring(0, 1024)
                             }
                         });
+
+                        if (rawRes && !rawRes.error) {
+                            waImageSent = true;
+                        }
+                    }
+                }
+
+                if (!waImageSent) {
+                    // Fallback to text message if image URL is non-public, missing or failed
+                    const txtRes = await sendText(finalPhone, message);
+                    if (txtRes && txtRes.error) {
+                        waErrorMsg = txtRes.error;
+                    } else {
+                        whatsappSent = true;
                     }
                 } else {
-                    // Fallback to text message if no product images exist
-                    await sendText(finalPhone, message);
+                    whatsappSent = true;
                 }
 
                 notifications.push(`WhatsApp (${finalPhone})`);
             } catch (whatsappErr) {
                 console.error('Failed to send WhatsApp notification:', whatsappErr);
+                waErrorMsg = whatsappErr.message;
                 notifications.push('WhatsApp (failed)');
             }
         }
@@ -281,31 +283,55 @@ export async function POST(request) {
         if (sendEmail && finalEmail) {
             try {
                 const orderWithTarget = { ...order, customer_email: finalEmail };
+                let mailRes;
                 if (statusOverride) {
-                    // Use status-specific email if available
-                    await sendOrderStatusEmail(orderWithTarget, statusOverride);
+                    mailRes = await sendOrderStatusEmail(orderWithTarget, statusOverride);
                 } else {
-                    await sendOrderConfirmationEmail(orderWithTarget);
+                    mailRes = await sendOrderConfirmationEmail(orderWithTarget);
+                }
+
+                if (mailRes && mailRes.success) {
+                    emailSent = true;
+                } else {
+                    emailErrorMsg = mailRes?.error || 'Email dispatch failed';
                 }
                 notifications.push(`Email (${finalEmail})`);
             } catch (emailErr) {
                 console.error('Failed to send email notification:', emailErr);
+                emailErrorMsg = emailErr.message;
                 notifications.push('Email (failed)');
             }
         }
 
+        const isSuccess = (sendEmail ? emailSent : true) && (sendWhatsApp ? whatsappSent : true);
+
         return new Response(JSON.stringify({
-            success: true,
-            message: `Notifications sent: ${notifications.join(', ')}`,
+            success: isSuccess,
+            message: isSuccess ? `Notifications sent: ${notifications.join(', ')}` : `Some notifications failed: ${notifications.join(', ')}`,
+            email: {
+                attempted: Boolean(sendEmail && finalEmail),
+                sent: emailSent,
+                error: emailErrorMsg
+            },
+            whatsapp: {
+                attempted: Boolean(sendWhatsApp && finalPhone),
+                sent: whatsappSent,
+                error: waErrorMsg
+            },
             notifications
         }), {
-            status: 200,
+            status: isSuccess ? 200 : 500,
             headers: { 'Content-Type': 'application/json' }
         });
 
     } catch (error) {
         console.error('Error sending notifications:', error);
-        return new Response(JSON.stringify({ error: 'Failed to send notifications' }), {
+        return new Response(JSON.stringify({
+            success: false,
+            error: 'Failed to send notifications: ' + error.message,
+            email: { attempted: false, sent: false, error: error.message },
+            whatsapp: { attempted: false, sent: false, error: error.message }
+        }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
         });

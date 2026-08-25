@@ -2,6 +2,15 @@ import nodemailer from 'nodemailer';
 import path from 'path';
 import fs from 'fs';
 import { mysqlClient } from './mysqlClient.js';
+import { generateInvoicePDF, generateOrderPDFBuffer } from './invoiceGenerator.js';
+
+export function getCleanBaseUrl() {
+    let url = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim();
+    if (!url || url.includes('trycloudflare.com') || url.includes('loca.lt') || url.includes('ngrok')) {
+        url = process.env.NODE_ENV === 'production' ? 'https://vaiyaaree.com' : 'http://localhost:3000';
+    }
+    return url.replace(/\/$/, '');
+}
 
 // Helper to get local Vaiyaaree logo attachment
 function getLogoAttachment() {
@@ -30,63 +39,27 @@ function getLogoAttachment() {
     return null;
 }
 
-export async function getSmtpConfig() {
-    let host = process.env.SMTP_HOST || 'smtp.gmail.com';
-    let port = parseInt(process.env.SMTP_PORT || '587', 10);
-    let user = process.env.SMTP_USER || '';
-    let pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
-    let from = process.env.SMTP_FROM || `"Vaiyaaree Sarees" <${user || 'no-reply@vaiyaaree.com'}>`;
+import { getTransporter, getSmtpConfig, verifySmtpConnection } from './emailTransporter.js';
+export { getSmtpConfig, verifySmtpConnection };
 
-    try {
-        const { data: settings } = await mysqlClient.from('app_settings').select('*');
-        if (settings && Array.isArray(settings)) {
-            settings.forEach(s => {
-                if (s.key === 'smtp_host' && s.value) host = s.value.trim();
-                if (s.key === 'smtp_port' && s.value) port = parseInt(s.value.trim(), 10);
-                if (s.key === 'smtp_user' && s.value) user = s.value.trim();
-                if (s.key === 'smtp_pass' && s.value) pass = s.value.trim().replace(/\s+/g, '');
-                if (s.key === 'smtp_from' && s.value) from = s.value.trim();
-            });
-        }
-    } catch (err) {
-        // use env fallbacks
-    }
-
-    return { host, port, user, pass, from };
-}
-
-export async function sendEmail({ to, subject, html }) {
+export async function sendEmail({ to, subject, html, attachments = [] }) {
     let resultStatus = 'SENT';
     let messageId = null;
     let errorMessage = null;
 
-    const config = await getSmtpConfig();
+    const { transporter, config } = await getTransporter();
 
-    if (!config.user || !config.pass) {
+    if (!transporter || !config.user || !config.pass) {
         console.log(`[EMAIL-SERVICE] Logging mode (SMTP credentials not configured) — To: ${to}, Subject: ${subject}`);
         resultStatus = 'LOGGED_ONLY';
     } else {
         try {
-            const dynamicTransporter = nodemailer.createTransport({
-                host: config.host,
-                port: config.port,
-                secure: config.port === 465,
-                auth: {
-                    user: config.user,
-                    pass: config.pass
-                },
-                tls: {
-                    rejectUnauthorized: false
-                },
-                connectionTimeout: 10000,
-                greetingTimeout: 10000
-            });
-
-            const info = await dynamicTransporter.sendMail({
+            const info = await transporter.sendMail({
                 from: config.from || `"Vaiyaaree Sarees" <${config.user}>`,
                 to,
                 subject,
-                html
+                html,
+                attachments: attachments // ONLY the PDF attachment!
             });
             messageId = info.messageId;
         } catch (err) {
@@ -261,9 +234,17 @@ export async function sendOrderConfirmationEmail(order) {
     const subtotal = order.subtotal || order.sub_total || calculatedSubtotal;
     const shipping = order.shipping_cost || order.shipping_amount || order.shipping || 0;
 
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')).replace(/\/$/, '');
-    const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
-    const orderUrl = `${baseUrl}/order-confirmation?orderId=${order.id}`;
+    const baseUrl = getCleanBaseUrl();
+    const phoneParam = encodeURIComponent(order.customer_phone || order.billing_phone || '');
+    const invoiceUrl = `${baseUrl}/api/invoice/${order.id}${phoneParam ? `?phone=${phoneParam}` : ''}`;
+
+    let orderUrl = order.tracking_url || '';
+    if (orderUrl && order.tracking_number && orderUrl.includes('{') && orderUrl.includes('}')) {
+        orderUrl = orderUrl.replace(/\{[^}]+\}/g, encodeURIComponent(order.tracking_number));
+    }
+    if (!orderUrl || !orderUrl.startsWith('http')) {
+        orderUrl = `${baseUrl}/track-order?id=${order.id}`;
+    }
 
     let { data: logoSetting } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
@@ -483,18 +464,22 @@ export async function sendOrderConfirmationEmail(order) {
     }
 
     try {
-        await transporter.sendMail(mailOptions);
-        return { success: true };
+        return await sendEmail({
+            to: mailOptions.to,
+            subject: mailOptions.subject,
+            html: mailOptions.html,
+            attachments: mailOptions.attachments || []
+        });
     } catch (error) {
         console.error('Email send error:', error);
-        throw error;
+        return { success: false, error: error.message };
     }
 }
 
 export async function sendOrderStatusEmail(order, status, specificEmails = null) {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return { success: true };
 
-    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')).replace(/\/$/, '');
+    const baseUrl = getCleanBaseUrl();
 
     let { data: logoSetting } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
@@ -516,9 +501,16 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
         'CANCELLED': { title: 'Order Cancelled', body: `Your order #${order.id} has been cancelled.` }
     };
 
-    const config = statusConfig[status] || { title: `Order Update: ${status}`, body: `Your order #${order.id} status has been updated to: ${status}` };
-    const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
-    const orderUrl = `${baseUrl}/order-confirmation?orderId=${order.id}`;
+    const phoneParam = encodeURIComponent(order.customer_phone || order.billing_phone || '');
+    const invoiceUrl = `${baseUrl}/api/invoice/${order.id}${phoneParam ? `?phone=${phoneParam}` : ''}`;
+
+    let orderUrl = order.tracking_url || '';
+    if (orderUrl && order.tracking_number && orderUrl.includes('{') && orderUrl.includes('}')) {
+        orderUrl = orderUrl.replace(/\{[^}]+\}/g, encodeURIComponent(order.tracking_number));
+    }
+    if (!orderUrl || !orderUrl.startsWith('http')) {
+        orderUrl = `${baseUrl}/track-order?id=${order.id}`;
+    }
 
     const toEmails = specificEmails ? Array.from(specificEmails).join(',') : (order.customer_email || order.billing_email || order.customer_phone);
     if (!toEmails || toEmails.indexOf('@') === -1) return { success: true };
@@ -747,11 +739,15 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
     }
 
     try {
-        await transporter.sendMail(mailOptions);
-        return { success: true };
+        return await sendEmail({
+            to: mailOptions.to,
+            subject: mailOptions.subject,
+            html: mailOptions.html,
+            attachments: mailOptions.attachments || []
+        });
     } catch (error) {
         console.error('Status Email Error:', error);
-        return { success: false, error };
+        return { success: false, error: error.message };
     }
 }
 

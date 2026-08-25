@@ -67,18 +67,21 @@ export default function MediaLibraryPage() {
 
     const parseSettingImages = (value) => {
         if (!value) return [];
-        if (Array.isArray(value)) return value.filter(Boolean);
+        if (Array.isArray(value)) return value.map(s => typeof s === 'string' ? s.trim() : s).filter(Boolean);
         if (typeof value === 'string') {
             const trimmed = value.trim();
             if (!trimmed) return [];
-            if (trimmed.startsWith('[') || trimmed.startsWith('{') || trimmed.startsWith('"')) {
+            if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
                 try {
                     const parsed = JSON.parse(trimmed);
-                    if (Array.isArray(parsed)) return parsed.filter(Boolean);
-                    if (typeof parsed === 'string' && parsed) return [parsed];
+                    if (Array.isArray(parsed)) return parsed.map(s => typeof s === 'string' ? s.trim() : s).filter(Boolean);
+                    if (typeof parsed === 'string' && parsed) return [parsed.trim()];
                 } catch (e) {
-                    return [trimmed];
+                    return trimmed.includes(',') ? trimmed.split(',').map(s => s.trim()).filter(Boolean) : [trimmed];
                 }
+            }
+            if (trimmed.includes(',')) {
+                return trimmed.split(',').map(s => s.trim()).filter(Boolean);
             }
             return [trimmed];
         }

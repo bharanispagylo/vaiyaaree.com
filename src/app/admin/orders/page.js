@@ -1418,7 +1418,18 @@ export default function OrdersPage() {
 
     return (
         <>
-            <div className="animate-enter">
+            <div className="animate-enter" style={{
+                width: '100%',
+                maxWidth: '1500px',
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                border: '1px solid hsl(var(--border-subtle))',
+                borderRadius: '24px',
+                background: '#ffffff',
+                overflow: 'hidden',
+                padding: '2rem'
+            }}>
 
                 {false ? (
 
@@ -1832,7 +1843,7 @@ export default function OrdersPage() {
                         {selectedOrder && !isCourierFromTable && (
                             <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                                 <div className="card shadow-premium" style={{
-                                    width: '100%', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff', overflow: 'hidden'
+                                    width: '100%', maxWidth: '1500px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff', overflow: 'hidden'
                                 }}>
                                     <div style={{ padding: '1.5rem 2rem', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
@@ -2672,7 +2683,7 @@ export default function OrdersPage() {
                         {isAddingOrder && (
                             <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
                                 <div className="card shadow-premium" style={{
-                                    width: '100%', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff'
+                                    width: '100%', maxWidth: '1500px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff', overflow: 'hidden'
                                 }}>
                                     <div style={{ padding: '1.5rem 2rem', background: '#ffffff', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
