@@ -35,7 +35,7 @@ function PaymentPageInner({ orderId }) {
 
         async function fetchSettings() {
             try {
-                const { data, error: sError } = await supabase
+                const { data, error: sError } = await mysqlClient
                     .from('app_settings')
                     .select('key, value')
                     .in('key', ['razorpay_enabled', 'razorpay_title', 'phonepe_enabled', 'phonepe_title', 'default_gateway']);
@@ -56,7 +56,7 @@ function PaymentPageInner({ orderId }) {
         }
 
         async function fetchOrder() {
-            const { data, fetchError } = await supabase
+            const { data, fetchError } = await mysqlClient
                 .from('orders')
                 .select('*, order_items(*)')
                 .eq('id', orderId)

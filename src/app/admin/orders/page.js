@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 import {
     Search, Eye, ChevronDown, rotateCcw, ChevronLeft, ChevronRight,
@@ -400,7 +400,7 @@ export default function OrdersPage() {
 
         let catalog = allProducts;
         if (!catalog || catalog.length === 0) {
-            const { data: dbProds } = await supabase.from('products').select('*');
+            const { data: dbProds } = await mysqlClient.from('products').select('*');
             catalog = dbProds || [];
             setAllProducts(catalog);
         }
@@ -409,8 +409,8 @@ export default function OrdersPage() {
         const variantIds = items.map(i => i.variant_id).filter(Boolean);
 
         const [prodsRes, varsRes] = await Promise.all([
-            productIds.length > 0 ? supabase.from('products').select('id, name, image_url, sku, category, product_no, product_group, product_catalog_image_id').in('id', productIds) : { data: [] },
-            variantIds.length > 0 ? supabase.from('product_variants').select('id, image_url, sku, name').in('id', variantIds) : { data: [] }
+            productIds.length > 0 ? mysqlClient.from('products').select('id, name, image_url, sku, category, product_no, product_group, product_catalog_image_id').in('id', productIds) : { data: [] },
+            variantIds.length > 0 ? mysqlClient.from('product_variants').select('id, image_url, sku, name').in('id', variantIds) : { data: [] }
         ]);
 
         const prodMap = new Map((prodsRes.data || []).map(p => [String(p.id), p]));
@@ -538,10 +538,10 @@ export default function OrdersPage() {
         try {
             // Delete order items first (cascading delete should ideally be in DB, but being safe)
             // If DB doesn't have CASCADE, we delete manually
-            await supabase.from('order_items').delete().in('order_id', ids);
-            await supabase.from('order_status_logs').delete().in('order_id', ids);
+            await mysqlClient.from('order_items').delete().in('order_id', ids);
+            await mysqlClient.from('order_status_logs').delete().in('order_id', ids);
 
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('orders')
                 .delete()
                 .in('id', ids);
@@ -563,7 +563,7 @@ export default function OrdersPage() {
 
     const fetchOrderCounts = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('orders')
                 .select('status')
                 .neq('status', 'DRAFT');
@@ -589,7 +589,7 @@ export default function OrdersPage() {
 
     const fetchAnalytics = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('orders')
                 .select('id, created_at, status, total_amount, source, courier_name')
                 .neq('status', 'DRAFT');
@@ -663,7 +663,7 @@ export default function OrdersPage() {
 
             // 6. Top Products
             const orderIds = filteredOrders.map(o => o.id);
-            const { data: items } = await supabase.from('order_items').select('product_name, quantity').in('order_id', orderIds);
+            const { data: items } = await mysqlClient.from('order_items').select('product_name, quantity').in('order_id', orderIds);
             const prodMap = {};
             items?.forEach(i => { prodMap[i.product_name] = (prodMap[i.product_name] || 0) + i.quantity; });
             const topProducts = Object.entries(prodMap).map(([name, value]) => ({ name, value }))
@@ -681,7 +681,7 @@ export default function OrdersPage() {
             const from = (ordersPage - 1) * ORDERS_PER_PAGE;
             const to = ordersPage * ORDERS_PER_PAGE - 1;
 
-            let query = supabase
+            let query = mysqlClient
                 .from('orders')
                 .select('*', { count: 'exact' })
                 .neq('status', 'DRAFT');
@@ -735,8 +735,8 @@ export default function OrdersPage() {
     const fetchShippingConfig = async () => {
         try {
             const [zonesRes, mappingsRes] = await Promise.all([
-                supabase.from('shipping_zones').select('*'),
-                supabase.from('shipping_zone_states').select('*')
+                mysqlClient.from('shipping_zones').select('*'),
+                mysqlClient.from('shipping_zone_states').select('*')
             ]);
             setShippingZones(zonesRes.data || []);
             setShippingMappings(mappingsRes.data || []);
@@ -748,7 +748,7 @@ export default function OrdersPage() {
     useEffect(() => {
         setHasMounted(true);
         fetchShippingConfig();
-        const channel = supabase
+        const channel = mysqlClient
             .channel('orders_page')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
             .subscribe();
@@ -762,7 +762,7 @@ export default function OrdersPage() {
         };
         window.addEventListener('resetAdminView', handleReset);
         return () => {
-            supabase.removeChannel(channel);
+            mysqlClient.removeChannel(channel);
             window.removeEventListener('resetAdminView', handleReset);
         };
     }, []);
@@ -776,7 +776,7 @@ export default function OrdersPage() {
                 const numericId = parseInt(queryId, 10);
                 if (!isNaN(numericId)) {
                     setSearchTerm(String(numericId));
-                    supabase
+                    mysqlClient
                         .from('orders')
                         .select('*, customers(name, email, phone)')
                         .eq('id', numericId)
@@ -806,13 +806,13 @@ export default function OrdersPage() {
 
 
     const fetchAllProducts = async () => {
-        const { data } = await supabase.from('products').select('*').order('name');
+        const { data } = await mysqlClient.from('products').select('*').order('name');
         setAllProducts(data || []);
     };
 
     const fetchCouriers = async () => {
         try {
-            const { data } = await supabase.from('couriers').select('*').eq('is_active', true).order('name');
+            const { data } = await mysqlClient.from('couriers').select('*').eq('is_active', true).order('name');
             setCouriers(data || []);
         } catch (err) {
             console.error('Fetch couriers error:', err);
@@ -830,8 +830,8 @@ export default function OrdersPage() {
         prepareOrderForEditing(order);
         try {
             const [{ data: rawItems }, { data: logs }] = await Promise.all([
-                supabase.from('order_items').select('*').eq('order_id', order.id),
-                supabase.from('order_status_logs').select('*').eq('order_id', order.id).order('created_at', { ascending: true })
+                mysqlClient.from('order_items').select('*').eq('order_id', order.id),
+                mysqlClient.from('order_status_logs').select('*').eq('order_id', order.id).order('created_at', { ascending: true })
             ]);
 
             const enriched = await enrichOrderItems(rawItems);
@@ -914,7 +914,7 @@ export default function OrdersPage() {
                 };
 
                 // Insert to database
-                await supabase.from('order_status_logs').insert(logEntry);
+                await mysqlClient.from('order_status_logs').insert(logEntry);
 
                 // Update local state
                 const newLog = {
@@ -1003,7 +1003,7 @@ export default function OrdersPage() {
             const matchCriteria = { order_id: selectedOrder.id, product_id: returningItem.product_id };
             if (returningItem.variant_id) matchCriteria.variant_id = returningItem.variant_id;
 
-            const { error: itemError } = await supabase
+            const { error: itemError } = await mysqlClient
                 .from('order_items')
                 .update({ returned_quantity: alreadyReturned + returnQty })
                 .match(matchCriteria);
@@ -1012,25 +1012,25 @@ export default function OrdersPage() {
 
             // Restore stock
             if (returningItem.variant_id) {
-                const { data: variant } = await supabase
+                const { data: variant } = await mysqlClient
                     .from('product_variants')
                     .select('stock')
                     .eq('id', returningItem.variant_id)
                     .single();
                 if (variant) {
-                    await supabase
+                    await mysqlClient
                         .from('product_variants')
                         .update({ stock: variant.stock + returnQty })
                         .eq('id', returningItem.variant_id);
                 }
             } else {
-                const { data: product } = await supabase
+                const { data: product } = await mysqlClient
                     .from('products')
                     .select('stock')
                     .eq('id', returningItem.product_id)
                     .single();
                 if (product) {
-                    await supabase
+                    await mysqlClient
                         .from('products')
                         .update({ stock: product.stock + returnQty })
                         .eq('id', returningItem.product_id);
@@ -1038,7 +1038,7 @@ export default function OrdersPage() {
             }
 
             // Sync product history
-            await supabase.from('product_history').insert({
+            await mysqlClient.from('product_history').insert({
                 product_id: returningItem.product_id,
                 change_type: 'STOCK_IN',
                 quantity_change: returnQty,
@@ -1046,7 +1046,7 @@ export default function OrdersPage() {
             });
 
             // Activity Log
-            await supabase.from('order_status_logs').insert({
+            await mysqlClient.from('order_status_logs').insert({
                 order_id: selectedOrder.id,
                 status: 'PARTIAL_RETURN',
                 notes: `Returned ${returnQty}x ${returningItem.product_name}`,
@@ -1054,7 +1054,7 @@ export default function OrdersPage() {
             });
 
             // Refund Record
-            await supabase.from('refunds').insert({
+            await mysqlClient.from('refunds').insert({
                 order_id: selectedOrder.id,
                 amount: (returningItem.price_at_time || 0) * returnQty,
                 reason: `Product Return: ${returningItem.product_name} (x${returnQty})`,
@@ -1084,7 +1084,7 @@ export default function OrdersPage() {
         setLoading(true);
         try {
             // Restore stock
-            const { data: items } = await supabase
+            const { data: items } = await mysqlClient
                 .from('order_items')
                 .select('*')
                 .eq('order_id', selectedOrder.id);
@@ -1092,25 +1092,25 @@ export default function OrdersPage() {
             if (items) {
                 for (const item of items) {
                     if (item.variant_id) {
-                        const { data: variant } = await supabase
+                        const { data: variant } = await mysqlClient
                             .from('product_variants')
                             .select('stock')
                             .eq('id', item.variant_id)
                             .single();
                         if (variant) {
-                            await supabase
+                            await mysqlClient
                                 .from('product_variants')
                                 .update({ stock: variant.stock + item.quantity })
                                 .eq('id', item.variant_id);
                         }
                     } else {
-                        const { data: product } = await supabase
+                        const { data: product } = await mysqlClient
                             .from('products')
                             .select('stock')
                             .eq('id', item.product_id)
                             .single();
                         if (product) {
-                            await supabase
+                            await mysqlClient
                                 .from('products')
                                 .update({ stock: product.stock + item.quantity })
                                 .eq('id', item.product_id);
@@ -1120,7 +1120,7 @@ export default function OrdersPage() {
             }
 
             // Update order status with cancel reason
-            await supabase
+            await mysqlClient
                 .from('orders')
                 .update({
                     status: 'CANCELLED',
@@ -1129,7 +1129,7 @@ export default function OrdersPage() {
                 .eq('id', selectedOrder.id);
 
             // Add to activity log
-            await supabase.from('order_status_logs').insert({
+            await mysqlClient.from('order_status_logs').insert({
                 order_id: selectedOrder.id,
                 status: 'CANCELLED',
                 notes: `Order cancelled. Reason: ${cancelReason}`,
@@ -1137,7 +1137,7 @@ export default function OrdersPage() {
             });
 
             // Always create a refund entry for cancellations so admin can review
-            const { error: refundError } = await supabase.from('refunds').insert({
+            const { error: refundError } = await mysqlClient.from('refunds').insert({
                 order_id: selectedOrder.id,
                 amount: selectedOrder.total_amount || 0,
                 reason: `Order Cancelled: ${cancelReason}`,
@@ -1156,7 +1156,7 @@ export default function OrdersPage() {
             fetchOrders();
 
             // Refresh selected order
-            const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', selectedOrder.id).single();
+            const { data: updatedOrder } = await mysqlClient.from('orders').select('*').eq('id', selectedOrder.id).single();
             setSelectedOrder(updatedOrder);
 
         } catch (err) {
@@ -1359,7 +1359,7 @@ export default function OrdersPage() {
             }
 
             // 1. Update Order record (items + customer info)
-            const { error: orderError } = await supabase.from('orders').update({
+            const { error: orderError } = await mysqlClient.from('orders').update({
                 customer_name: shipObj.name || selectedOrder.customer_name,
                 customer_phone: shipObj.phone || selectedOrder.customer_phone,
                 customer_email: selectedOrder.customer_email,
@@ -1378,8 +1378,8 @@ export default function OrdersPage() {
             if (orderError) throw orderError;
 
             // 2. Refresh Items (simplest: delete all and re-insert)
-            await supabase.from('order_items').delete().eq('order_id', selectedOrder.id);
-            const { error: itemsError } = await supabase.from('order_items').insert(
+            await mysqlClient.from('order_items').delete().eq('order_id', selectedOrder.id);
+            const { error: itemsError } = await mysqlClient.from('order_items').insert(
                 orderItems.map(item => ({
                     order_id: selectedOrder.id,
                     product_id: item.product_id,
@@ -1397,7 +1397,7 @@ export default function OrdersPage() {
             setIsEditingItems(false);
             fetchOrders();
             // Refresh local selectedOrder
-            const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', selectedOrder.id).single();
+            const { data: updatedOrder } = await mysqlClient.from('orders').select('*').eq('id', selectedOrder.id).single();
             setSelectedOrder(updatedOrder);
 
         } catch (error) {
@@ -1772,7 +1772,7 @@ export default function OrdersPage() {
                                                                                          <button onClick={async (e) => { 
                                                                                              e.stopPropagation(); 
                                                                                              setInfoModalOrder({ ...order, items: null });
-                                                                                             const { data: rawItems } = await supabase.from('order_items').select('*').eq('order_id', order.id);
+                                                                                             const { data: rawItems } = await mysqlClient.from('order_items').select('*').eq('order_id', order.id);
                                                                                              const enriched = await enrichOrderItems(rawItems);
                                                                                              setInfoModalOrder(prev => prev && prev.id === order.id ? { ...prev, items: enriched } : prev);
                                                                                          }} className="btn btn-secondary" style={{ padding: '0.35rem 0.5rem', color: '#0ea5e9', fontSize: '0.72rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
@@ -2898,16 +2898,16 @@ export default function OrdersPage() {
                                                                 setNotification({ message: 'Order creating...', type: 'info' });
                                                                 setIsCreatingOrder(true);
                                                                 try {
-                                                                    const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('MAN', supabase);
+                                                                    const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('MAN', mysqlClient);
 
                                                                     //  NORMALISE PHONE & SYNC CUSTOMER 
                                                                     const cleanPhone = newOrder.billing_phone.replace(/\D/g, '');
                                                                     const normalizedPhone = cleanPhone.startsWith('91') ? cleanPhone : (cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone);
 
-                                                                    const { data: existingCusts, error: lookupError } = await supabase.from('customers').select('id, name').eq('phone', normalizedPhone);
+                                                                    const { data: existingCusts, error: lookupError } = await mysqlClient.from('customers').select('id, name').eq('phone', normalizedPhone);
 
                                                                     if (!existingCusts || existingCusts.length === 0) {
-                                                                        const { error: custErr } = await supabase.from('customers').insert({
+                                                                        const { error: custErr } = await mysqlClient.from('customers').insert({
                                                                             phone: normalizedPhone,
                                                                             name: newOrder.customer_name || 'Website User',
                                                                             address: newOrder.billing_address,
@@ -2918,7 +2918,7 @@ export default function OrdersPage() {
                                                                         if (custErr) console.error('Failed to auto-create customer profile:', custErr);
                                                                     } else {
                                                                         // Update existing customer with new latest details
-                                                                        await supabase.from('customers').update({
+                                                                        await mysqlClient.from('customers').update({
                                                                             name: newOrder.customer_name || existingCusts[0].name,
                                                                             address: newOrder.billing_address || existingCusts[0].address,
                                                                             city: newOrder.billing_city || existingCusts[0].city,
@@ -2926,7 +2926,7 @@ export default function OrdersPage() {
                                                                         }).eq('id', existingCusts[0].id);
                                                                     }
 
-                                                                    const { error: ordErr } = await supabase.from('orders').insert({
+                                                                    const { error: ordErr } = await mysqlClient.from('orders').insert({
                                                                         id: orderId,
                                                                         customer_name: newOrder.customer_name,
                                                                         customer_email: newOrder.billing_email || null,
@@ -2976,7 +2976,7 @@ export default function OrdersPage() {
                                                                         payment_method: newOrder.payment_method
                                                                     });
                                                                     if (ordErr) throw ordErr;
-                                                                    const { error: itemErr } = await supabase.from('order_items').insert(newOrder.items.map(it => ({
+                                                                    const { error: itemErr } = await mysqlClient.from('order_items').insert(newOrder.items.map(it => ({
                                                                         order_id: orderId,
                                                                         product_id: it.product_id,
                                                                         product_name: it.product_name,
@@ -2986,7 +2986,7 @@ export default function OrdersPage() {
                                                                     if (itemErr) throw itemErr;
 
                                                                     // Add initial PLACED log entry
-                                                                    await supabase.from('order_status_logs').insert({
+                                                                    await mysqlClient.from('order_status_logs').insert({
                                                                         order_id: orderId,
                                                                         status: 'PLACED',
                                                                         notes: 'Order placed',
@@ -2995,12 +2995,12 @@ export default function OrdersPage() {
 
                                                                     //  DEDUCT STOCK & LOG HISTORY 
                                                                     for (const item of newOrder.items) {
-                                                                        const { data: prod } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
+                                                                        const { data: prod } = await mysqlClient.from('products').select('stock').eq('id', item.product_id).single();
                                                                         if (prod) {
                                                                             const newStock = Math.max(0, prod.stock - item.quantity);
-                                                                            await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+                                                                            await mysqlClient.from('products').update({ stock: newStock }).eq('id', item.product_id);
 
-                                                                            await supabase.from('product_history').insert({
+                                                                            await mysqlClient.from('product_history').insert({
                                                                                 product_id: item.product_id,
                                                                                 change_type: 'SALE',
                                                                                 quantity_change: -item.quantity,
@@ -3008,7 +3008,7 @@ export default function OrdersPage() {
                                                                                 reason: `Admin Manual Order #${orderId}`
                                                                             });
 
-                                                                            await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
+                                                                            await mysqlClient.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
                                                                         }
                                                                     }
 
@@ -3152,7 +3152,7 @@ export default function OrdersPage() {
                             setPrintMode('address');
                             setLoading(true);
                             try {
-                                const { data, error } = await supabase
+                                const { data, error } = await mysqlClient
                                     .from('orders')
                                     .select('*')
                                     .in('id', selectedOrderIds);
@@ -3184,7 +3184,7 @@ export default function OrdersPage() {
                             setPrintMode('id');
                             setLoading(true);
                             try {
-                                const { data, error } = await supabase
+                                const { data, error } = await mysqlClient
                                     .from('orders')
                                     .select('*')
                                     .in('id', selectedOrderIds);

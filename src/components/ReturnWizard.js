@@ -120,7 +120,7 @@ function ReturnTimeline({ logs }) {
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
-export default function ReturnWizard({ user, supabase, addresses = [], orders = [], returns = [], onSuccess }) {
+export default function ReturnWizard({ user, mysqlClient, addresses = [], orders = [], returns = [], onSuccess }) {
     const [step, setStep] = useState(0); // 0=product, 1=reason, 2=photos, 3=review
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(null); // returnId after success
@@ -164,7 +164,7 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
     const fetchUserReturns = useCallback(async () => {
         if (!user?.id && !user?.phone) return;
         try {
-            let query = supabase
+            let query = mysqlClient
                 .from('return_requests')
                 .select('*, products(id, name, image_url, price), orders:order_id(id, invoice_no, created_at, customer_name, customer_phone), return_shipping(*)')
                 .order('created_at', { ascending: false });
@@ -180,20 +180,20 @@ export default function ReturnWizard({ user, supabase, addresses = [], orders = 
         } catch (err) {
             console.error('[RETURN-WIZARD] Fetch error:', err);
         }
-    }, [user, supabase]);
+    }, [user, mysqlClient]);
 
     useEffect(() => {
         fetchUserReturns();
 
         // Subscribe to database changes for real-time status updates from Admin
-        const channel = supabase.channel('customer_returns_sync')
+        const channel = mysqlClient.channel('customer_returns_sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'return_requests' }, () => {
                 fetchUserReturns();
             })
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
-    }, [fetchUserReturns, supabase]);
+        return () => { mysqlClient.removeChannel(channel); };
+    }, [fetchUserReturns, mysqlClient]);
 
     // Fetch Couriers list
     useEffect(() => {

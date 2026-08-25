@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { 
     ArrowLeft, IndianRupee, Trophy, Truck, ShoppingCart, 
     Package, RefreshCw, CheckCircle, Calendar, TrendingUp, BarChart3 
@@ -39,7 +39,7 @@ export default function OrderAnalysisPage() {
     const fetchAnalytics = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('orders')
                 .select('id, created_at, status, total_amount, source, courier_name')
                 .neq('status', 'DRAFT');
@@ -129,7 +129,7 @@ export default function OrderAnalysisPage() {
             const orderIds = filteredOrders.map(o => o.id);
             let topProducts = [];
             if (orderIds.length > 0) {
-                const { data: items } = await supabase.from('order_items').select('product_name, quantity').in('order_id', orderIds);
+                const { data: items } = await mysqlClient.from('order_items').select('product_name, quantity').in('order_id', orderIds);
                 const prodMap = {};
                 items?.forEach(i => { prodMap[i.product_name] = (prodMap[i.product_name] || 0) + i.quantity; });
                 topProducts = Object.entries(prodMap).map(([name, value]) => ({ name, value }))

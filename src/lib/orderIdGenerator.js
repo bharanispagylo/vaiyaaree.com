@@ -1,15 +1,15 @@
-import { supabase as defaultSupabase } from './supabaseClient.js';
+import { mysqlClient as defaultDbClient } from '@/lib/mysqlClient';
 
 /**
  * Generates the next sequential Order ID and Invoice Number across the entire application.
  * Formats: WEB-0001, ORD-0002, MAN-0003, INV-0001, INV-0002, etc.
  * 
  * @param {string} prefix - 'WEB' | 'ORD' | 'MAN'
- * @param {Object} [customClient] - Optional Supabase client instance
+ * @param {Object} [customClient] - Optional MySQL client instance
  * @returns {Promise<{ orderId: string, invoiceNo: string, seqNum: number }>}
  */
-export async function getNextOrderAndInvoiceId(prefix = 'WEB', customClient = null) {
-    const db = customClient || defaultSupabase;
+export async function getNextOrderAndInvoiceId(prefix = 'ORD', customClient = null) {
+    const db = customClient || defaultDbClient;
     const cleanPrefix = (prefix || 'WEB').toUpperCase().trim();
 
     // 1. Fetch current sequence counter from app_settings

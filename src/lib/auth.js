@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 
 /**
  * Verifies if the request is from an authorized admin.

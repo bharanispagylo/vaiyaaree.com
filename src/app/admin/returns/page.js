@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import Link from 'next/link';
 import ModalPortal from '@/components/ModalPortal';
 import {
@@ -251,7 +251,7 @@ export default function AdminReturnsPage() {
     // ── Data fetching ─────────────────────────────────────────────────────────
 
     const fetchStatusCounts = useCallback(async () => {
-        const { data } = await supabase.from('return_requests').select('status');
+        const { data } = await mysqlClient.from('return_requests').select('status');
         const counts = {};
         (data || []).forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
         counts.total = (data || []).length;
@@ -264,7 +264,7 @@ export default function AdminReturnsPage() {
             const from = (page - 1) * ITEMS_PER_PAGE;
             const to = page * ITEMS_PER_PAGE - 1;
 
-            let query = supabase
+            let query = mysqlClient
                 .from('return_requests')
                 .select('id, return_id, order_id, type, reason, status, notes, created_at, refund_amount, refund_method, refund_status, product_id, customer_id, products(*), customers(*), orders(*), return_shipping(*)', { count: 'exact' });
 
@@ -299,10 +299,10 @@ export default function AdminReturnsPage() {
     useEffect(() => { fetchReturns(); }, [fetchReturns]);
 
     useEffect(() => {
-        const channel = supabase.channel('admin_returns_rt')
+        const channel = mysqlClient.channel('admin_returns_rt')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'return_requests' }, () => fetchReturns())
             .subscribe();
-        return () => supabase.removeChannel(channel);
+        return () => mysqlClient.removeChannel(channel);
     }, [fetchReturns]);
 
     useEffect(() => { setPage(1); }, [searchTerm, statusFilter, typeFilter]);

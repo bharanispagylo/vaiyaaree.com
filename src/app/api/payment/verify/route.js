@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import crypto from 'crypto';
 import { notifyOrderSuccess } from '@/services/whatsappService';
 // import { sendWhatsAppText } from '@/lib/whatsapp';
@@ -33,7 +33,7 @@ export async function POST(request) {
         // --- End Signature Verification ---
 
         // Fetch order details for WhatsApp message
-        const { data: order, error: fetchError } = await supabase
+        const { data: order, error: fetchError } = await mysqlClient
             .from('orders')
             .select('*, order_items(*)')
             .eq('id', orderId)
@@ -49,8 +49,8 @@ export async function POST(request) {
             return Response.json({ success: true, orderId, alreadyVerified: true });
         }
 
-        // Mark order as PAID in Supabase
-        const { error: updateError } = await supabase
+        // Mark order as PAID in MySQL
+        const { error: updateError } = await mysqlClient
             .from('orders')
             .update({
                 status: 'PAID',

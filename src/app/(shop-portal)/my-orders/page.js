@@ -12,7 +12,7 @@ export default function MyOrdersPage() {
     useEffect(() => {
         router.replace('/profile?tab=orders');
     }, [router]);
-    const { user, supabase, isSessionLoading } = useShop();
+    const { user, mysqlClient, isSessionLoading } = useShop();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [generatingId, setGeneratingId] = useState(null);
@@ -29,16 +29,16 @@ export default function MyOrdersPage() {
     const [returnRequests, setReturnRequests] = useState([]);
 
     useEffect(() => {
-        if (!supabase) return;
+        if (!mysqlClient) return;
         if (user) {
             fetchUserOrders();
         } else if (!isSessionLoading) {
             setLoading(false);
         }
-    }, [user, supabase, isSessionLoading]);
+    }, [user, mysqlClient, isSessionLoading]);
 
     async function fetchUserOrders() {
-        if (!supabase || !user) {
+        if (!mysqlClient || !user) {
             setLoading(false);
             return;
         }
@@ -55,7 +55,7 @@ export default function MyOrdersPage() {
                 }
             }
 
-            let query = supabase
+            let query = mysqlClient
                 .from('orders')
                 .select('*, order_items(*)')
                 .order('created_at', { ascending: false });
@@ -83,7 +83,7 @@ export default function MyOrdersPage() {
                 setOrders(enrichedData);
                 const orderIds = enrichedData.map(o => o.id).filter(Boolean);
                 if (orderIds.length > 0) {
-                    const { data: reqs } = await supabase
+                    const { data: reqs } = await mysqlClient
                         .from('return_requests')
                         .select('*')
                         .in('order_id', orderIds);

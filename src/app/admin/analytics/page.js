@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { TrendingUp, ShoppingCart, Users, Package, Trophy, Truck, Calendar, Filter, RefreshCw, BarChart3, PieChart as PieChartIcon, ChevronRight, ArrowUpRight, ArrowDownRight, IndianRupee, MapPin, Search } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -33,10 +33,10 @@ export default function AnalyticsHub() {
                 { data: customers },
                 { data: orderItems }
             ] = await Promise.all([
-                supabase.from('orders').select('*').order('created_at', { ascending: true }),
-                supabase.from('products').select('*'),
-                supabase.from('customers').select('*'),
-                supabase.from('order_items').select('*')
+                mysqlClient.from('orders').select('*').order('created_at', { ascending: true }),
+                mysqlClient.from('products').select('*'),
+                mysqlClient.from('customers').select('*'),
+                mysqlClient.from('order_items').select('*')
             ]);
 
             processAnalytics(orders || [], products || [], customers || [], orderItems || [], timeRange);

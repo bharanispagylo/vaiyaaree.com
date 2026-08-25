@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { getAdminSettings } from '@/lib/settings';
 import { sendAdminPasswordResetSuccessEmail } from '@/lib/emailService';
 import { hashPassword } from '@/lib/hash';
@@ -19,7 +19,7 @@ export async function POST(req) {
         }
 
         // 1. Fetch stored OTP from app_settings
-        const { data: otpSetting, error: otpError } = await supabase
+        const { data: otpSetting, error: otpError } = await mysqlClient
             .from('app_settings')
             .select('value')
             .eq('key', 'admin_reset_otp')
@@ -55,7 +55,7 @@ export async function POST(req) {
         const hashedPassword = hashPassword(newPassword);
 
         if (username) {
-            const { error: userError } = await supabase
+            const { error: userError } = await mysqlClient
                 .from('admin_users')
                 .update({ 
                     password: hashedPassword,
@@ -65,7 +65,7 @@ export async function POST(req) {
             
             if (userError) console.error('User update error in admin_users:', userError);
         } else {
-            await supabase
+            await mysqlClient
                 .from('admin_users')
                 .update({ 
                     password: hashedPassword,
@@ -74,7 +74,7 @@ export async function POST(req) {
         }
 
         // 3. Keep fallback in app_settings updated
-        const { error: settingsError } = await supabase
+        const { error: settingsError } = await mysqlClient
             .from('app_settings')
             .upsert([
                 { key: 'admin_password', value: newPassword, updated_at: new Date().toISOString() },

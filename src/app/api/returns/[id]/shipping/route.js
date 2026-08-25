@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlAdmin } from '@/lib/mysqlClient';
 import { transitionReturnStatus } from '@/services/returnService';
 
 export const dynamic = 'force-dynamic';
@@ -26,14 +26,14 @@ export async function POST(request, { params }) {
         } = body;
 
         // 1. Fetch return request by primary UUID id or return_id code
-        let { data: ret, error: fetchErr } = await supabaseAdmin
+        let { data: ret, error: fetchErr } = await mysqlAdmin
             .from('return_requests')
             .select('id, return_id, status, customer_id, order_id')
             .eq('id', rawId)
             .maybeSingle();
 
         if (!ret) {
-            const { data: ret2 } = await supabaseAdmin
+            const { data: ret2 } = await mysqlAdmin
                 .from('return_requests')
                 .select('id, return_id, status, customer_id, order_id')
                 .eq('return_id', rawId)
@@ -78,7 +78,7 @@ export async function POST(request, { params }) {
         }
 
         // 5. Check if shipping entry already exists for this return request
-        const { data: existingShipping } = await supabaseAdmin
+        const { data: existingShipping } = await mysqlAdmin
             .from('return_shipping')
             .select('id')
             .eq('return_request_id', id)
@@ -101,7 +101,7 @@ export async function POST(request, { params }) {
 
         if (existingShipping) {
             // Update existing shipping details
-            const { data: updated, error: updateErr } = await supabaseAdmin
+            const { data: updated, error: updateErr } = await mysqlAdmin
                 .from('return_shipping')
                 .update(shippingPayload)
                 .eq('id', existingShipping.id)
@@ -115,7 +115,7 @@ export async function POST(request, { params }) {
             savedShipping = updated;
         } else {
             // Insert new shipping details
-            const { data: inserted, error: insertErr } = await supabaseAdmin
+            const { data: inserted, error: insertErr } = await mysqlAdmin
                 .from('return_shipping')
                 .insert(shippingPayload)
                 .select()

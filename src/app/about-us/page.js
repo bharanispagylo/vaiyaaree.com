@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import ShopHeader from '@/components/ShopHeader';
 import ShopFooter from '@/components/ShopFooter';
 import { Instagram } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export default function AboutUsPage() {
     const [mounted, setMounted] = useState(false);
@@ -16,7 +16,7 @@ export default function AboutUsPage() {
 
         const fetchCmsAbout = async () => {
             try {
-                const { data } = await supabase
+                const { data } = await mysqlClient
                     .from('cms_pages')
                     .select('*')
                     .or('slug.eq.about-us,slug.eq.about')

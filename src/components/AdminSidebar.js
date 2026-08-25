@@ -2,22 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw, ChevronDown, CornerDownLeft, BellRing } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw, ChevronDown, CornerDownLeft, BellRing, Tag } from 'lucide-react';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { useState, useEffect } from 'react';
 
 
 const menuItems = [
-    // { 
-    //     name: 'Dashboard', 
-    //     icon: TrendingUp, 
-    //     children: [
-    //         { name: 'Dashboard', href: '/admin' },
-    //         { name: 'Analytics', href: '/admin/analytics' }
-    //     ]
-    // },
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
     { name: 'Products', href: '/admin/products', icon: ShoppingCart },
+    { name: 'Discounts & Coupons', href: '/admin/discounts', icon: Tag },
     { 
         name: 'Orders', 
         icon: Package, 
@@ -82,7 +75,7 @@ export default function AdminSidebar({ isOpen }) {
     useEffect(() => {
         async function fetchLogo() {
             try {
-                const { data } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
+                const { data } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
                 if (data?.value) setLogo(getLogoUrl(data.value));
             } catch (err) {
                 console.error('Fetch Logo Error:', err);

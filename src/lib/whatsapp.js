@@ -5,8 +5,8 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 
 export async function sendWhatsAppText(to, text) {
     if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.error('WhatsApp credentials missing (WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID)');
-        return { error: 'WhatsApp configuration missing' };
+        console.log(`[WHATSAPP-LOG-ONLY] To: ${to} | Message: ${text.substring(0, 60)}...`);
+        return { success: true, isLoggedOnly: true, message: 'WhatsApp credentials not set - logged only' };
     }
 
     // Clean phone number (remove +, spaces, ensure it has 91 prefix for India if not present)

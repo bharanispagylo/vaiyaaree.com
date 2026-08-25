@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 
 export async function POST(request) {
     try {
@@ -9,7 +9,7 @@ export async function POST(request) {
         }
 
         // 1. Fetch Order to get customer phone
-        const { data: order, error: orderError } = await supabase
+        const { data: order, error: orderError } = await mysqlClient
             .from('orders')
             .select('*, order_items(*)')
             .eq('id', orderId)
@@ -34,7 +34,7 @@ export async function POST(request) {
         if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
         // 2. Verify OTP
-        const { data: otpData, error: otpError } = await supabase
+        const { data: otpData, error: otpError } = await mysqlClient
             .from('otps')
             .select('*')
             .eq('phone', cleanPhone)
@@ -54,14 +54,14 @@ export async function POST(request) {
                 const table = item.variant_id ? 'product_variants' : 'products';
                 const id = item.variant_id || item.product_id;
                 
-                const { data: current } = await supabase.from(table).select('stock').eq('id', id).single();
+                const { data: current } = await mysqlClient.from(table).select('stock').eq('id', id).single();
                 if (current) {
                     const newStock = (current.stock || 0) + item.quantity;
-                    await supabase.from(table).update({ stock: newStock }).eq('id', id);
+                    await mysqlClient.from(table).update({ stock: newStock }).eq('id', id);
                     
                     // Log product history
                     if (!item.variant_id) {
-                        await supabase.from('product_history').insert({
+                        await mysqlClient.from('product_history').insert({
                             product_id: id,
                             change_type: 'STOCK_IN',
                             quantity_change: item.quantity,
@@ -74,7 +74,7 @@ export async function POST(request) {
         }
 
         // 3b. Update Order Status
-        const { error: updateError } = await supabase
+        const { error: updateError } = await mysqlClient
             .from('orders')
             .update({ 
                 status: 'CANCELLED',
@@ -85,7 +85,7 @@ export async function POST(request) {
         if (updateError) throw updateError;
 
         // 3c. Insert Status Log
-        await supabase.from('order_status_logs').insert({ 
+        await mysqlClient.from('order_status_logs').insert({ 
             order_id: orderId, 
             status: 'CANCELLED', 
             notes: 'Order cancelled by customer via website verification', 
@@ -94,7 +94,7 @@ export async function POST(request) {
 
         // 3d. Create Refund Entry if paid
         if (['PAID', 'AWAITING_PAYMENT'].includes(order.status)) {
-            await supabase.from('refunds').insert({
+            await mysqlClient.from('refunds').insert({
                 order_id: orderId,
                 amount: order.total_amount,
                 status: 'REQUESTED',
@@ -103,7 +103,7 @@ export async function POST(request) {
         }
 
         // 4. Delete the used OTP
-        await supabase.from('otps').delete().eq('phone', cleanPhone);
+        await mysqlClient.from('otps').delete().eq('phone', cleanPhone);
 
         return new Response(JSON.stringify({ success: true, message: 'Order cancelled successfully' }), { status: 200 });
 

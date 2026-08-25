@@ -1,208 +1,65 @@
 import { NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlAdmin } from '@/lib/mysqlClient';
 import { detectWatermark, applyWatermark } from '@/lib/imageService';
 import { Buffer } from 'buffer';
 import { verifyAdmin } from '@/lib/auth';
-import fs from 'fs';
 import path from 'path';
-import { ensureMediaLibraryTable, insertMediaRecord, fetchMediaRecords, deleteMediaRecord } from '@/services/mediaLibraryService';
+import fs from 'fs/promises';
+import { existsSync } from 'fs';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const ALLOWED_IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.ico', '.avif']);
+const uploadBaseDir = path.join(process.cwd(), 'public', 'uploads', 'media');
 
-// Helper to scan a directory recursively
-async function scanDirectory(dirPath, urlPrefix, folderTag) {
-    const results = [];
-    try {
-        if (!fs.existsSync(dirPath)) return results;
-        const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-
-        for (const entry of entries) {
-            const fullPath = path.join(dirPath, entry.name);
-            if (entry.isDirectory()) {
-                const subResults = await scanDirectory(fullPath, `${urlPrefix}/${entry.name}`, entry.name);
-                results.push(...subResults);
-            } else if (entry.isFile()) {
-                const ext = path.extname(entry.name).toLowerCase();
-                if (ALLOWED_IMAGE_EXTS.has(ext)) {
-                    try {
-                        const stats = await fs.promises.stat(fullPath);
-                        results.push({
-                            id: `file-${entry.name}-${stats.mtimeMs}`,
-                            name: entry.name,
-                            url: `${urlPrefix}/${entry.name}`,
-                            folder: folderTag || 'root',
-                            size: stats.size,
-                            created_at: stats.birthtime ? stats.birthtime.toISOString() : stats.mtime.toISOString(),
-                            updated_at: stats.mtime.toISOString(),
-                            isLocalFile: true
-                        });
-                    } catch (e) {}
-                }
-            }
-        }
-    } catch (err) {
-        console.error(`[SCAN] Error scanning ${dirPath}:`, err);
-    }
-    return results;
+async function ensureDirs() {
+    await fs.mkdir(path.join(uploadBaseDir, 'with-watermark'), { recursive: true });
+    await fs.mkdir(path.join(uploadBaseDir, 'without-watermark'), { recursive: true });
 }
 
-// GET - List all media files from local disk, products database, and app settings
+// GET - List all local media files
 export async function GET(request) {
     try {
         const auth = await verifyAdmin(request);
         if (!auth.authorized) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
-        console.log('[GET] Starting to list all media and product images...');
+        await ensureDirs();
 
         const allFiles = [];
-        const seenUrls = new Set();
 
-        const addFile = (fileItem) => {
-            if (!fileItem || !fileItem.url) return;
-            const normUrl = String(fileItem.url).trim();
-            if (!normUrl || seenUrls.has(normUrl)) return;
-            seenUrls.add(normUrl);
-            allFiles.push({
-                ...fileItem,
-                url: normUrl
-            });
-        };
-
-        // 1. Scan public/uploads directory
-        const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-        const uploadFiles = await scanDirectory(uploadsDir, '/uploads', 'uploads');
-        uploadFiles.forEach(addFile);
-
-        // 2. Scan public/images directory
-        const imagesDir = path.join(process.cwd(), 'public', 'images');
-        const publicImages = await scanDirectory(imagesDir, '/images', 'images');
-        publicImages.forEach(addFile);
-
-        // 3. Fetch product images from MySQL products table
-        try {
-            const { data: products } = await supabase
-                .from('products')
-                .select('id, name, sku, image_url, gallery_image, product_no, product_catalog_image_id, created_at')
-                .order('created_at', { ascending: false });
-
-            if (products && Array.isArray(products)) {
-                products.forEach((prod) => {
-                    const prodName = prod.name || `Product #${prod.product_no || prod.sku || prod.id}`;
-
-                    // Main product image
-                    if (prod.image_url) {
-                        const imgUrl = String(prod.image_url).trim();
-                        const fileName = imgUrl.split('/').pop()?.split('?')[0] || `${prod.sku || prod.id}.jpg`;
-                        addFile({
-                            id: `prod-${prod.id}`,
-                            name: `${prodName}`,
-                            url: imgUrl,
-                            folder: 'products',
-                            size: 0,
-                            created_at: prod.created_at || new Date().toISOString(),
-                            catalogId: prod.product_catalog_image_id || prod.sku || String(prod.product_no || ''),
-                            source: 'product_catalog'
-                        });
-                    }
-
-                    // Gallery images (stored in gallery_image)
-                    let galleryImages = prod.gallery_image || prod.gallery_urls;
-                    if (typeof galleryImages === 'string') {
-                        try {
-                            galleryImages = JSON.parse(galleryImages);
-                        } catch (e) {
-                            galleryImages = galleryImages.split(',').map(s => s.trim()).filter(Boolean);
-                        }
-                    }
-
-                    if (Array.isArray(galleryImages)) {
-                        galleryImages.forEach((galUrl, idx) => {
-                            if (!galUrl) return;
-                            const galUrlStr = String(galUrl).trim();
-                            addFile({
-                                id: `prod-gal-${prod.id}-${idx}`,
-                                name: `${prodName} (Gallery ${idx + 1})`,
-                                url: galUrlStr,
-                                folder: 'products',
-                                size: 0,
-                                created_at: prod.created_at || new Date().toISOString(),
-                                catalogId: prod.product_catalog_image_id || prod.sku || String(prod.product_no || ''),
-                                source: 'product_gallery'
-                            });
-                        });
-                    }
+        // Scan with-watermark
+        const wmPath = path.join(uploadBaseDir, 'with-watermark');
+        if (existsSync(wmPath)) {
+            const files = await fs.readdir(wmPath);
+            for (const f of files) {
+                const stat = await fs.stat(path.join(wmPath, f));
+                allFiles.push({
+                    name: f,
+                    url: `/uploads/media/with-watermark/${f}`,
+                    folder: 'with-watermark',
+                    created_at: stat.birthtime || stat.mtime
                 });
             }
-        } catch (dbErr) {
-            console.error('[GET] Failed to fetch product images from DB:', dbErr);
         }
 
-        // 4. Also fetch any images in app_settings (hero slider, gallery, watermark settings)
-        try {
-            const { data: settings } = await supabase
-                .from('app_settings')
-                .select('key, value')
-                .in('key', ['watermark_images', 'no_watermark_images', 'hero_slider_images', 'gallery_images']);
-
-            if (settings && Array.isArray(settings)) {
-                settings.forEach(setting => {
-                    let urls = setting.value;
-                    if (typeof urls === 'string') {
-                        try {
-                            urls = JSON.parse(urls);
-                        } catch (e) {
-                            urls = [urls];
-                        }
-                    }
-                    if (Array.isArray(urls)) {
-                        urls.forEach((url, i) => {
-                            if (url && typeof url === 'string' && url.trim()) {
-                                const cleanUrl = url.trim();
-                                const fileName = cleanUrl.split('/').pop()?.split('?')[0] || `setting-image-${i}.jpg`;
-                                addFile({
-                                    id: `setting-${setting.key}-${i}`,
-                                    name: fileName,
-                                    url: cleanUrl,
-                                    folder: setting.key.includes('watermark') ? 'watermark' : 'settings',
-                                    size: 0,
-                                    created_at: new Date().toISOString(),
-                                    source: 'app_settings'
-                                });
-                            }
-                        });
-                    }
+        // Scan without-watermark
+        const noWmPath = path.join(uploadBaseDir, 'without-watermark');
+        if (existsSync(noWmPath)) {
+            const files = await fs.readdir(noWmPath);
+            for (const f of files) {
+                const stat = await fs.stat(path.join(noWmPath, f));
+                allFiles.push({
+                    name: f,
+                    url: `/uploads/media/without-watermark/${f}`,
+                    folder: 'without-watermark',
+                    created_at: stat.birthtime || stat.mtime
                 });
             }
-        } catch (settingsErr) {
-            console.error('[GET] Failed to fetch settings images:', settingsErr);
         }
 
-        // Ensure database table exists and sync scanned files into media_library DB table
-        await ensureMediaLibraryTable();
-        
-        for (const fileItem of allFiles) {
-            await insertMediaRecord({
-                id: fileItem.id,
-                name: fileItem.name,
-                filename: fileItem.name,
-                url: fileItem.url,
-                folder: fileItem.folder || 'uploads',
-                size: fileItem.size || 0,
-                has_watermark: fileItem.folder === 'with-watermark' || fileItem.folder === 'watermark' ? 1 : 0,
-                catalog_id: fileItem.catalogId || null,
-                source: fileItem.source || 'disk'
-            });
-        }
-
-        // Return records from database table
-        const dbRecords = await fetchMediaRecords();
-        const mergedFiles = dbRecords.length > 0 ? dbRecords : allFiles;
-
-        return NextResponse.json({ files: mergedFiles });
+        allFiles.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        return NextResponse.json({ files: allFiles });
 
     } catch (err) {
         console.error('GET Error:', err);
@@ -210,14 +67,14 @@ export async function GET(request) {
     }
 }
 
-// POST - Upload a file (with local disk storage and optional watermarking)
+// POST - Upload file to local disk (with watermarking)
 export async function POST(request) {
     try {
         const auth = await verifyAdmin(request);
         if (!auth.authorized) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
-        console.log('[UPLOAD] Starting upload process...');
+        await ensureDirs();
 
         const formData = await request.formData();
         const file = formData.get('file');
@@ -239,130 +96,77 @@ export async function POST(request) {
             fileExt = file.name ? (file.name.split('.').pop() || 'jpg') : 'jpg';
             fileNameHint = file.name || 'image.jpg';
         } else if (imageUrlParam) {
-            console.log(`[UPLOAD] Fetching image from URL server-side: ${imageUrlParam}`);
-            if (imageUrlParam.startsWith('/') || !imageUrlParam.startsWith('http')) {
-                const relPath = imageUrlParam.startsWith('/') ? imageUrlParam.slice(1) : imageUrlParam;
-                const localFilePath = path.join(process.cwd(), 'public', relPath);
-                buffer = await fs.promises.readFile(localFilePath);
-                fileExt = relPath.split('.').pop() || 'jpg';
-                fileNameHint = relPath.split('/').pop() || 'image.jpg';
-            } else {
-                const imgRes = await fetch(imageUrlParam);
-                if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imgRes.statusText}`);
-                const arrayBuffer = await imgRes.arrayBuffer();
-                buffer = Buffer.from(arrayBuffer);
-                const cleanUrl = imageUrlParam.split('?')[0];
-                fileExt = cleanUrl.split('.').pop() || 'jpg';
-                fileNameHint = cleanUrl.split('/').pop() || 'image.jpg';
-            }
+            const imgRes = await fetch(imageUrlParam);
+            if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imgRes.statusText}`);
+            const arrayBuffer = await imgRes.arrayBuffer();
+            buffer = Buffer.from(arrayBuffer);
+            const cleanUrl = imageUrlParam.split('?')[0];
+            fileExt = cleanUrl.split('.').pop() || 'jpg';
+            fileNameHint = cleanUrl.split('/').pop() || 'image.jpg';
         } else {
             return NextResponse.json({ error: 'No file or imageUrl provided' }, { status: 400 });
         }
 
-        // 1. Watermark Detection / Skip logic
         let hasWatermark = false;
         let detectedCatalogId = null;
 
         if (skipDetection || alreadyWatermarked) {
             hasWatermark = alreadyWatermarked;
-            console.log(`[UPLOAD] Skipping detection, hasWatermark: ${hasWatermark}`);
         } else {
-            console.log(`[UPLOAD] Running detection for ${fileNameHint}...`);
             const detection = await detectWatermark(buffer, fileNameHint);
             hasWatermark = detection.hasWatermark;
             detectedCatalogId = detection.catalogId;
         }
 
-        // 2. CHECK ONLY mode - for UI confirmation
         if (checkOnly) {
-            return NextResponse.json({ 
-                hasWatermark, 
-                catalogId: detectedCatalogId || catalogId 
+            return NextResponse.json({
+                hasWatermark,
+                catalogId: detectedCatalogId || catalogId
             });
         }
 
-        // 3. STORAGE & APPLICATION LOGIC (Save directly to public/uploads disk)
-        let finalPublicUrl = '';
+        let finalRelativeUrl = '';
         let isNowWatermarked = hasWatermark;
         let finalId = catalogId || detectedCatalogId || Math.random().toString(36).substring(2, 7).toUpperCase();
-        
         const fileName = `${finalId}_${Date.now()}.${fileExt}`;
-        const baseUploadDir = path.join(process.cwd(), 'public', 'uploads');
 
         if (!hasWatermark && catalogId && requireClean) {
-            // CASE 1: No watermark detected -> Store Clean AND Generate Watermark
-            
-            // A. Save ORIGINAL (Clean) version
             if (saveClean) {
-                const cleanDir = path.join(baseUploadDir, 'without-watermark');
-                await fs.promises.mkdir(cleanDir, { recursive: true });
-                const cleanFilePath = path.join(cleanDir, fileName);
-                await fs.promises.writeFile(cleanFilePath, buffer);
-                console.log(`[STORAGE] Saved clean image to: ${cleanFilePath}`);
+                const cleanFilePath = path.join(uploadBaseDir, 'without-watermark', fileName);
+                await fs.writeFile(cleanFilePath, buffer);
             }
 
-            // B. Generate Watermarked version
-            console.log(`[PROCESS] Applying NEW watermark: ${finalId}`);
             const watermarkedBuffer = await applyWatermark(buffer, finalId);
+            const wmFilePath = path.join(uploadBaseDir, 'with-watermark', fileName);
+            await fs.writeFile(wmFilePath, watermarkedBuffer);
 
-            // C. Save WATERMARKED version
-            const wmDir = path.join(baseUploadDir, 'with-watermark');
-            await fs.promises.mkdir(wmDir, { recursive: true });
-            const wmFilePath = path.join(wmDir, fileName);
-            await fs.promises.writeFile(wmFilePath, watermarkedBuffer);
-            console.log(`[STORAGE] Saved watermarked image to: ${wmFilePath}`);
-
-            finalPublicUrl = `/uploads/with-watermark/${fileName}`;
+            finalRelativeUrl = `/uploads/media/with-watermark/${fileName}`;
             isNowWatermarked = true;
 
         } else {
-            // CASE 2: Already has watermark OR just a normal upload
             const folder = hasWatermark ? 'with-watermark' : 'without-watermark';
-            const targetDir = path.join(baseUploadDir, folder);
-            await fs.promises.mkdir(targetDir, { recursive: true });
-            const targetFilePath = path.join(targetDir, fileName);
-            await fs.promises.writeFile(targetFilePath, buffer);
-            console.log(`[STORAGE] Saved image to: ${targetFilePath}`);
+            const filePath = path.join(uploadBaseDir, folder, fileName);
+            await fs.writeFile(filePath, buffer);
 
-            finalPublicUrl = `/uploads/${folder}/${fileName}`;
+            finalRelativeUrl = `/uploads/media/${folder}/${fileName}`;
         }
 
-        // 4. INSERT RECORD INTO media_library DATABASE TABLE
+        // Update settings list
         try {
-            await insertMediaRecord({
-                id: `media-${Date.now()}-${finalId}`,
-                name: fileNameHint || fileName,
-                filename: fileName,
-                url: finalPublicUrl,
-                folder: isNowWatermarked ? 'with-watermark' : 'without-watermark',
-                size: buffer ? buffer.length : 0,
-                has_watermark: isNowWatermarked ? 1 : 0,
-                catalog_id: finalId,
-                source: 'admin_upload'
-            });
-
             const key = isNowWatermarked ? 'watermark_images' : 'no_watermark_images';
-            const { data: settingData } = await supabaseAdmin.from('app_settings').select('value').eq('key', key).single();
+            const { data: settingData } = await mysqlAdmin.from('app_settings').select('value').eq('key', key).single();
             let list = [];
-            if (settingData?.value) {
-                try {
-                    list = Array.isArray(settingData.value) ? settingData.value : JSON.parse(settingData.value);
-                } catch(e) {
-                    list = [settingData.value];
-                }
-            }
+            if (settingData?.value) try { list = JSON.parse(settingData.value); } catch(e) {}
             if (!Array.isArray(list)) list = [];
-            if (!list.includes(finalPublicUrl)) {
-                list.push(finalPublicUrl);
-                await supabaseAdmin.from('app_settings').upsert({ key, value: JSON.stringify(list), updated_at: new Date() });
+            if (!list.includes(finalRelativeUrl)) {
+                list.push(finalRelativeUrl);
+                await mysqlAdmin.from('app_settings').upsert({ key, value: JSON.stringify(list), updated_at: new Date() });
             }
-        } catch (e) {
-            console.error('[UPLOAD] Database / Settings update error:', e);
-        }
+        } catch (e) {}
 
-        return NextResponse.json({ 
-            url: finalPublicUrl,
-            watermarkedUrl: finalPublicUrl,
+        return NextResponse.json({
+            url: finalRelativeUrl,
+            watermarkedUrl: finalRelativeUrl,
             catalogId: finalId,
             hasWatermark: isNowWatermarked,
             processed: true
@@ -374,46 +178,21 @@ export async function POST(request) {
     }
 }
 
-// DELETE - Remove a file from disk and media_library table
+// DELETE - Remove local file
 export async function DELETE(request) {
     try {
         const auth = await verifyAdmin(request);
         if (!auth.authorized) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
-        const { fileName, url } = await request.json();
-        const target = fileName || url;
-        if (!target) return NextResponse.json({ error: 'No filename or url provided' }, { status: 400 });
+        const { fileName } = await request.json();
+        if (!fileName) return NextResponse.json({ error: 'No filename' }, { status: 400 });
 
-        // Delete from media_library database table
-        try {
-            await deleteMediaRecord(target);
-        } catch (dbDelErr) {
-            console.error('[DELETE] Error deleting record from media_library database table:', dbDelErr);
-        }
+        const relPath = fileName.startsWith('/') ? fileName.substring(1) : fileName;
+        const fullPath = path.join(process.cwd(), 'public', relPath);
 
-        // If it's a local upload path, delete from disk
-        let relPath = target;
-        if (relPath.startsWith('/uploads/')) {
-            relPath = relPath.replace('/uploads/', '');
-        } else if (relPath.startsWith('/')) {
-            relPath = relPath.slice(1);
-        }
-
-        const possiblePaths = [
-            path.join(process.cwd(), 'public', 'uploads', relPath),
-            path.join(process.cwd(), 'public', relPath)
-        ];
-
-        for (const p of possiblePaths) {
-            try {
-                if (fs.existsSync(p)) {
-                    await fs.promises.unlink(p);
-                    console.log(`[DELETE] Deleted local file: ${p}`);
-                }
-            } catch (e) {
-                console.error(`[DELETE] Error unlinking ${p}:`, e);
-            }
+        if (existsSync(fullPath)) {
+            await fs.unlink(fullPath);
         }
 
         return NextResponse.json({ success: true });

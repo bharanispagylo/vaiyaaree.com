@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 import { Search, Loader2, MessageCircle, Phone, TrendingUp, Award, ArrowLeft, Edit2, Check, X, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, Filter, Users, ShoppingCart, Plus, IndianRupee } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area } from 'recharts';
@@ -92,8 +92,8 @@ function CustomersPage() {
 
     const fetchOverallStats = async () => {
         try {
-            const { count: totalCust, data: custPhones } = await supabase.from('customers').select('phone', { count: 'exact' });
-            const { data: ords } = await supabase.from('orders').select('customer_phone, total_amount').neq('status', 'DRAFT');
+            const { count: totalCust, data: custPhones } = await mysqlClient.from('customers').select('phone', { count: 'exact' });
+            const { data: ords } = await mysqlClient.from('orders').select('customer_phone, total_amount').neq('status', 'DRAFT');
 
             const normalizePhone = (p) => {
                 if (!p) return '';
@@ -136,8 +136,8 @@ function CustomersPage() {
 
     const fetchAnalyticsData = async () => {
         try {
-            const { data: allCustomers } = await supabase.from('customers').select('*');
-            const { data: allOrders } = await supabase.from('orders').select('*').neq('status', 'DRAFT');
+            const { data: allCustomers } = await mysqlClient.from('customers').select('*');
+            const { data: allOrders } = await mysqlClient.from('orders').select('*').neq('status', 'DRAFT');
 
             const customerMap = {};
             const normalizePhone = (p) => {
@@ -273,7 +273,7 @@ function CustomersPage() {
             }
 
             // Check if exists
-            const { data: existing, error: checkError } = await supabase
+            const { data: existing, error: checkError } = await mysqlClient
                 .from('customers')
                 .select('id')
                 .eq('phone', normalizedPhone);
@@ -287,7 +287,7 @@ function CustomersPage() {
                 return;
             }
 
-            const { error: insertError } = await supabase.from('customers').insert({
+            const { error: insertError } = await mysqlClient.from('customers').insert({
                 name: newCustomer.name.trim(),
                 phone: normalizedPhone,
                 address: newCustomer.address.trim()
@@ -324,15 +324,15 @@ function CustomersPage() {
                 return clean.startsWith('91') ? clean : (clean.length === 10 ? `91${clean}` : clean);
             };
 
-            let query = supabase
+            let query = mysqlClient
                 .from('customers')
                 .select('*', { count: 'exact' });
 
             if (filterMode === 'ORDERED' || filterMode === 'UNORDERED') {
-                const { data: ords } = await supabase.from('orders').select('customer_phone').neq('status', 'DRAFT');
+                const { data: ords } = await mysqlClient.from('orders').select('customer_phone').neq('status', 'DRAFT');
                 const orderedPhonesSet = new Set((ords || []).map(o => normalizePhone(o.customer_phone)).filter(Boolean));
 
-                const { data: custPhones } = await supabase.from('customers').select('id, phone');
+                const { data: custPhones } = await mysqlClient.from('customers').select('id, phone');
                 const matchedIds = (custPhones || [])
                     .filter(c => {
                         const norm = normalizePhone(c.phone);
@@ -388,7 +388,7 @@ function CustomersPage() {
                 });
                 const uniquePhonesToQuery = [...new Set(phonesToQuery)];
 
-                const { data: orderData } = await supabase
+                const { data: orderData } = await mysqlClient
                     .from('orders')
                     .select('*')
                     .neq('status', 'DRAFT')
@@ -473,7 +473,7 @@ function CustomersPage() {
     const handleUpdateCustomer = async () => {
         setIsUpdating(true);
         try {
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('customers')
                 .update({
                     name: editedCustomer.name,
@@ -498,7 +498,7 @@ function CustomersPage() {
     const handleUpdateOrderStatus = async (orderId, newStatus) => {
         setIsUpdating(true);
         try {
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('orders')
                 .update({ status: newStatus })
                 .eq('id', orderId);
@@ -528,7 +528,7 @@ function CustomersPage() {
     const handleUpdateOrder = async () => {
         setIsUpdating(true);
         try {
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('orders')
                 .update({
                     total_amount: Number(editedOrderData.total_amount),

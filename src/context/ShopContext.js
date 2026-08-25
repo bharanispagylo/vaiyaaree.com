@@ -1,20 +1,20 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 const defaultContextValue = {
     products: [], cart: [], loading: false, user: null, setUser: () => { }, isSessionLoading: true,
     shippingZones: [], zoneMappings: [], businessState: 'Tamil Nadu',
     checkoutForm: { 
-        billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
-        shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '',
+        billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingCountry: 'India', billingPincode: '', billingEmail: '', billingWhatsApp: '',
+        shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingCountry: 'India', shippingPincode: '',
         sameAsBilling: true, paymentMethod: 'COD' 
     },
     setCheckoutForm: () => { }, addToCart: () => { }, removeFromCart: () => { }, updateQty: () => { },
     handleLogout: () => { }, showToast: () => { }, toast: { show: false, message: '', type: 'success' },
     cartTotal: 0, cartCount: 0, taxDetails: { cgst: 0, sgst: 0, igst: 0, shipping: 0, totalOrder: 0 },
-    supabase: null, placeOrder: () => { },
+    mysqlClient: null, placeOrder: () => { },
     isCartOpen: false, setIsCartOpen: () => { }, openCart: () => { }, closeCart: () => { }, toggleCart: () => { },
     comingSoonSettings: null, setComingSoonSettings: () => { }, fetchComingSoon: () => { }
 };
@@ -35,6 +35,9 @@ export function ShopProvider({ children }) {
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [hasMounted, setHasMounted] = useState(false);
     const [isCartLoaded, setIsCartLoaded] = useState(false); // Guard for DB sync
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [couponMessage, setCouponMessage] = useState(null);
+    const [couponError, setCouponError] = useState(null);
     const [comingSoonSettings, setComingSoonSettings] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -52,6 +55,7 @@ export function ShopProvider({ children }) {
         billingAddress: '',
         billingCity: '',
         billingState: 'Tamil Nadu',
+        billingCountry: 'India',
         billingPincode: '',
         billingEmail: '',
         // Shipping fields
@@ -60,6 +64,7 @@ export function ShopProvider({ children }) {
         shippingAddress: '',
         shippingCity: '',
         shippingState: 'Tamil Nadu',
+        shippingCountry: 'India',
         shippingPincode: '',
         shippingEmail: '',
         sameAsBilling: true,
@@ -82,7 +87,7 @@ export function ShopProvider({ children }) {
 
     const fetchComingSoon = async () => {
         try {
-            const { data } = await supabase
+            const { data } = await mysqlClient
                 .from('app_settings')
                 .select('key, value')
                 .in('key', [
@@ -143,7 +148,7 @@ export function ShopProvider({ children }) {
                     else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
 
                     // Clean existing cross-platform cart entries for this user
-                    await supabase.from('whatsapp_cart').delete().in('phone', phoneVariations);
+                    await mysqlClient.from('whatsapp_cart').delete().in('phone', phoneVariations);
 
                     // Sync current state explicitly up to DB
                     if (cart.length > 0) {
@@ -157,7 +162,7 @@ export function ShopProvider({ children }) {
                             variant_id: item.variantId || null,
                             variant_name: item.variantName || null
                         }));
-                        await supabase.from('whatsapp_cart').insert(inserts);
+                        await mysqlClient.from('whatsapp_cart').insert(inserts);
                     }
                 } catch (err) {
                     console.error('Cart sync error:', err);
@@ -181,7 +186,7 @@ export function ShopProvider({ children }) {
                     if (digits.length === 10) phoneVariations.push('91' + digits);
                     else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
 
-                    const { data } = await supabase.from('whatsapp_cart').select('*').in('phone', phoneVariations);
+                    const { data } = await mysqlClient.from('whatsapp_cart').select('*').in('phone', phoneVariations);
                     
                     setCart(prev => {
                         // Standardize DB items
@@ -285,7 +290,7 @@ export function ShopProvider({ children }) {
             // Fetch latest user profile from DB to sync changes if valid ID exists
             if (localUser.id && localUser.id !== 'undefined') {
                 try {
-                    const { data: dbUser, error: dbError } = await supabase
+                    const { data: dbUser, error: dbError } = await mysqlClient
                         .from('customers')
                         .select('*')
                         .eq('id', localUser.id)
@@ -358,10 +363,11 @@ export function ShopProvider({ children }) {
         showToast('Logged out successfully');
     }
 
+    //fetch shop products from mysql
     async function fetchProducts() {
         setLoading(true);
         try {
-            const { data } = await supabase
+            const { data } = await mysqlClient
                 .from('products')
                 .select('*')
                 .eq('is_active', true)
@@ -377,8 +383,8 @@ export function ShopProvider({ children }) {
 
     async function fetchShippingRates() {
         try {
-            const { data: zones } = await supabase.from('shipping_zones').select('*');
-            const { data: mappings } = await supabase.from('shipping_zone_states').select('*');
+            const { data: zones } = await mysqlClient.from('shipping_zones').select('*');
+            const { data: mappings } = await mysqlClient.from('shipping_zone_states').select('*');
             if (zones) setShippingZones(zones);
             if (mappings) setZoneMappings(mappings);
         } catch (err) {
@@ -387,7 +393,7 @@ export function ShopProvider({ children }) {
     }
 
     async function fetchBusinessState() {
-        const { data } = await supabase.from('app_settings').select('value').eq('key', 'business_state').single();
+        const { data } = await mysqlClient.from('app_settings').select('value').eq('key', 'business_state').single();
         if (data) setBusinessState(data.value);
     }
 
@@ -480,9 +486,15 @@ export function ShopProvider({ children }) {
         const subtotal = cartTotal;
         let cgst = 0, sgst = 0, igst = 0;
         
-        // Determine shipping country, state and city
-        const shippingCountry = (checkoutForm.sameAsBilling ? checkoutForm.billingCountry : checkoutForm.shippingCountry) || 'India';
-        const isInternational = shippingCountry.trim().toLowerCase() !== 'india' && shippingCountry.trim().toLowerCase() !== 'in';
+        // Helper to check if a shipping zone is international regardless of MySQL data type (boolean vs number vs string)
+        const isZoneIntl = (z) => {
+            if (!z) return false;
+            return z.is_international === true || z.is_international === 1 || z.is_international === '1' || String(z.is_international).toLowerCase() === 'true';
+        };
+
+        const rawShippingCountry = checkoutForm.sameAsBilling ? (checkoutForm.billingCountry ?? 'India') : (checkoutForm.shippingCountry ?? 'India');
+        const shippingCountry = String(rawShippingCountry || 'India').trim() || 'India';
+        const isInternational = shippingCountry.toLowerCase() !== 'india' && shippingCountry.toLowerCase() !== 'in';
         const shippingState = checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState;
         const shippingCity = checkoutForm.sameAsBilling ? checkoutForm.billingCity : checkoutForm.shippingCity;
         
@@ -503,9 +515,23 @@ export function ShopProvider({ children }) {
         let activeZone = null;
         
         if (isInternational) {
-            activeZone = shippingZones.find(z => z.is_international);
+            const intlZones = shippingZones.filter(z => isZoneIntl(z));
+            const intlZoneIds = new Set(intlZones.map(z => z.id));
+
+            // Try matching specific country mapping first
+            const countryMapping = zoneMappings.find(m => 
+                intlZoneIds.has(m.zone_id) &&
+                m.state_name?.trim().toLowerCase() === shippingCountry.trim().toLowerCase()
+            );
+
+            if (countryMapping) {
+                activeZone = intlZones.find(z => z.id === countryMapping.zone_id) || null;
+            }
+            if (!activeZone) {
+                activeZone = intlZones[0] || null;
+            }
         } else {
-            const domesticZones = shippingZones.filter(z => !z.is_international);
+            const domesticZones = shippingZones.filter(z => !isZoneIntl(z));
             const domesticZoneIds = new Set(domesticZones.map(z => z.id));
 
             const districtMapping = zoneMappings.find(m => 
@@ -527,15 +553,19 @@ export function ShopProvider({ children }) {
         }
 
         if (activeZone) {
-            shipping = parseFloat(activeZone.rate || 0);
+            const rate = parseFloat(activeZone.rate || 0);
             const threshold = parseFloat(activeZone.free_threshold || 0);
-            if (threshold > 0 && subtotal >= threshold) shipping = 0;
+            if (threshold > 0 && subtotal >= threshold) {
+                shipping = 0;
+            } else {
+                shipping = rate;
+            }
         } else {
             shipping = isInternational ? 1500 : 100;
         }
 
         const totalOrder = subtotal + cgst + sgst + igst + shipping;
-        return { cgst, sgst, igst, shipping, totalOrder, activeZone };
+        return { cgst, sgst, igst, shipping, totalOrder, activeZone, isInternational };
     }, [cartTotal, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.billingCountry, checkoutForm.shippingCountry, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
 
     async function placeOrder() {
@@ -546,6 +576,14 @@ export function ShopProvider({ children }) {
         const shippingName = checkoutForm.sameAsBilling ? checkoutForm.billingName : checkoutForm.shippingName;
         const shippingPhone = checkoutForm.sameAsBilling ? checkoutForm.billingPhone : checkoutForm.shippingPhone;
         const shippingEmail = checkoutForm.sameAsBilling ? checkoutForm.billingEmail : checkoutForm.shippingEmail;
+
+        const rawBillingCountry = checkoutForm.billingCountry ?? 'India';
+        const rawShippingCountry = checkoutForm.sameAsBilling 
+            ? (checkoutForm.billingCountry ?? 'India') 
+            : (checkoutForm.shippingCountry ?? 'India');
+
+        const billingCountry = String(rawBillingCountry || 'India').trim() || 'India';
+        const shippingCountry = String(rawShippingCountry || 'India').trim() || 'India';
 
         if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingAddress) {
             showToast('Please fill all required billing fields', 'error');
@@ -562,10 +600,10 @@ export function ShopProvider({ children }) {
             const fullPhone = `91${cleanDigits}`;
             
             // Build full addresses
-            const fullBillingAddress = `${checkoutForm.billingAddress}, ${checkoutForm.billingCity} - ${checkoutForm.billingPincode} (${checkoutForm.billingState}, India)`.trim();
-            const fullShippingAddress = `${shippingAddress}, ${shippingCity} - ${shippingPincode} (${shippingState}, India)`.trim();
+            const fullBillingAddress = `${checkoutForm.billingAddress}, ${checkoutForm.billingCity} - ${checkoutForm.billingPincode} (${checkoutForm.billingState}, ${billingCountry})`.trim();
+            const fullShippingAddress = `${shippingAddress}, ${shippingCity} - ${shippingPincode} (${shippingState}, ${shippingCountry})`.trim();
 
-            // Create billing/shipping JSON objects
+            // Create billing/shipping JSON objects with correct dynamic countries
             const billingAddressObj = {
                 name: checkoutForm.billingName,
                 phone: checkoutForm.billingPhone,
@@ -574,7 +612,7 @@ export function ShopProvider({ children }) {
                 city: checkoutForm.billingCity,
                 state: checkoutForm.billingState,
                 pincode: checkoutForm.billingPincode,
-                country: 'India'
+                country: billingCountry
             };
             
             const shippingAddressObj = {
@@ -585,7 +623,7 @@ export function ShopProvider({ children }) {
                 city: shippingCity,
                 state: shippingState,
                 pincode: shippingPincode,
-                country: 'India'
+                country: shippingCountry
             };
 
             // GUEST CHECKOUT / AUTO-ACCOUNT CREATION LOGIC
@@ -602,7 +640,7 @@ export function ShopProvider({ children }) {
 
             if (!customerId) {
                 // Check if customer exists by phone
-                const { data: existingCustomer } = await supabase
+                const { data: existingCustomer } = await mysqlClient
                     .from('customers')
                     .select('*')
                     .eq('phone', fullPhone)
@@ -610,7 +648,7 @@ export function ShopProvider({ children }) {
 
                 if (existingCustomer) {
                     if (checkoutForm.billingName && existingCustomer.name !== checkoutForm.billingName) {
-                        const { data: updatedExisting } = await supabase
+                        const { data: updatedExisting } = await mysqlClient
                             .from('customers')
                             .update({
                                 name: checkoutForm.billingName,
@@ -629,7 +667,7 @@ export function ShopProvider({ children }) {
                     customerId = currentCustomer.id;
                 } else {
                     // Create new customer
-                    const { data: newCustomer, error: createError } = await supabase
+                    const { data: newCustomer, error: createError } = await mysqlClient
                         .from('customers')
                         .insert({
                             phone: fullPhone,
@@ -655,7 +693,7 @@ export function ShopProvider({ children }) {
             } else {
                 // User is logged in as valid customer: sync customer profile with latest billing details
                 try {
-                    const { data: updatedUser } = await supabase.from('customers').update({
+                    const { data: updatedUser } = await mysqlClient.from('customers').update({
                         name: checkoutForm.billingName || user.name,
                         email: checkoutForm.billingEmail || user.email,
                         phone: checkoutForm.billingPhone || user.phone,
@@ -692,7 +730,9 @@ export function ShopProvider({ children }) {
                 cart: cart,
                 shippingCost: taxDetails.shipping,
                 shippingZoneId: taxDetails.activeZone?.id,
-                shippingState: checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState
+                shippingState: checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState,
+                shippingCountry: shippingCountry,
+                couponCode: appliedCoupon?.couponCode || null
             };
 
             const createRes = await fetch('/api/orders/create', {
@@ -763,13 +803,62 @@ export function ShopProvider({ children }) {
         }
     }
 
+    const applyCoupon = async (code) => {
+        setCouponError(null);
+        setCouponMessage(null);
+        if (!code || !code.trim()) {
+            setCouponError('Please enter a coupon code.');
+            return false;
+        }
+
+        try {
+            const res = await fetch('/api/coupons/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    couponCode: code,
+                    subtotal: cartTotal,
+                    cartItems: cart,
+                    customer: user
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                setCouponError(data.message || 'Invalid coupon code.');
+                return false;
+            }
+
+            setAppliedCoupon({
+                couponCode: data.couponCode,
+                rule: data.rule,
+                couponDiscount: data.couponDiscount,
+                calculation: data.calculation
+            });
+            setCouponMessage(data.message);
+            showToast(data.message, 'success');
+            return true;
+        } catch (err) {
+            setCouponError(err.message || 'Error applying coupon');
+            return false;
+        }
+    };
+
+    const removeCoupon = () => {
+        setAppliedCoupon(null);
+        setCouponMessage(null);
+        setCouponError(null);
+        showToast('Coupon removed', 'info');
+    };
+
     return (
         <ShopContext.Provider value={{
             products, cart, loading, user, setUser, isSessionLoading, shippingZones, zoneMappings, businessState,
             checkoutForm, setCheckoutForm, addToCart, removeFromCart, updateQty,
-            handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, supabase, placeOrder,
+            handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, mysqlClient, placeOrder,
             isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart,
-            comingSoonSettings, setComingSoonSettings, fetchComingSoon
+            comingSoonSettings, setComingSoonSettings, fetchComingSoon,
+            appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon
         }}>
             {children}
         </ShopContext.Provider>

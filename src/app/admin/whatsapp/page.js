@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import styles from '../page.module.css';
 import { MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings, Upload, Trash2, FileImage, Link as LinkIcon, Paperclip } from 'lucide-react';
 
@@ -52,7 +52,7 @@ export default function WhatsAppSettingsPage() {
 
     async function fetchSettings() {
         setLoading(true);
-        const { data, error } = await supabase.from('app_settings').select('*');
+        const { data, error } = await mysqlClient.from('app_settings').select('*');
         if (data) setSettings(data);
         setLoading(false);
     }
@@ -67,7 +67,7 @@ export default function WhatsAppSettingsPage() {
                 updated_at: new Date().toISOString()
             }));
 
-            const { error } = await supabase.from('app_settings').upsert(updates);
+            const { error } = await mysqlClient.from('app_settings').upsert(updates);
             if (error) throw error;
 
             setNotification({ message: 'WhatsApp configuration updated!', type: 'success' });

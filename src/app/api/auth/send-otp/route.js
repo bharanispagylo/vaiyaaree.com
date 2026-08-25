@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { sendText } from '@/services/whatsappService';
 
 export async function POST(req) {
@@ -33,7 +33,7 @@ export async function POST(req) {
         console.log(`[AUTH] Generating OTP ${otpCode} for ${cleanPhone}`);
 
         // 3. Store OTP in DB (overwrite existing for this phone)
-        const { error: dbError } = await supabase
+        const { error: dbError } = await mysqlClient
             .from('otps')
             .upsert({
                 phone: cleanPhone,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { 
     Users, Plus, Trash2, Edit2, Shield, 
     CheckCircle2, AlertCircle, Loader2, 
@@ -32,7 +32,7 @@ export default function UserManagementPage() {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('admin_users')
                 .select('*')
                 .order('created_at', { ascending: false });
@@ -95,7 +95,7 @@ export default function UserManagementPage() {
             let isEmailSupported = true;
 
             if (editingUser) {
-                let { error } = await supabase
+                let { error } = await mysqlClient
                     .from('admin_users')
                     .update({
                         ...payload,
@@ -107,7 +107,7 @@ export default function UserManagementPage() {
                     console.warn('[ADMIN-USERS] email column missing in admin_users table. Saving without email...');
                     isEmailSupported = false;
                     delete payload.email;
-                    const fallback = await supabase
+                    const fallback = await mysqlClient
                         .from('admin_users')
                         .update({
                             ...payload,
@@ -119,11 +119,11 @@ export default function UserManagementPage() {
 
                 if (error) throw error;
                 setNotification({ 
-                    message: isEmailSupported ? 'User updated successfully!' : 'User updated! Run SQL migration in Supabase to enable email field.', 
+                    message: isEmailSupported ? 'User updated successfully!' : 'User updated! Run SQL migration in MySQL to enable email field.', 
                     type: 'success' 
                 });
             } else {
-                let { error } = await supabase
+                let { error } = await mysqlClient
                     .from('admin_users')
                     .insert([payload]);
 
@@ -131,7 +131,7 @@ export default function UserManagementPage() {
                     console.warn('[ADMIN-USERS] email column missing in admin_users table. Saving without email...');
                     isEmailSupported = false;
                     delete payload.email;
-                    const fallback = await supabase
+                    const fallback = await mysqlClient
                         .from('admin_users')
                         .insert([payload]);
                     error = fallback.error;
@@ -139,7 +139,7 @@ export default function UserManagementPage() {
 
                 if (error) throw error;
                 setNotification({ 
-                    message: isEmailSupported ? 'New user added successfully!' : 'New user added! Run SQL migration in Supabase to enable email field.', 
+                    message: isEmailSupported ? 'New user added successfully!' : 'New user added! Run SQL migration in MySQL to enable email field.', 
                     type: 'success' 
                 });
             }
@@ -159,7 +159,7 @@ export default function UserManagementPage() {
         if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
         
         try {
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('admin_users')
                 .delete()
                 .eq('id', id);

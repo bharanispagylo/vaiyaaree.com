@@ -6,7 +6,7 @@ import {
     X, Check, Copy, Grid, List as ListIcon, RefreshCw, Plus,
     Star, Layout, Droplets, Sparkles, ZoomIn
 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export default function MediaLibraryPage() {
     const [files, setFiles] = useState([]);
@@ -87,10 +87,10 @@ export default function MediaLibraryPage() {
 
     const fetchSettings = async () => {
         try {
-            const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
-            const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
-            const { data: wmData } = await supabase.from('app_settings').select('value').eq('key', 'watermark_images').single();
-            const { data: noWmData } = await supabase.from('app_settings').select('value').eq('key', 'no_watermark_images').single();
+            const { data: heroData } = await mysqlClient.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
+            const { data: galleryData } = await mysqlClient.from('app_settings').select('value').eq('key', 'gallery_images').single();
+            const { data: wmData } = await mysqlClient.from('app_settings').select('value').eq('key', 'watermark_images').single();
+            const { data: noWmData } = await mysqlClient.from('app_settings').select('value').eq('key', 'no_watermark_images').single();
 
             setHeroImages(parseSettingImages(heroData?.value));
             setGalleryImages(parseSettingImages(galleryData?.value));
@@ -108,7 +108,7 @@ export default function MediaLibraryPage() {
 
     const updateSetting = async (key, newValue) => {
         try {
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('app_settings')
                 .upsert({ key, value: JSON.stringify(newValue), updated_at: new Date() });
             if (error) throw error;
@@ -411,7 +411,7 @@ export default function MediaLibraryPage() {
                     });
 
                     if (fileToDelete) {
-                        const { data: usedByProduct } = await supabase
+                        const { data: usedByProduct } = await mysqlClient
                             .from('products')
                             .select('id, name')
                             .eq('image_url', fileToDelete.url)
@@ -426,7 +426,7 @@ export default function MediaLibraryPage() {
                         }
 
                         try {
-                            const { data: usedInGallery } = await supabase
+                            const { data: usedInGallery } = await mysqlClient
                                 .from('products')
                                 .select('name')
                                 .contains('gallery_image', [fileToDelete.url])
@@ -444,7 +444,7 @@ export default function MediaLibraryPage() {
                         }
 
                         try {
-                            const { data: usedByVariant } = await supabase
+                            const { data: usedByVariant } = await mysqlClient
                                 .from('product_variants')
                                 .select('id, name')
                                 .eq('image_url', fileToDelete.url)

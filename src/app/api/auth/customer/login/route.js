@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { verifyPassword } from '@/lib/hash';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,7 @@ export async function POST(req) {
         const cleanInput = identifier.trim();
         const isEmail = cleanInput.includes('@');
         
-        let query = supabase.from('customers').select('*');
+        let query = mysqlClient.from('customers').select('*');
 
         if (isEmail) {
             query = query.eq('email', cleanInput.toLowerCase());
@@ -64,7 +64,7 @@ export async function POST(req) {
         }
 
         // Update last_login
-        await supabase.from('customers').update({ last_login: new Date().toISOString() }).eq('id', customer.id);
+        await mysqlClient.from('customers').update({ last_login: new Date().toISOString() }).eq('id', customer.id);
 
         const customerSession = {
             id: customer.id,

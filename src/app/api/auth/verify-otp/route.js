@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export async function POST(req) {
     try {
@@ -15,7 +15,7 @@ export async function POST(req) {
         console.log(`[AUTH] Verifying OTP for ${cleanPhone} with code ${code}`);
 
         // 1. Check if Code exists and not expired
-        const { data: otpData, error: dbError } = await supabase
+        const { data: otpData, error: dbError } = await mysqlClient
             .from('otps')
             .select('*')
             .eq('phone', cleanPhone)
@@ -30,10 +30,10 @@ export async function POST(req) {
         }
 
         // 2. Clear used OTP
-        await supabase.from('otps').delete().eq('phone', cleanPhone);
+        await mysqlClient.from('otps').delete().eq('phone', cleanPhone);
 
         // 3. Create/Update user in Customers table (persistent account)
-        const { data: customer, error: custError } = await supabase
+        const { data: customer, error: custError } = await mysqlClient
             .from('customers')
             .upsert({
                 phone: cleanPhone,
@@ -46,7 +46,7 @@ export async function POST(req) {
         if (custError) {
             console.error('Customer Creation Error:', custError);
             // Optionally insert if upsert fails
-            const { error: insertError } = await supabase
+            const { error: insertError } = await mysqlClient
                 .from('customers')
                 .insert({
                     phone: cleanPhone,

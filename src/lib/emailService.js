@@ -1,8 +1,7 @@
 import nodemailer from 'nodemailer';
 import path from 'path';
 import fs from 'fs';
-import { supabase } from './supabaseClient';
-import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
+import { mysqlClient } from './mysqlClient.js';
 
 // Helper to get local Vaiyaaree logo attachment
 function getLogoAttachment() {
@@ -31,32 +30,60 @@ function getLogoAttachment() {
     return null;
 }
 
-// Create transporter using environment variables or default settings
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: parseInt(process.env.SMTP_PORT || '587') === 465,
-    auth: {
-        user: process.env.SMTP_USER || '',
-        pass: process.env.SMTP_PASS || ''
-    },
-    tls: {
-        rejectUnauthorized: false
+export async function getSmtpConfig() {
+    let host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    let port = parseInt(process.env.SMTP_PORT || '587', 10);
+    let user = process.env.SMTP_USER || '';
+    let pass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
+    let from = process.env.SMTP_FROM || `"Vaiyaaree Sarees" <${user || 'no-reply@vaiyaaree.com'}>`;
+
+    try {
+        const { data: settings } = await mysqlClient.from('app_settings').select('*');
+        if (settings && Array.isArray(settings)) {
+            settings.forEach(s => {
+                if (s.key === 'smtp_host' && s.value) host = s.value.trim();
+                if (s.key === 'smtp_port' && s.value) port = parseInt(s.value.trim(), 10);
+                if (s.key === 'smtp_user' && s.value) user = s.value.trim();
+                if (s.key === 'smtp_pass' && s.value) pass = s.value.trim().replace(/\s+/g, '');
+                if (s.key === 'smtp_from' && s.value) from = s.value.trim();
+            });
+        }
+    } catch (err) {
+        // use env fallbacks
     }
-});
+
+    return { host, port, user, pass, from };
+}
 
 export async function sendEmail({ to, subject, html }) {
     let resultStatus = 'SENT';
     let messageId = null;
     let errorMessage = null;
 
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.log(`[EMAIL-SERVICE] Logging mode (SMTP not configured) — To: ${to}, Subject: ${subject}`);
+    const config = await getSmtpConfig();
+
+    if (!config.user || !config.pass) {
+        console.log(`[EMAIL-SERVICE] Logging mode (SMTP credentials not configured) — To: ${to}, Subject: ${subject}`);
         resultStatus = 'LOGGED_ONLY';
     } else {
         try {
-            const info = await transporter.sendMail({
-                from: process.env.SMTP_FROM || '"Vaiyaaree Sarees" <no-reply@vaiyaaree.com>',
+            const dynamicTransporter = nodemailer.createTransport({
+                host: config.host,
+                port: config.port,
+                secure: config.port === 465,
+                auth: {
+                    user: config.user,
+                    pass: config.pass
+                },
+                tls: {
+                    rejectUnauthorized: false
+                },
+                connectionTimeout: 10000,
+                greetingTimeout: 10000
+            });
+
+            const info = await dynamicTransporter.sendMail({
+                from: config.from || `"Vaiyaaree Sarees" <${config.user}>`,
                 to,
                 subject,
                 html
@@ -65,7 +92,11 @@ export async function sendEmail({ to, subject, html }) {
         } catch (err) {
             console.error('[EMAIL-SERVICE] Error sending email:', err);
             resultStatus = 'FAILED';
-            errorMessage = err.message;
+            if (err.message && (err.message.includes('535') || err.message.includes('BadCredentials') || err.code === 'EAUTH')) {
+                errorMessage = `SMTP Auth Failed (535 Bad Credentials). If using Gmail, ensure 2-Step Verification is enabled and use a 16-character App Password generated at https://myaccount.google.com/apppasswords. Original error: ${err.message}`;
+            } else {
+                errorMessage = err.message;
+            }
         }
     }
 
@@ -82,7 +113,7 @@ export async function sendEmail({ to, subject, html }) {
         console.error('[EMAIL-SERVICE-DB-LOG-ERROR]', dbErr);
     }
 
-    return { success: resultStatus !== 'FAILED', messageId, error: errorMessage };
+    return { success: resultStatus === 'SENT', messageId, error: errorMessage, status: resultStatus };
 }
 
 // Helper for Status Badge HTML (Pure HTML inline styles)
@@ -234,7 +265,7 @@ export async function sendOrderConfirmationEmail(order) {
     const invoiceUrl = `${baseUrl}/api/invoice/${order.id}`;
     const orderUrl = `${baseUrl}/order-confirmation?orderId=${order.id}`;
 
-    let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
+    let { data: logoSetting } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
 
     const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
@@ -256,7 +287,7 @@ export async function sendOrderConfirmationEmail(order) {
     };
 
     try {
-        const { data: settingsData } = await supabase.from('app_settings').select('*');
+        const { data: settingsData } = await mysqlClient.from('app_settings').select('*');
         if (settingsData) {
             settingsData.forEach(item => {
                 if (item.key === 'shop_name') settings.shop_name = item.value;
@@ -465,7 +496,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
 
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')).replace(/\/$/, '');
 
-    let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
+    let { data: logoSetting } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
 
     const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
@@ -502,7 +533,7 @@ export async function sendOrderStatusEmail(order, status, specificEmails = null)
     };
 
     try {
-        const { data: settingsData } = await supabase.from('app_settings').select('*');
+        const { data: settingsData } = await mysqlClient.from('app_settings').select('*');
         if (settingsData) {
             settingsData.forEach(item => {
                 if (item.key === 'shop_name') settings.shop_name = item.value;
@@ -730,7 +761,7 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
         return { success: true, message: 'SMTP not configured. OTP logged to server logs.' };
     }
 
-    let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
+    let { data: logoSetting } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
     const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
     if (shopLogo && !shopLogo.startsWith('http')) {
@@ -814,7 +845,7 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
         return { success: true };
     }
 
-    let { data: logoSetting } = await supabase.from('app_settings').select('value').eq('key', 'shop_logo').single();
+    let { data: logoSetting } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
     let shopLogo = logoSetting?.value || '';
     const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
     if (shopLogo && !shopLogo.startsWith('http')) {

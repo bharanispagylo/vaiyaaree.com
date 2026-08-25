@@ -3,10 +3,10 @@
 /*
   BACKEND SERVICE: ORDER MANAGEMENT
   Handles business logic for creating, updating, and querying orders.
-  This service interacts directly with Supabase.
+  This service interacts directly with MySQL.
 */
 
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { getNextOrderId } from '@/lib/orderIdGenerator';
 
 /**
@@ -16,10 +16,10 @@ import { getNextOrderId } from '@/lib/orderIdGenerator';
  */
 export async function createOrder(orderData) {
     // 1. Generate a unique ID if not provided
-    const orderId = orderData.id || await getNextOrderId('ORD', supabase);
+    const orderId = orderData.id || await getNextOrderId('ORD', mysqlClient);
 
     // 2. Insert Order Logic
-    const { data, error } = await supabase
+    const { data, error } = await mysqlClient
         .from('orders')
         .insert([{
             id: orderId,
@@ -48,7 +48,7 @@ export async function createOrder(orderData) {
             price_at_time: item.price
         }));
 
-        const { error: itemsError } = await supabase
+        const { error: itemsError } = await mysqlClient
             .from('order_items')
             .insert(itemsToInsert);
 
@@ -67,7 +67,7 @@ export async function createOrder(orderData) {
  * @param {string} status 
  */
 export async function updateOrderStatus(orderId, status) {
-    const { data, error } = await supabase
+    const { data, error } = await mysqlClient
         .from('orders')
         .update({ status })
         .eq('id', orderId)
@@ -82,7 +82,7 @@ export async function updateOrderStatus(orderId, status) {
  * Fetches all orders with their items.
  */
 export async function getAllOrders() {
-    const { data, error } = await supabase
+    const { data, error } = await mysqlClient
         .from('orders')
         .select(`
       *,

@@ -1,6 +1,6 @@
 import { sendText, sendRawMessage } from '@/services/whatsappService';
 import { sendOrderConfirmationEmail, sendOrderStatusEmail } from '@/lib/emailService';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 function getDisplayInv(order, orderId) {
     const raw = order?.invoice_no || orderId || order?.id || '';
@@ -163,7 +163,7 @@ export async function POST(request) {
         }
 
         // Get order details
-        const { data: order, error: orderError } = await supabase
+        const { data: order, error: orderError } = await mysqlClient
             .from('orders')
             .select('*, order_items(*)')
             .eq('id', orderId)
@@ -202,7 +202,7 @@ export async function POST(request) {
                 if (order.order_items && order.order_items.length > 0) {
                     for (const item of order.order_items) {
                         try {
-                            const { data: product } = await supabase
+                            const { data: product } = await mysqlClient
                                 .from('products')
                                 .select('image_url')
                                 .eq('id', item.product_id)

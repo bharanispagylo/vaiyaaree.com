@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { Mail, Phone, MapPin, ArrowLeft, ArrowRight, MessageSquare, Check, Truck, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { getProductUrl } from '@/lib/productUrl';
@@ -68,7 +68,7 @@ export default function HomePage() {
         const fetchPageData = async () => {
             try {
                 // 1. Check Coming Soon mode FIRST
-                const { data: csData } = await supabase
+                const { data: csData } = await mysqlClient
                     .from('app_settings')
                     .select('key, value')
                     .in('key', [
@@ -109,7 +109,7 @@ export default function HomePage() {
 
                 // 2. Fetch CMS Page & Store Data
                 try {
-                    const { data: cmsData } = await supabase
+                    const { data: cmsData } = await mysqlClient
                         .from('cms_pages')
                         .select('*')
                         .eq('slug', 'home')
@@ -129,7 +129,7 @@ export default function HomePage() {
 
                 // 3. Always fetch Featured Products, Explore Products & Categories
                 try {
-                    const { data: prods } = await supabase
+                    const { data: prods } = await mysqlClient
                         .from('products')
                         .select('*')
                         .eq('is_active', true)
@@ -169,7 +169,7 @@ export default function HomePage() {
 
                 // 4. Always fetch Hero Slider Images from App Settings
                 try {
-                    const { data: heroData } = await supabase.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
+                    const { data: heroData } = await mysqlClient.from('app_settings').select('value').eq('key', 'hero_slider_images').single();
                     if (heroData?.value) {
                         let parsed = [];
                         if (Array.isArray(heroData.value)) {
@@ -198,7 +198,7 @@ export default function HomePage() {
 
                 // 5. Always fetch Gallery Images from App Settings
                 try {
-                    const { data: galleryData } = await supabase.from('app_settings').select('value').eq('key', 'gallery_images').single();
+                    const { data: galleryData } = await mysqlClient.from('app_settings').select('value').eq('key', 'gallery_images').single();
                     if (galleryData?.value) {
                         let parsed = [];
                         if (Array.isArray(galleryData.value)) {

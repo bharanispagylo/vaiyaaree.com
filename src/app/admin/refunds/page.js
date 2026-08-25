@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { useShop } from '@/context/ShopContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -58,7 +58,7 @@ export default function RefundsPage() {
 
     const fetchStatusCounts = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('refund_requests')
                 .select('refund_status, status');
             const list = data || [];
@@ -72,7 +72,7 @@ export default function RefundsPage() {
                 });
             } else {
                 // Fallback to legacy refunds table
-                const { data: oldData } = await supabase.from('refunds').select('status');
+                const { data: oldData } = await mysqlClient.from('refunds').select('status');
                 const oldList = oldData || [];
                 setStatusCounts({
                     total: oldList.length,
@@ -93,7 +93,7 @@ export default function RefundsPage() {
             const from = (refundsPage - 1) * REFUNDS_PER_PAGE;
             const to = refundsPage * REFUNDS_PER_PAGE - 1;
 
-            let query = supabase
+            let query = mysqlClient
                 .from('refund_requests')
                 .select(`
                     *,
@@ -121,7 +121,7 @@ export default function RefundsPage() {
                 setTotalCount(count || 0);
             } else {
                 // Fallback to legacy refunds table
-                let oldQuery = supabase
+                let oldQuery = mysqlClient
                     .from('refunds')
                     .select(`
                         *,

@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
@@ -50,7 +50,7 @@ export async function GET(request) {
 
         // For now, we'll store the first page's info or allow user to pick.
         // We'll store the full pages JSON in app_settings for now so the UI can let them choose.
-        await supabase.from('app_settings').upsert([
+        await mysqlClient.from('app_settings').upsert([
             { key: 'fb_user_access_token', value: userToken },
             { key: 'fb_available_pages', value: JSON.stringify(pagesData.data) }
         ]);

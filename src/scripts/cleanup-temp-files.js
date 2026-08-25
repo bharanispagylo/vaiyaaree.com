@@ -1,12 +1,12 @@
-const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+const { createClient } = require('@mysqlClient/mysqlClient-js');
+const mysqlClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 async function cleanupStorage() {
     const bucket = 'media';
     console.log(`Checking bucket: ${bucket} for cleanup...`);
 
     // List root files
-    const { data: rootFiles, error: rootErr } = await supabase.storage.from(bucket).list('', { limit: 1000 });
+    const { data: rootFiles, error: rootErr } = await mysqlClient.storage.from(bucket).list('', { limit: 1000 });
     if (rootErr) {
         console.error('Error listing root:', rootErr.message);
         return;
@@ -18,13 +18,13 @@ async function cleanupStorage() {
 
     if (filesToDelete.length > 0) {
         console.log(`Deleting ${filesToDelete.length} temp files from root...`);
-        const { error: delErr } = await supabase.storage.from(bucket).remove(filesToDelete);
+        const { error: delErr } = await mysqlClient.storage.from(bucket).remove(filesToDelete);
         if (delErr) console.error('Delete error:', delErr.message);
         else console.log('Successfully cleaned root!');
     }
 
     // List without_watermark folder
-    const { data: noWmFiles, error: noWmErr } = await supabase.storage.from(bucket).list('without_watermark', { limit: 1000 });
+    const { data: noWmFiles, error: noWmErr } = await mysqlClient.storage.from(bucket).list('without_watermark', { limit: 1000 });
     if (!noWmErr && noWmFiles) {
         const moreToDelete = noWmFiles
             .filter(f => f.name.startsWith('ocr-temp-') || f.name.startsWith('temp-check-'))
@@ -32,7 +32,7 @@ async function cleanupStorage() {
 
         if (moreToDelete.length > 0) {
             console.log(`Deleting ${moreToDelete.length} temp files from without_watermark...`);
-            const { error: del2Err } = await supabase.storage.from(bucket).remove(moreToDelete);
+            const { error: del2Err } = await mysqlClient.storage.from(bucket).remove(moreToDelete);
             if (del2Err) console.error('Delete 2 error:', del2Err.message);
             else console.log('Successfully cleaned without_watermark!');
         }

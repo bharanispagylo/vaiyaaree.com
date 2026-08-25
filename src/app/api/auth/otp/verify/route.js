@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import { cookies } from 'next/headers';
 
 export async function POST(req) {
@@ -13,7 +13,7 @@ export async function POST(req) {
         if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
         // 1. Verify against DB (table: otps)
-        const { data: otpData, error: dbError } = await supabase
+        const { data: otpData, error: dbError } = await mysqlClient
             .from('otps')
             .select('*')
             .eq('phone', cleanPhone)
@@ -29,13 +29,13 @@ export async function POST(req) {
         }
 
         // 2. Clear used OTP
-        await supabase.from('otps').delete().eq('phone', cleanPhone);
+        await mysqlClient.from('otps').delete().eq('phone', cleanPhone);
 
         // 3. Get or Create Customer
-        let { data: customer } = await supabase.from('customers').select('*').eq('phone', cleanPhone).single();
+        let { data: customer } = await mysqlClient.from('customers').select('*').eq('phone', cleanPhone).single();
 
         if (!customer) {
-            const { data: newCustomer, error: insertError } = await supabase.from('customers').insert({
+            const { data: newCustomer, error: insertError } = await mysqlClient.from('customers').insert({
                 phone: cleanPhone,
                 name: 'Valued Customer',
                 role: 'user',
@@ -50,7 +50,7 @@ export async function POST(req) {
             customer = newCustomer;
         } else {
             // Update existing customer
-            await supabase.from('customers').update({ 
+            await mysqlClient.from('customers').update({ 
                 is_verified: true,
                 last_login: new Date().toISOString()
             }).eq('id', customer.id);

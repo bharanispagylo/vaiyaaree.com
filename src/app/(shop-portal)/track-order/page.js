@@ -22,7 +22,7 @@ function TrackContent() {
         }
     }, [router, orderIdParam]);
 
-    const { supabase, showToast, user } = useShop();
+    const { mysqlClient, showToast, user } = useShop();
     const [orderId, setOrderId] = useState(orderIdParam);
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -84,7 +84,7 @@ function TrackContent() {
 
             const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%,invoice_no.eq.${c},invoice_no.ilike.%${c}%`).join(',');
 
-            const { data: matches } = await supabase
+            const { data: matches } = await mysqlClient
                 .from('orders')
                 .select('*, order_items(*)')
                 .or(searchOr);
@@ -100,7 +100,7 @@ function TrackContent() {
 
                 setOrder(data);
                 // Fetch existing return requests for this order
-                const { data: reqs } = await supabase
+                const { data: reqs } = await mysqlClient
                     .from('return_requests')
                     .select('*')
                     .eq('order_id', data.id);
@@ -108,7 +108,7 @@ function TrackContent() {
 
                 // Check 10-day eligibility for delivered orders
                 if (data.status === 'DELIVERED') {
-                    const { data: log } = await supabase
+                    const { data: log } = await mysqlClient
                         .from('order_status_logs')
                         .select('created_at')
                         .eq('order_id', data.id)

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { hashPassword } from '@/lib/hash';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ export async function POST(req) {
         const fullPhone = `91${cleanPhone}`;
 
         // 2. Check for Duplicate Email
-        const { data: existingEmail } = await supabase
+        const { data: existingEmail } = await mysqlClient
             .from('customers')
             .select('id')
             .eq('email', normalizedEmail)
@@ -40,7 +40,7 @@ export async function POST(req) {
         }
 
         // 3. Check for Duplicate Phone
-        const { data: existingPhone } = await supabase
+        const { data: existingPhone } = await mysqlClient
             .from('customers')
             .select('id')
             .or(`phone.eq.${cleanPhone},phone.eq.${fullPhone}`)
@@ -55,7 +55,7 @@ export async function POST(req) {
         const notesPayload = JSON.stringify({ pwd: hashedPassword });
 
         // 5. Insert New Customer
-        const { data: newCustomer, error: insertErr } = await supabase
+        const { data: newCustomer, error: insertErr } = await mysqlClient
             .from('customers')
             .insert({
                 name: name.trim(),

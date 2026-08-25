@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { MapPin, Phone, Mail } from 'lucide-react';
 import ShopHeader from '@/components/ShopHeader';
 import ShopFooter from '@/components/ShopFooter';
@@ -14,7 +14,7 @@ export default function ContactPage() {
         document.title = 'Contact Us | Vaiyaaree';
         const fetchPageData = async () => {
             try {
-                const { data } = await supabase
+                const { data } = await mysqlClient
                     .from('cms_pages')
                     .select('*')
                     .or('slug.eq.contact,slug.eq.contact-us')

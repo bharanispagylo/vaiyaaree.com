@@ -6,7 +6,7 @@ import {
     Package, Tag, Check, ChevronDown, ChevronUp,
     UserCheck, ShoppingCart, Filter, MessageSquare, Trash2
 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export default function BroadcastPage() {
     const [products, setProducts] = useState([]);
@@ -41,11 +41,11 @@ export default function BroadcastPage() {
         setHasMounted(true);
         const load = async () => {
             // Get products
-            const { data: prodData } = await supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false });
+            const { data: prodData } = await mysqlClient.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false });
             setProducts(prodData || []);
 
             // Get unique customers from orders
-            const { data: orderData } = await supabase.from('orders').select('*').neq('status', 'DRAFT').order('created_at', { ascending: false });
+            const { data: orderData } = await mysqlClient.from('orders').select('*').neq('status', 'DRAFT').order('created_at', { ascending: false });
 
             const customerMap = {};
             (orderData || []).forEach(o => {

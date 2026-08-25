@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import sharp from 'sharp';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { processOcr } from '@/lib/ocrProcessor';

@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { supabase } from "./supabaseClient";
+import { mysqlClient } from '@/lib/mysqlClient';
 
 async function urlToBase64(url) {
     try {
@@ -139,7 +139,7 @@ export async function generateInvoicePDF(order) {
     };
 
     try {
-        const { data } = await supabase.from('app_settings').select('*');
+        const { data } = await mysqlClient.from('app_settings').select('*');
         if (data) {
             data.forEach(item => {
                 if (item.key === 'shop_name' || item.key === 'companyName') {

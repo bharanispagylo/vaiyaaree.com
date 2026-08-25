@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { supabase } from "./supabaseClient";
+import { mysqlClient } from '@/lib/mysqlClient';
 
 async function urlToBase64(url) {
     try {
@@ -129,7 +129,7 @@ export async function generateAuditPDF({ timeframe, orders = [], products = [], 
     };
 
     try {
-        const { data } = await supabase.from('app_settings').select('*');
+        const { data } = await mysqlClient.from('app_settings').select('*');
         if (data && Array.isArray(data)) {
             data.forEach(item => {
                 if (item.key === 'shop_name' || item.key === 'companyName') branding.shop_name = item.value;

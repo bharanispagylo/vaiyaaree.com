@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check } from 'lucide-react';
+import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import CheckoutAuthModal from '@/components/CheckoutAuthModal';
 import Link from 'next/link';
@@ -11,9 +11,11 @@ import styles from './checkout.module.css';
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, placeOrder, supabase, showToast, user } = useShop();
+    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, placeOrder, mysqlClient, showToast, user, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon } = useShop();
     const [placing, setPlacing] = useState(false);
     const [orderData, setOrderData] = useState(null);
+    const [couponInput, setCouponInput] = useState('');
+    const [applyingCoupon, setApplyingCoupon] = useState(false);
 
     const isUserLoggedIn = Boolean(user && user.id);
 
@@ -29,7 +31,7 @@ export default function CheckoutPage() {
                 shippingCity: p.billingCity,
                 shippingState: p.billingState,
                 shippingPincode: p.billingPincode,
-                shippingCountry: 'India'
+                shippingCountry: p.billingCountry || 'India'
             }));
         }
     }, [
@@ -39,7 +41,8 @@ export default function CheckoutPage() {
         checkoutForm.billingAddress,
         checkoutForm.billingCity,
         checkoutForm.billingState,
-        checkoutForm.billingPincode
+        checkoutForm.billingPincode,
+        checkoutForm.billingCountry
     ]);
 
     const states = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"];
@@ -241,29 +244,62 @@ export default function CheckoutPage() {
                                 </div>
                                 <div className={styles.formGroup}>
                                     <label>STATE <span className={styles.requiredStar}>*</span></label>
-                                    <select 
-                                        value={checkoutForm.billingState || 'Tamil Nadu'} 
-                                        onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
-                                    >
-                                        {states.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
+                                    {(checkoutForm.billingCountry || 'India') === 'India' ? (
+                                        <select 
+                                            value={checkoutForm.billingState || 'Tamil Nadu'} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
+                                        >
+                                            {states.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value={checkoutForm.billingState || ''}
+                                            onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
+                                            placeholder="State / Province / Region"
+                                            required
+                                        />
+                                    )}
                                 </div>
                             </div>
 
                             <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
-                        <div className={styles.formGroup}>
-                            <label>PINCODE <span className={styles.requiredStar}>*</span></label>
-                            <input 
-                                type="text" 
-                                value={checkoutForm.billingPincode || ''} 
-                                onChange={e => setCheckoutForm(p => ({ ...p, billingPincode: e.target.value.replace(/[^0-9]/g, '').slice(0, 6) }))} 
-                                placeholder="6-digit pincode" 
-                                maxLength="6"
-                                required
-                            />
-                        </div>
-                    </div>
-                </section>
+                                <div className={styles.formGroup}>
+                                    <label>PINCODE <span className={styles.requiredStar}>*</span></label>
+                                    <input 
+                                        type="text" 
+                                        value={checkoutForm.billingPincode || ''} 
+                                        onChange={e => setCheckoutForm(p => ({ ...p, billingPincode: e.target.value.replace(/[^0-9a-zA-Z\s-]/g, '').slice(0, 10) }))} 
+                                        placeholder="Pincode / Postal Code" 
+                                        required
+                                    />
+                                </div>
+                                <div className={styles.formGroup}>
+                                    <label>COUNTRY <span className={styles.requiredStar}>*</span></label>
+                                    <select 
+                                        value={checkoutForm.billingCountry || 'India'}
+                                        onChange={e => {
+                                            const newCountry = e.target.value;
+                                            setCheckoutForm(p => ({ 
+                                                ...p, 
+                                                billingCountry: newCountry,
+                                                ...(p.sameAsBilling ? { shippingCountry: newCountry } : {})
+                                            }));
+                                        }}
+                                    >
+                                        <option value="India">India</option>
+                                        <option value="USA">USA</option>
+                                        <option value="UK">UK</option>
+                                        <option value="UAE">UAE</option>
+                                        <option value="Singapore">Singapore</option>
+                                        <option value="Malaysia">Malaysia</option>
+                                        <option value="Australia">Australia</option>
+                                        <option value="Canada">Canada</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
 
                 {/* SHIPPING ADDRESS SECTION */}
                 <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
@@ -285,7 +321,8 @@ export default function CheckoutPage() {
                                                 shippingAddress: p.billingAddress,
                                                 shippingCity: p.billingCity,
                                                 shippingState: p.billingState,
-                                                shippingPincode: p.billingPincode
+                                                shippingPincode: p.billingPincode,
+                                                shippingCountry: p.billingCountry || 'India'
                                             } : {})
                                         }));
                                     }}
@@ -352,14 +389,25 @@ export default function CheckoutPage() {
                                     </div>
                                     <div className={styles.formGroup}>
                                         <label>STATE</label>
-                                        <select 
-                                            value={checkoutForm.shippingState || 'Tamil Nadu'} 
-                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingState: e.target.value }))}
-                                            disabled={checkoutForm.sameAsBilling}
-                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                        >
-                                            {states.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
+                                        {(checkoutForm.shippingCountry || 'India') === 'India' ? (
+                                            <select 
+                                                value={checkoutForm.shippingState || 'Tamil Nadu'} 
+                                                onChange={e => setCheckoutForm(p => ({ ...p, shippingState: e.target.value }))}
+                                                disabled={checkoutForm.sameAsBilling}
+                                                className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                            >
+                                                {states.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={checkoutForm.shippingState || ''}
+                                                onChange={e => setCheckoutForm(p => ({ ...p, shippingState: e.target.value }))}
+                                                placeholder="State / Province / Region"
+                                                disabled={checkoutForm.sameAsBilling}
+                                                className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
@@ -443,10 +491,62 @@ export default function CheckoutPage() {
 
                         <div className={styles.summaryDivider} />
 
+                        {/* COUPON PROMO INPUT BOX */}
+                        <div className="coupon-box-section">
+                            <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', display: 'block' }}>Have a Coupon / Promo Code?</label>
+                            {appliedCoupon ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', background: '#fef3c7', border: '1px dashed #f59e0b', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: '#b45309' }}>
+                                        <Tag size={14} />
+                                        <span>{appliedCoupon.couponCode}</span>
+                                        {appliedCoupon.couponDiscount > 0 && <small>(Save ₹{appliedCoupon.couponDiscount})</small>}
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={removeCoupon}
+                                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '12px', fontWeight: 800, marginLeft: 'auto' }}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter code (e.g. WELCOME10)"
+                                        value={couponInput}
+                                        onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                                        style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        disabled={applyingCoupon || !couponInput.trim()}
+                                        onClick={async () => {
+                                            setApplyingCoupon(true);
+                                            await applyCoupon(couponInput);
+                                            setApplyingCoupon(false);
+                                        }}
+                                        style={{ background: '#4f46e5', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+                                    >
+                                        {applyingCoupon ? '...' : 'Apply'}
+                                    </button>
+                                </div>
+                            )}
+                            {couponError && <p style={{ color: '#dc2626', fontSize: '12px', fontWeight: 600, margin: '-6px 0 8px' }}>{couponError}</p>}
+                            {couponMessage && <p style={{ color: '#16a34a', fontSize: '12px', fontWeight: 600, margin: '-6px 0 8px' }}>{couponMessage}</p>}
+                        </div>
+
                         <div className={styles.summaryRow}>
                             <span>Subtotal</span>
                             <span>₹{cartTotal.toLocaleString()}.00</span>
                         </div>
+
+                        {appliedCoupon && appliedCoupon.couponDiscount > 0 && (
+                            <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700 }}>
+                                <span>Coupon Discount ({appliedCoupon.couponCode})</span>
+                                <span>-₹{appliedCoupon.couponDiscount.toLocaleString()}.00</span>
+                            </div>
+                        )}
 
                         {taxDetails.cgst > 0 && (
                             <div className={styles.summaryRow}>
@@ -476,7 +576,9 @@ export default function CheckoutPage() {
 
                         <div className={styles.summaryTotalRow}>
                             <span>Total</span>
-                            <span className={styles.totalPrice}>₹{taxDetails.totalOrder.toLocaleString()}.00</span>
+                            <span className={styles.totalPrice}>
+                                ₹{Math.max(0, taxDetails.totalOrder - (appliedCoupon?.couponDiscount || 0)).toLocaleString()}.00
+                            </span>
                         </div>
                     </div>
 

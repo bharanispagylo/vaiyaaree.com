@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { 
     ArrowLeft, Users, IndianRupee, RefreshCw, TrendingUp, 
     Award, Crown, Star, Medal, Calendar, ShoppingCart, Loader2 
@@ -48,8 +48,8 @@ export default function CustomerAnalysisPage() {
     const fetchAnalyticsData = async () => {
         setLoading(true);
         try {
-            const { data: allCustomers, error: custErr } = await supabase.from('customers').select('*');
-            const { data: allOrders, error: ordErr } = await supabase.from('orders').select('*').neq('status', 'DRAFT');
+            const { data: allCustomers, error: custErr } = await mysqlClient.from('customers').select('*');
+            const { data: allOrders, error: ordErr } = await mysqlClient.from('orders').select('*').neq('status', 'DRAFT');
 
             if (custErr) console.warn('Customers fetch warning:', custErr);
             if (ordErr) console.warn('Orders fetch warning:', ordErr);

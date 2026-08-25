@@ -1,7 +1,7 @@
 import pool from './mysql.js';
 
 /**
- * Executes a Supabase-style query against the MySQL database.
+ * Executes a MySQL-style query against the MySQL database.
  * @param {object} payload - The structured query payload.
  * @returns {Promise<{ data: any, error: any, count?: number }>}
  */
@@ -50,9 +50,34 @@ export async function executeMysqlQuery(payload) {
 
         return { data: null, error: { message: `Unsupported operation: ${operation}` } };
     } catch (err) {
-        console.error(`[MySQL Engine Error] (${table} ${operation}):`, err);
-        return { data: null, error: { message: err.message, code: err.code } };
+        console.error(`[MYSQL ERROR] (${table} ${operation})`, {
+            name: err?.name,
+            code: err?.code,
+            errno: err?.errno,
+            sqlState: err?.sqlState,
+            message: err?.message,
+            syscall: err?.syscall,
+            address: err?.address,
+            port: err?.port,
+            stack: err?.stack,
+        });
+
+        const isConnRefused = err?.code === 'ECONNREFUSED';
+        const errorMessage = isConnRefused
+            ? `MySQL connection refused (${err?.address || '127.0.0.1'}:${err?.port || 3306}). Please start MySQL service or check DB connection parameters.`
+            : (err?.message || "Database query failed");
+
+        return {
+            data: isSingle ? null : (isMaybeSingle ? null : []),
+            error: {
+                code: err?.code || "MYSQL_ERROR",
+                message: errorMessage,
+                details: err?.stack || null
+            }
+        };
     }
+
+
 }
 
 function formatValueForMySQL(val) {
@@ -730,7 +755,7 @@ async function handleUpsert({ table, data, returnColumns, isSingle }) {
 }
 
 /**
- * executeMysqlRpc — Replaces Supabase stored procedure calls with direct MySQL queries.
+ * executeMysqlRpc — Replaces MySQL stored procedure calls with direct MySQL queries.
  *
  * Supported RPCs:
  *   - deduct_stock_atomic(p_id, p_qty, p_variant_id)
@@ -811,9 +836,23 @@ export async function executeMysqlRpc(fnName, params = {}) {
                 return { data: null, error: null };
             }
 
+            case 'increment_discount_usage': {
+                const rule_id = params.rule_id || params.p_rule_id || params.id;
+                if (!rule_id) {
+                    return { data: null, error: { message: 'rule_id parameter is required for increment_discount_usage' } };
+                }
+                const [res] = await pool.query(
+                    `UPDATE \`discount_rules\`
+                     SET \`usage_count\` = COALESCE(\`usage_count\`, 0) + 1
+                     WHERE \`id\` = ? OR \`coupon_code\` = ?`,
+                    [rule_id, rule_id]
+                );
+                return { data: { updated: res.affectedRows }, error: null };
+            }
+
             default:
-                console.warn(`[MySQL RPC] Unknown function: "${fnName}". Returning no-op.`);
-                return { data: null, error: null };
+                console.error(`[MySQL RPC Error] Unknown function: "${fnName}".`);
+                return { data: null, error: { message: `RPC function "${fnName}" is not implemented.` } };
         }
     } catch (err) {
         console.error(`[MySQL RPC Error] ${fnName}:`, err.message);

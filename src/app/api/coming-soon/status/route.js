@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await mysqlClient
             .from('app_settings')
             .select('key, value')
             .in('key', [
@@ -78,7 +78,7 @@ export async function POST(request) {
             { key: 'coming_soon_facebook', value: facebook || '', updated_at: new Date().toISOString() }
         ];
 
-        const { error } = await supabase
+        const { error } = await mysqlClient
             .from('app_settings')
             .upsert(updates);
 

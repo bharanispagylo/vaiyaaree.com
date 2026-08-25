@@ -6,7 +6,7 @@ import {
     CheckCircle2, AlertCircle, Calendar, Play, Pause,
     Facebook, Instagram, Eye, ChevronDown, ArrowLeft, ThumbsUp, MessageSquare, Share2, Heart
 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import ModalPortal from '@/components/ModalPortal';
 
 export default function SchedulePostPage() {
@@ -77,15 +77,15 @@ export default function SchedulePostPage() {
         setLoading(true);
         try {
             // Fetch products
-            const { data: prodData } = await supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false });
+            const { data: prodData } = await mysqlClient.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false });
             setProducts(prodData || []);
 
             // Fetch scheduled posts
-            const { data: schedData } = await supabase.from('scheduled_posts').select('*').order('scheduled_at', { ascending: true });
+            const { data: schedData } = await mysqlClient.from('scheduled_posts').select('*').order('scheduled_at', { ascending: true });
             setScheduledPosts(schedData || []);
 
             // Fetch FB config
-            const { data: fbData } = await supabase.from('app_settings').select('*').in('key', ['fb_page_id', 'fb_page_access_token', 'fb_page_name']);
+            const { data: fbData } = await mysqlClient.from('app_settings').select('*').in('key', ['fb_page_id', 'fb_page_access_token', 'fb_page_name']);
             const config = { pageId: '', accessToken: '', pageName: '' };
             (fbData || []).forEach(item => {
                 if (item.key === 'fb_page_id') config.pageId = item.value;
@@ -156,9 +156,9 @@ export default function SchedulePostPage() {
             };
 
             if (editingId) {
-                await supabase.from('scheduled_posts').update(postData).eq('id', editingId);
+                await mysqlClient.from('scheduled_posts').update(postData).eq('id', editingId);
             } else {
-                await supabase.from('scheduled_posts').insert([postData]);
+                await mysqlClient.from('scheduled_posts').insert([postData]);
             }
 
             // Reset form
@@ -198,14 +198,14 @@ export default function SchedulePostPage() {
 
     const handleDeleteConfirmed = async (id) => {
         setConfirmAction(null);
-        await supabase.from('scheduled_posts').delete().eq('id', id);
+        await mysqlClient.from('scheduled_posts').delete().eq('id', id);
         await fetchAll();
         setNotification({ message: 'Post deleted.', type: 'success' }); setTimeout(() => setNotification(null), 2500);
     };
 
     // Cancel scheduled post
     const handleCancel = async (id) => {
-        await supabase.from('scheduled_posts').update({ status: 'CANCELLED' }).eq('id', id);
+        await mysqlClient.from('scheduled_posts').update({ status: 'CANCELLED' }).eq('id', id);
         await fetchAll();
     };
 
@@ -217,7 +217,7 @@ export default function SchedulePostPage() {
     const handlePostNowConfirmed = async (post) => {
         setConfirmAction(null);
         try {
-            await supabase.from('scheduled_posts').update({ status: 'POSTING' }).eq('id', post.id);
+            await mysqlClient.from('scheduled_posts').update({ status: 'POSTING' }).eq('id', post.id);
             await fetchAll();
 
             const res = await fetch('/api/facebook/post', {
@@ -236,13 +236,13 @@ export default function SchedulePostPage() {
 
             const data = await res.json();
             if (data.success) {
-                await supabase.from('scheduled_posts').update({ status: 'POSTED', fb_post_id: data.postId }).eq('id', post.id);
+                await mysqlClient.from('scheduled_posts').update({ status: 'POSTED', fb_post_id: data.postId }).eq('id', post.id);
             } else {
-                await supabase.from('scheduled_posts').update({ status: 'FAILED', error_message: data.error || 'Unknown error' }).eq('id', post.id);
+                await mysqlClient.from('scheduled_posts').update({ status: 'FAILED', error_message: data.error || 'Unknown error' }).eq('id', post.id);
             }
             await fetchAll();
         } catch (err) {
-            await supabase.from('scheduled_posts').update({ status: 'FAILED', error_message: err.message }).eq('id', post.id);
+            await mysqlClient.from('scheduled_posts').update({ status: 'FAILED', error_message: err.message }).eq('id', post.id);
             await fetchAll();
         }
     };

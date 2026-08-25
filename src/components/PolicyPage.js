@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import ShopHeader from '@/components/ShopHeader';
 import ShopFooter from '@/components/ShopFooter';
 
@@ -232,7 +232,7 @@ export default function PolicyPage({ slug, title: fallbackTitle }) {
                 };
 
                 const filterSlugs = slugAliases[slug] || [slug];
-                const { data } = await supabase
+                const { data } = await mysqlClient
                     .from('cms_pages')
                     .select('*')
                     .in('slug', filterSlugs)

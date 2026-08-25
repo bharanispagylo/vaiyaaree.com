@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/auth';
 import { getAdminSettings } from '@/lib/settings';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export async function GET(request) {
     try {
@@ -12,7 +12,7 @@ export async function GET(request) {
             const reqUsername = request.headers.get('x-admin-username') || request.headers.get('X-Admin-Username');
             
             if (reqUsername) {
-                const { data: dbUser } = await supabase
+                const { data: dbUser } = await mysqlClient
                     .from('admin_users')
                     .select('username, email, full_name, role')
                     .or(`username.eq.${reqUsername},email.eq.${reqUsername}`)
@@ -33,7 +33,7 @@ export async function GET(request) {
             }
 
             // Fallback to latest active logged-in admin from admin_users table
-            const { data: latestAdmin } = await supabase
+            const { data: latestAdmin } = await mysqlClient
                 .from('admin_users')
                 .select('username, email, full_name, role')
                 .eq('is_active', true)

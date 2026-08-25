@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 
 
@@ -19,7 +19,7 @@ export async function POST(request) {
         const adminAuth = await verifyAdmin(request);
         
         // 2. Fetch order details (needed for ownership check)
-        const { data: order, error: orderError } = await supabase
+        const { data: order, error: orderError } = await mysqlClient
             .from('orders')
             .select('*, order_items(*)')
             .eq('id', orderId)
@@ -55,9 +55,9 @@ export async function POST(request) {
         // Convert to Buffer for upload
         const pdfBuffer = Buffer.from(pdfArrayBuffer);
         
-        // Upload to Supabase Storage
+        // Upload to MySQL Storage
         const fileName = `invoices/invoice-${orderId}.pdf`;
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await mysqlClient.storage
             .from('invoices')
             .upload(fileName, pdfBuffer, {
                 contentType: 'application/pdf',
@@ -70,12 +70,12 @@ export async function POST(request) {
         }
 
         // Get public URL
-        const { data: { publicUrl } } = supabase.storage
+        const { data: { publicUrl } } = mysqlClient.storage
             .from('invoices')
             .getPublicUrl(fileName);
 
         // Update order with invoice URL
-        await supabase.from('orders').update({ invoice_url: publicUrl }).eq('id', orderId);
+        await mysqlClient.from('orders').update({ invoice_url: publicUrl }).eq('id', orderId);
 
         console.log(`[INVOICE] Generated and uploaded: ${publicUrl}`);
         return new Response(JSON.stringify({ 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { sendOrderConfirmationEmail } from '@/lib/emailService';
 
 export async function POST(request) {
@@ -14,7 +14,7 @@ export async function POST(request) {
         }
 
         // Fetch order details
-        const { data: order, error: orderError } = await supabase
+        const { data: order, error: orderError } = await mysqlClient
             .from('orders')
             .select(`*, order_items(*)`)
             .eq('id', orderId)
@@ -31,7 +31,7 @@ export async function POST(request) {
         await sendOrderConfirmationEmail(order);
 
         // Log email sent
-        await supabase.from('email_logs').insert({
+        await mysqlClient.from('email_logs').insert({
             order_id: orderId,
             email_type: 'order_confirmation',
             recipient_email: order.customer_email || order.customer_phone,
@@ -41,7 +41,7 @@ export async function POST(request) {
         });
 
         // Update order email_sent flag
-        await supabase.from('orders').update({
+        await mysqlClient.from('orders').update({
             email_sent: true,
             email_sent_at: new Date().toISOString()
         }).eq('id', orderId);

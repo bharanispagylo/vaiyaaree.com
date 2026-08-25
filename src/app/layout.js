@@ -1,6 +1,6 @@
 import './globals.css';
 import { Providers } from './providers';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import WhatsAppWidget from '@/components/WhatsAppWidget';
 import ComingSoonGuard from '@/components/ComingSoonGuard';
 
@@ -16,7 +16,7 @@ export default async function RootLayout({ children }) {
     let initialComingSoon = null;
 
     try {
-        const { data } = await supabase
+        const { data } = await mysqlClient
             .from('app_settings')
             .select('key, value')
             .in('key', [

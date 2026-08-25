@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 
 export async function generateOrderPDFBuffer(order) {
@@ -14,7 +14,7 @@ export async function GET(request, { params }) {
             return new Response('Order ID is required', { status: 400 });
         }
 
-        const { data: order, error: orderError } = await supabase
+        const { data: order, error: orderError } = await mysqlClient
             .from('orders')
             .select('*, order_items(*)')
             .eq('id', orderId.toUpperCase())

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs/promises';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,23 +28,21 @@ export async function POST(request) {
             return NextResponse.json({ error: 'File too large. Max 5MB.' }, { status: 400 });
         }
 
-        // Save to public/uploads/refunds/
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'refunds');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
+        // Save to local disk: public/uploads/refunds/
         const timestamp = Date.now();
         const safeBase = path.basename(file.name, ext).replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
-        const filename = `receipt_${timestamp}_${safeBase}${ext}`;
-        const savePath = path.join(uploadDir, filename);
+        const fileName = `receipt_${timestamp}_${safeBase}${ext}`;
+        const targetDir = path.join(process.cwd(), 'public', 'uploads', 'refunds');
 
-        await fs.promises.writeFile(savePath, buffer);
-        const publicUrl = `/uploads/refunds/${filename}`;
+        await fs.mkdir(targetDir, { recursive: true });
+        const filePath = path.join(targetDir, fileName);
+        await fs.writeFile(filePath, buffer);
 
-        return NextResponse.json({ success: true, url: publicUrl });
+        const relativeUrl = `/uploads/refunds/${fileName}`;
+
+        return NextResponse.json({ success: true, url: relativeUrl });
     } catch (err) {
         console.error('[REFUND-RECEIPT-UPLOAD]', err);
-        return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+        return NextResponse.json({ error: 'Upload failed: ' + err.message }, { status: 500 });
     }
 }

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Upload, Check, Loader2, Image as ImageIcon, X, Grid, AlertTriangle, FileDown, Plus, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import ImageZoom from './ImageZoom';
 import MediaPicker from './MediaPicker';
 
@@ -83,11 +83,11 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
             // Fetch existing products from DB to ignore sarees already inserted and get highest Product No
             let dbProductsList = existingProducts || [];
             try {
-                let res = await supabase
+                let res = await mysqlClient
                     .from('products')
                     .select('id, name, sku, product_catalog_image_id, image_url');
                 if (res.error) {
-                    res = await supabase.from('products').select('id, name, sku, image_url');
+                    res = await mysqlClient.from('products').select('id, name, sku, image_url');
                 }
                 if (res.data && res.data.length > 0) {
                     dbProductsList = res.data;
@@ -297,11 +297,11 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                     let savedProduct = null;
                     if (item.isNew) {
                         dbData.total_added = item.stock || 0;
-                        const { data: insData, error } = await supabase.from('products').insert([dbData]).select();
+                        const { data: insData, error } = await mysqlClient.from('products').insert([dbData]).select();
                         if (error) {
                             // Fallback if product_no column isn't in DB schema cache yet
                             delete dbData.product_no;
-                            const { data: insFallback, error: errFallback } = await supabase.from('products').insert([dbData]).select();
+                            const { data: insFallback, error: errFallback } = await mysqlClient.from('products').insert([dbData]).select();
                             if (errFallback) throw errFallback;
                             savedProduct = insFallback?.[0];
                         } else {
@@ -309,7 +309,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                         }
 
                         if (savedProduct && savedProduct.stock > 0) {
-                            await supabase.from('product_history').insert({
+                            await mysqlClient.from('product_history').insert({
                                 product_id: savedProduct.id,
                                 change_type: 'ADD',
                                 quantity_change: savedProduct.stock,
@@ -318,10 +318,10 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                             });
                         }
                     } else {
-                        const { data: updData, error } = await supabase.from('products').update(dbData).eq('id', item.id).select();
+                        const { data: updData, error } = await mysqlClient.from('products').update(dbData).eq('id', item.id).select();
                         if (error) {
                             delete dbData.product_no;
-                            const { data: updFallback, error: errFallback } = await supabase.from('products').update(dbData).eq('id', item.id).select();
+                            const { data: updFallback, error: errFallback } = await mysqlClient.from('products').update(dbData).eq('id', item.id).select();
                             if (errFallback) throw errFallback;
                             savedProduct = updFallback?.[0];
                         } else {

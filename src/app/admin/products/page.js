@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { useRouter } from 'next/navigation';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -99,7 +99,7 @@ export default function ProductsPage() {
         setShowHistory(true);
         setHistoryLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('product_history')
                 .select('*')
                 .eq('product_id', product.id)
@@ -154,7 +154,7 @@ export default function ProductsPage() {
             }
 
             // 1. Top Sellers — fetch orders in time range, then their items
-            let ordersQuery = supabase.from('orders').select('id').neq('status', 'DRAFT').neq('status', 'CANCELLED');
+            let ordersQuery = mysqlClient.from('orders').select('id').neq('status', 'DRAFT').neq('status', 'CANCELLED');
             if (startDate) {
                 ordersQuery = ordersQuery.gte('created_at', startDate);
             }
@@ -163,12 +163,12 @@ export default function ProductsPage() {
 
             let topSellers = [];
             if (orderIds.length > 0) {
-                // Fetch in batches if needed (Supabase IN limit)
+                // Fetch in batches if needed (MySQL IN limit)
                 const batchSize = 200;
                 let allItems = [];
                 for (let i = 0; i < orderIds.length; i += batchSize) {
                     const batch = orderIds.slice(i, i + batchSize);
-                    const { data: batchItems } = await supabase
+                    const { data: batchItems } = await mysqlClient
                         .from('order_items')
                         .select('product_name, quantity')
                         .in('order_id', batch);
@@ -210,12 +210,12 @@ export default function ProductsPage() {
 
     const fetchStatsAndAnalytics = async () => {
         try {
-            let res = await supabase
+            let res = await mysqlClient
                 .from('products')
                 .select('id, name, price, stock, category, product_group, is_active, alert_threshold, product_catalog_image_id, sku');
             
             if (res.error) {
-                res = await supabase
+                res = await mysqlClient
                     .from('products')
                     .select('id, name, price, stock, category, product_group, is_active, alert_threshold, product_catalog_image_id');
             }
@@ -234,7 +234,7 @@ export default function ProductsPage() {
             const from = (productsPage - 1) * PRODUCTS_PER_PAGE;
             const to = productsPage * PRODUCTS_PER_PAGE - 1;
 
-            let query = supabase
+            let query = mysqlClient
                 .from('products')
                 .select('*', { count: 'exact' });
 
@@ -302,7 +302,7 @@ export default function ProductsPage() {
 
     const fetchFbConfig = async () => {
         try {
-            const { data } = await supabase.from('app_settings')
+            const { data } = await mysqlClient.from('app_settings')
                 .select('*')
                 .in('key', ['fb_page_id', 'fb_page_access_token']);
 
@@ -414,17 +414,17 @@ export default function ProductsPage() {
                     };
 
                     if (id) {
-                        const { data: existingData } = await supabase.from('products').select('*').eq('id', id).single();
+                        const { data: existingData } = await mysqlClient.from('products').select('*').eq('id', id).single();
                         if (existingData) {
                             const oldStock = existingData.stock || 0;
                             const diff = stock - oldStock;
                             if (!productData.product_catalog_image_id) delete productData.product_catalog_image_id;
 
-                            const { error: updateError } = await supabase.from('products').update(productData).eq('id', id);
+                            const { error: updateError } = await mysqlClient.from('products').update(productData).eq('id', id);
                             if (!updateError) {
                                 updateCount++;
                                 if (diff !== 0) {
-                                    await supabase.from('product_history').insert({
+                                    await mysqlClient.from('product_history').insert({
                                         product_id: existingData.id,
                                         change_type: diff > 0 ? 'ADD' : 'ADJUSTMENT',
                                         quantity_change: diff,
@@ -438,7 +438,7 @@ export default function ProductsPage() {
                     }
 
                     // No ID or not found -> Insert as New Draft immediately
-                    const { data: newProd, error: insertError } = await supabase.from('products').insert({
+                    const { data: newProd, error: insertError } = await mysqlClient.from('products').insert({
                         ...productData,
                         is_active: false // Keep as draft until images assigned
                     }).select().single();
@@ -494,7 +494,7 @@ export default function ProductsPage() {
             });
 
             // Fetch ALL products matching the current filters (ignoring pagination)
-            let query = supabase.from('products').select('*');
+            let query = mysqlClient.from('products').select('*');
 
             if (categoryFilter !== 'ALL') {
                 query = query.eq('category', categoryFilter);
@@ -702,12 +702,12 @@ export default function ProductsPage() {
             // Helper function to perform update/insert with automatic missing column fallback
             const executeProductSave = async (dataToSave) => {
                 if (!isNew) {
-                    let res = await supabase.from('products').update(dataToSave).eq('id', currentProduct.id).select();
+                    let res = await mysqlClient.from('products').update(dataToSave).eq('id', currentProduct.id).select();
                     if (res.error) {
                         const safeData = { ...dataToSave };
                         delete safeData.compare_price;
                         delete safeData.original_price;
-                        res = await supabase.from('products').update(safeData).eq('id', currentProduct.id).select();
+                        res = await mysqlClient.from('products').update(safeData).eq('id', currentProduct.id).select();
                     }
                     if (res.error) {
                         throw new Error(res.error.message || res.error.details || 'Failed to update product in database.');
@@ -728,13 +728,13 @@ export default function ProductsPage() {
                         sku: String(nextNo)
                     };
 
-                    let res = await supabase.from('products').insert([insertData]).select();
+                    let res = await mysqlClient.from('products').insert([insertData]).select();
                     if (res.error) {
                         const safeInsert = { ...insertData };
                         delete safeInsert.product_no;
                         delete safeInsert.compare_price;
                         delete safeInsert.original_price;
-                        res = await supabase.from('products').insert([safeInsert]).select();
+                        res = await mysqlClient.from('products').insert([safeInsert]).select();
                     }
                     if (res.error) {
                         throw new Error(res.error.message || res.error.details || 'Failed to insert product into database.');
@@ -751,7 +751,7 @@ export default function ProductsPage() {
                 const newStock = productData.stock || 0;
                 if (newStock !== oldStock) {
                     const diff = newStock - oldStock;
-                    await supabase.from('product_history').insert({
+                    await mysqlClient.from('product_history').insert({
                         product_id: savedProduct.id,
                         change_type: diff > 0 ? 'ADD' : 'ADJUSTMENT',
                         quantity_change: diff,
@@ -759,12 +759,12 @@ export default function ProductsPage() {
                         reason: diff > 0 ? 'Manual Stock Addition' : 'Manual Stock Adjustment'
                     });
                     if (diff > 0) {
-                        await supabase.rpc('increment_total_added', { prod_id: savedProduct.id, qty: diff });
+                        await mysqlClient.rpc('increment_total_added', { prod_id: savedProduct.id, qty: diff });
                     }
                 }
             } else if (savedProduct && savedProduct.stock > 0) {
                 // Initial stock entry in history
-                await supabase.from('product_history').insert({
+                await mysqlClient.from('product_history').insert({
                     product_id: savedProduct.id,
                     change_type: 'ADD',
                     quantity_change: savedProduct.stock,
@@ -775,7 +775,7 @@ export default function ProductsPage() {
 
             if (productType === 'variant' && savedProduct) {
                 // 1. Delete removed variants
-                const { error: delErr } = await supabase.from('product_variants').delete().eq('product_id', savedProduct.id);
+                const { error: delErr } = await mysqlClient.from('product_variants').delete().eq('product_id', savedProduct.id);
                 if (delErr) console.warn('Variant delete note:', delErr);
 
                 // 2. Insert/Update variants
@@ -794,14 +794,14 @@ export default function ProductsPage() {
                             image_url: v.image_url
                         };
                     });
-                    let { error: insErr } = await supabase.from('product_variants').insert(variantsToInsert);
+                    let { error: insErr } = await mysqlClient.from('product_variants').insert(variantsToInsert);
                     if (insErr && (insErr.message.includes('compare_price') || insErr.message.includes('schema cache'))) {
                         const safeVariants = variantsToInsert.map(v => {
                             const copy = { ...v };
                             delete copy.compare_price;
                             return copy;
                         });
-                        const fallbackRes = await supabase.from('product_variants').insert(safeVariants);
+                        const fallbackRes = await mysqlClient.from('product_variants').insert(safeVariants);
                         insErr = fallbackRes.error;
                     }
                     if (insErr) {
@@ -882,7 +882,7 @@ export default function ProductsPage() {
         if (typeof gallery === 'string') gallery = gallery.split(',').filter(Boolean);
         setGalleryImageUrl(gallery);
         if (product?.id) {
-            const { data } = await supabase.from('product_variants').select('*').eq('product_id', product.id).order('created_at', { ascending: true });
+            const { data } = await mysqlClient.from('product_variants').select('*').eq('product_id', product.id).order('created_at', { ascending: true });
             setVariants(data || []);
         } else {
             setVariants([]);
@@ -913,7 +913,7 @@ export default function ProductsPage() {
                 setLoading(true);
                 try {
                     // Deactivate instead of hard delete
-                    const { error } = await supabase
+                    const { error } = await mysqlClient
                         .from('products')
                         .update({ is_active: false })
                         .eq('id', id);
@@ -963,7 +963,7 @@ export default function ProductsPage() {
             onConfirm: async () => {
                 setLoading(true);
                 try {
-                    const { error } = await supabase
+                    const { error } = await mysqlClient
                         .from('products')
                         .update({ is_active: false })
                         .in('id', selectedProductIds);

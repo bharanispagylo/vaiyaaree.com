@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export async function GET() {
     try {
@@ -13,7 +13,7 @@ export async function GET() {
             created_at: new Date().toISOString()
         };
 
-        const { data, error } = await supabase
+        const { data, error } = await mysqlClient
             .from('return_requests')
             .insert(testReturn)
             .select()
@@ -24,7 +24,7 @@ export async function GET() {
         }
 
         // Now try to fetch it back
-        const { data: fetchResult, error: fetchError } = await supabase
+        const { data: fetchResult, error: fetchError } = await mysqlClient
             .from('return_requests')
             .select(`
                 id, order_id, request_type, reason, status, admin_notes, created_at,

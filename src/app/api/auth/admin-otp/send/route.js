@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { getAdminSettings } from '@/lib/settings';
 import { sendAdminPasswordResetOTP } from '@/lib/emailService';
 
@@ -19,7 +19,7 @@ export async function POST(req) {
 
         // 1. First check if specific user exists in admin_users table with an email
         try {
-            const { data: adminUser } = await supabase
+            const { data: adminUser } = await mysqlClient
                 .from('admin_users')
                 .select('username, email')
                 .or(`username.eq.${cleanId},email.eq.${cleanId}`)
@@ -58,7 +58,7 @@ export async function POST(req) {
             created_at: new Date().toISOString()
         });
 
-        const { error: dbError } = await supabase
+        const { error: dbError } = await mysqlClient
             .from('app_settings')
             .upsert({
                 key: 'admin_reset_otp',

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 // This endpoint processes scheduled posts that are due.
 // Call it periodically (e.g., every 5 minutes via a cron job or Vercel Cron).
@@ -10,7 +10,7 @@ export async function GET(request) {
         const now = new Date().toISOString();
 
         // Find all PENDING posts that are due
-        const { data: duePosts, error } = await supabase
+        const { data: duePosts, error } = await mysqlClient
             .from('scheduled_posts')
             .select('*')
             .eq('status', 'PENDING')
@@ -27,7 +27,7 @@ export async function GET(request) {
         }
 
         // Get FB config
-        const { data: fbData } = await supabase.from('app_settings')
+        const { data: fbData } = await mysqlClient.from('app_settings')
             .select('*')
             .in('key', ['fb_page_id', 'fb_page_access_token']);
 
@@ -47,7 +47,7 @@ export async function GET(request) {
         for (const post of duePosts) {
             try {
                 // Mark as POSTING
-                await supabase.from('scheduled_posts').update({ status: 'POSTING' }).eq('id', post.id);
+                await mysqlClient.from('scheduled_posts').update({ status: 'POSTING' }).eq('id', post.id);
 
                 const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vaiyaaree.vercel.app';
                 const baseCaption = post.caption || ` ${post.product_name}\n\n ₹${(post.product_price || 0).toLocaleString()}\n\n Shop: ${shopUrl}`;
@@ -68,13 +68,13 @@ export async function GET(request) {
 
                 if (data.error) {
                     console.error(`[Schedule] FB error for post ${post.id}:`, data.error);
-                    await supabase.from('scheduled_posts').update({
+                    await mysqlClient.from('scheduled_posts').update({
                         status: 'FAILED',
                         error_message: data.error.message || 'Facebook API error'
                     }).eq('id', post.id);
                     failedCount++;
                 } else {
-                    await supabase.from('scheduled_posts').update({
+                    await mysqlClient.from('scheduled_posts').update({
                         status: 'POSTED',
                         fb_post_id: data.id
                     }).eq('id', post.id);
@@ -87,7 +87,7 @@ export async function GET(request) {
 
             } catch (err) {
                 console.error(`[Schedule] Error posting ${post.id}:`, err);
-                await supabase.from('scheduled_posts').update({
+                await mysqlClient.from('scheduled_posts').update({
                     status: 'FAILED',
                     error_message: err.message || 'Unknown error'
                 }).eq('id', post.id);

@@ -11,7 +11,7 @@ import styles from './product.module.css';
 export default function ProductDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
-    const { products, addToCart, loading: productsLoading, supabase } = useShop();
+    const { products, addToCart, loading: productsLoading, mysqlClient } = useShop();
 
     const [product, setProduct] = useState(null);
     const [variants, setVariants] = useState([]);
@@ -29,12 +29,12 @@ export default function ProductDetailsPage() {
             // 1. Try finding in loaded products list
             let found = findProductBySlugOrId(id, products);
 
-            // 2. If not found in memory products list, query Supabase DB directly
-            if (!found && supabase) {
+            // 2. If not found in memory products list, query MySQL DB directly
+            if (!found && mysqlClient) {
                 const rawParam = decodeURIComponent(String(id)).trim().replace(/\/$/, '');
 
                 // A. Direct ID / UUID query
-                let { data: directData } = await supabase.from('products').select('*').eq('id', rawParam).maybeSingle();
+                let { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
                 if (directData) found = directData;
 
                 // B. Trailing identifier match (Product No / SKU / ID)
@@ -43,10 +43,10 @@ export default function ProductDetailsPage() {
                     if (lastHyphen !== -1) {
                         const identifier = rawParam.substring(lastHyphen + 1);
                         if (/^\d+$/.test(identifier)) {
-                            const { data: byNo } = await supabase.from('products').select('*').or(`sku.eq.${identifier}`).maybeSingle();
+                            const { data: byNo } = await mysqlClient.from('products').select('*').or(`sku.eq.${identifier}`).maybeSingle();
                             if (byNo) found = byNo;
                         } else {
-                            const { data: byId } = await supabase.from('products').select('*').eq('id', identifier).maybeSingle();
+                            const { data: byId } = await mysqlClient.from('products').select('*').eq('id', identifier).maybeSingle();
                             if (byId) found = byId;
                         }
                     }
@@ -54,7 +54,7 @@ export default function ProductDetailsPage() {
 
                 // C. Full list fallback match by slug
                 if (!found) {
-                    const { data: allP } = await supabase.from('products').select('*');
+                    const { data: allP } = await mysqlClient.from('products').select('*');
                     if (allP) {
                         found = findProductBySlugOrId(id, allP);
                     }
@@ -74,7 +74,7 @@ export default function ProductDetailsPage() {
         }
 
         loadProductDetails();
-    }, [id, products, productsLoading, supabase]);
+    }, [id, products, productsLoading, mysqlClient]);
 
     useEffect(() => {
         if (product && products.length > 0) {
@@ -85,7 +85,7 @@ export default function ProductDetailsPage() {
     }, [product, products]);
 
     async function fetchVariants(productId) {
-        const { data } = await supabase
+        const { data } = await mysqlClient
             .from('product_variants')
             .select('*')
             .eq('product_id', productId)

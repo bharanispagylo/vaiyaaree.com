@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { 
     Truck, Plus, Trash2, Edit2, Save, X, 
     Search, Globe, Phone, Mail, CheckCircle2, 
@@ -30,7 +30,7 @@ export default function CouriersPage() {
     const fetchCouriers = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('couriers')
                 .select('*')
                 .order('name');
@@ -85,14 +85,14 @@ export default function CouriersPage() {
         setLoading(true);
         try {
             if (editingCourier) {
-                const { error } = await supabase
+                const { error } = await mysqlClient
                     .from('couriers')
                     .update(formData)
                     .eq('id', editingCourier.id);
                 if (error) throw error;
                 showNotification('Courier updated successfully', 'success');
             } else {
-                const { error } = await supabase
+                const { error } = await mysqlClient
                     .from('couriers')
                     .insert([formData]);
                 if (error) throw error;
@@ -112,7 +112,7 @@ export default function CouriersPage() {
         if (!confirm('Are you sure you want to delete this courier?')) return;
         setLoading(true);
         try {
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('couriers')
                 .delete()
                 .eq('id', id);

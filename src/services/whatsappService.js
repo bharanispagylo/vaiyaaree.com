@@ -1,6 +1,6 @@
 //  Vaiyaaree — WHATSAPP BUSINESS BOT (Premium Edition)
 
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import { processReturnRequest } from './returnService';
 import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
 import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
@@ -43,7 +43,7 @@ async function updateCustomerAdminNotes(toOrId, notes) {
 
     if (isUuid) {
         console.log(`[WA-UPDATE] Updating notes by ID: ${toOrId}`);
-        query = supabaseAdmin.from('customers').update({ admin_notes: notes }).eq('id', toOrId);
+        query = mysqlAdmin.from('customers').update({ admin_notes: notes }).eq('id', toOrId);
     } else {
         const normalizedPhone = normalizePhoneNumber(toOrId);
         const phoneVariations = [normalizedPhone];
@@ -51,7 +51,7 @@ async function updateCustomerAdminNotes(toOrId, notes) {
             phoneVariations.push(normalizedPhone.substring(2));
         }
         console.log(`[WA-UPDATE] Updating notes by Phone variations:`, phoneVariations);
-        query = supabaseAdmin.from('customers').update({ admin_notes: notes }).in('phone', phoneVariations);
+        query = mysqlAdmin.from('customers').update({ admin_notes: notes }).in('phone', phoneVariations);
     }
 
     const { data, error } = await query.select();
@@ -151,7 +151,7 @@ function isStreamActive(to, id) {
     return activeStreams.get(to) === id;
 }
 
-// In-memory config cache (5 min TTL) — avoids repeated Supabase calls for same key
+// In-memory config cache (5 min TTL) — avoids repeated MySQL calls for same key
 const configCache = new Map();
 const CONFIG_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -159,7 +159,7 @@ async function getConfig(key, fallback) {
     const cached = configCache.get(key);
     if (cached && Date.now() - cached.ts < CONFIG_TTL) return cached.value;
 
-    const { data } = await supabase.from('app_settings').select('value').eq('key', key).single();
+    const { data } = await mysqlClient.from('app_settings').select('value').eq('key', key).single();
     // Replace literal \n from database with actual newline characters
     const raw = data?.value || fallback;
     const value = raw.replace(/\\n/g, '\n');
@@ -344,7 +344,7 @@ async function getCart(phone) {
         phoneVariations.push(normalizedPhone.substring(2));
     }
 
-    const { data } = await supabase
+    const { data } = await mysqlClient
         .from('whatsapp_cart')
         .select('*')
         .in('phone', phoneVariations)
@@ -363,7 +363,7 @@ async function addToCart(phone, product, quantity = 1, variant = null) {
         phoneVariations.push(normalizedPhone.substring(2));
     }
 
-    const query = supabase.from('whatsapp_cart')
+    const query = mysqlClient.from('whatsapp_cart')
         .select('*')
         .in('phone', phoneVariations)
         .eq('product_id', productId);
@@ -374,9 +374,9 @@ async function addToCart(phone, product, quantity = 1, variant = null) {
     const { data: existing } = await query.single();
 
     if (existing) {
-        await supabase.from('whatsapp_cart').update({ quantity: existing.quantity + quantity }).eq('id', existing.id);
+        await mysqlClient.from('whatsapp_cart').update({ quantity: existing.quantity + quantity }).eq('id', existing.id);
     } else {
-        await supabase.from('whatsapp_cart').insert({
+        await mysqlClient.from('whatsapp_cart').insert({
             phone: normalizedPhone,
             product_id: productId,
             product_name: product.name,
@@ -395,26 +395,26 @@ async function clearCart(phone) {
     if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
         phoneVariations.push(normalizedPhone.substring(2));
     }
-    await supabase.from('whatsapp_cart').delete().in('phone', phoneVariations);
+    await mysqlClient.from('whatsapp_cart').delete().in('phone', phoneVariations);
 }
 
 // Deduct stock for all items in an order
 async function deductStock(orderId) {
     // SECURITY: Fetch order source first to prevent double-deduction
-    const { data: orderMeta } = await supabase.from('orders').select('source, status').eq('id', orderId).single();
+    const { data: orderMeta } = await mysqlClient.from('orders').select('source, status').eq('id', orderId).single();
     if (orderMeta?.source === 'WEBSITE') {
         console.log(`[STOCK] Skipping deduction for Order #${orderId} (Source: WEBSITE, already deducted)`);
         return;
     }
 
-    const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+    const { data: items } = await mysqlClient.from('order_items').select('*').eq('order_id', orderId);
     if (items) {
         for (const item of items) {
             const id = item.variant_id || item.product_id;
             const table = item.variant_id ? 'product_variants' : 'products';
 
             // 1. Fetch current stock and verify availability
-            const { data: current, error: fetchErr } = await supabase.from(table)
+            const { data: current, error: fetchErr } = await mysqlClient.from(table)
                 .select('stock, name, alert_threshold')
                 .eq('id', id)
                 .single();
@@ -423,14 +423,14 @@ async function deductStock(orderId) {
 
             // 2. Perform atomic-style update (Only if stock >= quantity)
             const newStock = Math.max(0, current.stock - item.quantity);
-            const { error: updateErr } = await supabase.from(table)
+            const { error: updateErr } = await mysqlClient.from(table)
                 .update({ stock: newStock })
                 .eq('id', id)
                 .gte('stock', item.quantity); // Atomic safety check
 
             if (!updateErr) {
                 // 3. Log History
-                await supabase.from('product_history').insert({
+                await mysqlClient.from('product_history').insert({
                     product_id: item.product_id,
                     variant_id: item.variant_id || null,
                     change_type: 'SALE',
@@ -439,11 +439,11 @@ async function deductStock(orderId) {
                     reason: `Sold in Order #${orderId}`
                 });
 
-                await supabase.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
+                await mysqlClient.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
 
                 // 4. Low Stock Alert (with unified main/variant check)
                 const alertThreshold = (table === 'product_variants')
-                    ? (await supabase.from('products').select('alert_threshold').eq('id', item.product_id).single()).data?.alert_threshold
+                    ? (await mysqlClient.from('products').select('alert_threshold').eq('id', item.product_id).single()).data?.alert_threshold
                     : current.alert_threshold;
 
                 if (newStock <= (alertThreshold || 0)) {
@@ -539,7 +539,7 @@ export async function handleProductInquiry(to, catalogId) {
         const variants = getCatalogIdVariants(catalogId);
         let product = null;
         for (const variant of variants) {
-            const { data } = await supabaseAdmin
+            const { data } = await mysqlAdmin
                 .from('products').select('*')
                 .ilike('product_catalog_image_id', variant)
                 .eq('is_active', true).maybeSingle();
@@ -550,7 +550,7 @@ export async function handleProductInquiry(to, catalogId) {
         // If exact match fails (e.g. OCR read AMBI instead of AMB6I), find the closest match
         if (!product) {
             console.log(`[WA-DEBUG] Exact match failed for ${catalogId}, attempting fuzzy match...`);
-            const { data: allProducts } = await supabaseAdmin
+            const { data: allProducts } = await mysqlAdmin
                 .from('products').select('id, product_catalog_image_id')
                 .eq('is_active', true);
 
@@ -575,7 +575,7 @@ export async function handleProductInquiry(to, catalogId) {
                 // Minimum search code length of 3 to avoid accidentally matching tiny garbage strings
                 if (bestMatch && lowestDistance <= 2 && searchCode.length >= 3) {
                     console.log(`[WA-DEBUG] Fuzzy match found! '${searchCode}' matched with DB code (Distance: ${lowestDistance})`);
-                    const { data: fuzzyData } = await supabaseAdmin
+                    const { data: fuzzyData } = await mysqlAdmin
                         .from('products').select('*')
                         .eq('id', bestMatch.id).maybeSingle();
                     if (fuzzyData) {
@@ -598,7 +598,7 @@ export async function handleProductInquiry(to, catalogId) {
             phoneVariations.push(normalizedPhone.substring(2));
         }
 
-        const { data: pastOrders } = await supabaseAdmin
+        const { data: pastOrders } = await mysqlAdmin
             .from('orders')
             .select('*, order_items(*)')
             .in('customer_phone', phoneVariations)
@@ -759,7 +759,7 @@ function getCategoryEmoji(category) {
 
 export async function sendCatalogueCategories(to) {
     // Dynamically fetch all distinct categories from the products table
-    const { data: allProducts } = await supabase
+    const { data: allProducts } = await mysqlClient
         .from('products')
         .select('*')
         .eq('is_active', true);
@@ -836,7 +836,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
         console.log(`\n========== CUSTOMER VIEW ALL PRODUCTS REQUEST ==========`);
     }
 
-    let query = supabase.from('products').select('*', { count: 'exact' }).eq('is_active', true);
+    let query = mysqlClient.from('products').select('*', { count: 'exact' }).eq('is_active', true);
     if (searchFilter) query = query.ilike('category', `%${searchFilter}%`);
 
     const streamId = startStream(to);
@@ -936,8 +936,8 @@ export async function handleAddToCart(to, productIdRaw) {
     const productId = productIdRaw.replace('addcart_', '');
 
     // Fetch product and its variants
-    const { data: product } = await supabase.from('products').select('*').eq('id', productId).single();
-    const { data: variants } = await supabase.from('product_variants').select('*').eq('product_id', productId);
+    const { data: product } = await mysqlClient.from('products').select('*').eq('id', productId).single();
+    const { data: variants } = await mysqlClient.from('product_variants').select('*').eq('product_id', productId);
 
     const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
     if (!product || !product.is_active || effectiveStock <= 0) return sendText(to, " Sorry, this item is out of stock or no longer available.");
@@ -955,7 +955,7 @@ export async function handleAddToCart(to, productIdRaw) {
 
     // No variants, add directly
     await addToCart(to, product, 1);
-    const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('product_id', productId).is('variant_id', null).single();
+    const { data: cartItem } = await mysqlClient.from('whatsapp_cart').select('quantity').eq('phone', to).eq('product_id', productId).is('variant_id', null).single();
     const qty = cartItem ? cartItem.quantity : 1;
 
     await sendButtons(to, ` *Added to Cart*\n${product.name}\nQty in Cart: ${qty}`, [
@@ -966,13 +966,13 @@ export async function handleAddToCart(to, productIdRaw) {
 }
 
 export async function handleVariantSelection(to, variantId) {
-    const { data: variant } = await supabase.from('product_variants').select('*, products(*)').eq('id', variantId).single();
+    const { data: variant } = await mysqlClient.from('product_variants').select('*, products(*)').eq('id', variantId).single();
     if (!variant || variant.stock < 1) return sendText(to, " Sorry, this option is out of stock.");
 
     const product = variant.products;
     await addToCart(to, product, 1, variant);
 
-    const { data: cartItem } = await supabase.from('whatsapp_cart').select('quantity').eq('phone', to).eq('variant_id', variantId).single();
+    const { data: cartItem } = await mysqlClient.from('whatsapp_cart').select('quantity').eq('phone', to).eq('variant_id', variantId).single();
     const qty = cartItem ? cartItem.quantity : 1;
 
     await sendButtons(to, ` *Added to Cart*\n${product.name} (${variant.name})\nQty in Cart: ${qty}`, [
@@ -983,7 +983,7 @@ export async function handleVariantSelection(to, variantId) {
 }
 
 export async function handleModifyQuantity(to, action, targetId, isVariant = false) {
-    const query = supabase.from('whatsapp_cart').select('*').eq('phone', to);
+    const query = mysqlClient.from('whatsapp_cart').select('*').eq('phone', to);
     if (isVariant) query.eq('variant_id', targetId);
     else query.eq('product_id', targetId).is('variant_id', null);
 
@@ -997,10 +997,10 @@ export async function handleModifyQuantity(to, action, targetId, isVariant = fal
     const itemName = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
 
     if (newQty < 1) {
-        await supabase.from('whatsapp_cart').delete().eq('id', item.id);
+        await mysqlClient.from('whatsapp_cart').delete().eq('id', item.id);
         return sendText(to, ` Removed ${itemName} from cart.`);
     } else {
-        await supabase.from('whatsapp_cart').update({ quantity: newQty }).eq('id', item.id);
+        await mysqlClient.from('whatsapp_cart').update({ quantity: newQty }).eq('id', item.id);
 
         const incId = isVariant ? `vqty_inc_${targetId}` : `qty_inc_${targetId}`;
         const decId = isVariant ? `vqty_dec_${targetId}` : `qty_dec_${targetId}`;
@@ -1050,7 +1050,7 @@ export async function handleEditCart(to) {
 }
 
 export async function handleCartItemOptions(to, cartItemId) {
-    const { data: item } = await supabase.from('whatsapp_cart').select('*').eq('id', cartItemId).single();
+    const { data: item } = await mysqlClient.from('whatsapp_cart').select('*').eq('id', cartItemId).single();
     if (!item) return handleViewCart(to);
 
     const itemName = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
@@ -1067,7 +1067,7 @@ export async function handleCartItemOptions(to, cartItemId) {
 }
 
 export async function handleRemoveItem(to, itemId) {
-    await supabase.from('whatsapp_cart').delete().eq('id', itemId);
+    await mysqlClient.from('whatsapp_cart').delete().eq('id', itemId);
     await sendText(to, " Item removed from cart.");
     await handleViewCart(to);
 }
@@ -1076,11 +1076,11 @@ export async function startCheckout(to) {
     const cart = await getCart(to);
     if (!cart.length) return sendText(to, "Cart empty!");
 
-    const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('ORD', supabaseAdmin);
+    const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('ORD', mysqlAdmin);
     const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
 
     // Initial Draft
-    await supabase.from('orders').insert({
+    await mysqlClient.from('orders').insert({
         id: orderId,
         customer_phone: to,
         status: "DRAFT",
@@ -1100,10 +1100,10 @@ export async function startCheckout(to) {
         variant_id: item.variant_id,
         variant_name: item.variant_name
     }));
-    await supabase.from('order_items').insert(orderItems);
+    await mysqlClient.from('order_items').insert(orderItems);
 
     // Check Previous Orders for Billing Address Reuse
-    const { data: lastOrders } = await supabase.from('orders')
+    const { data: lastOrders } = await mysqlClient.from('orders')
         .select('customer_name, billing_address, customer_phone')
         .eq('customer_phone', to)
         .not('billing_address', 'is', null)
@@ -1138,7 +1138,7 @@ export async function startCheckout(to) {
 
 // Handle saved billing address reuse
 export async function handleSavedBilling(to, orderId) {
-    const { data: lastOrders } = await supabase.from('orders')
+    const { data: lastOrders } = await mysqlClient.from('orders')
         .select('customer_name, billing_address, customer_email')
         .eq('customer_phone', to)
         .not('billing_address', 'is', null)
@@ -1148,7 +1148,7 @@ export async function handleSavedBilling(to, orderId) {
 
     const lastOrder = lastOrders?.[0];
     if (lastOrder && lastOrder.billing_address) {
-        await supabase.from('orders').update({
+        await mysqlClient.from('orders').update({
             customer_name: lastOrder.billing_address.name || lastOrder.customer_name,
             customer_email: lastOrder.customer_email || lastOrder.billing_address.email,
             billing_phone: lastOrder.billing_address.mobile || lastOrder.customer_phone || to,
@@ -1185,13 +1185,13 @@ export async function askShippingSameAsBilling(to, orderId) {
 
 // Handle shipping same as billing - copy billing to shipping
 export async function handleShippingSame(to, orderId) {
-    const { data: order } = await supabase.from('orders')
+    const { data: order } = await mysqlClient.from('orders')
         .select('billing_address, customer_name, customer_phone, customer_email')
         .eq('id', orderId)
         .single();
 
     if (order && order.billing_address) {
-        await supabase.from('orders').update({
+        await mysqlClient.from('orders').update({
             shipping_address: order.billing_address,
             shipping_phone: order.billing_address.mobile || order.customer_phone || to,
             shipping_email: order.billing_address.email || order.customer_email
@@ -1223,7 +1223,7 @@ export async function handleNewBillingAddress(to, orderId, text) {
         pincode: parsed.pincode
     };
 
-    await supabase.from('orders').update({
+    await mysqlClient.from('orders').update({
         customer_name: parsed.name,
         customer_phone: parsed.mobile,
         customer_email: parsed.email,
@@ -1253,7 +1253,7 @@ export async function handleNewShippingAddress(to, orderId, text) {
         pincode: parsed.pincode
     };
 
-    await supabase.from('orders').update({
+    await mysqlClient.from('orders').update({
         shipping_address: shippingAddress,
         shipping_phone: parsed.mobile,
         shipping_email: parsed.email
@@ -1345,7 +1345,7 @@ export async function handleStateSelection(to, stateNameClean, orderId) {
     // stateNameClean is like 'tamil_nadu'
     const stateName = stateNameClean.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-    const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
+    const { data: order } = await mysqlClient.from('orders').select('*').eq('id', orderId).single();
     if (!order) return;
 
     const subtotal = order.subtotal || 0;
@@ -1361,7 +1361,7 @@ export async function handleStateSelection(to, stateNameClean, orderId) {
         taxDetails = { cgst: 0, sgst: 0, igst: tax };
     }
 
-    await supabase.from('orders').update({
+    await mysqlClient.from('orders').update({
         customer_state: stateName,
         tax_amount: tax,
         shipping_cost: shipping,
@@ -1373,7 +1373,7 @@ export async function handleStateSelection(to, stateNameClean, orderId) {
 }
 
 export async function askPaymentMode(to, orderId) {
-    const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
+    const { data: order } = await mysqlClient.from('orders').select('*').eq('id', orderId).single();
     const total = order?.total_amount?.toLocaleString() || '0';
 
     await sendButtons(to, ` *Address & Taxes Confirmed!*\n\n *Total Billing: ₹${total}*\n(Inc. GST & Shipping)\n\nHow would you like to pay?`, [
@@ -1385,7 +1385,7 @@ export async function askPaymentMode(to, orderId) {
 export async function notifyOrderSuccess(orderId, isPaid = false) {
     try {
         console.log(`[NOTIFY] Triggering success notification for #${orderId}`);
-        const { data: order, error } = await supabase
+        const { data: order, error } = await mysqlClient
             .from('orders')
             .select(`*, order_items(*)`)
             .eq('id', orderId)
@@ -1437,7 +1437,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                 if (order.order_items && order.order_items.length > 0) {
                     for (const item of order.order_items) {
                         try {
-                            const { data: product } = await supabase
+                            const { data: product } = await mysqlClient
                                 .from('products')
                                 .select('image_url, product_catalog_image_id')
                                 .eq('id', item.product_id)
@@ -1477,7 +1477,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                 try {
                     let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree@gmail.com', shop_address: 'Premium Saree Collections' };
                     try {
-                        const { data: settingsData } = await supabase.from('app_settings').select('*');
+                        const { data: settingsData } = await mysqlClient.from('app_settings').select('*');
                         if (settingsData) {
                             settingsData.forEach(item => {
                                 if (item.key === 'shop_name') settings.shop_name = item.value;
@@ -1519,7 +1519,7 @@ export async function finalizeOrder(to, method, orderId) {
         await sendText(to, "order processing...");
     }
 
-    const { data: currentOrder } = await supabase.from('orders').select('status').eq('id', orderId).single();
+    const { data: currentOrder } = await mysqlClient.from('orders').select('status').eq('id', orderId).single();
 
     // Determine target status
     let status = method === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT';
@@ -1529,11 +1529,11 @@ export async function finalizeOrder(to, method, orderId) {
         status = currentOrder.status;
     }
 
-    await supabase.from('orders').update({ status, payment_method: method }).eq('id', orderId);
+    await mysqlClient.from('orders').update({ status, payment_method: method }).eq('id', orderId);
 
     // Add initial PLACED log entry for COD orders
     if (method === 'COD') {
-        await supabase.from('order_status_logs').insert({
+        await mysqlClient.from('order_status_logs').insert({
             order_id: orderId,
             status: 'PLACED',
             notes: 'Order placed via WhatsApp (COD)',
@@ -1541,7 +1541,7 @@ export async function finalizeOrder(to, method, orderId) {
         });
     }
 
-    const { data: order } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
+    const { data: order } = await mysqlClient.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
     const total = order?.total_amount?.toLocaleString() || '0';
 
     // Send email notification if email is available
@@ -1597,10 +1597,10 @@ export async function finalizeOrder(to, method, orderId) {
 export async function handlePaymentConfirmed(to, orderId) {
     // SECURITY: Mark order as PENDING_VERIFICATION instead of PAID
     // This prevents fraud where users click "I Have Paid" without paying.
-    await supabase.from('orders').update({ status: 'PENDING_VERIFICATION' }).eq('id', orderId);
+    await mysqlClient.from('orders').update({ status: 'PENDING_VERIFICATION' }).eq('id', orderId);
 
     // Add Log entry
-    await supabase.from('order_status_logs').insert({
+    await mysqlClient.from('order_status_logs').insert({
         order_id: orderId,
         status: 'PENDING_VERIFICATION',
         notes: 'Customer clicked "I Have Paid" on WhatsApp. Awaiting admin verification of UPI payment.',
@@ -1615,7 +1615,7 @@ export async function handlePaymentConfirmed(to, orderId) {
     // Note: Stock is NOT deducted yet for unverified UPI to prevent "locking" stock with fake payments.
     // Stock will be deducted when admin marks it as PAID.
 
-    const { data: ord } = await supabase.from('orders').select('invoice_no').eq('id', orderId).maybeSingle();
+    const { data: ord } = await mysqlClient.from('orders').select('invoice_no').eq('id', orderId).maybeSingle();
     const displayInv = formatInvoiceId(ord || orderId);
 
     return await sendText(to, " *Payment Notification Received*\n\nThank you! We are verifying your payment. Once confirmed, you will receive your official invoice and tracking details.\n\nInvoice No: *" + displayInv + "*");
@@ -1637,7 +1637,7 @@ export async function handleCancelOrder(to, customerId) {
     // Query with OR condition for all phone variations
     let orders = [];
     for (const phone of phoneVariations) {
-        const { data } = await supabase
+        const { data } = await mysqlClient
             .from('orders')
             .select('id, status, total_amount, created_at')
             .eq('customer_phone', phone)
@@ -1682,7 +1682,7 @@ export async function processCancelOrder(to, orderId) {
     // Check if order exists and belongs to user (try all phone variations)
     let order = null;
     for (const phone of phoneVariations) {
-        const { data } = await supabase.from('orders')
+        const { data } = await mysqlClient.from('orders')
             .select('*')
             .eq('id', upperOrderId)
             .eq('customer_phone', phone)
@@ -1732,7 +1732,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
     const upperOrderId = orderId.toUpperCase();
 
     // First check if order is already cancelled
-    const { data: existingOrder } = await supabase.from('orders')
+    const { data: existingOrder } = await mysqlClient.from('orders')
         .select('status')
         .eq('id', upperOrderId)
         .single();
@@ -1745,7 +1745,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
     }
 
     // Get order items to restore stock
-    const { data: items } = await supabase.from('order_items')
+    const { data: items } = await mysqlClient.from('order_items')
         .select('*')
         .eq('order_id', upperOrderId);
 
@@ -1754,18 +1754,18 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
         for (const item of items) {
             if (item.variant_id) {
                 // Get current variant stock
-                const { data: variant } = await supabase.from('product_variants')
+                const { data: variant } = await mysqlClient.from('product_variants')
                     .select('stock')
                     .eq('id', item.variant_id)
                     .single();
                 if (variant) {
                     const newStock = variant.stock + item.quantity;
-                    await supabase.from('product_variants')
+                    await mysqlClient.from('product_variants')
                         .update({ stock: newStock })
                         .eq('id', item.variant_id);
 
                     // Add to ledger
-                    await supabase.from('product_history').insert({
+                    await mysqlClient.from('product_history').insert({
                         product_id: item.product_id,
                         variant_id: item.variant_id,
                         change_type: 'STOCK_IN',
@@ -1776,18 +1776,18 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
                 }
             } else {
                 // Get current product stock
-                const { data: product } = await supabase.from('products')
+                const { data: product } = await mysqlClient.from('products')
                     .select('stock')
                     .eq('id', item.product_id)
                     .single();
                 if (product) {
                     const newStock = product.stock + item.quantity;
-                    await supabase.from('products')
+                    await mysqlClient.from('products')
                         .update({ stock: newStock })
                         .eq('id', item.product_id);
 
                     // Add to ledger
-                    await supabase.from('product_history').insert({
+                    await mysqlClient.from('product_history').insert({
                         product_id: item.product_id,
                         change_type: 'STOCK_IN',
                         quantity_change: item.quantity,
@@ -1800,7 +1800,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
     }
 
     // Update order status to CANCELLED
-    await supabase.from('orders')
+    await mysqlClient.from('orders')
         .update({
             status: 'CANCELLED',
             admin_notes: `Order cancelled by customer via WhatsApp on ${new Date().toLocaleString()}. Reason: ${reason}`
@@ -1813,7 +1813,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
     // Only create a refund entry if money was actually collected (PAID or AWAITING_PAYMENT)
     // PLACED (COD) orders never took money, so no refund is needed
     if (['PAID', 'AWAITING_PAYMENT'].includes(existingOrder?.status)) {
-        await supabase.from('refunds').insert({
+        await mysqlClient.from('refunds').insert({
             order_id: upperOrderId,
             amount: existingOrder?.total_amount || 0,
             reason: 'Order Cancelled by Customer via WhatsApp (Paid Order)',
@@ -1822,7 +1822,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
     }
 
     // Add to status history (both tables for compatibility)
-    await supabase.from('order_status_history').insert({
+    await mysqlClient.from('order_status_history').insert({
         order_id: upperOrderId,
         status_from: null,
         status_to: 'CANCELLED',
@@ -1831,7 +1831,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
     });
 
     // Also add to order_status_logs which is what the admin panel reads
-    await supabase.from('order_status_logs').insert({
+    await mysqlClient.from('order_status_logs').insert({
         order_id: upperOrderId,
         status: 'CANCELLED',
         notes: `Order cancelled. Reason: ${reason}`,
@@ -1857,7 +1857,7 @@ export async function handleRefundOrder(to) {
 
     let allDelivered = [];
     for (const phone of phoneVariations) {
-        const { data } = await supabase.from('orders')
+        const { data } = await mysqlClient.from('orders')
             .select('id, status, total_amount, created_at')
             .eq('customer_phone', phone)
             .eq('status', 'DELIVERED')
@@ -1875,7 +1875,7 @@ export async function handleRefundOrder(to) {
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
     const orderIds = allDelivered.map(o => o.id);
-    const { data: logs } = await supabase.from('order_status_logs')
+    const { data: logs } = await mysqlClient.from('order_status_logs')
         .select('order_id, created_at')
         .in('order_id', orderIds)
         .eq('status', 'DELIVERED');
@@ -1908,7 +1908,7 @@ export async function processRefundOrder(to, orderId) {
     // Check if order exists and belongs to user (try all phone variations)
     let order = null;
     for (const phone of phoneVariations) {
-        const { data } = await supabase.from('orders')
+        const { data } = await mysqlClient.from('orders')
             .select('*')
             .eq('id', upperOrderId)
             .eq('customer_phone', phone)
@@ -1924,7 +1924,7 @@ export async function processRefundOrder(to, orderId) {
     }
 
     // Verify 10-day deadline
-    const { data: deliveryLog } = await supabase.from('order_status_logs')
+    const { data: deliveryLog } = await mysqlClient.from('order_status_logs')
         .select('created_at')
         .eq('order_id', upperOrderId)
         .eq('status', 'DELIVERED')
@@ -1963,7 +1963,7 @@ export async function handleReturnExchangeOrder(customerId, to) {
     let allDelivered = [];
     for (const phone of phoneVariations) {
         console.log(` Checking orders for phone: ${phone}`);
-        const { data, error } = await supabaseAdmin.from('orders')
+        const { data, error } = await mysqlAdmin.from('orders')
             .select('id, status, total_amount, created_at')
             .eq('customer_phone', phone)
             .eq('status', 'DELIVERED')
@@ -1993,11 +1993,11 @@ export async function handleReturnExchangeOrder(customerId, to) {
 
     const orderIds = allDelivered.map(o => o.id);
     const [{ data: logs }, { data: existingRequests }] = await Promise.all([
-        supabaseAdmin.from('order_status_logs')
+        mysqlAdmin.from('order_status_logs')
             .select('order_id, created_at')
             .in('order_id', orderIds)
             .eq('status', 'DELIVERED'),
-        supabaseAdmin.from('return_requests')
+        mysqlAdmin.from('return_requests')
             .select('order_id')
             .in('order_id', orderIds)
     ]);
@@ -2030,7 +2030,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
 
     let order = null;
     for (const phone of phoneVariations) {
-        const { data } = await supabaseAdmin.from('orders')
+        const { data } = await mysqlAdmin.from('orders')
             .select('*, order_items(*)')
             .eq('id', upperOrderId)
             .eq('customer_phone', phone)
@@ -2043,7 +2043,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     }
 
     // Verify 10-day deadline
-    const { data: deliveryLog } = await supabaseAdmin.from('order_status_logs')
+    const { data: deliveryLog } = await mysqlAdmin.from('order_status_logs')
         .select('created_at')
         .eq('order_id', upperOrderId)
         .eq('status', 'DELIVERED')
@@ -2085,7 +2085,7 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
 
     try {
         // Fetch order items for the service (try exact match first, then uppercase)
-        let { data: order, error: fetchErr } = await supabaseAdmin
+        let { data: order, error: fetchErr } = await mysqlAdmin
             .from('orders')
             .select('*, order_items(*)')
             .eq('id', orderId)
@@ -2093,7 +2093,7 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
 
         if (!order || fetchErr) {
             // Try uppercase fallback
-            const retry = await supabaseAdmin
+            const retry = await mysqlAdmin
                 .from('orders')
                 .select('*, order_items(*)')
                 .eq('id', orderId.toUpperCase())
@@ -2157,9 +2157,9 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
 
 
 export async function confirmRefundOrder(to, orderId, reason) {
-    const { data: order } = await supabase.from('orders').select('total_amount').eq('id', orderId).single();
+    const { data: order } = await mysqlClient.from('orders').select('total_amount').eq('id', orderId).single();
 
-    await supabase.from('orders').update({ status: 'REFUND_REQUESTED', refund_reason: reason, refund_status: 'PENDING' }).eq('id', orderId);
+    await mysqlClient.from('orders').update({ status: 'REFUND_REQUESTED', refund_reason: reason, refund_status: 'PENDING' }).eq('id', orderId);
 
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
@@ -2170,7 +2170,7 @@ export async function confirmRefundOrder(to, orderId, reason) {
     await updateCustomerAdminNotes(to, null);
 
     if (order) {
-        await supabase.from('refunds').insert({
+        await mysqlClient.from('refunds').insert({
             order_id: orderId,
             amount: order.total_amount,
             reason: reason,
@@ -2183,7 +2183,7 @@ export async function confirmRefundOrder(to, orderId, reason) {
 
 async function getOrderCatalogNumbers(orderId) {
     try {
-        const { data: items } = await supabaseAdmin
+        const { data: items } = await mysqlAdmin
             .from('order_items')
             .select('product_id')
             .eq('order_id', orderId);
@@ -2193,7 +2193,7 @@ async function getOrderCatalogNumbers(orderId) {
         const productIds = [...new Set(items.map(i => i.product_id).filter(Boolean))];
         if (productIds.length === 0) return '';
 
-        const { data: prods } = await supabaseAdmin
+        const { data: prods } = await mysqlAdmin
             .from('products')
             .select('product_catalog_image_id')
             .in('id', productIds);
@@ -2229,7 +2229,7 @@ export async function handleTrackOrder(to) {
     }
 
     // Query with IN condition for all phone variations to get the absolute latest order
-    const { data: oList, error } = await supabase
+    const { data: oList, error } = await mysqlClient
         .from('orders')
         .select('*')
         .in('customer_phone', phoneVariations)
@@ -2445,8 +2445,8 @@ export async function processIncomingMessage(body) {
                 phoneVariations.push(normalizedPhone.substring(2));
             }
 
-            // Use supabaseAdmin to bypass RLS
-            const { data: customers, error: fetchErr } = await supabaseAdmin
+            // Use mysqlAdmin to bypass RLS
+            const { data: customers, error: fetchErr } = await mysqlAdmin
                 .from('customers')
                 .select('*')
                 .in('phone', phoneVariations);
@@ -2457,7 +2457,7 @@ export async function processIncomingMessage(body) {
 
             if (!customers || customers.length === 0) {
                 console.log(`[WA-STATE] No customer found for ${from}, creating...`);
-                const { data: newCust, error: insertErr } = await supabaseAdmin.from('customers').insert({
+                const { data: newCust, error: insertErr } = await mysqlAdmin.from('customers').insert({
                     phone: normalizedPhone,
                     name: profileName,
                     role: 'user'
@@ -2476,11 +2476,11 @@ export async function processIncomingMessage(body) {
 
                 // Update name if it's new
                 if ((!customer.name || customer.name === 'WhatsApp Customer') && profileName !== 'WhatsApp Customer') {
-                    await supabaseAdmin.from('customers').update({ name: profileName }).eq('id', customer.id);
+                    await mysqlAdmin.from('customers').update({ name: profileName }).eq('id', customer.id);
                 }
             }
-        } catch (supabaseErr) {
-            console.error(`[WA-STATE] Critical error for ${from}:`, supabaseErr);
+        } catch (mysqlErr) {
+            console.error(`[WA-STATE] Critical error for ${from}:`, mysqlErr);
         }
 
         // -------------------------
@@ -2528,7 +2528,7 @@ export async function processIncomingMessage(body) {
 
             if (RESET_TRIGGERS.includes(messageText) || RESET_TRIGGERS.includes(cleanText)) {
                 // Reset: cancel any open draft orders and show main menu
-                await supabase.from('orders').delete().eq('customer_phone', from).eq('status', 'DRAFT');
+                await mysqlClient.from('orders').delete().eq('customer_phone', from).eq('status', 'DRAFT');
                 return await sendMainMenu(from);
             }
 
@@ -2604,7 +2604,7 @@ export async function processIncomingMessage(body) {
 
             if (matchedOrderId) {
                 console.log(`[WA] Detected order ID: ${matchedOrderId}`);
-                const { data: o } = await supabaseAdmin.from('orders').select('*').eq('id', matchedOrderId).maybeSingle();
+                const { data: o } = await mysqlAdmin.from('orders').select('*').eq('id', matchedOrderId).maybeSingle();
                 if (o) {
                     const sourceLabel = o.source === 'WEBSITE' ? ' Website' : ' WhatsApp';
                     const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
@@ -2647,11 +2647,11 @@ export async function processIncomingMessage(body) {
                 if (match) {
                     const orderId = match[1].toUpperCase();
 
-                    const { data: order } = await supabase.from('orders').select('id, status, payment_method, total_amount, delivery_address, customer_name').eq('id', orderId).single();
+                    const { data: order } = await mysqlClient.from('orders').select('id, status, payment_method, total_amount, delivery_address, customer_name').eq('id', orderId).single();
 
                     if (order) {
                         if (order.status === 'DRAFT') {
-                            await supabase.from('orders').update({ customer_phone: from }).eq('id', orderId);
+                            await mysqlClient.from('orders').update({ customer_phone: from }).eq('id', orderId);
                             await sendText(from,
                                 ` *Complete Your Order* (${formatInvoiceId(orderId)})\n\n` +
                                 `Please reply with your delivery details in this format:\n\n` +
@@ -2683,11 +2683,11 @@ export async function processIncomingMessage(body) {
                             ]);
                         } else if (order.payment_method === 'COD') {
                             await sendText(from, " Cash on delivery selected, order processing...");
-                            const { data: fullOrder } = await supabase.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
+                            const { data: fullOrder } = await mysqlClient.from('orders').select(`*, order_items(*)`).eq('id', orderId).single();
 
                             try {
                                 let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree@gmail.com', shop_address: 'Premium Saree Collections' };
-                                const { data: settingsData } = await supabase.from('app_settings').select('*');
+                                const { data: settingsData } = await mysqlClient.from('app_settings').select('*');
                                 if (settingsData) {
                                     settingsData.forEach(item => {
                                         if (item.key === 'shop_name') settings.shop_name = item.value;
@@ -2719,7 +2719,7 @@ export async function processIncomingMessage(body) {
                 phoneVariations.push(normalizedPhone.substring(2));
             }
 
-            const { data: draft } = await supabase
+            const { data: draft } = await mysqlClient
                 .from('orders')
                 .select('id, billing_address, shipping_address, customer_state, customer_email')
                 .in('customer_phone', phoneVariations)
@@ -2738,7 +2738,7 @@ export async function processIncomingMessage(body) {
                     console.log(`[WA] Saving email for draft ${draft.id}`);
                     const email = message.text.body.trim();
                     if (email.includes('@') && email.includes('.')) {
-                        await supabase.from('orders').update({
+                        await mysqlClient.from('orders').update({
                             customer_email: email,
                             billing_email: email
                         }).eq('id', draft.id);
@@ -2780,7 +2780,7 @@ export async function processIncomingMessage(body) {
 
             if (standaloneMatch && !RESERVED_WORDS.includes(rawBodyText.toUpperCase())) {
                 const codeCandidate = rawBodyText.toUpperCase();
-                const { data: existingProd } = await supabaseAdmin
+                const { data: existingProd } = await mysqlAdmin
                     .from('products')
                     .select('product_catalog_image_id')
                     .ilike('product_catalog_image_id', `%${codeCandidate}%`)
@@ -2798,7 +2798,7 @@ export async function processIncomingMessage(body) {
             for (const term of searchTerms) {
                 const cleanTerm = term.replace(/[^A-Z0-9]/gi, '');
                 if (cleanTerm.length >= 4 && !RESERVED_WORDS.includes(cleanTerm.toUpperCase())) {
-                    const { data: p } = await supabaseAdmin
+                    const { data: p } = await mysqlAdmin
                         .from('products')
                         .select('product_catalog_image_id')
                         .or(`product_catalog_image_id.ilike.%${cleanTerm}%,name.ilike.%${term}%`)
@@ -2890,7 +2890,7 @@ export async function processIncomingMessage(body) {
 
             if (id.startsWith('new_billing_')) {
                 const orderId = id.replace('new_billing_', '');
-                await supabase.from('orders').update({ billing_address: null }).eq('id', orderId);
+                await mysqlClient.from('orders').update({ billing_address: null }).eq('id', orderId);
                 return await sendText(from,
                     ` *Enter New Billing Address*\n\n` +
                     `Reply with your *billing details* in this format:\n\n` +
@@ -2907,7 +2907,7 @@ export async function processIncomingMessage(body) {
             if (id.startsWith('shipping_diff_')) {
                 const orderId = id.replace('shipping_diff_', '');
                 // Clear existing shipping address to trigger the draft check for next message
-                await supabase.from('orders').update({ shipping_address: null }).eq('id', orderId);
+                await mysqlClient.from('orders').update({ shipping_address: null }).eq('id', orderId);
                 return await sendText(from,
                     ` *Enter Shipping Address*\n\n` +
                     `Reply with your *shipping details* in this format:\n\n` +
@@ -2920,7 +2920,7 @@ export async function processIncomingMessage(body) {
             if (id.startsWith('use_saved_')) {
                 const orderId = id.replace('use_saved_', '');
                 // Copy the saved address into the current draft order
-                const { data: lastOrders } = await supabase.from('orders')
+                const { data: lastOrders } = await mysqlClient.from('orders')
                     .select('customer_name, delivery_address')
                     .eq('customer_phone', from)
                     .not('delivery_address', 'is', null)
@@ -2930,7 +2930,7 @@ export async function processIncomingMessage(body) {
 
                 const lastOrder = lastOrders?.[0];
                 if (lastOrder) {
-                    await supabase.from('orders').update({
+                    await mysqlClient.from('orders').update({
                         customer_name: lastOrder.customer_name,
                         delivery_address: lastOrder.delivery_address
                     }).eq('id', orderId);
@@ -2941,7 +2941,7 @@ export async function processIncomingMessage(body) {
             if (id.startsWith('new_addr_')) {
                 // Clear any existing delivery address so draft stays open
                 const orderId = id.replace('new_addr_', '');
-                await supabase.from('orders').update({ delivery_address: null, customer_name: null }).eq('id', orderId);
+                await mysqlClient.from('orders').update({ delivery_address: null, customer_name: null }).eq('id', orderId);
                 return await sendText(from,
                     ` *Enter New Delivery Details*\n\n` +
                     `Reply with your:\n_Name, Mobile Number, Full Address_\n\n` +

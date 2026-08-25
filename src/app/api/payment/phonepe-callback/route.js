@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import { notifyOrderSuccess } from '@/services/whatsappService';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
@@ -49,14 +49,14 @@ export async function GET(request) {
 
         if (paymentSuccess) {
             // Fetch order details
-            const { data: order } = await supabase
+            const { data: order } = await mysqlClient
                 .from('orders')
                 .select('*, order_items(*)')
                 .eq('id', orderId)
                 .single();
 
             // Update order as PAID
-            await supabase
+            await mysqlClient
                 .from('orders')
                 .update({
                     status: 'PAID',

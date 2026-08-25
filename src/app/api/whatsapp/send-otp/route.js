@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import { sendText } from '@/services/whatsappService';
 
 export async function POST(request) {
@@ -17,7 +17,7 @@ export async function POST(request) {
         if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
         // 2. Cooldown check (60s)
-        const { data: lastOtp } = await supabase
+        const { data: lastOtp } = await mysqlClient
             .from('otps')
             .select('created_at')
             .eq('phone', cleanPhone)
@@ -36,8 +36,8 @@ export async function POST(request) {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
         // 4. Store in DB
-        await supabase.from('otps').delete().eq('phone', cleanPhone);
-        await supabase.from('otps').insert({
+        await mysqlClient.from('otps').delete().eq('phone', cleanPhone);
+        await mysqlClient.from('otps').insert({
             phone: cleanPhone,
             code: otp,
             expires_at: expiresAt

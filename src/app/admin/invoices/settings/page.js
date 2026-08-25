@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import {
     Loader2, Printer, Save, ArrowLeft, Image, MapPin,
     Hash, Info, CheckCircle2, MessageSquare, Settings, Upload
@@ -37,7 +37,7 @@ export default function InvoiceSettingsPage() {
         const fetchSettings = async () => {
             setLoading(true);
             try {
-                const { data } = await supabase.from('app_settings').select('*');
+                const { data } = await mysqlClient.from('app_settings').select('*');
                 if (data) {
                     const mapped = {};
                     data.forEach(item => mapped[item.key] = item.value);
@@ -72,7 +72,7 @@ export default function InvoiceSettingsPage() {
                 { key: 'bank_upi', value: String(settings.bank_upi || '') }
             ];
 
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('app_settings')
                 .upsert(updates, { onConflict: 'key' });
 

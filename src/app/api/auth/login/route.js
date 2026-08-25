@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { getAdminSettings } from '@/lib/settings';
 import { verifyPassword, hashPassword } from '@/lib/hash';
 
@@ -12,7 +12,7 @@ export async function POST(req) {
         const { username, password } = body;
         
         // 1. Try to find in admin_users table (Modern approach)
-        const { data: user, error: userError } = await supabase
+        const { data: user, error: userError } = await mysqlClient
             .from('admin_users')
             .select('*')
             .or(`username.eq.${username},email.eq.${username}`)
@@ -32,14 +32,14 @@ export async function POST(req) {
                 // Lazy migration: hash the password for future use
                 if (isValid) {
                     const newHash = hashPassword(password);
-                    await supabase.from('admin_users').update({ password: newHash }).eq('username', username);
+                    await mysqlClient.from('admin_users').update({ password: newHash }).eq('username', username);
                     console.log(`[AUTH] Migrated user ${username} to hashed password.`);
                 }
             }
 
             if (isValid) {
                 const token = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
-                await supabase.from('admin_users').update({ last_login: new Date().toISOString() }).eq('username', username);
+                await mysqlClient.from('admin_users').update({ last_login: new Date().toISOString() }).eq('username', username);
                 return NextResponse.json({
                     success: true,
                     role: user.role || 'Admin',

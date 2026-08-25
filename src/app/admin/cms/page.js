@@ -7,7 +7,7 @@ import {
     Settings, Image as ImageIcon, Code, BarChart, Calendar, Lock,
     ChevronRight, Save, Copy, Monitor, Smartphone, Tablet, Upload
 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import ModalPortal from '@/components/ModalPortal';
 import { useRouter } from 'next/navigation';
 import MediaPicker from '@/components/MediaPicker';
@@ -48,7 +48,7 @@ export default function CMSPage() {
     const fetchPages = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('cms_pages')
                 .select('*')
                 .order('menu_order', { ascending: true })
@@ -109,11 +109,11 @@ export default function CMSPage() {
 
         try {
             if (currentPage?.id) {
-                const { error } = await supabase.from('cms_pages').update(pageData).eq('id', currentPage.id);
+                const { error } = await mysqlClient.from('cms_pages').update(pageData).eq('id', currentPage.id);
                 if (error) throw error;
                 showNotification('Page updated successfully!');
             } else {
-                const { error } = await supabase.from('cms_pages').insert([pageData]);
+                const { error } = await mysqlClient.from('cms_pages').insert([pageData]);
                 if (error) throw error;
                 showNotification('New page created successfully!');
             }
@@ -138,7 +138,7 @@ export default function CMSPage() {
             onConfirm: async () => {
                 setConfirmAction(null);
                 try {
-                    const { error } = await supabase.from('cms_pages').delete().eq('id', id);
+                    const { error } = await mysqlClient.from('cms_pages').delete().eq('id', id);
                     if (error) throw error;
                     showNotification('Page removed successfully');
                     fetchPages();

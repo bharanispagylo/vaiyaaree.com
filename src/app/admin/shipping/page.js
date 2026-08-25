@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import ModalPortal from '@/components/ModalPortal';
 import {
     Truck, Plus, Trash2, Globe, MapPin,
@@ -43,8 +43,8 @@ export default function ShippingAdminPage() {
         setLoading(true);
         try {
             const [zonesRes, mappingRes] = await Promise.all([
-                supabase.from('shipping_zones').select('*').order('is_international', { ascending: true }).order('name', { ascending: true }),
-                supabase.from('shipping_zone_states').select('*')
+                mysqlClient.from('shipping_zones').select('*').order('is_international', { ascending: true }).order('name', { ascending: true }),
+                mysqlClient.from('shipping_zone_states').select('*')
             ]);
 
             if (zonesRes.data) {
@@ -66,6 +66,10 @@ export default function ShippingAdminPage() {
         if (selectedZone?.id === id) {
             setSelectedZone(prev => ({ ...prev, [field]: value }));
         }
+        if (field === 'is_international' && value === true) {
+            // Clear state mappings for this zone when converted to international
+            setMappings(prev => prev.filter(m => m.zone_id !== id));
+        }
     };
 
     const saveChanges = async () => {
@@ -73,39 +77,67 @@ export default function ShippingAdminPage() {
         setError(null);
         setSuccess(null);
         try {
+            // 1. Validate price group titles, rates, and thresholds
+            const titleMap = new Set();
             for (const zone of zones) {
-                const { error: updateError } = await supabase
+                const title = (zone.name || '').trim();
+                if (!title) {
+                    throw new Error('Price group title cannot be empty.');
+                }
+                const lower = title.toLowerCase();
+                if (titleMap.has(lower)) {
+                    throw new Error(`Duplicate price group title found: "${title}". Each price group must have a unique title.`);
+                }
+                titleMap.add(lower);
+
+                const rate = parseFloat(zone.rate);
+                if (isNaN(rate) || rate < 0) {
+                    throw new Error(`Shipping rate for "${title}" cannot be negative or invalid.`);
+                }
+
+                const threshold = parseFloat(zone.free_threshold);
+                if (isNaN(threshold) || threshold < 0) {
+                    throw new Error(`Free shipping threshold for "${title}" cannot be negative or invalid.`);
+                }
+            }
+
+            // 2. Update zones
+            for (const zone of zones) {
+                const { error: updateError } = await mysqlClient
                     .from('shipping_zones')
                     .update({
-                        name: zone.name,
-                        rate: parseFloat(zone.rate),
-                        free_threshold: parseFloat(zone.free_threshold),
-                        is_international: zone.is_international
+                        name: zone.name.trim(),
+                        rate: parseFloat(zone.rate || 0),
+                        free_threshold: parseFloat(zone.free_threshold || 0),
+                        is_international: zone.is_international ? 1 : 0
                     })
                     .eq('id', zone.id);
                 if (updateError) throw new Error(updateError.message || updateError.details || JSON.stringify(updateError));
             }
 
+            // 3. Update region mappings
             const zoneIds = zones.map(z => z.id);
             if (zoneIds.length > 0) {
-                await supabase.from('shipping_zone_states').delete().in('zone_id', zoneIds);
-                if (mappings.length > 0) {
-                    // Deduplicate mappings by state_name to avoid unique constraint violations
+                await mysqlClient.from('shipping_zone_states').delete().in('zone_id', zoneIds);
+                const validMappings = mappings.filter(m => zoneIds.includes(m.zone_id));
+                if (validMappings.length > 0) {
                     const uniqueMappingsMap = new Map();
-                    mappings.forEach(m => {
+                    validMappings.forEach(m => {
                         if (m.zone_id && m.state_name) {
-                            uniqueMappingsMap.set(m.state_name, { zone_id: m.zone_id, state_name: m.state_name });
+                            uniqueMappingsMap.set(`${m.zone_id}_${m.state_name}`, { zone_id: m.zone_id, state_name: m.state_name });
                         }
                     });
                     const uniqueMappings = Array.from(uniqueMappingsMap.values());
                     
                     if (uniqueMappings.length > 0) {
-                        const { error: insError } = await supabase.from('shipping_zone_states').insert(uniqueMappings);
+                        const { error: insError } = await mysqlClient.from('shipping_zone_states').insert(uniqueMappings);
                         if (insError) throw new Error(insError.message || insError.details || JSON.stringify(insError));
                     }
                 }
             }
 
+            // 4. Re-sync data from DB to guarantee state integrity
+            await fetchData();
             setSuccess('Shipping ecosystem synchronized!');
             setTimeout(() => setSuccess(null), 3000);
         } catch (err) {
@@ -118,17 +150,28 @@ export default function ShippingAdminPage() {
 
     const addZone = async () => {
         setSaving(true);
+        setError(null);
         try {
-            const { data, error } = await supabase
+            // Auto-generate a unique group title
+            const existingTitles = new Set(zones.map(z => (z.name || '').trim().toLowerCase()));
+            let baseName = 'New Price Group';
+            let newTitle = baseName;
+            let counter = 1;
+            while (existingTitles.has(newTitle.toLowerCase())) {
+                newTitle = `${baseName} ${counter++}`;
+            }
+
+            const { data, error } = await mysqlClient
                 .from('shipping_zones')
-                .insert([{ name: 'New Price Group', rate: 100, free_threshold: 5000, is_international: false }])
+                .insert([{ name: newTitle, rate: 100, free_threshold: 5000, is_international: 0 }])
                 .select()
                 .single();
 
             if (error) throw error;
-            setZones([...zones, data]);
+            setZones(prev => [...prev, data]);
             setSelectedZone(data);
-            setSuccess('Price group created!');
+            setSuccess(`Price group "${newTitle}" created!`);
+            setTimeout(() => setSuccess(null), 3000);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -144,7 +187,7 @@ export default function ShippingAdminPage() {
                 setConfirmAction(null);
                 setSaving(true);
                 try {
-                    await supabase.from('shipping_zones').delete().eq('id', id);
+                    await mysqlClient.from('shipping_zones').delete().eq('id', id);
                     const remaining = zones.filter(z => z.id !== id);
                     setZones(remaining);
                     setMappings(mappings.filter(m => m.zone_id !== id));

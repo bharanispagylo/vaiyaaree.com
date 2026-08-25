@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 
 // ─── STATUS CONSTANTS ───────────────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ export function validateStatusTransition(oldStatus, newStatus) {
  */
 export async function generateReturnId() {
     try {
-        const { data: lastRequests } = await supabaseAdmin
+        const { data: lastRequests } = await mysqlAdmin
             .from('return_requests')
             .select('return_id')
             .order('created_at', { ascending: false })
@@ -116,7 +116,7 @@ export async function generateReturnId() {
  */
 export async function logReturnStatus(returnRequestId, oldStatus, newStatus, actor = 'system', notes = null) {
     try {
-        await supabaseAdmin.from('return_status_logs').insert({
+        await mysqlAdmin.from('return_status_logs').insert({
             return_request_id: returnRequestId,
             old_status: oldStatus,
             new_status: newStatus,
@@ -169,7 +169,7 @@ export async function processReturnRequest({
 
     try {
         // 1. Fetch Order
-        const { data: order, error: orderError } = await supabaseAdmin
+        const { data: order, error: orderError } = await mysqlAdmin
             .from('orders')
             .select('status, created_at, total_amount, customer_phone, customer_name')
             .eq('id', orderId)
@@ -181,7 +181,7 @@ export async function processReturnRequest({
         }
 
         // 2. Check 10-day return window
-        const { data: deliveryLog } = await supabaseAdmin
+        const { data: deliveryLog } = await mysqlAdmin
             .from('order_status_logs')
             .select('created_at')
             .eq('order_id', orderId)
@@ -198,7 +198,7 @@ export async function processReturnRequest({
         }
 
         // 3. Check for duplicate active requests
-        const { data: existingRequests } = await supabaseAdmin
+        const { data: existingRequests } = await mysqlAdmin
             .from('return_requests')
             .select('id, product_id')
             .eq('order_id', orderId);
@@ -230,7 +230,7 @@ export async function processReturnRequest({
         };
 
         // 5. Insert return_requests
-        const { data: inserted, error: insertError } = await supabaseAdmin
+        const { data: inserted, error: insertError } = await mysqlAdmin
             .from('return_requests')
             .insert(payload)
             .select()
@@ -261,7 +261,7 @@ export async function processReturnRequest({
                     });
                 }
             });
-            await supabaseAdmin.from('return_images').insert(imageRows);
+            await mysqlAdmin.from('return_images').insert(imageRows);
         }
 
         // 8. Notify customer
@@ -287,7 +287,7 @@ export async function transitionReturnStatus({
     extraUpdates = {},
 }) {
     try {
-        const { data: current, error: fetchErr } = await supabaseAdmin
+        const { data: current, error: fetchErr } = await mysqlAdmin
             .from('return_requests')
             .select('id, status, return_id, order_id, product_id')
             .eq('id', returnRequestId)
@@ -301,7 +301,7 @@ export async function transitionReturnStatus({
         }
 
         const updates = { status: newStatus, ...extraUpdates };
-        const { error: updateErr } = await supabaseAdmin
+        const { error: updateErr } = await mysqlAdmin
             .from('return_requests')
             .update(updates)
             .eq('id', returnRequestId);
@@ -323,7 +323,7 @@ export async function transitionReturnStatus({
  */
 export async function processReturnInspection({ returnRequestId, passed, notes, adminUser }) {
     try {
-        const { data: current, error: fetchErr } = await supabaseAdmin
+        const { data: current, error: fetchErr } = await mysqlAdmin
             .from('return_requests')
             .select('*, customers(*), orders(*)')
             .eq('id', returnRequestId)
@@ -342,7 +342,7 @@ export async function processReturnInspection({ returnRequestId, passed, notes, 
             status: newReturnStatus
         };
 
-        const { error: updateErr } = await supabaseAdmin
+        const { error: updateErr } = await mysqlAdmin
             .from('return_requests')
             .update(extraUpdates)
             .eq('id', returnRequestId);
@@ -373,7 +373,7 @@ export async function processReturnInspection({ returnRequestId, passed, notes, 
  */
 export async function processExchangeDispatch({ returnRequestId, courierName, trackingNumber, notes, adminUser }) {
     try {
-        const { data: current, error: fetchErr } = await supabaseAdmin
+        const { data: current, error: fetchErr } = await mysqlAdmin
             .from('return_requests')
             .select('*, customers(*), orders(*)')
             .eq('id', returnRequestId)
@@ -388,7 +388,7 @@ export async function processExchangeDispatch({ returnRequestId, courierName, tr
             status: 'EXCHANGE_SHIPPED'
         };
 
-        const { error: updateErr } = await supabaseAdmin
+        const { error: updateErr } = await mysqlAdmin
             .from('return_requests')
             .update(extraUpdates)
             .eq('id', returnRequestId);

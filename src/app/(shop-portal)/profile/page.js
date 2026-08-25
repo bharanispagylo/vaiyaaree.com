@@ -185,7 +185,7 @@ function ProductSelectDropdown({ products, selectedKey, onSelect, placeholder = 
 }
 
 export default function ProfilePage() {
-    const { user, setUser, showToast, supabase, isSessionLoading } = useShop();
+    const { user, setUser, showToast, mysqlClient, isSessionLoading } = useShop();
     const searchParams = useSearchParams();
     const router = useRouter();
 
@@ -317,7 +317,7 @@ export default function ProfilePage() {
 
             const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%,invoice_no.eq.${c},invoice_no.ilike.%${c}%`).join(',');
 
-            const { data: matches } = await supabase
+            const { data: matches } = await mysqlClient
                 .from('orders')
                 .select('*, order_items(*, products(id, image_url, name))')
                 .or(searchOr);
@@ -353,7 +353,7 @@ export default function ProfilePage() {
 
     // Fetch Customer Orders
     async function fetchUserOrders() {
-        if (!user || !supabase) return;
+        if (!user || !mysqlClient) return;
         setLoadingOrders(true);
         try {
             const digits = (user.phone || '').replace(/\D/g, '');
@@ -364,7 +364,7 @@ export default function ProfilePage() {
                 else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
             }
 
-            let query = supabase
+            let query = mysqlClient
                 .from('orders')
                 .select('*, order_items(*, products(id, image_url, name))')
                 .order('created_at', { ascending: false });
@@ -401,10 +401,10 @@ export default function ProfilePage() {
 
     // Fetch Saved Addresses
     async function fetchAddresses() {
-        if (!user?.id || !supabase) return;
+        if (!user?.id || !mysqlClient) return;
         setLoadingAddresses(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('customer_addresses')
                 .select('*')
                 .eq('customer_id', user.id)
@@ -415,7 +415,7 @@ export default function ProfilePage() {
             } else {
                 // Fallback: Check if address exists in customers table and populate customer_addresses
                 const phone = user.phone || '';
-                const { data: custData } = await supabase
+                const { data: custData } = await mysqlClient
                     .from('customers')
                     .select('*')
                     .or(`id.eq.${user.id},phone.eq.${phone}`)
@@ -436,7 +436,7 @@ export default function ProfilePage() {
                         country: 'India',
                         is_default: 1
                     };
-                    await supabase.from('customer_addresses').insert(newAddr);
+                    await mysqlClient.from('customer_addresses').insert(newAddr);
                     setAddresses([newAddr]);
                 } else {
                     setAddresses(data || []);
@@ -451,7 +451,7 @@ export default function ProfilePage() {
 
     // Fetch Refund Requests
     async function fetchRefunds(userOrderIds = []) {
-        if (!user || !supabase) return;
+        if (!user || !mysqlClient) return;
         setLoadingRefunds(true);
         try {
             let orderIds = Array.isArray(userOrderIds) && userOrderIds.length > 0 ? userOrderIds : [];
@@ -464,7 +464,7 @@ export default function ProfilePage() {
                     else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
                 }
 
-                let oQuery = supabase.from('orders').select('id');
+                let oQuery = mysqlClient.from('orders').select('id');
                 if (user.id && phoneVariations.length > 0) {
                     oQuery = oQuery.or(`customer_id.eq.${user.id},customer_phone.in.(${phoneVariations.join(',')})`);
                 } else if (user.id) {
@@ -481,7 +481,7 @@ export default function ProfilePage() {
                 return;
             }
 
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('refund_requests')
                 .select('*, orders:order_id(id, created_at, customer_phone, invoice_no), refund_shipments(*)')
                 .in('order_id', orderIds)
@@ -491,7 +491,7 @@ export default function ProfilePage() {
                 setRefunds(data);
             } else if (error) {
                 // Fallback to legacy refunds table if refund_requests fails
-                const { data: legacyData } = await supabase
+                const { data: legacyData } = await mysqlClient
                     .from('refunds')
                     .select('*, orders:order_id(id, created_at, customer_phone)')
                     .in('order_id', orderIds)
@@ -507,7 +507,7 @@ export default function ProfilePage() {
 
     // Fetch Return Requests
     async function fetchReturns(userOrderIds = []) {
-        if (!user || !supabase) return;
+        if (!user || !mysqlClient) return;
         setLoadingReturns(true);
         try {
             let orderIds = Array.isArray(userOrderIds) && userOrderIds.length > 0 ? userOrderIds : [];
@@ -520,7 +520,7 @@ export default function ProfilePage() {
                     else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
                 }
 
-                let oQuery = supabase.from('orders').select('id');
+                let oQuery = mysqlClient.from('orders').select('id');
                 if (user.id && phoneVariations.length > 0) {
                     oQuery = oQuery.or(`customer_id.eq.${user.id},customer_phone.in.(${phoneVariations.join(',')})`);
                 } else if (user.id) {
@@ -532,7 +532,7 @@ export default function ProfilePage() {
                 orderIds = (oData || []).map(o => o.id);
             }
 
-            let query = supabase
+            let query = mysqlClient
                 .from('return_requests')
                 .select('*, products(id, name, image_url), orders:order_id(id, created_at)')
                 .order('created_at', { ascending: false });
@@ -583,7 +583,7 @@ export default function ProfilePage() {
                 pincode: formData.get('pincode'),
             };
 
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('customers')
                 .update(updates)
                 .eq('id', user.id)
@@ -628,12 +628,12 @@ export default function ProfilePage() {
             };
 
             if (newAddress.is_default && addresses.length > 0) {
-                await supabase.from('customer_addresses')
+                await mysqlClient.from('customer_addresses')
                     .update({ is_default: false })
                     .eq('customer_id', user.id);
             }
 
-            const { error } = await supabase.from('customer_addresses').insert(newAddress);
+            const { error } = await mysqlClient.from('customer_addresses').insert(newAddress);
             if (error) throw error;
 
             showToast('Address added successfully');
@@ -649,7 +649,7 @@ export default function ProfilePage() {
     async function deleteAddress(addressId) {
         if (!confirm('Are you sure you want to delete this address?')) return;
         try {
-            await supabase.from('customer_addresses').delete().eq('id', addressId);
+            await mysqlClient.from('customer_addresses').delete().eq('id', addressId);
             showToast('Address deleted');
             fetchAddresses();
         } catch (err) {
@@ -755,7 +755,7 @@ export default function ProfilePage() {
                 status: 'PENDING'
             };
 
-            const { data: insertedReturn, error } = await supabase.from('return_requests').insert(returnPayload).select().single();
+            const { data: insertedReturn, error } = await mysqlClient.from('return_requests').insert(returnPayload).select().single();
             if (error) throw error;
 
             // Trigger WhatsApp confirmation to customer
@@ -1879,7 +1879,7 @@ export default function ProfilePage() {
                             </div>
                             <ReturnWizard
                                 user={user}
-                                supabase={supabase}
+                                mysqlClient={ mysqlClient }
                                 addresses={addresses}
                                 orders={orders}
                                 returns={returns}

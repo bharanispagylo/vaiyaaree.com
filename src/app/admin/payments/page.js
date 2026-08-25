@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import {
     CreditCard, Search, Filter, RefreshCw, Loader2,
     CheckCircle, XCircle, Clock, IndianRupee, TrendingUp,
@@ -78,7 +78,7 @@ export default function PaymentGatewayPage() {
     const fetchPayments = async () => {
         setLoading(true);
         try {
-            let query = supabase
+            let query = mysqlClient
                 .from('orders')
                 .select('id, customer_name, customer_phone, total_amount, status, payment_method, created_at, razorpay_payment_id, transaction_id, delivery_address, order_items(*)')
                 .order('created_at', { ascending: false });
@@ -111,7 +111,7 @@ export default function PaymentGatewayPage() {
 
     const fetchGatewaySettings = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('app_settings')
                 .select('*')
                 .in('key', [
@@ -142,7 +142,7 @@ export default function PaymentGatewayPage() {
                 updated_at: new Date().toISOString()
             }));
 
-            const { error } = await supabase.from('app_settings').upsert(updates);
+            const { error } = await mysqlClient.from('app_settings').upsert(updates);
             if (error) throw error;
 
             setNotification({ message: 'Gateway integration updated successfully!', type: 'success' });

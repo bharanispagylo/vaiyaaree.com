@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, ChevronRight, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, IndianRupee, ShoppingCart, Printer, MessageCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
@@ -116,7 +116,7 @@ export default function InvoiceReportPage() {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const { data } = await supabase.from('app_settings').select('*');
+                const { data } = await mysqlClient.from('app_settings').select('*');
                 if (data) {
                     const mapped = {};
                     data.forEach(item => mapped[item.key] = item.value);
@@ -131,12 +131,12 @@ export default function InvoiceReportPage() {
             setLoading(true);
             try {
                 // Fetch categories
-                const { data: catData } = await supabase.from('products').select('category').not('category', 'is', null);
+                const { data: catData } = await mysqlClient.from('products').select('category').not('category', 'is', null);
                 const uniqueCats = [...new Set((catData || []).map(p => p.category))].sort();
                 setCategories(uniqueCats);
 
                 // Fetch locations (states)
-                const { data: locData } = await supabase.from('orders').select('shipping_state').not('shipping_state', 'is', null);
+                const { data: locData } = await mysqlClient.from('orders').select('shipping_state').not('shipping_state', 'is', null);
                 const uniqueLocs = [...new Set((locData || []).map(o => o.shipping_state))].sort();
                 setLocations(uniqueLocs);
 
@@ -155,7 +155,7 @@ export default function InvoiceReportPage() {
     const openInvoice = async (order) => {
         setSelectedInvoice(order);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('order_items')
                 .select('*')
                 .eq('order_id', order.id);
@@ -174,7 +174,7 @@ export default function InvoiceReportPage() {
     const fetchReportData = async () => {
         setLoading(true);
         try {
-            let query = supabase.from('orders').select('*').neq('status', 'DRAFT');
+            let query = mysqlClient.from('orders').select('*').neq('status', 'DRAFT');
 
             // Apply Timeframe Filter
             const now = new Date();
@@ -208,7 +208,7 @@ export default function InvoiceReportPage() {
 
             // Apply Category Filter (Needs to check order_items)
             if (selectedCategory !== 'ALL') {
-                const { data: items } = await supabase
+                const { data: items } = await mysqlClient
                     .from('order_items')
                     .select('order_id, product_id, products(category)')
                     .eq('products.category', selectedCategory);
@@ -219,7 +219,7 @@ export default function InvoiceReportPage() {
 
             const enrichedOrders = await Promise.all(finalOrders.map(async (o) => {
                 if (o.invoice_no) return o;
-                const { count: c } = await supabase
+                const { count: c } = await mysqlClient
                     .from('orders')
                     .select('id', { count: 'exact', head: true })
                     .neq('status', 'DRAFT')
@@ -280,7 +280,7 @@ export default function InvoiceReportPage() {
             const { generateAuditPDF } = await import('@/lib/auditGenerator');
 
             // Fetch products for stock details
-            const { data: products } = await supabase.from('products').select('name, stock, price, category');
+            const { data: products } = await mysqlClient.from('products').select('name, stock, price, category');
 
             const pdfBlob = await generateAuditPDF({
                 timeframe,

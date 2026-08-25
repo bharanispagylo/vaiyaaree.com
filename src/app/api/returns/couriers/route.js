@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlAdmin } from '@/lib/mysqlClient';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await mysqlAdmin
             .from('courier_companies')
             .select('id, name, code, tracking_url_template, is_active')
             .eq('is_active', 1)

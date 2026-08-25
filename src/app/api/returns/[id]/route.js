@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlAdmin } from '@/lib/mysqlClient';
 import { transitionReturnStatus, logReturnStatus } from '@/services/returnService';
 
 export const dynamic = 'force-dynamic';
@@ -16,13 +16,13 @@ export async function GET(request, { params }) {
         }
 
         // Resilient lookup: try matching primary UUID id first, then return_id code
-        let { data: ret, error: retErr } = await supabaseAdmin.from('return_requests')
+        let { data: ret, error: retErr } = await mysqlAdmin.from('return_requests')
             .select('*, products(*), customers(*), orders(*)')
             .eq('id', rawId)
             .maybeSingle();
 
         if (!ret) {
-            const { data: ret2 } = await supabaseAdmin.from('return_requests')
+            const { data: ret2 } = await mysqlAdmin.from('return_requests')
                 .select('*, products(*), customers(*), orders(*)')
                 .eq('return_id', rawId)
                 .maybeSingle();
@@ -35,13 +35,13 @@ export async function GET(request, { params }) {
 
         const id = ret.id;
 
-        let { data: images } = await supabaseAdmin.from('return_images')
+        let { data: images } = await mysqlAdmin.from('return_images')
             .select('*')
             .eq('return_request_id', id)
             .order('uploaded_at', { ascending: true });
 
         if ((!images || images.length === 0) && ret.return_id) {
-            const { data: images2 } = await supabaseAdmin.from('return_images')
+            const { data: images2 } = await mysqlAdmin.from('return_images')
                 .select('*')
                 .eq('return_request_id', ret.return_id)
                 .order('uploaded_at', { ascending: true });
@@ -56,10 +56,10 @@ export async function GET(request, { params }) {
             { data: returnShipping },
             { data: inspection },
         ] = await Promise.all([
-            supabaseAdmin.from('return_status_logs').select('*').eq('return_request_id', id).order('created_at', { ascending: true }),
-            supabaseAdmin.from('return_courier_shipments').select('*').eq('return_request_id', id).order('created_at', { ascending: true }),
-            supabaseAdmin.from('return_shipping').select('*').eq('return_request_id', id).order('created_at', { ascending: false }).maybeSingle(),
-            supabaseAdmin.from('return_inspections').select('*').eq('return_request_id', id).maybeSingle(),
+            mysqlAdmin.from('return_status_logs').select('*').eq('return_request_id', id).order('created_at', { ascending: true }),
+            mysqlAdmin.from('return_courier_shipments').select('*').eq('return_request_id', id).order('created_at', { ascending: true }),
+            mysqlAdmin.from('return_shipping').select('*').eq('return_request_id', id).order('created_at', { ascending: false }).maybeSingle(),
+            mysqlAdmin.from('return_inspections').select('*').eq('return_request_id', id).maybeSingle(),
         ]);
 
         return NextResponse.json({
@@ -91,9 +91,9 @@ export async function PATCH(request, { params }) {
         const { action, status, notes, rejectionReason, courierData, inspectionData, refundData, exchangeData, actor = 'admin' } = body;
 
         // Fetch current state by ID or return_id
-        let { data: ret } = await supabaseAdmin.from('return_requests').select('*').eq('id', rawId).maybeSingle();
+        let { data: ret } = await mysqlAdmin.from('return_requests').select('*').eq('id', rawId).maybeSingle();
         if (!ret) {
-            const { data: ret2 } = await supabaseAdmin.from('return_requests').select('*').eq('return_id', rawId).maybeSingle();
+            const { data: ret2 } = await mysqlAdmin.from('return_requests').select('*').eq('return_id', rawId).maybeSingle();
             ret = ret2;
         }
 
@@ -192,7 +192,7 @@ export async function PATCH(request, { params }) {
 
             // ── START INSPECTION ──────────────────────────────────────────────
             case 'start_inspection': {
-                await supabaseAdmin.from('return_inspections').upsert({
+                await mysqlAdmin.from('return_inspections').upsert({
                     return_request_id: id,
                     result: 'PENDING',
                     inspector: actor,
@@ -210,7 +210,7 @@ export async function PATCH(request, { params }) {
             // ── SAVE INSPECTION (APPROVE) ─────────────────────────────────────
             case 'inspection_approve': {
                 const insp = inspectionData || {};
-                await supabaseAdmin.from('return_inspections').upsert({
+                await mysqlAdmin.from('return_inspections').upsert({
                     return_request_id: id,
                     packaging_condition: insp.packagingCondition || 'GOOD',
                     product_condition: insp.productCondition || 'GOOD',
@@ -237,7 +237,7 @@ export async function PATCH(request, { params }) {
             case 'inspection_reject': {
                 const finalReason2 = rejectionReason || 'Failed quality inspection.';
                 const insp2 = inspectionData || {};
-                await supabaseAdmin.from('return_inspections').upsert({
+                await mysqlAdmin.from('return_inspections').upsert({
                     return_request_id: id,
                     packaging_condition: insp2.packagingCondition || 'DAMAGED',
                     product_condition: insp2.productCondition || 'DAMAGED',
@@ -264,7 +264,7 @@ export async function PATCH(request, { params }) {
 
             // ── PROCESS REFUND ────────────────────────────────────────────────
             case 'process_refund': {
-                const { data: order } = await supabaseAdmin
+                const { data: order } = await mysqlAdmin
                     .from('orders')
                     .select('total_amount, payment_method')
                     .eq('id', ret.order_id)
@@ -272,7 +272,7 @@ export async function PATCH(request, { params }) {
 
                 let shippingReimbursement = 0;
                 if (refundData?.reimburseShipping) {
-                    const { data: shipData } = await supabaseAdmin
+                    const { data: shipData } = await mysqlAdmin
                         .from('return_shipping')
                         .select('shipping_cost')
                         .eq('return_request_id', id)
@@ -324,7 +324,7 @@ export async function PATCH(request, { params }) {
                 const { replacementProductId, replacementVariantId, exchangeNotes } = exchangeData || {};
 
                 if (replacementProductId) {
-                    const { data: prod } = await supabaseAdmin.from('products').select('stock, name').eq('id', replacementProductId).single();
+                    const { data: prod } = await mysqlAdmin.from('products').select('stock, name').eq('id', replacementProductId).single();
                     if (prod && prod.stock < 1) {
                         return NextResponse.json({ error: `"${prod.name}" is out of stock.` }, { status: 400 });
                     }
@@ -349,7 +349,7 @@ export async function PATCH(request, { params }) {
                 const { courierName: cn, awbNumber: awn, trackingUrl: tu } = courierData || {};
                 if (!cn) return NextResponse.json({ error: 'Courier name required' }, { status: 400 });
 
-                await supabaseAdmin.from('return_courier_shipments').insert({
+                await mysqlAdmin.from('return_courier_shipments').insert({
                     return_request_id: id,
                     shipment_type: 'BACK_TO_CUSTOMER',
                     courier_name: cn,
@@ -369,7 +369,7 @@ export async function PATCH(request, { params }) {
 
             // ── MARK EXCHANGE DELIVERED ───────────────────────────────────────
             case 'exchange_delivered': {
-                await supabaseAdmin.from('return_courier_shipments')
+                await mysqlAdmin.from('return_courier_shipments')
                     .update({ delivered_at: new Date().toISOString() })
                     .eq('return_request_id', id)
                     .eq('shipment_type', 'BACK_TO_CUSTOMER');
@@ -383,7 +383,7 @@ export async function PATCH(request, { params }) {
                 const { courierName: rcn, awbNumber: rawn, trackingUrl: rtu } = courierData || {};
                 if (!rcn) return NextResponse.json({ error: 'Courier name required' }, { status: 400 });
 
-                await supabaseAdmin.from('return_courier_shipments').insert({
+                await mysqlAdmin.from('return_courier_shipments').insert({
                     return_request_id: id,
                     shipment_type: 'BACK_TO_CUSTOMER',
                     courier_name: rcn,
@@ -404,7 +404,7 @@ export async function PATCH(request, { params }) {
 
             // ── MARK REVERSE DELIVERED & CLOSE ─────────────────────────────────
             case 'mark_reverse_delivered': {
-                await supabaseAdmin.from('return_courier_shipments')
+                await mysqlAdmin.from('return_courier_shipments')
                     .update({ delivered_at: new Date().toISOString() })
                     .eq('return_request_id', id)
                     .eq('shipment_type', 'BACK_TO_CUSTOMER');

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -53,24 +53,24 @@ export default function AdminDashboard() {
                     itemsRes,
                     customerRes
                 ] = await Promise.all([
-                    supabase.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'DRAFT'),
-                    supabase.from('orders').select('total_amount').neq('status', 'DRAFT').neq('status', 'CANCELLED').neq('status', 'REFUNDED'),
-                    supabase.from('orders').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'PLACED', 'AWAITING_PAYMENT', 'AWAITING PAYMENT', 'awaiting_payment']),
-                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'SHIPPED'),
-                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'DELIVERED'),
-                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'REFUNDED'),
-                    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'CANCELLED'),
-                    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today),
-                    supabase.from('products').select('id, name, stock, image_url, price, alert_threshold').order('stock', { ascending: true }),
-                    supabase.from('order_items').select('product_name, quantity, price_at_time, order_id').limit(2000),
-                    supabase.from('orders').select('customer_phone', { count: 'exact', head: true })
+                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'DRAFT'),
+                    mysqlClient.from('orders').select('total_amount').neq('status', 'DRAFT').neq('status', 'CANCELLED').neq('status', 'REFUNDED'),
+                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'PLACED', 'AWAITING_PAYMENT', 'AWAITING PAYMENT', 'awaiting_payment']),
+                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'SHIPPED'),
+                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'DELIVERED'),
+                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'REFUNDED'),
+                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'CANCELLED'),
+                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today),
+                    mysqlClient.from('products').select('id, name, stock, image_url, price, alert_threshold').order('stock', { ascending: true }),
+                    mysqlClient.from('order_items').select('product_name, quantity, price_at_time, order_id').limit(2000),
+                    mysqlClient.from('orders').select('customer_phone', { count: 'exact', head: true })
                 ]);
 
                 // Calculate Revenue
                 const totalRevenue = (activeRes.data || []).reduce((s, o) => s + (o.total_amount || 0), 0);
 
                 // Recent orders
-                const recentOrdersRes = await supabase.from('orders')
+                const recentOrdersRes = await mysqlClient.from('orders')
                     .select('id, status, total_amount, customer_phone, customer_name, created_at')
                     .neq('status', 'DRAFT')
                     .order('created_at', { ascending: false })
@@ -138,14 +138,14 @@ export default function AdminDashboard() {
 
         fetchDashboardData();
 
-        const channel = supabase
+        const channel = mysqlClient
             .channel('dashboard_orders')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
                 fetchDashboardData();
             })
             .subscribe();
 
-        return () => supabase.removeChannel(channel);
+        return () => mysqlClient.removeChannel(channel);
     }, []);
 
     const getStatusReference = (status) => {

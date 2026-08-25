@@ -3,7 +3,7 @@
 import { MessageCircle, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export default function WhatsAppWidget() {
     const pathname = usePathname();
@@ -15,7 +15,7 @@ export default function WhatsAppWidget() {
         // Check if coming soon is active
         async function checkComingSoon() {
             try {
-                const { data } = await supabase
+                const { data } = await mysqlClient
                     .from('app_settings')
                     .select('value')
                     .eq('key', 'coming_soon_enabled')

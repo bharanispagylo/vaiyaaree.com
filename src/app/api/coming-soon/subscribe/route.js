@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await mysqlClient
             .from('app_settings')
             .select('value')
             .eq('key', 'coming_soon_subscribers')
@@ -35,7 +35,7 @@ export async function POST(request) {
             return NextResponse.json({ success: false, message: 'Please provide an email or phone number' }, { status: 400 });
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await mysqlClient
             .from('app_settings')
             .select('value')
             .eq('key', 'coming_soon_subscribers')
@@ -66,7 +66,7 @@ export async function POST(request) {
                 subscribed_at: new Date().toISOString()
             });
 
-            await supabase
+            await mysqlClient
                 .from('app_settings')
                 .upsert({
                     key: 'coming_soon_subscribers',

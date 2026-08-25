@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 
 import { getGatewaySettings } from '@/lib/settings';
 
@@ -12,8 +12,8 @@ export async function POST(request) {
             return Response.json({ error: 'Missing orderId' }, { status: 400 });
         }
 
-        // Fetch order from Supabase
-        const { data: order, error } = await supabase
+        // Fetch order from MySQL
+        const { data: order, error } = await mysqlClient
             .from('orders')
             .select('id, total_amount, customer_name, customer_phone')
             .eq('id', orderId)
@@ -86,7 +86,7 @@ export async function POST(request) {
         }
 
         // Store transaction ID in our DB for tracking
-        await supabase
+        await mysqlClient
             .from('orders')
             .update({ transaction_id: transactionId })
             .eq('id', orderId);

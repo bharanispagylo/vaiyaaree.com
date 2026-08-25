@@ -5,7 +5,7 @@ import {
     Upload, Search, Loader2, Image as ImageIcon,
     X, Check, Plus, Grid, List as ListIcon, RefreshCw
 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient'; // still needed for getPublicUrl
+import { mysqlClient } from '@/lib/mysqlClient'; // still needed for getPublicUrl
 
 export default function MediaPicker({ onSelect, onClose, currentImage, catalogId, multiple = false }) {
     const [files, setFiles] = useState([]);
@@ -44,7 +44,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
 
     const fetchSettings = async () => {
         try {
-            const { data } = await supabase
+            const { data } = await mysqlClient
                 .from('app_settings')
                 .select('value')
                 .eq('key', 'watermark_images')

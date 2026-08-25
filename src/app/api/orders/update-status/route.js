@@ -1,11 +1,10 @@
 // API Route: Update Order Status + Send WhatsApp Notification
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import crypto from 'crypto';
-import { notifyOrderSuccess } from '@/services/whatsappService';
-import { sendOrderStatusEmail } from '@/lib/emailService';
 import { verifyAdmin } from '@/lib/auth';
 import { sendPdfBuffer } from '@/services/whatsappService';
 import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
+import { dispatchNotification, EVENT_TYPES } from '@/services/notificationEngine';
 
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
@@ -187,7 +186,7 @@ export async function POST(request) {
         }
 
         // 1. Get the order details first
-        const { data: order, error: fetchError } = await supabase
+        const { data: order, error: fetchError } = await mysqlClient
             .from('orders')
             .select('*')
             .eq('id', orderId)
@@ -202,7 +201,7 @@ export async function POST(request) {
 
         // 2. Fetch order items for status notifications (PAID, SHIPPED, PACKING, DELIVERED)
         let items = [];
-        const { data: itemData } = await supabase
+        const { data: itemData } = await mysqlClient
             .from('order_items')
             .select('*')
             .eq('order_id', orderId);
@@ -214,7 +213,7 @@ export async function POST(request) {
         if (trackingNumber) updatePayload.tracking_number = trackingNumber;
         if (trackingUrl) updatePayload.tracking_url = trackingUrl;
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await mysqlClient
             .from('orders')
             .update(updatePayload)
             .eq('id', orderId);
@@ -227,7 +226,7 @@ export async function POST(request) {
         }
 
         // --- NEW: Insert into order_status_logs ---
-        await supabase.from('order_status_logs').insert({
+        await mysqlClient.from('order_status_logs').insert({
             order_id: orderId,
             status: status,
             notes: `Status updated to ${status} via Admin Dashboard`,
@@ -235,89 +234,43 @@ export async function POST(request) {
         });
 
         // Refetch order to get updated shipping info for the message
-        const { data: updatedOrder } = await supabase.from('orders').select('*').eq('id', orderId).single();
-
-        // 4. Determine Targets
+        const { data: updatedOrder } = await mysqlClient.from('orders').select('*').eq('id', orderId).single();
         const finalOrder = updatedOrder || order;
         finalOrder.order_items = items;
-        
-        // Helper to normalize phone numbers so deduplication in Set works properly
-        const cleanPhoneForDedupe = (p) => {
-            if (!p) return '';
-            let cleaned = String(p).replace(/\D/g, '');
-            if (cleaned.length === 10 && /^[6789]/.test(cleaned)) {
-                cleaned = '91' + cleaned;
-            }
-            return cleaned;
-        };
 
-        const cleanEmailForDedupe = (e) => {
-            if (!e || typeof e !== 'string') return '';
-            return e.trim().toLowerCase();
-        };
-        
-        // Find Phones
-        const billPhone = cleanPhoneForDedupe(finalOrder.billing_phone || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.phone || finalOrder.billing_address?.mobile : null) || finalOrder.customer_phone);
-        const shipPhone = cleanPhoneForDedupe(finalOrder.shipping_phone || (typeof finalOrder.shipping_address === 'object' ? finalOrder.shipping_address?.phone || finalOrder.shipping_address?.mobile : null));
-        
-        const targetPhones = new Set();
-        if (billPhone) targetPhones.add(billPhone);
-        if (['SHIPPED', 'DELIVERED'].includes(status) && shipPhone) {
-            targetPhones.add(shipPhone);
+        // Map status to notification engine event type
+        let engineEventType = null;
+        switch (status) {
+            case 'PAID': engineEventType = EVENT_TYPES.PAYMENT_SUCCESS; break;
+            case 'CONFIRMED': engineEventType = EVENT_TYPES.ORDER_CONFIRMED; break;
+            case 'PROCESSING': engineEventType = EVENT_TYPES.ORDER_PROCESSING; break;
+            case 'PACKING': engineEventType = EVENT_TYPES.ORDER_PACKED; break;
+            case 'SHIPPED': engineEventType = EVENT_TYPES.ORDER_SHIPPED; break;
+            case 'OUT_FOR_DELIVERY': engineEventType = EVENT_TYPES.OUT_FOR_DELIVERY; break;
+            case 'DELIVERED': engineEventType = EVENT_TYPES.ORDER_DELIVERED; break;
+            case 'CANCELLED': engineEventType = EVENT_TYPES.ORDER_CANCELLED_ADMIN; break;
+            case 'DELIVERY_FAILED': engineEventType = EVENT_TYPES.DELIVERY_FAILED; break;
+            default: engineEventType = EVENT_TYPES.ORDER_CONFIRMED; break;
         }
 
-        // Find Emails
-        const billEmail = cleanEmailForDedupe(finalOrder.billing_email || (typeof finalOrder.billing_address === 'object' ? finalOrder.billing_address?.email : null) || finalOrder.customer_email);
-        const shipEmail = cleanEmailForDedupe(finalOrder.shipping_email || (typeof finalOrder.shipping_address === 'object' ? finalOrder.shipping_address?.email : null));
-        
-        const targetEmails = new Set();
-        if (billEmail && billEmail.includes('@')) targetEmails.add(billEmail);
-        if (['SHIPPED', 'DELIVERED'].includes(status) && shipEmail && shipEmail.includes('@')) {
-            targetEmails.add(shipEmail);
-        }
-
-        // 5. Send notifications to all targets
-        const message = await getStatusMessage(orderId, status, finalOrder, items);
-        
-        // WhatsApp
-        for (const phone of targetPhones) {
-            await sendWhatsAppText(phone, message);
-            
-            if (status === 'PAID') {
-                try {
-                    let settings = { shop_name: 'Vaiyaaree', shop_phone: '8667793292', shop_email: 'vaiyaaree@gmail.com', shop_address: 'Premium Saree Collections' };
-                    try {
-                        const { data: settingsData } = await supabase.from('app_settings').select('*');
-                        if (settingsData) {
-                            settingsData.forEach(item => {
-                                if (item.key === 'shop_name') settings.shop_name = item.value;
-                                if (item.key === 'shop_phone' || item.key === 'business_phone') settings.shop_phone = item.value;
-                                if (item.key === 'shop_address') settings.shop_address = item.value;
-                            });
-                        }
-                    } catch (e) {}
-
-                    const pdfBuffer = await generateOrderPDFBuffer(finalOrder, settings);
-                    await new Promise(r => setTimeout(r, 1000));
-                    await sendPdfBuffer(phone, pdfBuffer, `Invoice_${orderId}.pdf`, `Invoice - Order #${orderId}`);
-                } catch (pdfErr) {
-                    console.error('Failed to generate/send PDF in update-status:', pdfErr);
+        // Trigger Notification Engine (with duplicate suppression + fallback)
+        try {
+            await dispatchNotification({
+                eventType: engineEventType,
+                order: finalOrder,
+                extraData: {
+                    courierName: courierName || finalOrder.courier_name,
+                    trackingNumber: trackingNumber || finalOrder.tracking_number,
+                    trackingUrl: trackingUrl || finalOrder.tracking_url
                 }
-            }
+            });
+        } catch (notifError) {
+            console.error('[STATUS-UPDATE-NOTIF-ERROR]', notifError);
         }
-        
-        // Email
-        if (targetEmails.size > 0) {
-            await sendOrderStatusEmail(finalOrder, status, targetEmails);
-        } else {
-            await sendOrderStatusEmail(finalOrder, status); // fallback just in case
-        }
-
-        console.log(` Order ${orderId} → ${status} | Notifications sent to ${targetPhones.size} phones and ${targetEmails.size} emails.`);
 
         return new Response(JSON.stringify({
             success: true,
-            message: `Order updated to ${status} and customer notified via WhatsApp`
+            message: `Order updated to ${status} and notification engine triggered`
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }

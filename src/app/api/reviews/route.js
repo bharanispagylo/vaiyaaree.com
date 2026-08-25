@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 // GET /api/reviews?productId=xxx
 export async function GET(request) {
@@ -12,7 +12,7 @@ export async function GET(request) {
         }
 
         // Fetch reviews
-        const { data: reviews, error: reviewsErr } = await supabase
+        const { data: reviews, error: reviewsErr } = await mysqlClient
             .from('product_reviews')
             .select('*')
             .eq('product_id', productId)
@@ -62,7 +62,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 });
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await mysqlClient
             .from('product_reviews')
             .insert([{
                 product_id: productId,

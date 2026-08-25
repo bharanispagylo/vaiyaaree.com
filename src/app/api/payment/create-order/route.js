@@ -1,5 +1,5 @@
 import Razorpay from 'razorpay';
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 
 import { getGatewaySettings } from '@/lib/settings';
 
@@ -12,8 +12,8 @@ export async function POST(request) {
             return Response.json({ error: 'Missing orderId' }, { status: 400 });
         }
 
-        // Fetch the order and its items from Supabase
-        const { data: order, error } = await supabase
+        // Fetch the order and its items from MySQL
+        const { data: order, error } = await mysqlClient
             .from('orders')
             .select('id, total_amount, customer_name, customer_phone, order_items(*)')
             .eq('id', orderId)
@@ -28,10 +28,10 @@ export async function POST(request) {
         let calculatedItemsTotal = 0;
         for (const item of order.order_items) {
             if (item.variant_id) {
-                const { data: variant } = await supabase.from('product_variants').select('price').eq('id', item.variant_id).single();
+                const { data: variant } = await mysqlClient.from('product_variants').select('price').eq('id', item.variant_id).single();
                 calculatedItemsTotal += (variant?.price || 0) * item.quantity;
             } else {
-                const { data: product } = await supabase.from('products').select('price').eq('id', item.product_id).single();
+                const { data: product } = await mysqlClient.from('products').select('price').eq('id', item.product_id).single();
                 calculatedItemsTotal += (product?.price || 0) * item.quantity;
             }
         }
@@ -82,7 +82,7 @@ export async function POST(request) {
         });
 
         // Store razorpay order ID in our DB for verification later
-        await supabase
+        await mysqlClient
             .from('orders')
             .update({ razorpay_order_id: rzpOrder.id })
             .eq('id', orderId);

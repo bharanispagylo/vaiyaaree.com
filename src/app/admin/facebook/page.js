@@ -4,7 +4,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Facebook, Shield, Key, ExternalLink, CheckCircle2, AlertCircle, Loader2, RefreshCw, Layout, Smartphone } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 function MetaConnectContent() {
     const searchParams = useSearchParams();
@@ -36,7 +36,7 @@ function MetaConnectContent() {
     const fetchConfig = async () => {
         setLoading(true);
         try {
-            const { data } = await supabase.from('app_settings')
+            const { data } = await mysqlClient.from('app_settings')
                 .select('*')
                 .in('key', ['fb_page_id', 'fb_page_access_token', 'fb_available_pages']);
 
@@ -74,7 +74,7 @@ function MetaConnectContent() {
     const selectPage = async (page) => {
         setSaving(true);
         try {
-            await supabase.from('app_settings').upsert([
+            await mysqlClient.from('app_settings').upsert([
                 { key: 'fb_page_id', value: page.id },
                 { key: 'fb_page_access_token', value: page.access_token },
                 { key: 'fb_page_name', value: page.name }

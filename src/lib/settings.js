@@ -1,8 +1,8 @@
-import { supabase, supabaseAdmin } from './supabaseClient.js';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 
 export async function getAdminSettings() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await mysqlClient
             .from('app_settings')
             .select('*')
             .in('key', ['admin_username', 'admin_password', 'admin_recovery_pin', 'admin_email']);
@@ -34,7 +34,7 @@ export async function getAdminSettings() {
 
 export async function getGatewaySettings() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await mysqlClient
             .from('app_settings')
             .select('*')
             .in('key', [

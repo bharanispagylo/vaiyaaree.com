@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { Search, Loader2, FileText, Download, Eye, Printer, MessageCircle, Settings, MapPin, Hash, Info, X, CheckCircle2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
@@ -144,7 +144,7 @@ export default function InvoicesPage() {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const { data, error } = await supabase.from('app_settings').select('*');
+                const { data, error } = await mysqlClient.from('app_settings').select('*');
                 if (error) throw error;
                 if (data) {
                     const mapped = {};
@@ -158,7 +158,7 @@ export default function InvoicesPage() {
 
         const fetchStats = async () => {
             try {
-                const { data, error } = await supabase
+                const { data, error } = await mysqlClient
                     .from('orders')
                     .select('total_amount, status')
                     .neq('status', 'DRAFT');
@@ -184,7 +184,7 @@ export default function InvoicesPage() {
         const fetchInvoices = async () => {
             setLoading(true);
             try {
-                const { data, error } = await supabase
+                const { data, error } = await mysqlClient
                     .from('orders')
                     .select('*')
                     .neq('status', 'DRAFT')
@@ -256,7 +256,7 @@ export default function InvoicesPage() {
     const openInvoice = async (order) => {
         setSelectedInvoice(order);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('order_items')
                 .select('*')
                 .eq('order_id', order.id);

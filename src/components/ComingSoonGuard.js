@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import ComingSoonPage from '@/components/ComingSoonPage';
 
 export default function ComingSoonGuard({ children, initialSettings = null }) {
@@ -15,7 +15,7 @@ export default function ComingSoonGuard({ children, initialSettings = null }) {
 
         const checkStatus = async () => {
             try {
-                const { data } = await supabase
+                const { data } = await mysqlClient
                     .from('app_settings')
                     .select('key, value')
                     .in('key', [

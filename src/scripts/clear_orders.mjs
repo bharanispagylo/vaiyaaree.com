@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 
@@ -6,7 +6,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error('Supabase credentials missing!');
+    console.error('MySQL credentials missing!');
     process.exit(1);
 async function clearOrdersAndResetSequence() {
     console.log('--- STARTING DATABASE CLEANUP FOR ORDERS & INVOICES ---');
@@ -23,13 +23,13 @@ async function clearOrdersAndResetSequence() {
 
     for (const table of tablesToClear) {
         try {
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from(table)
                 .delete()
                 .neq('created_at', '1970-01-01T00:00:00Z');
 
             if (error) {
-                const { error: err2 } = await supabase.from(table).delete().not('id', 'is', null);
+                const { error: err2 } = await mysqlClient.from(table).delete().not('id', 'is', null);
                 if (err2) {
                     console.log(`Table '${table}' note or failed to clear:`, err2.message);
                 } else {
@@ -45,7 +45,7 @@ async function clearOrdersAndResetSequence() {
 
     // Set order sequence counter to 0 in app_settings so next order starts at 1 (WEB-0001 / INV-0001)
     console.log('Resetting order_sequence_counter to 0 in app_settings...');
-    const { error: setSeqErr } = await supabase
+    const { error: setSeqErr } = await mysqlClient
         .from('app_settings')
         .upsert({
             key: 'order_sequence_counter',

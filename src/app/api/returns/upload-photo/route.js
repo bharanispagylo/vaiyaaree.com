@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseClient';
-import fs from 'fs';
+import { mysqlAdmin } from '@/lib/mysqlClient';
 import path from 'path';
+import fs from 'fs/promises';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,20 +30,23 @@ export async function POST(request) {
             return NextResponse.json({ error: 'File too large. Max 5MB.' }, { status: 400 });
         }
 
-        // Save to public/uploads/returns/
+        // Save to local disk: public/uploads/returns/
         const timestamp = Date.now();
         const safeBase = path.basename(file.name, ext).replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
-        const filename = `ret_${timestamp}_${safeBase}${ext}`;
-        const savePath = path.join(process.cwd(), 'public', 'uploads', 'returns', filename);
+        const fileName = `ret_${timestamp}_${safeBase}${ext}`;
+        const targetDir = path.join(process.cwd(), 'public', 'uploads', 'returns');
 
-        await fs.promises.writeFile(savePath, buffer);
-        const publicUrl = `/uploads/returns/${filename}`;
+        await fs.mkdir(targetDir, { recursive: true });
+        const filePath = path.join(targetDir, fileName);
+        await fs.writeFile(filePath, buffer);
 
-        // Optionally record in return_images if return_request_id provided
+        const relativeUrl = `/uploads/returns/${fileName}`;
+
+        // Record in return_images if return_request_id provided
         if (returnRequestId) {
-            await supabaseAdmin.from('return_images').insert({
+            await mysqlAdmin.from('return_images').insert({
                 return_request_id: returnRequestId,
-                image_url: publicUrl,
+                image_url: relativeUrl,
                 image_type: 'customer_photo',
             });
         }
@@ -51,6 +54,6 @@ export async function POST(request) {
         return NextResponse.json({ success: true, url: publicUrl });
     } catch (err) {
         console.error('[RETURN-UPLOAD]', err);
-        return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+        return NextResponse.json({ error: 'Upload failed: ' + err.message }, { status: 500 });
     }
 }

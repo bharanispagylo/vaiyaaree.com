@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import {
     Store, Save, Image, FileText, MapPin,
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
@@ -19,6 +19,34 @@ export default function ShopSettingsPage() {
     const [notification, setNotification] = useState(null);
     const [hasMounted, setHasMounted] = useState(false);
     const [showMediaPicker, setShowMediaPicker] = useState(false);
+    const [testEmailRecipient, setTestEmailRecipient] = useState('vaiyaaree@gmail.com');
+    const [testingEmail, setTestingEmail] = useState(false);
+
+    const handleSendTestEmail = async () => {
+        if (!testEmailRecipient || !testEmailRecipient.trim()) {
+            setNotification({ message: 'Please enter a valid recipient email address', type: 'error' });
+            return;
+        }
+        setTestingEmail(true);
+        setNotification(null);
+        try {
+            const res = await fetch('/api/admin/test-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipient: testEmailRecipient.trim() })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setNotification({ message: data.message || 'Test email sent successfully!', type: 'success' });
+            } else {
+                setNotification({ message: data.message || data.error || 'Failed to send test email', type: 'error' });
+            }
+        } catch (err) {
+            setNotification({ message: 'Test email error: ' + err.message, type: 'error' });
+        } finally {
+            setTestingEmail(false);
+        }
+    };
 
     useEffect(() => {
         setHasMounted(true);
@@ -28,7 +56,7 @@ export default function ShopSettingsPage() {
     const fetchSettings = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await mysqlClient
                 .from('app_settings')
                 .select('*');
 
@@ -66,7 +94,7 @@ export default function ShopSettingsPage() {
                 updated_at: new Date().toISOString()
             }));
 
-            const { error } = await supabase
+            const { error } = await mysqlClient
                 .from('app_settings')
                 .upsert(updates);
 
@@ -233,6 +261,90 @@ export default function ShopSettingsPage() {
                                 value={settings.wa_contact_message || ''}
                                 onChange={(e) => handleUpdate('wa_contact_message', e.target.value)}
                             />
+                        </div>
+                    </div>
+                </section>
+
+                {/* SMTP Email Server & Order Notifications Settings Card */}
+                <section className="settings-card card shadow-premium full-width" style={{ borderLeft: '6px solid #2563eb' }}>
+                    <div className="card-header">
+                        <Mail size={20} color="#2563eb" />
+                        <h3>SMTP Email & Customer Order Notifications Settings</h3>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '-0.5rem 0 1.5rem' }}>
+                        Configure SMTP mail credentials used to dispatch order confirmations, shipping tracking emails, return updates, and invoices to customers.
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+                        <div className="field-group">
+                            <label>SMTP Host Server</label>
+                            <input
+                                type="text"
+                                placeholder="smtp.gmail.com"
+                                value={settings.smtp_host || 'smtp.gmail.com'}
+                                onChange={(e) => handleUpdate('smtp_host', e.target.value)}
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label>SMTP Port</label>
+                            <input
+                                type="text"
+                                placeholder="587"
+                                value={settings.smtp_port || '587'}
+                                onChange={(e) => handleUpdate('smtp_port', e.target.value)}
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label>SMTP Sender Email / User</label>
+                            <input
+                                type="email"
+                                placeholder="vaiyaaree@gmail.com"
+                                value={settings.smtp_user || ''}
+                                onChange={(e) => handleUpdate('smtp_user', e.target.value)}
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label>Gmail App Password (16-char)</label>
+                            <input
+                                type="password"
+                                placeholder="voix hxje uahf slti"
+                                value={settings.smtp_pass || ''}
+                                onChange={(e) => handleUpdate('smtp_pass', e.target.value)}
+                            />
+                            <p className="hint">For Gmail: Enable 2-Step Verification & generate an App Password at myaccount.google.com/apppasswords</p>
+                        </div>
+                        <div className="field-group full-width">
+                            <label>Sender From Header Title</label>
+                            <input
+                                type="text"
+                                placeholder='"Vaiyaaree Sarees" <vaiyaaree@gmail.com>'
+                                value={settings.smtp_from || '"Vaiyaaree Sarees" <vaiyaaree@gmail.com>'}
+                                onChange={(e) => handleUpdate('smtp_from', e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '280px' }}>
+                            <input
+                                type="email"
+                                placeholder="Enter recipient email to test..."
+                                value={testEmailRecipient}
+                                onChange={(e) => setTestEmailRecipient(e.target.value)}
+                                style={{ flex: 1, padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleSendTestEmail}
+                                disabled={testingEmail}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                                    padding: '0.65rem 1.25rem', backgroundColor: '#2563eb', color: '#ffffff',
+                                    borderRadius: '8px', border: 'none', fontWeight: 600, cursor: testingEmail ? 'wait' : 'pointer'
+                                }}
+                            >
+                                {testingEmail ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                                {testingEmail ? 'Sending Test...' : 'Send Test Email'}
+                            </button>
                         </div>
                     </div>
                 </section>

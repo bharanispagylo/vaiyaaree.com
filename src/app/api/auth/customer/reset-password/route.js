@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 import { hashPassword } from '@/lib/hash';
 import { sendEmail } from '@/lib/emailService';
 
@@ -18,7 +18,7 @@ export async function POST(req) {
         const normalizedEmail = email.trim().toLowerCase();
 
         // Verify customer exists
-        const { data: customer, error: fetchErr } = await supabase
+        const { data: customer, error: fetchErr } = await mysqlClient
             .from('customers')
             .select('id, name, email')
             .eq('email', normalizedEmail)
@@ -41,7 +41,7 @@ export async function POST(req) {
 
             const settingKey = `customer_reset_otp_${normalizedEmail}`;
 
-            await supabase.from('app_settings').upsert({
+            await mysqlClient.from('app_settings').upsert({
                 key: settingKey,
                 value: otpPayload,
                 updated_at: new Date().toISOString()
@@ -81,7 +81,7 @@ export async function POST(req) {
             }
 
             const settingKey = `customer_reset_otp_${normalizedEmail}`;
-            const { data: otpData } = await supabase.from('app_settings').select('value').eq('key', settingKey).maybeSingle();
+            const { data: otpData } = await mysqlClient.from('app_settings').select('value').eq('key', settingKey).maybeSingle();
 
             if (!otpData || !otpData.value) {
                 return NextResponse.json({ error: 'No active OTP request found. Please click "Resend Code".' }, { status: 400 });
@@ -119,7 +119,7 @@ export async function POST(req) {
             }
 
             const settingKey = `customer_reset_otp_${normalizedEmail}`;
-            const { data: otpData } = await supabase.from('app_settings').select('value').eq('key', settingKey).maybeSingle();
+            const { data: otpData } = await mysqlClient.from('app_settings').select('value').eq('key', settingKey).maybeSingle();
 
             if (!otpData || !otpData.value) {
                 return NextResponse.json({ error: 'Session expired. Please start password reset again.' }, { status: 400 });
@@ -144,7 +144,7 @@ export async function POST(req) {
             const hashedPassword = hashPassword(newPassword);
             const notesPayload = JSON.stringify({ pwd: hashedPassword });
 
-            const { error: updateErr } = await supabase
+            const { error: updateErr } = await mysqlClient
                 .from('customers')
                 .update({ admin_notes: notesPayload })
                 .eq('id', customer.id);
@@ -155,7 +155,7 @@ export async function POST(req) {
             }
 
             // Delete OTP session
-            await supabase.from('app_settings').delete().eq('key', settingKey);
+            await mysqlClient.from('app_settings').delete().eq('key', settingKey);
 
             return NextResponse.json({
                 success: true,

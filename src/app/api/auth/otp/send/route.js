@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabaseClient';
+import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import { sendText } from '@/services/whatsappService';
 
 export async function POST(req) {
@@ -17,7 +17,7 @@ export async function POST(req) {
         }
 
         // 0. Check for cooldown (Rate Limiting)
-        const { data: lastOtp } = await supabase
+        const { data: lastOtp } = await mysqlClient
             .from('otps')
             .select('created_at')
             .eq('phone', cleanPhone)
@@ -42,9 +42,9 @@ export async function POST(req) {
 
         // 3. Store OTP in database (table: otps)
         // First delete any previous OTP for this phone to avoid duplicates
-        await supabase.from('otps').delete().eq('phone', cleanPhone);
+        await mysqlClient.from('otps').delete().eq('phone', cleanPhone);
         
-        const { error: dbError } = await supabase
+        const { error: dbError } = await mysqlClient
             .from('otps')
             .insert({
                 phone: cleanPhone,

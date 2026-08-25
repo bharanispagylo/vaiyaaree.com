@@ -1,5 +1,5 @@
 // API Route: Send Refund WhatsApp Notifications
-import { supabase } from '@/lib/supabaseClient';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
@@ -54,7 +54,7 @@ export async function POST(request) {
         }
 
         let refund = null;
-        let { data: reqData } = await supabase
+        let { data: reqData } = await mysqlClient
             .from('refund_requests')
             .select('*, orders:order_id(*)')
             .eq('id', refundId)
@@ -66,7 +66,7 @@ export async function POST(request) {
                 amount: reqData.approved_amount || reqData.requested_amount || 0
             };
         } else {
-            const { data: oldRefund } = await supabase
+            const { data: oldRefund } = await mysqlClient
                 .from('refunds')
                 .select('*, orders:order_id(*)')
                 .eq('id', refundId)
@@ -82,7 +82,7 @@ export async function POST(request) {
         let customerName = refund.orders?.customer_name;
 
         if (!phone && refund.customer_id) {
-            const { data: cust } = await supabase.from('customers').select('phone, name').eq('id', refund.customer_id).single();
+            const { data: cust } = await mysqlClient.from('customers').select('phone, name').eq('id', refund.customer_id).single();
             if (cust) {
                 phone = cust.phone;
                 customerName = customerName || cust.name;
