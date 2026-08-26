@@ -2,15 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw, ChevronDown, CornerDownLeft, BellRing, Tag } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw, ChevronDown, CornerDownLeft, BellRing, Tag, Layers } from 'lucide-react';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { useState, useEffect } from 'react';
 
 
 const menuItems = [
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
-    { name: 'Products', href: '/admin/products', icon: ShoppingCart },
-    { name: 'Discount Rule', href: '/admin/discounts', icon: Tag },
     { 
         name: 'Orders', 
         icon: Package, 
@@ -21,20 +19,24 @@ const menuItems = [
             { name: 'Refund Requests', href: '/admin/refunds' }
         ]
     },
-    { 
-        name: 'Customers', 
-        icon: Users, 
-        children: [
-            { name: 'Customers', href: '/admin/customers' },
-            { name: 'Customer Analysis', href: '/admin/customers/analysis' }
-        ]
-    },
+    { name: 'Products', href: '/admin/products', icon: ShoppingCart },
+    { name: 'Categories', href: '/admin/categories', icon: Layers },
+    { name: 'Discount Rule', href: '/admin/discounts', icon: Tag },
+    { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
     { 
         name: 'Invoices', 
         icon: FileText, 
         children: [
             { name: 'Invoices', href: '/admin/invoices' },
             { name: 'Invoice Report', href: '/admin/invoices/report' }
+        ]
+    },
+    { 
+        name: 'Customers', 
+        icon: Users, 
+        children: [
+            { name: 'Customers', href: '/admin/customers' },
+            { name: 'Customer Analysis', href: '/admin/customers/analysis' }
         ]
     },
     { 
@@ -55,11 +57,10 @@ const menuItems = [
             { name: 'Meta Connect', href: '/admin/facebook' }
         ]
     },
-    { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
     { name: 'CMS', href: '/admin/cms', icon: Layout },
-    { name: 'Coming Soon', href: '/admin/coming-soon', icon: Clock },
     { name: 'User Management', href: '/admin/users', icon: Users },
     { name: 'Settings', href: '/admin/shop-settings', icon: Settings },
+    { name: 'Razorpay Setting', href: '/admin/payment-settings', icon: CreditCard },
 ];
 
 export default function AdminSidebar({ isOpen }) {

@@ -22,11 +22,11 @@ export default function ModalPortal({ children }) {
 
     useEffect(() => {
         const el = elRef.current;
-        if (!el) return;
+        if (!el || typeof document === 'undefined' || !document.body) return;
         document.body.appendChild(el);
         return () => {
-            if (document.body.contains(el)) {
-                document.body.removeChild(el);
+            if (el && el.parentNode) {
+                el.parentNode.removeChild(el);
             }
         };
     }, []);

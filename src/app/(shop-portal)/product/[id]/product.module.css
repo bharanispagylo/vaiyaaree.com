@@ -11,10 +11,12 @@
 /* ── Main Two-Column Layout ── */
 .mainSection {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 3.5rem;
     align-items: start;
     margin-bottom: 5rem;
+    width: 100%;
+    max-width: 100%;
 }
 
 /* ══════════════════════════════
@@ -26,6 +28,94 @@
     gap: 0.85rem;
     position: sticky;
     top: 6.5rem;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Swiper Container & Wrapper */
+.swiperWrapper {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f8fafc;
+}
+
+.swiperContainer {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.swiperWrapper :global(.swiper) {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+.swiperWrapper :global(.swiper-wrapper) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+.swiperWrapper :global(.swiper-slide) {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-sizing: border-box !important;
+}
+
+/* Hide Swiper Navigation Buttons inside the product gallery */
+.imageGallery :global(.swiper-button-next),
+.imageGallery :global(.swiper-button-prev),
+.swiperWrapper :global(.swiper-button-next),
+.swiperWrapper :global(.swiper-button-prev) {
+    display: none !important;
+}
+
+/* Small Dot Thumbnails Bar below main image */
+.dotThumbnailsBar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 0;
+    width: 100%;
+}
+
+.dotItem {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+}
+
+.dotItem:hover {
+    background: #94a3b8;
+    transform: scale(1.25);
+}
+
+.dotActive {
+    width: 26px;
+    border-radius: 12px;
+    background: hsl(var(--primary)) !important;
+    box-shadow: 0 2px 8px hsl(var(--primary) / 0.35);
 }
 
 /* Main image — square crop, refined border */
@@ -35,6 +125,7 @@
     border-radius: 12px;
     overflow: hidden;
     width: 100%;
+    max-width: 100%;
     height: 500px;
     max-height: 500px;
     background: #f8fafc;

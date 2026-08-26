@@ -827,11 +827,15 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        return { success: true };
+        return await sendEmail({
+            to: toEmail,
+            subject: mailOptions.subject,
+            html: mailOptions.html,
+            attachments: mailOptions.attachments || []
+        });
     } catch (error) {
         console.error('[ADMIN-OTP-ERROR] Failed to send email:', error);
-        throw error;
+        return { success: false, error: error.message };
     }
 }
 
@@ -912,11 +916,15 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        return { success: true };
+        return await sendEmail({
+            to: toEmail,
+            subject: mailOptions.subject,
+            html: mailOptions.html,
+            attachments: mailOptions.attachments || []
+        });
     } catch (error) {
         console.error('[ADMIN-OTP-SUCCESS-ERROR] Failed to send email:', error);
-        return { success: false };
+        return { success: false, error: error.message };
     }
 }
 
@@ -1044,8 +1052,12 @@ export async function sendReturnStatusEmail(returnReq, status, extraData = {}) {
             `
         };
 
-        await transporter.sendMail(mailOptions);
-        return { success: true };
+        return await sendEmail({
+            to: recipientEmail,
+            subject: mailOptions.subject,
+            html: mailOptions.html,
+            attachments: mailOptions.attachments || []
+        });
     } catch (err) {
         console.error('[EMAIL-SERVICE] Error sending return email:', err);
         return { success: false, error: err.message };
@@ -1153,8 +1165,12 @@ export async function sendRefundStatusEmail(refundReq, status, extraData = {}) {
             `
         };
 
-        await transporter.sendMail(mailOptions);
-        return { success: true };
+        return await sendEmail({
+            to: recipientEmail,
+            subject: mailOptions.subject,
+            html: mailOptions.html,
+            attachments: mailOptions.attachments || []
+        });
     } catch (err) {
         console.error('[EMAIL-SERVICE] Error sending refund email:', err);
         return { success: false, error: err.message };

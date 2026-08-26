@@ -2,11 +2,18 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ShoppingCart, CheckCircle, X, ZoomIn } from 'lucide-react';
+import { ShoppingCart, CheckCircle, X, ZoomIn, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
 import { findProductBySlugOrId, getProductSlug } from '@/lib/productUrl';
 import styles from './product.module.css';
+
+// Import Swiper React components & modules
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Autoplay } from 'swiper/modules';
+
+// Import Swiper styles
+import 'swiper/css';
 
 export default function ProductDetailsPage() {
     const { id } = useParams();
@@ -20,6 +27,7 @@ export default function ProductDetailsPage() {
     const [qty, setQty] = useState(1);
     const [isZoomed, setIsZoomed] = useState(false);
     const [currentImageIdx, setCurrentImageIdx] = useState(0);
+    const [swiperInstance, setSwiperInstance] = useState(null);
 
     useEffect(() => {
         async function loadProductDetails() {
@@ -121,6 +129,31 @@ export default function ProductDetailsPage() {
         addToCart(product, selectedVariant, qty);
     };
 
+    const galleryImages = useMemo(() => {
+        if (!product) return [];
+        const mainImg = selectedVariant?.image_url || product.image_url || '';
+        const mainList = typeof mainImg === 'string' ? mainImg.split(',') : [];
+
+        let galleryList = [];
+        if (Array.isArray(product.gallery_image)) {
+            galleryList = product.gallery_image;
+        } else if (typeof product.gallery_image === 'string' && product.gallery_image) {
+            galleryList = product.gallery_image.split(',');
+        }
+
+        const fallbackImg = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
+        const combined = [...mainList, ...galleryList].map(url => (url || '').trim()).filter(Boolean);
+        const unique = Array.from(new Set(combined));
+        return unique.length > 0 ? unique : [fallbackImg];
+    }, [product, selectedVariant]);
+
+    useEffect(() => {
+        setCurrentImageIdx(0);
+        if (swiperInstance && !swiperInstance.destroyed) {
+            swiperInstance.slideTo(0);
+        }
+    }, [selectedVariant, product]);
+
     if (loading) return <div className={styles.loading}>Loading product details...</div>;
     if (!product) return (
         <div className={styles.notFound}>
@@ -131,13 +164,6 @@ export default function ProductDetailsPage() {
 
     const displayPrice = selectedVariant ? selectedVariant.price : product.price;
     const currentStock = selectedVariant ? selectedVariant.stock : product.stock;
-
-    const galleryImages = (
-        selectedVariant?.image_url ||
-        product.image_url ||
-        'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80'
-    ).split(',').filter(Boolean);
-
     const activeImageUrl = galleryImages[currentImageIdx] || galleryImages[0];
 
     return (
@@ -146,43 +172,90 @@ export default function ProductDetailsPage() {
             {/*  Main Two-Column Section  */}
             <div className={styles.mainSection}>
 
-                {/*  LEFT: Image Gallery  */}
+                {/*  LEFT: Image Gallery with Swiper.js Slider & Dot Thumbnails  */}
                 <div className={styles.imageGallery}>
-
-                    {/* Main Image */}
-                    <div
-                        className={styles.imageWrapper}
-                        onClick={() => setIsZoomed(true)}
-                        title="Click to zoom"
-                    >
-                        <img
-                            src={activeImageUrl}
-                            alt={product.name}
-                            className={styles.mainImage}
-                            onError={(e) => {
-                                e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
-                            }}
-                        />
-                        <div className={styles.zoomBadge}>
-                            <ZoomIn size={12} />
-                            <span>Zoom</span>
-                        </div>
+                    <div className={styles.swiperWrapper}>
+                        <Swiper
+                            modules={[Autoplay]}
+                            onSwiper={setSwiperInstance}
+                            onSlideChange={(swiper) => setCurrentImageIdx(swiper.activeIndex)}
+                            loop={false}
+                            spaceBetween={0}
+                            slidesPerView={1}
+                            className={styles.swiperContainer}
+                        >
+                            {galleryImages.map((img, idx) => (
+                                <SwiperSlide key={`slide-${img}-${idx}`} className={styles.swiperSlide}>
+                                    <div
+                                        className={styles.imageWrapper}
+                                        onClick={() => setIsZoomed(true)}
+                                        title="Click to zoom image"
+                                    >
+                                        <img
+                                            src={img}
+                                            alt={`${product.name} - View ${idx + 1}`}
+                                            className={styles.mainImage}
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
+                                            }}
+                                        />
+                                        <div className={styles.zoomBadge}>
+                                            <ZoomIn size={14} />
+                                            <span>Zoom</span>
+                                        </div>
+                                    </div>
+                                </SwiperSlide>
+                            ))}
+                        </Swiper>
                     </div>
 
-                    {/* Thumbnail Strip — below main image */}
+                    {/* Small Dot Thumbnails Indicator Bar — directly below main image */}
+                    {galleryImages.length > 1 && (
+                        <div className={styles.dotThumbnailsBar}>
+                            {galleryImages.map((img, idx) => (
+                                <button
+                                    key={`dot-${img}-${idx}`}
+                                    type="button"
+                                    aria-label={`Go to slide ${idx + 1}`}
+                                    className={`${styles.dotItem} ${currentImageIdx === idx ? styles.dotActive : ''}`}
+                                    onClick={() => {
+                                        setCurrentImageIdx(idx);
+                                        if (swiperInstance && !swiperInstance.destroyed) {
+                                            swiperInstance.slideTo(idx);
+                                        }
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Square Image Thumbnail Strip — below small dots */}
                     {galleryImages.length > 1 && (
                         <div className={styles.thumbStrip}>
                             {galleryImages.map((img, idx) => (
                                 <button
-                                    key={idx}
+                                    key={`thumb-${img}-${idx}`}
+                                    type="button"
                                     className={`${styles.thumbItem} ${currentImageIdx === idx ? styles.thumbActive : ''}`}
-                                    onMouseEnter={() => setCurrentImageIdx(idx)}
-                                    onClick={() => setCurrentImageIdx(idx)}
+                                    onMouseEnter={() => {
+                                        setCurrentImageIdx(idx);
+                                        if (swiperInstance && !swiperInstance.destroyed) {
+                                            swiperInstance.slideTo(idx);
+                                        }
+                                    }}
+                                    onClick={() => {
+                                        setCurrentImageIdx(idx);
+                                        if (swiperInstance && !swiperInstance.destroyed) {
+                                            swiperInstance.slideTo(idx);
+                                        }
+                                    }}
                                 >
                                     <img
                                         src={img}
                                         alt={`View ${idx + 1}`}
                                         onError={(e) => {
+                                            e.target.onerror = null;
                                             e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80';
                                         }}
                                     />

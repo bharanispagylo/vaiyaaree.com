@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { mysqlClient } from '@/lib/mysqlClient';
+import pool from '@/lib/mysql';
 import { hashPassword } from '@/lib/hash';
 import { sendEmail } from '@/lib/emailService';
 
@@ -18,34 +18,32 @@ export async function POST(req) {
         const normalizedEmail = email.trim().toLowerCase();
 
         // Verify customer exists
-        const { data: customer, error: fetchErr } = await mysqlClient
-            .from('customers')
-            .select('id, name, email')
-            .eq('email', normalizedEmail)
-            .maybeSingle();
+        const [customerRows] = await pool.query(
+            'SELECT id, name, email FROM customers WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
+            [normalizedEmail]
+        );
 
-        if (fetchErr || !customer) {
+        if (customerRows.length === 0) {
             return NextResponse.json({ error: 'No account found with this email address. Please check your email or Create an Account.' }, { status: 404 });
         }
+
+        const customer = customerRows[0];
 
         // STEP 1: SEND OTP
         if (action === 'send-otp') {
             const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+            const { randomUUID } = await import('crypto');
+            const id = randomUUID();
+            const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
 
-            const otpPayload = JSON.stringify({
-                code: otpCode,
-                expires_at: expiresAt,
-                email: normalizedEmail
-            });
+            // Remove previous OTPs for this email from otps table
+            await pool.query('DELETE FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?))', [normalizedEmail]);
 
-            const settingKey = `customer_reset_otp_${normalizedEmail}`;
-
-            await mysqlClient.from('app_settings').upsert({
-                key: settingKey,
-                value: otpPayload,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'key' });
+            // Save new OTP to otps table
+            await pool.query(
+                'INSERT INTO otps (id, phone, code, expires_at, created_at) VALUES (?, ?, ?, ?, NOW())',
+                [id, normalizedEmail, otpCode, expiresAt]
+            );
 
             // Send Email OTP
             try {
@@ -76,29 +74,27 @@ export async function POST(req) {
 
         // STEP 2: VERIFY OTP
         if (action === 'verify-otp') {
-            if (!otp || !otp.trim()) {
+            const normalizedOtp = String(otp || '').trim();
+            if (!normalizedOtp) {
                 return NextResponse.json({ error: 'Please enter the 6-digit Verification OTP.' }, { status: 400 });
             }
 
-            const settingKey = `customer_reset_otp_${normalizedEmail}`;
-            const { data: otpData } = await mysqlClient.from('app_settings').select('value').eq('key', settingKey).maybeSingle();
+            const [rows] = await pool.query(
+                'SELECT id, phone, code, expires_at FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?)) ORDER BY created_at DESC LIMIT 1',
+                [normalizedEmail]
+            );
 
-            if (!otpData || !otpData.value) {
+            if (rows.length === 0) {
                 return NextResponse.json({ error: 'No active OTP request found. Please click "Resend Code".' }, { status: 400 });
             }
 
-            let storedOtpObj;
-            try {
-                storedOtpObj = JSON.parse(otpData.value);
-            } catch (e) {
-                return NextResponse.json({ error: 'Invalid OTP session.' }, { status: 400 });
-            }
+            const otpRecord = rows[0];
 
-            if (storedOtpObj.code !== otp.trim()) {
+            if (String(otpRecord.code).trim() !== normalizedOtp) {
                 return NextResponse.json({ error: 'Invalid verification OTP code. Please check and try again.' }, { status: 400 });
             }
 
-            if (Date.now() > storedOtpObj.expires_at) {
+            if (new Date() > new Date(otpRecord.expires_at)) {
                 return NextResponse.json({ error: 'Verification OTP has expired. Please request a new code.' }, { status: 400 });
             }
 
@@ -111,32 +107,30 @@ export async function POST(req) {
 
         // STEP 3: UPDATE PASSWORD
         if (action === 'update-password') {
-            if (!otp || !otp.trim()) {
+            const normalizedOtp = String(otp || '').trim();
+            if (!normalizedOtp) {
                 return NextResponse.json({ error: 'Verification OTP is required.' }, { status: 400 });
             }
             if (!newPassword || newPassword.length < 6) {
                 return NextResponse.json({ error: 'New password must be at least 6 characters long.' }, { status: 400 });
             }
 
-            const settingKey = `customer_reset_otp_${normalizedEmail}`;
-            const { data: otpData } = await mysqlClient.from('app_settings').select('value').eq('key', settingKey).maybeSingle();
+            const [rows] = await pool.query(
+                'SELECT id, phone, code, expires_at FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?)) ORDER BY created_at DESC LIMIT 1',
+                [normalizedEmail]
+            );
 
-            if (!otpData || !otpData.value) {
+            if (rows.length === 0) {
                 return NextResponse.json({ error: 'Session expired. Please start password reset again.' }, { status: 400 });
             }
 
-            let storedOtpObj;
-            try {
-                storedOtpObj = JSON.parse(otpData.value);
-            } catch (e) {
-                return NextResponse.json({ error: 'Invalid session.' }, { status: 400 });
-            }
+            const otpRecord = rows[0];
 
-            if (storedOtpObj.code !== otp.trim()) {
+            if (String(otpRecord.code).trim() !== normalizedOtp) {
                 return NextResponse.json({ error: 'Invalid verification OTP code.' }, { status: 400 });
             }
 
-            if (Date.now() > storedOtpObj.expires_at) {
+            if (new Date() > new Date(otpRecord.expires_at)) {
                 return NextResponse.json({ error: 'OTP has expired. Please start password reset again.' }, { status: 400 });
             }
 
@@ -144,18 +138,13 @@ export async function POST(req) {
             const hashedPassword = hashPassword(newPassword);
             const notesPayload = JSON.stringify({ pwd: hashedPassword });
 
-            const { error: updateErr } = await mysqlClient
-                .from('customers')
-                .update({ admin_notes: notesPayload })
-                .eq('id', customer.id);
+            await pool.query(
+                'UPDATE customers SET admin_notes = ? WHERE id = ?',
+                [notesPayload, customer.id]
+            );
 
-            if (updateErr) {
-                console.error('[RESET-PASSWORD] Update error:', updateErr);
-                return NextResponse.json({ error: 'Failed to update password. Please try again.' }, { status: 500 });
-            }
-
-            // Delete OTP session
-            await mysqlClient.from('app_settings').delete().eq('key', settingKey);
+            // Delete OTP session record from otps table
+            await pool.query('DELETE FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?))', [normalizedEmail]);
 
             return NextResponse.json({
                 success: true,

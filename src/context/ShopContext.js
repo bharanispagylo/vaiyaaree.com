@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { calculateDiscounts } from '@/services/discountService';
 
 const defaultContextValue = {
     products: [], cart: [], loading: false, user: null, setUser: () => { }, isSessionLoading: true,
@@ -38,6 +39,16 @@ export function ShopProvider({ children }) {
     const [appliedCoupon, setAppliedCoupon] = useState(null);
     const [couponMessage, setCouponMessage] = useState(null);
     const [couponError, setCouponError] = useState(null);
+    const [discountData, setDiscountData] = useState({
+        subtotal: 0,
+        productDiscount: 0,
+        cartDiscount: 0,
+        couponDiscount: 0,
+        shippingDiscount: 0,
+        totalDiscount: 0,
+        discountedItems: [],
+        appliedRules: []
+    });
     const [comingSoonSettings, setComingSoonSettings] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -72,6 +83,20 @@ export function ShopProvider({ children }) {
         paymentMethod: 'COD'
     });
 
+    const [dbCategories, setDbCategories] = useState([]);
+
+    const fetchDbCategories = async () => {
+        try {
+            const res = await fetch('/api/categories');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.categories)) {
+                setDbCategories(data.categories);
+            }
+        } catch (err) {
+            console.error('[SHOP CONTEXT] Fetch db categories error:', err);
+        }
+    };
+
     //  EFFECTS 
     useEffect(() => {
         setHasMounted(true);
@@ -81,7 +106,8 @@ export function ShopProvider({ children }) {
             fetchBusinessState(),
             fetchShippingRates(),
             checkSession(),
-            fetchComingSoon()
+            fetchComingSoon(),
+            fetchDbCategories()
         ]).catch(err => console.error('[APP INIT] Startup fetch error:', err));
     }, []);
 
@@ -482,8 +508,50 @@ export function ShopProvider({ children }) {
     const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
     const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
+    // Sync discounts whenever cart, coupon, or user changes
+    useEffect(() => {
+        async function syncDiscounts() {
+            if (!cart || cart.length === 0) {
+                setDiscountData({
+                    subtotal: 0,
+                    productDiscount: 0,
+                    cartDiscount: 0,
+                    couponDiscount: 0,
+                    shippingDiscount: 0,
+                    totalDiscount: 0,
+                    discountedItems: [],
+                    appliedRules: []
+                });
+                return;
+            }
+
+            try {
+                const res = await calculateDiscounts({
+                    cartItems: cart,
+                    couponCode: appliedCoupon?.couponCode || null,
+                    customer: user || null
+                });
+                setDiscountData(res || {
+                    subtotal: cartTotal,
+                    productDiscount: 0,
+                    cartDiscount: 0,
+                    couponDiscount: 0,
+                    shippingDiscount: 0,
+                    totalDiscount: 0,
+                    discountedItems: [],
+                    appliedRules: []
+                });
+            } catch (err) {
+                console.error('Error calculating storewide discounts:', err);
+            }
+        }
+        syncDiscounts();
+    }, [cart, appliedCoupon, user]);
+
     const taxDetails = useMemo(() => {
         const subtotal = cartTotal;
+        const totalDiscount = discountData?.totalDiscount || 0;
+        const taxableSubtotal = Math.max(0, subtotal - totalDiscount);
         let cgst = 0, sgst = 0, igst = 0;
         
         // Helper to check if a shipping zone is international regardless of MySQL data type (boolean vs number vs string)
@@ -498,17 +566,17 @@ export function ShopProvider({ children }) {
         const shippingState = checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState;
         const shippingCity = checkoutForm.sameAsBilling ? checkoutForm.billingCity : checkoutForm.shippingCity;
         
-        // Calculate tax based on location
+        // Calculate tax based on location & post-discount taxable amount
         const normalizedFormState = (shippingState || '').trim().toLowerCase();
         const normalizedBizState = (businessState || 'Tamil Nadu').trim().toLowerCase();
         
         if (isInternational) {
-            igst = Math.round(subtotal * 0.05);
+            igst = Math.round(taxableSubtotal * 0.05);
         } else if (normalizedFormState === normalizedBizState) {
-            cgst = Math.round(subtotal * 0.025);
-            sgst = Math.round(subtotal * 0.025);
+            cgst = Math.round(taxableSubtotal * 0.025);
+            sgst = Math.round(taxableSubtotal * 0.025);
         } else {
-            igst = Math.round(subtotal * 0.05);
+            igst = Math.round(taxableSubtotal * 0.05);
         }
 
         let shipping = 0;
@@ -555,7 +623,7 @@ export function ShopProvider({ children }) {
         if (activeZone) {
             const rate = parseFloat(activeZone.rate || 0);
             const threshold = parseFloat(activeZone.free_threshold || 0);
-            if (threshold > 0 && subtotal >= threshold) {
+            if (threshold > 0 && taxableSubtotal >= threshold) {
                 shipping = 0;
             } else {
                 shipping = rate;
@@ -564,9 +632,15 @@ export function ShopProvider({ children }) {
             shipping = isInternational ? 1500 : 100;
         }
 
-        const totalOrder = subtotal + cgst + sgst + igst + shipping;
-        return { cgst, sgst, igst, shipping, totalOrder, activeZone, isInternational };
-    }, [cartTotal, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.billingCountry, checkoutForm.shippingCountry, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
+        // Apply Free Shipping discount rules or shipping discount if active
+        const hasFreeShippingRule = (discountData?.appliedRules || []).some(r => r.discountType === 'FREE_SHIPPING');
+        if (hasFreeShippingRule || (discountData?.shippingDiscount > 0)) {
+            shipping = 0;
+        }
+
+        const totalOrder = taxableSubtotal + cgst + sgst + igst + shipping;
+        return { cgst, sgst, igst, shipping, totalOrder, activeZone, isInternational, totalDiscount, taxableSubtotal };
+    }, [cartTotal, discountData, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.billingCountry, checkoutForm.shippingCountry, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
 
     async function placeOrder() {
         const shippingState = checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState;
@@ -855,10 +929,11 @@ export function ShopProvider({ children }) {
         <ShopContext.Provider value={{
             products, cart, loading, user, setUser, isSessionLoading, shippingZones, zoneMappings, businessState,
             checkoutForm, setCheckoutForm, addToCart, removeFromCart, updateQty,
-            handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, mysqlClient, placeOrder,
+            handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, discountData, mysqlClient, placeOrder,
             isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart,
             comingSoonSettings, setComingSoonSettings, fetchComingSoon,
-            appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon
+            appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon,
+            dbCategories, fetchDbCategories
         }}>
             {children}
         </ShopContext.Provider>

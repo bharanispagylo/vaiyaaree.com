@@ -125,11 +125,6 @@ export async function calculateDiscounts({
             const dateCheck = isRuleActiveByDate(rule.start_date, rule.end_date);
             if (!dateCheck.active) continue;
 
-            // Check global usage limit
-            if (rule.usage_limit !== null && rule.usage_limit !== undefined && rule.usage_limit > 0) {
-                if ((rule.usage_count || 0) >= rule.usage_limit) continue;
-            }
-
             // Check minimum cart subtotal
             const minCart = parseFloat(rule.minimum_cart_amount || 0);
             if (minCart > 0 && subtotal < minCart) continue;
@@ -155,36 +150,40 @@ export async function calculateDiscounts({
 
             // 4. Calculate discount amount for this rule
             let ruleDiscount = 0;
-            let targetSubtotal = subtotal;
 
+            // Determine eligible items in cart for this rule
+            let eligibleCartItems = cart;
             if (rule.target_type === 'SPECIFIC_PRODUCTS') {
                 const allowedProds = ruleProductsMap.get(rule.id) || new Set();
-                targetSubtotal = cart
-                    .filter(i => allowedProds.has(i.id))
-                    .reduce((s, i) => s + (parseFloat(i.price || 0) * parseInt(i.qty || 1, 10)), 0);
-                if (targetSubtotal <= 0) continue;
+                eligibleCartItems = cart.filter(i => allowedProds.has(i.id));
             } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
                 const allowedCats = ruleCategoriesMap.get(rule.id) || new Set();
-                targetSubtotal = cart
-                    .filter(i => i.category && allowedCats.has(i.category.trim().toLowerCase()))
-                    .reduce((s, i) => s + (parseFloat(i.price || 0) * parseInt(i.qty || 1, 10)), 0);
-                if (targetSubtotal <= 0) continue;
+                eligibleCartItems = cart.filter(i => i.category && allowedCats.has(i.category.trim().toLowerCase()));
+            }
+
+            const eligibleQuantity = eligibleCartItems.reduce((sum, item) => sum + parseInt(item.qty || 1, 10), 0);
+            const targetSubtotal = eligibleCartItems.reduce((s, i) => s + (parseFloat(i.price || 0) * parseInt(i.qty || 1, 10)), 0);
+
+            if (targetSubtotal <= 0) continue;
+
+            // Check minimum cart products condition if enabled
+            const minProdsEnabled = rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true;
+            const minProdsReq = rule.minimum_cart_products ? parseInt(rule.minimum_cart_products, 10) : 0;
+
+            if (minProdsEnabled && minProdsReq > 0) {
+                if (eligibleQuantity < minProdsReq) {
+                    continue; // Skip rule: Cart does not meet the minimum required eligible units (e.g. 2 < 3)
+                }
             }
 
             const val = parseFloat(rule.discount_value || 0);
             if (rule.discount_type === 'PERCENTAGE') {
                 ruleDiscount = (val / 100) * targetSubtotal;
-            } else if (rule.discount_type === 'FIXED') {
+            } else if (rule.discount_type === 'FIXED' || rule.discount_type === 'FIXED_AMOUNT') {
                 ruleDiscount = Math.min(val, targetSubtotal);
             } else if (rule.discount_type === 'FREE_SHIPPING') {
                 shippingDiscount = shippingCost;
                 ruleDiscount = 0;
-            }
-
-            // Apply maximum discount cap if specified
-            const maxCap = rule.maximum_discount_amount ? parseFloat(rule.maximum_discount_amount) : null;
-            if (maxCap !== null && maxCap > 0 && ruleDiscount > maxCap) {
-                ruleDiscount = maxCap;
             }
 
             ruleDiscount = Math.round(ruleDiscount * 100) / 100;
@@ -225,7 +224,7 @@ export async function calculateDiscounts({
 /**
  * Validates a coupon code specifically and returns structured feedback.
  */
-export async function validateCouponCode(couponCode, { subtotal = 0, customer = null } = {}) {
+export async function validateCouponCode(couponCode, { subtotal = 0, cartItems = [], customer = null } = {}) {
     const code = (couponCode || '').trim().toUpperCase();
     if (!code) {
         return { valid: false, message: 'Please enter a coupon code.' };
@@ -252,13 +251,29 @@ export async function validateCouponCode(couponCode, { subtotal = 0, customer = 
         }
     }
 
-    if (rule.usage_limit !== null && rule.usage_limit > 0 && (rule.usage_count || 0) >= rule.usage_limit) {
-        return { valid: false, message: 'Coupon usage limit has been reached.' };
-    }
-
     const minCart = parseFloat(rule.minimum_cart_amount || 0);
     if (minCart > 0 && subtotal < minCart) {
         return { valid: false, message: `Coupon requires a minimum cart subtotal of ₹${minCart.toLocaleString()}.` };
+    }
+
+    const minProdsEnabled = rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true;
+    const minProdsReq = rule.minimum_cart_products ? parseInt(rule.minimum_cart_products, 10) : 0;
+    if (minProdsEnabled && minProdsReq > 0 && Array.isArray(cartItems)) {
+        let eligibleCartItems = cartItems;
+        if (rule.target_type === 'SPECIFIC_PRODUCTS') {
+            const { data: prods } = await mysqlClient.from('discount_rule_products').select('product_id').eq('discount_rule_id', rule.id);
+            const allowedProds = new Set((prods || []).map(p => p.product_id));
+            eligibleCartItems = cartItems.filter(i => allowedProds.has(i.id));
+        } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
+            const { data: cats } = await mysqlClient.from('discount_rule_categories').select('category').eq('discount_rule_id', rule.id);
+            const allowedCats = new Set((cats || []).map(c => c.category.trim().toLowerCase()));
+            eligibleCartItems = cartItems.filter(i => i.category && allowedCats.has(i.category.trim().toLowerCase()));
+        }
+
+        const eligibleQty = eligibleCartItems.reduce((sum, i) => sum + parseInt(i.qty || 1, 10), 0);
+        if (eligibleQty < minProdsReq) {
+            return { valid: false, message: `Coupon requires a minimum of ${minProdsReq} eligible product units in cart.` };
+        }
     }
 
     return {

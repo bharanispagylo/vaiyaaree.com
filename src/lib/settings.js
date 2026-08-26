@@ -38,8 +38,10 @@ export async function getGatewaySettings() {
             .from('app_settings')
             .select('*')
             .in('key', [
-                'razorpay_key_id', 'razorpay_key_secret', 'razorpay_enabled', 'razorpay_title', 'razorpay_logo',
-                'phonepe_merchant_id', 'phonepe_salt_key', 'phonepe_salt_index', 'phonepe_env', 'phonepe_enabled', 'phonepe_title', 'phonepe_logo',
+                'razorpay_mode', 'razorpay_enabled', 'razorpay_title', 'razorpay_logo',
+                'razorpay_test_key_id', 'razorpay_test_key_secret',
+                'razorpay_live_key_id', 'razorpay_live_key_secret',
+                'razorpay_key_id', 'razorpay_key_secret',
                 'default_gateway'
             ]);
 
@@ -50,31 +52,34 @@ export async function getGatewaySettings() {
             settings[item.key] = item.value;
         });
 
-        // Fallback to defaults
+        const mode = settings.razorpay_mode || 'test';
+        const activeKeyId = mode === 'live'
+            ? (settings.razorpay_live_key_id || settings.razorpay_key_id || process.env.RAZORPAY_LIVE_KEY_ID || process.env.RAZORPAY_KEY_ID)
+            : (settings.razorpay_test_key_id || settings.razorpay_key_id || process.env.RAZORPAY_TEST_KEY_ID || process.env.RAZORPAY_KEY_ID);
+
+        const activeKeySecret = mode === 'live'
+            ? (settings.razorpay_live_key_secret || settings.razorpay_key_secret || process.env.RAZORPAY_LIVE_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET)
+            : (settings.razorpay_test_key_secret || settings.razorpay_key_secret || process.env.RAZORPAY_TEST_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET);
+
         return {
-            razorpay_key_id: settings.razorpay_key_id || process.env.RAZORPAY_KEY_ID,
-            razorpay_key_secret: settings.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET,
-            razorpay_enabled: settings.razorpay_enabled !== 'false', // Default true if not explicitly false
-            razorpay_title: settings.razorpay_title || 'Pay with Razorpay',
-            razorpay_logo: settings.razorpay_logo || '/favicon.ico',
-            phonepe_merchant_id: settings.phonepe_merchant_id || process.env.PHONEPE_MERCHANT_ID,
-            phonepe_salt_key: settings.phonepe_salt_key || process.env.PHONEPE_SALT_KEY,
-            phonepe_salt_index: settings.phonepe_salt_index || process.env.PHONEPE_SALT_INDEX || '1',
-            phonepe_env: settings.phonepe_env || process.env.PHONEPE_ENV || 'sandbox',
-            phonepe_enabled: settings.phonepe_enabled !== 'false', // Default true
-            phonepe_title: settings.phonepe_title || 'Pay with PhonePe',
-            phonepe_logo: settings.phonepe_logo || '/favicon.ico',
+            razorpay_mode: mode,
+            razorpay_key_id: activeKeyId,
+            razorpay_key_secret: activeKeySecret,
+            razorpay_test_key_id: settings.razorpay_test_key_id || settings.razorpay_key_id || '',
+            razorpay_test_key_secret: settings.razorpay_test_key_secret || settings.razorpay_key_secret || '',
+            razorpay_live_key_id: settings.razorpay_live_key_id || '',
+            razorpay_live_key_secret: settings.razorpay_live_key_secret || '',
+            razorpay_enabled: settings.razorpay_enabled !== 'false',
+            razorpay_title: settings.razorpay_title || 'Pay Online (UPI, Cards, NetBanking)',
             default_gateway: settings.default_gateway || 'razorpay'
         };
     } catch (err) {
         console.error('Error in getGatewaySettings:', err);
         return {
+            razorpay_mode: 'test',
             razorpay_key_id: process.env.RAZORPAY_KEY_ID,
             razorpay_key_secret: process.env.RAZORPAY_KEY_SECRET,
-            phonepe_merchant_id: process.env.PHONEPE_MERCHANT_ID,
-            phonepe_salt_key: process.env.PHONEPE_SALT_KEY,
-            phonepe_salt_index: process.env.PHONEPE_SALT_INDEX || '1',
-            phonepe_env: process.env.PHONEPE_ENV || 'sandbox'
+            razorpay_enabled: true
         };
     }
 }

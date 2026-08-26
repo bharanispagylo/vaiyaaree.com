@@ -35,6 +35,7 @@ export async function GET(request) {
             for (const f of files) {
                 const stat = await fs.stat(path.join(wmPath, f));
                 allFiles.push({
+                    id: `wm-${f}`,
                     name: f,
                     url: `/uploads/media/with-watermark/${f}`,
                     folder: 'with-watermark',
@@ -50,6 +51,7 @@ export async function GET(request) {
             for (const f of files) {
                 const stat = await fs.stat(path.join(noWmPath, f));
                 allFiles.push({
+                    id: `nowm-${f}`,
                     name: f,
                     url: `/uploads/media/without-watermark/${f}`,
                     folder: 'without-watermark',
@@ -58,8 +60,17 @@ export async function GET(request) {
             }
         }
 
-        allFiles.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        return NextResponse.json({ files: allFiles });
+        // Deduplicate files by URL
+        const uniqueFilesMap = new Map();
+        for (const item of allFiles) {
+            if (!uniqueFilesMap.has(item.url)) {
+                uniqueFilesMap.set(item.url, item);
+            }
+        }
+        const finalFilesList = Array.from(uniqueFilesMap.values());
+        finalFilesList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        return NextResponse.json({ files: finalFilesList });
 
     } catch (err) {
         console.error('GET Error:', err);

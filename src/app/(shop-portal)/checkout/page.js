@@ -11,13 +11,51 @@ import styles from './checkout.module.css';
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, placeOrder, mysqlClient, showToast, user, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon } = useShop();
+    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, discountData, placeOrder, mysqlClient, showToast, user, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon } = useShop();
     const [placing, setPlacing] = useState(false);
     const [orderData, setOrderData] = useState(null);
     const [couponInput, setCouponInput] = useState('');
     const [applyingCoupon, setApplyingCoupon] = useState(false);
+    const [paymentSettings, setPaymentSettings] = useState({
+        razorpay_enabled: true,
+        razorpay_key_id: '',
+        razorpay_title: 'Pay Online (UPI, Credit/Debit Cards, NetBanking)',
+        default_gateway: 'razorpay'
+    });
 
     const isUserLoggedIn = Boolean(user && user.id);
+
+    // Fetch Payment Gateway Settings on mount
+    useEffect(() => {
+        const fetchGatewaySettings = async () => {
+            try {
+                const { data } = await mysqlClient.from('app_settings').select('*');
+                if (data && Array.isArray(data)) {
+                    const map = {};
+                    data.forEach(s => { map[s.key] = s.value; });
+                    const rzpEnabled = map.razorpay_enabled !== 'false';
+                    const defGateway = map.default_gateway || (rzpEnabled ? 'razorpay' : 'cod');
+                    setPaymentSettings({
+                        razorpay_enabled: rzpEnabled,
+                        razorpay_key_id: map.razorpay_key_id || '',
+                        razorpay_title: map.razorpay_title || 'Pay Online (UPI, Cards, NetBanking)',
+                        default_gateway: defGateway
+                    });
+
+                    // Set default payment method if not selected
+                    setCheckoutForm(p => {
+                        if (!p.paymentMethod) {
+                            return { ...p, paymentMethod: defGateway === 'cod' || !rzpEnabled ? 'COD' : 'RAZORPAY' };
+                        }
+                        return p;
+                    });
+                }
+            } catch (e) {
+                console.error('Error loading gateway settings:', e);
+            }
+        };
+        fetchGatewaySettings();
+    }, []);
 
 
     // Sync shipping with billing when sameAsBilling is checked
@@ -103,24 +141,105 @@ export default function CheckoutPage() {
         }
 
         // Validate payment method selected
-        if (checkoutForm.paymentMethod !== 'COD') {
-            showToast('Please select Cash on Delivery to place your order', 'error');
+        if (!checkoutForm.paymentMethod) {
+            showToast('Please select a Payment Method (Online Payment or Cash on Delivery)', 'error');
             return;
         }
 
         setPlacing(true);
         try {
-            const data = await placeOrder();
+            if (checkoutForm.paymentMethod === 'RAZORPAY') {
+                // Step 1: Create Order Record in MySQL
+                const createdOrder = await placeOrder('RAZORPAY');
+                if (!createdOrder || !createdOrder.orderId) {
+                    throw new Error('Could not create order. Please try again.');
+                }
 
-            if (data) {
-                setOrderData(data);
-                showToast('Your Placed Order Confirmed!', 'success');
+                // Step 2: Create Razorpay Order via API
+                const rzpRes = await fetch('/api/payment/create-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: createdOrder.orderId })
+                });
+
+                const rzpData = await rzpRes.json();
+                if (!rzpRes.ok || rzpData.error) {
+                    throw new Error(rzpData.error || 'Failed to initialize payment gateway');
+                }
+
+                // Step 3: Open Razorpay Payment Modal
+                if (typeof window !== 'undefined' && window.Razorpay) {
+                    const options = {
+                        key: rzpData.keyId,
+                        amount: rzpData.amount,
+                        currency: rzpData.currency || 'INR',
+                        name: 'Vaiyaaree Sarees',
+                        description: `Order #${createdOrder.orderId}`,
+                        order_id: rzpData.razorpayOrderId,
+                        handler: async function (response) {
+                            setPlacing(true);
+                            try {
+                                const verifyRes = await fetch('/api/payment/verify', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        razorpay_order_id: response.razorpay_order_id,
+                                        razorpay_payment_id: response.razorpay_payment_id,
+                                        razorpay_signature: response.razorpay_signature,
+                                        orderId: createdOrder.orderId
+                                    })
+                                });
+                                const verifyData = await verifyRes.json();
+                                if (verifyData.success) {
+                                    setOrderData({
+                                        ...createdOrder,
+                                        payment_method: 'Razorpay',
+                                        razorpay_payment_id: response.razorpay_payment_id
+                                    });
+                                    showToast('Payment Successful! Your order has been confirmed.', 'success');
+                                } else {
+                                    showToast(verifyData.error || 'Payment verification failed', 'error');
+                                }
+                            } catch (verifyErr) {
+                                showToast('Verification Error: ' + verifyErr.message, 'error');
+                            } finally {
+                                setPlacing(false);
+                            }
+                        },
+                        modal: {
+                            ondismiss: function () {
+                                setPlacing(false);
+                                showToast('Payment window closed. You can retry payment anytime.', 'info');
+                            }
+                        },
+                        prefill: {
+                            name: checkoutForm.billingName,
+                            email: checkoutForm.billingEmail,
+                            contact: checkoutForm.billingPhone
+                        },
+                        theme: { color: '#5d0821' }
+                    };
+
+                    const rzp = new window.Razorpay(options);
+                    rzp.open();
+                } else {
+                    throw new Error('Razorpay SDK loading. Please refresh and try again.');
+                }
+            } else {
+                // Cash on Delivery Flow
+                const data = await placeOrder('COD');
+                if (data) {
+                    setOrderData(data);
+                    showToast('Your Placed Order Confirmed!', 'success');
+                }
             }
         } catch (err) {
             console.error('Checkout Error:', err);
             showToast(err.message || 'Failed to place order', 'error');
         } finally {
-            setPlacing(false);
+            if (checkoutForm.paymentMethod !== 'RAZORPAY') {
+                setPlacing(false);
+            }
         }
     };
 
@@ -541,10 +660,14 @@ export default function CheckoutPage() {
                             <span>₹{cartTotal.toLocaleString()}.00</span>
                         </div>
 
-                        {appliedCoupon && appliedCoupon.couponDiscount > 0 && (
+                        {(discountData?.totalDiscount > 0 || (appliedCoupon && appliedCoupon.couponDiscount > 0)) && (
                             <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700 }}>
-                                <span>Coupon Discount ({appliedCoupon.couponCode})</span>
-                                <span>-₹{appliedCoupon.couponDiscount.toLocaleString()}.00</span>
+                                <span>
+                                    Discount {discountData?.appliedRules?.length > 0 
+                                        ? `(${discountData.appliedRules.map(r => r.name || r.couponCode).join(', ')})` 
+                                        : (appliedCoupon ? `(${appliedCoupon.couponCode})` : '')}
+                                </span>
+                                <span>-₹{Math.max(discountData?.totalDiscount || 0, appliedCoupon?.couponDiscount || 0).toLocaleString()}.00</span>
                             </div>
                         )}
 
@@ -584,9 +707,29 @@ export default function CheckoutPage() {
 
                     <div className={styles.summaryPaymentWrapper}>
                         <div className={styles.summaryPaymentTitle}>Payment Method</div>
+                        
+                        {paymentSettings.razorpay_enabled && (
+                            <div 
+                                className={`${styles.summaryPaymentOption} ${checkoutForm.paymentMethod === 'RAZORPAY' ? styles.codSelected : ''}`}
+                                onClick={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'RAZORPAY' }))}
+                                role="button"
+                                tabIndex={0}
+                                style={{ marginBottom: '10px' }}
+                            >
+                                <div className={`${styles.customCheckbox} ${checkoutForm.paymentMethod === 'RAZORPAY' ? styles.checkboxChecked : ''}`}>
+                                    {checkoutForm.paymentMethod === 'RAZORPAY' && <Check size={13} strokeWidth={3.5} />}
+                                </div>
+                                <CreditCard size={20} className={styles.truckIcon} color="#5d0821" />
+                                <div className={styles.paymentTextGroup}>
+                                    <div className={styles.paymentOptionTitle}>{paymentSettings.razorpay_title}</div>
+                                    <div className={styles.paymentOptionDesc}>UPI (GPay/PhonePe/Paytm), Cards & NetBanking</div>
+                                </div>
+                            </div>
+                        )}
+
                         <div 
                             className={`${styles.summaryPaymentOption} ${checkoutForm.paymentMethod === 'COD' ? styles.codSelected : ''}`}
-                            onClick={() => setCheckoutForm(p => ({ ...p, paymentMethod: p.paymentMethod === 'COD' ? '' : 'COD' }))}
+                            onClick={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))}
                             role="button"
                             tabIndex={0}
                         >
@@ -595,7 +738,7 @@ export default function CheckoutPage() {
                             </div>
                             <Truck size={20} className={styles.truckIcon} />
                             <div className={styles.paymentTextGroup}>
-                                <div className={styles.paymentOptionTitle}>Cash on Delivery</div>
+                                <div className={styles.paymentOptionTitle}>Cash on Delivery (COD)</div>
                                 <div className={styles.paymentOptionDesc}>Pay when you receive the product</div>
                             </div>
                         </div>
@@ -607,9 +750,16 @@ export default function CheckoutPage() {
                             <span>Order is processing, please do not close the window...</span>
                         </div>
                     )}
+                    {placing && checkoutForm.paymentMethod === 'RAZORPAY' && (
+                        <div style={{ marginBottom: '1rem', marginInline: '1.25rem', padding: '12px', background: '#eff6ff', color: '#1e40af', borderRadius: '8px', fontSize: '14px', textAlign: 'center', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <strong>Opening Razorpay Online Payment...</strong>
+                            <span>Please complete the payment in the Razorpay popup.</span>
+                        </div>
+                    )}
                     <button className={styles.placeOrderBtn} onClick={handlePlaceOrder} disabled={placing}>
-                        {placing ? 'Processing...' : 'Place Order'}
+                        {placing ? (checkoutForm.paymentMethod === 'RAZORPAY' ? 'Opening Payment...' : 'Processing...') : (checkoutForm.paymentMethod === 'RAZORPAY' ? 'Pay Online & Place Order' : 'Place Order')}
                     </button>
+                    <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
                 </div>
             </aside>
         </div>

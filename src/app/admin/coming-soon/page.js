@@ -112,7 +112,9 @@ export default function AdminComingSoonPage() {
         link.setAttribute('download', `vaiyaaree_coming_soon_subscribers_${new Date().toISOString().slice(0,10)}.csv`);
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        if (link.parentNode) {
+            link.parentNode.removeChild(link);
+        }
     };
 
     if (loading) {

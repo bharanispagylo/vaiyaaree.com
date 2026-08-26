@@ -5,7 +5,7 @@ import { mysqlClient } from '@/lib/mysqlClient';
 import {
     Store, Save, Image, FileText, MapPin,
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
-    Upload, Globe, Phone, Mail, Clock, ArrowRight
+    Upload, Globe, Phone, Mail, Clock, ArrowRight, CreditCard, ShieldCheck, Lock
 } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';

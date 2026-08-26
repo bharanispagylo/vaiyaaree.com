@@ -42,6 +42,8 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
         return selectedUrls.includes(url);
     };
 
+    const isMountedRef = useRef(true);
+
     const fetchSettings = async () => {
         try {
             const { data } = await mysqlClient
@@ -49,6 +51,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                 .select('value')
                 .eq('key', 'watermark_images')
                 .single();
+            if (!isMountedRef.current) return;
             if (data?.value) {
                 const val = data.value;
                 if (Array.isArray(val)) {
@@ -81,18 +84,28 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to load');
-            setFiles(data.files || []);
+            if (isMountedRef.current) {
+                setFiles(data.files || []);
+            }
         } catch (err) {
             console.error('Error in MediaPicker:', err);
-            setFiles([]);
+            if (isMountedRef.current) {
+                setFiles([]);
+            }
         } finally {
-            setLoading(false);
+            if (isMountedRef.current) {
+                setLoading(false);
+            }
         }
     };
 
     useEffect(() => {
+        isMountedRef.current = true;
         fetchFiles();
         fetchSettings();
+        return () => {
+            isMountedRef.current = false;
+        };
     }, []);
 
     const handleUpload = async (e) => {
@@ -251,51 +264,54 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '2rem' }}>
-                            {filteredFiles.map((file) => (
-                                <div
-                                    key={file.id}
-                                    style={{
-                                        aspectRatio: '1/1.2', borderRadius: '20px', overflow: 'hidden',
-                                        cursor: 'pointer', position: 'relative', 
-                                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                        border: '4px solid transparent',
-                                        borderColor: isSelected(file.url) ? 'hsl(var(--primary))' : 'transparent',
-                                        boxShadow: isSelected(file.url) ? '0 12px 30px rgba(0,0,0,0.15)' : '0 4px 15px rgba(0,0,0,0.05)',
-                                        transform: isSelected(file.url) ? 'scale(1.02)' : 'scale(1)'
-                                    }}
-                                    onClick={() => toggleSelect(file.url)}
-                                >
-                                    <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    {file.catalogId && (
-                                        <div style={{
-                                            position: 'absolute', bottom: '10px', left: '10px',
-                                            background: 'rgba(0,0,0,0.8)', color: 'white',
-                                            borderRadius: '6px', padding: '4px 8px',
-                                            fontSize: '0.65rem', fontWeight: 800, fontFamily: 'var(--font-roboto)',
-                                            backdropFilter: 'blur(4px)',
-                                            border: '1px solid rgba(255,255,255,0.2)'
-                                        }}>
-                                            {file.catalogId}
-                                        </div>
-                                    )}
-                                    {isSelected(file.url) && (
-                                        <div style={{
-                                            position: 'absolute', top: '10px', right: '10px',
-                                            background: 'hsl(var(--primary))', color: 'white',
-                                            borderRadius: '50%', width: '28px', height: '28px',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
-                                        }}>
-                                            <Check size={16} strokeWidth={4} />
-                                        </div>
-                                    )}
-                                    <div className="img-overlay" style={{
-                                        position: 'absolute', inset: 0,
-                                        background: 'linear-gradient(to top, rgba(0,0,0,0.2), transparent)',
-                                        opacity: 0, transition: '0.2s'
-                                    }} />
-                                </div>
-                            ))}
+                            {filteredFiles.map((file, idx) => {
+                                const itemKey = file.id || file.url || (file.folder && file.name ? `${file.folder}-${file.name}` : `media-${idx}`);
+                                return (
+                                    <div
+                                        key={itemKey}
+                                        style={{
+                                            aspectRatio: '1/1.2', borderRadius: '20px', overflow: 'hidden',
+                                            cursor: 'pointer', position: 'relative', 
+                                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                            border: '4px solid transparent',
+                                            borderColor: isSelected(file.url) ? 'hsl(var(--primary))' : 'transparent',
+                                            boxShadow: isSelected(file.url) ? '0 12px 30px rgba(0,0,0,0.15)' : '0 4px 15px rgba(0,0,0,0.05)',
+                                            transform: isSelected(file.url) ? 'scale(1.02)' : 'scale(1)'
+                                        }}
+                                        onClick={() => toggleSelect(file.url)}
+                                    >
+                                        <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        {file.catalogId && (
+                                            <div style={{
+                                                position: 'absolute', bottom: '10px', left: '10px',
+                                                background: 'rgba(0,0,0,0.8)', color: 'white',
+                                                borderRadius: '6px', padding: '4px 8px',
+                                                fontSize: '0.65rem', fontWeight: 800, fontFamily: 'var(--font-roboto)',
+                                                backdropFilter: 'blur(4px)',
+                                                border: '1px solid rgba(255,255,255,0.2)'
+                                            }}>
+                                                {file.catalogId}
+                                            </div>
+                                        )}
+                                        {isSelected(file.url) && (
+                                            <div style={{
+                                                position: 'absolute', top: '10px', right: '10px',
+                                                background: 'hsl(var(--primary))', color: 'white',
+                                                borderRadius: '50%', width: '28px', height: '28px',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+                                            }}>
+                                                <Check size={16} strokeWidth={4} />
+                                            </div>
+                                        )}
+                                        <div className="img-overlay" style={{
+                                            position: 'absolute', inset: 0,
+                                            background: 'linear-gradient(to top, rgba(0,0,0,0.2), transparent)',
+                                            opacity: 0, transition: '0.2s'
+                                        }} />
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

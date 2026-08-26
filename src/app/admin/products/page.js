@@ -39,6 +39,19 @@ export default function ProductsPage() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
     const [categoryFilter, setCategoryFilter] = useState('ALL');
+    const [dbActiveCategories, setDbActiveCategories] = useState([]);
+
+    const fetchActiveCategories = async () => {
+        try {
+            const res = await fetch('/api/categories');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.categories)) {
+                setDbActiveCategories(data.categories);
+            }
+        } catch (err) {
+            console.error('Fetch active categories error:', err);
+        }
+    };
     const [sortBy, setSortBy] = useState('product_no_asc');
     const [groupFilter, setGroupFilter] = useState('ALL');
     const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
@@ -245,7 +258,7 @@ export default function ProductsPage() {
                 query = query.eq('product_group', groupFilter);
             }
             if (statusFilter !== 'ALL') {
-                query = query.eq('is_active', statusFilter === 'ACTIVE');
+                query = query.eq('is_active', statusFilter === 'ACTIVE' ? 1 : 0);
             }
             if (debouncedSearchTerm.trim()) {
                 const rawTerm = debouncedSearchTerm.trim();
@@ -267,9 +280,11 @@ export default function ProductsPage() {
             }
 
             if (sortBy === 'product_no_asc') {
-                query = query.order('created_at', { ascending: true });
+                query = query.order('product_no', { ascending: true });
             } else if (sortBy === 'low_stock') {
                 query = query.order('stock', { ascending: true });
+            } else if (sortBy === 'low_price') {
+                query = query.order('price', { ascending: true });
             } else if (sortBy === 'high_price') {
                 query = query.order('price', { ascending: false });
             } else {
@@ -282,8 +297,8 @@ export default function ProductsPage() {
             let finalProducts = data || [];
             if (sortBy === 'product_no_asc') {
                 finalProducts.sort((a, b) => {
-                    const numA = a.product_no || (a.sku ? parseInt(a.sku) : 0) || 0;
-                    const numB = b.product_no || (b.sku ? parseInt(b.sku) : 0) || 0;
+                    const numA = Number(a.product_no) || (a.sku ? parseInt(a.sku) : 0) || 0;
+                    const numB = Number(b.product_no) || (b.sku ? parseInt(b.sku) : 0) || 0;
                     if (numA && numB && !isNaN(numA) && !isNaN(numB)) return numA - numB;
                     return new Date(a.created_at || 0) - new Date(b.created_at || 0);
                 });
@@ -326,6 +341,7 @@ export default function ProductsPage() {
     useEffect(() => {
         setHasMounted(true);
         fetchFbConfig();
+        fetchActiveCategories();
 
         const handleReset = () => {
             setIsEditing(false);
@@ -577,7 +593,9 @@ export default function ProductsPage() {
             link.download = `Products_Catalog_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
             document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
+            if (link.parentNode) {
+                link.parentNode.removeChild(link);
+            }
             URL.revokeObjectURL(downloadUrl);
 
             setResultModal({
@@ -745,6 +763,55 @@ export default function ProductsPage() {
 
             savedProduct = await executeProductSave(productData);
 
+            // Synchronize category-product relationship in category_products junction table
+            if (savedProduct?.id && productData.category) {
+                try {
+                    const catName = String(productData.category).trim();
+                    let { data: catRecord } = await mysqlClient
+                        .from('categories')
+                        .select('id')
+                        .ilike('name', catName)
+                        .maybeSingle();
+
+                    if (!catRecord?.id) {
+                        const catSlug = catName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
+                        const { data: catSlugRecord } = await mysqlClient
+                            .from('categories')
+                            .select('id')
+                            .eq('slug', catSlug)
+                            .maybeSingle();
+                        catRecord = catSlugRecord;
+                    }
+
+                    // If category doesn't exist in categories table yet, create it automatically
+                    if (!catRecord?.id) {
+                        const catSlug = catName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '');
+                        const { data: newCat } = await mysqlClient
+                            .from('categories')
+                            .insert([{ name: catName, slug: catSlug, status: 'active' }])
+                            .select()
+                            .maybeSingle();
+                        catRecord = newCat;
+                    }
+
+                    if (catRecord?.id) {
+                        await mysqlClient
+                            .from('category_products')
+                            .delete()
+                            .eq('product_id', savedProduct.id);
+
+                        await mysqlClient
+                            .from('category_products')
+                            .insert({
+                                category_id: catRecord.id,
+                                product_id: savedProduct.id
+                            });
+                    }
+                } catch (catErr) {
+                    console.error('[CATEGORY RELATION SYNC ERROR]:', catErr);
+                }
+            }
+
             if (!isNew && savedProduct) {
                 // Check for stock change
                 const oldStock = currentProduct.stock || 0;
@@ -875,6 +942,7 @@ export default function ProductsPage() {
     };
 
     const openEditModal = async (product) => {
+        fetchActiveCategories();
         setCurrentProduct(product);
         setProductType(product?.type || 'simple');
         setProductImageUrl(product?.image_url || '');
@@ -1041,7 +1109,7 @@ export default function ProductsPage() {
                                 <button onClick={handleExportExcel} className="btn btn-secondary">
                                     <FileDown size={18} style={{ transform: 'rotate(180deg)' }} /> Export Excel
                                 </button>
-                                <button onClick={() => { setCurrentProduct(null); setProductType('simple'); setVariants([]); setProductImageUrl(''); setGalleryImageUrl([]); setIsEditing(true); }} className="btn btn-primary">
+                                <button onClick={() => { fetchActiveCategories(); setCurrentProduct(null); setProductType('simple'); setVariants([]); setProductImageUrl(''); setGalleryImageUrl([]); setIsEditing(true); }} className="btn btn-primary">
                                     <Plus size={18} /> Add Product
                                 </button>
                             </div>
@@ -1086,8 +1154,8 @@ export default function ProductsPage() {
                                     style={{ padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                                 >
                                     <option value="ALL">All Products ({allProductsData.length})</option>
-                                    <option value="ACTIVE">Active ({allProductsData.filter(p => p.is_active !== false).length})</option>
-                                    <option value="INACTIVE">Inactive ({allProductsData.filter(p => p.is_active === false).length})</option>
+                                    <option value="ACTIVE">Active ({allProductsData.filter(p => Number(p.is_active) === 1 || p.is_active === true).length})</option>
+                                    <option value="INACTIVE">Inactive ({allProductsData.filter(p => Number(p.is_active) === 0 || p.is_active === false).length})</option>
                                 </select>
                             </div>
 
@@ -1133,6 +1201,7 @@ export default function ProductsPage() {
                                     <option value="product_no_asc">Product No: Ascending (#1001, #1002...)</option>
                                     <option value="newest">Newest First</option>
                                     <option value="low_stock">Low Stock First</option>
+                                    <option value="low_price">Price: Low to High</option>
                                     <option value="high_price">Price: High to Low</option>
                                 </select>
                                 <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))', pointerEvents: 'none' }} />
@@ -1587,14 +1656,26 @@ export default function ProductsPage() {
                                         </div>
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginBottom: '6px' }}>Category *</label>
-                                            <select name="category" defaultValue={currentProduct?.category || 'Silk Saree'} className="admin-input-select">
-                                                <option>Silk Saree</option>
-                                                <option>Cotton Saree</option>
-                                                <option>Designer</option>
-                                                <option>Georgette</option>
-                                                <option>Banarasi</option>
-                                                <option>Chiffon</option>
-                                                <option>Linen</option>
+                                            <select name="category" defaultValue={currentProduct?.category || (dbActiveCategories[0]?.name || 'Silk Saree')} className="admin-input-select">
+                                                {(() => {
+                                                    const currentCatName = currentProduct?.category;
+                                                    const list = [...dbActiveCategories];
+                                                    if (currentCatName && !list.some(c => c.name.toLowerCase() === currentCatName.toLowerCase())) {
+                                                        list.unshift({ id: 'current', name: currentCatName, status: 'existing' });
+                                                    }
+                                                    if (list.length === 0) {
+                                                        return (
+                                                            <>
+                                                                <option value="Silk Saree">Silk Saree</option>
+                                                                <option value="Cotton Saree">Cotton Saree</option>
+                                                                <option value="Designer">Designer</option>
+                                                            </>
+                                                        );
+                                                    }
+                                                    return list.map(c => (
+                                                        <option key={c.id || c.name} value={c.name}>{c.name}</option>
+                                                    ));
+                                                })()}
                                             </select>
                                         </div>
                                         <div style={{ gridColumn: '1 / -1' }}>
