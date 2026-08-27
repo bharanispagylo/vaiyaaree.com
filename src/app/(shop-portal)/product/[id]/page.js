@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { ShoppingCart, CheckCircle, X, ZoomIn, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { ShoppingCart, CheckCircle, X, ZoomIn, ChevronLeft, ChevronRight, Tag, ShieldCheck } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
 import { findProductBySlugOrId, getProductSlug } from '@/lib/productUrl';
@@ -18,6 +18,7 @@ import 'swiper/css';
 export default function ProductDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { products, addToCart, loading: productsLoading, mysqlClient } = useShop();
 
     const [product, setProduct] = useState(null);
@@ -28,6 +29,60 @@ export default function ProductDetailsPage() {
     const [isZoomed, setIsZoomed] = useState(false);
     const [currentImageIdx, setCurrentImageIdx] = useState(0);
     const [swiperInstance, setSwiperInstance] = useState(null);
+
+    // Sync selected variant with URL query parameter (Shopify Style)
+    const syncVariantToUrl = useCallback((variantId) => {
+        if (typeof window === 'undefined' || !variantId) return;
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('variant') !== String(variantId)) {
+            url.searchParams.set('variant', String(variantId));
+            window.history.replaceState(null, '', url.toString());
+        }
+    }, []);
+
+    const fetchVariants = useCallback(async (productId, initialVariantParam = null) => {
+        if (!mysqlClient || !productId) return;
+        try {
+            const { data } = await mysqlClient
+                .from('product_variants')
+                .select('*')
+                .eq('product_id', productId)
+                .order('created_at', { ascending: true });
+
+            if (data && data.length > 0) {
+                setVariants(data);
+
+                // Priority 1: Match variant from URL search params
+                let target = null;
+                const paramToMatch = initialVariantParam || searchParams?.get('variant') || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('variant') : null);
+                if (paramToMatch) {
+                    const cleanParam = decodeURIComponent(paramToMatch).trim().toLowerCase();
+                    target = data.find(v => 
+                        String(v.id).toLowerCase() === cleanParam ||
+                        String(v.sku || '').toLowerCase() === cleanParam ||
+                        String(v.name || '').trim().toLowerCase() === cleanParam
+                    );
+                }
+
+                // Priority 2: Fallback to first in-stock variant, or first variant
+                if (!target) {
+                    target = data.find(v => Number(v.stock || 0) > 0) || data[0];
+                }
+
+                setSelectedVariant(target);
+                if (target?.id) {
+                    syncVariantToUrl(target.id);
+                }
+            } else {
+                setVariants([]);
+                setSelectedVariant(null);
+            }
+        } catch (err) {
+            console.error('Error loading variants:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [mysqlClient, searchParams, syncVariantToUrl]);
 
     useEffect(() => {
         async function loadProductDetails() {
@@ -41,11 +96,17 @@ export default function ProductDetailsPage() {
             if (!found && mysqlClient) {
                 const rawParam = decodeURIComponent(String(id)).trim().replace(/\/$/, '');
 
-                // A. Direct ID / UUID query
-                let { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
-                if (directData) found = directData;
+                // A. Direct Slug match
+                let { data: directSlug } = await mysqlClient.from('products').select('*').eq('slug', rawParam).maybeSingle();
+                if (directSlug) found = directSlug;
 
-                // B. Trailing identifier match (Product No / SKU / ID)
+                // B. Direct ID / UUID query
+                if (!found) {
+                    let { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
+                    if (directData) found = directData;
+                }
+
+                // C. Trailing identifier match (Product No / SKU / ID)
                 if (!found) {
                     const lastHyphen = rawParam.lastIndexOf('-');
                     if (lastHyphen !== -1) {
@@ -60,7 +121,7 @@ export default function ProductDetailsPage() {
                     }
                 }
 
-                // C. Full list fallback match by slug
+                // D. Full list fallback match by slug
                 if (!found) {
                     const { data: allP } = await mysqlClient.from('products').select('*');
                     if (allP) {
@@ -82,28 +143,75 @@ export default function ProductDetailsPage() {
         }
 
         loadProductDetails();
-    }, [id, products, productsLoading, mysqlClient]);
+    }, [id, products, productsLoading, mysqlClient, fetchVariants]);
 
-    useEffect(() => {
-        if (product && products.length > 0) {
-            const viewed = JSON.parse(localStorage.getItem('recently_viewed') || '[]');
-            const updated = [product.id, ...viewed.filter(vId => vId !== product.id)].slice(0, 4);
-            localStorage.setItem('recently_viewed', JSON.stringify(updated));
+    const handleSelectVariant = (v) => {
+        setSelectedVariant(v);
+        if (v?.id) {
+            syncVariantToUrl(v.id);
         }
-    }, [product, products]);
+    };
 
-    async function fetchVariants(productId) {
-        const { data } = await mysqlClient
-            .from('product_variants')
-            .select('*')
-            .eq('product_id', productId)
-            .order('created_at', { ascending: true });
-        if (data) {
-            setVariants(data);
-            if (data.length > 0) setSelectedVariant(data[0]);
+    // Multi-Option detection for Storefront (e.g. Size: S, M; Color: Red, Green)
+    const parsedOptionGroups = useMemo(() => {
+        if (!variants || variants.length === 0) return [];
+        const first = variants[0]?.name || '';
+        if (first.includes('/')) {
+            const partsCount = first.split('/').length;
+            const defaultLabels = ['Size', 'Color', 'Material', 'Style'];
+            const groups = [];
+            for (let i = 0; i < partsCount; i++) {
+                groups.push({
+                    index: i,
+                    label: defaultLabels[i] || `Option ${i + 1}`,
+                    values: []
+                });
+            }
+            variants.forEach(v => {
+                const parts = String(v.name || '').split('/').map(p => p.trim());
+                parts.forEach((p, idx) => {
+                    if (groups[idx] && p && !groups[idx].values.includes(p)) {
+                        groups[idx].values.push(p);
+                    }
+                });
+            });
+            return groups.filter(g => g.values.length > 0);
         }
-        setLoading(false);
-    }
+        return [];
+    }, [variants]);
+
+    const activeOptionValues = useMemo(() => {
+        if (!selectedVariant || !selectedVariant.name) return [];
+        if (selectedVariant.name.includes('/')) {
+            return selectedVariant.name.split('/').map(p => p.trim());
+        }
+        return [selectedVariant.name.trim()];
+    }, [selectedVariant]);
+
+    const handleSelectOptionValue = (groupIndex, val) => {
+        if (!parsedOptionGroups || parsedOptionGroups.length === 0) return;
+        const currentVals = [...activeOptionValues];
+        while (currentVals.length < parsedOptionGroups.length) {
+            currentVals.push(parsedOptionGroups[currentVals.length].values[0] || '');
+        }
+        currentVals[groupIndex] = val;
+
+        // 1. Try exact combination match (e.g. "S / Green")
+        const targetName = currentVals.join(' / ').toLowerCase();
+        let matched = variants.find(v => String(v.name || '').trim().toLowerCase() === targetName);
+
+        // 2. Fallback match: if exact combo not found, find first variant having clicked option
+        if (!matched) {
+            matched = variants.find(v => {
+                const parts = String(v.name || '').split('/').map(p => p.trim().toLowerCase());
+                return parts[groupIndex] === val.toLowerCase();
+            });
+        }
+
+        if (matched) {
+            handleSelectVariant(matched);
+        }
+    };
 
     const relatedProducts = useMemo(() => {
         if (!product || products.length === 0) return [];
@@ -163,7 +271,8 @@ export default function ProductDetailsPage() {
     );
 
     const displayPrice = selectedVariant ? selectedVariant.price : product.price;
-    const currentStock = selectedVariant ? selectedVariant.stock : product.stock;
+    const currentStock = selectedVariant ? Number(selectedVariant.stock ?? 0) : Number(product.stock ?? 0);
+    const isOutOfStock = currentStock <= 0;
     const activeImageUrl = galleryImages[currentImageIdx] || galleryImages[0];
 
     return (
@@ -175,6 +284,11 @@ export default function ProductDetailsPage() {
                 {/*  LEFT: Image Gallery with Swiper.js Slider & Dot Thumbnails  */}
                 <div className={styles.imageGallery}>
                     <div className={styles.swiperWrapper}>
+                        {isOutOfStock && (
+                            <div className={styles.imageOutOfStockBadge}>
+                                Out of Stock
+                            </div>
+                        )}
                         <Swiper
                             modules={[Autoplay]}
                             onSwiper={setSwiperInstance}
@@ -195,6 +309,7 @@ export default function ProductDetailsPage() {
                                             src={img}
                                             alt={`${product.name} - View ${idx + 1}`}
                                             className={styles.mainImage}
+                                            style={{ filter: isOutOfStock ? 'grayscale(25%)' : 'none' }}
                                             onError={(e) => {
                                                 e.target.onerror = null;
                                                 e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
@@ -289,10 +404,7 @@ export default function ProductDetailsPage() {
                         return (
                             <div className={styles.priceRow}>
                                 <span className={styles.priceTag}>
-                                    {priceRange?.isRange
-                                        ? `₹${priceRange.min.toLocaleString()} – ₹${priceRange.max.toLocaleString()}`
-                                        : `₹${displayPrice?.toLocaleString()}`
-                                    }
+                                    ₹{displayPrice?.toLocaleString()}
                                 </span>
                                 {hasDiscount && (
                                     <>
@@ -304,14 +416,9 @@ export default function ProductDetailsPage() {
                                         </span>
                                     </>
                                 )}
-                                {selectedVariant && priceRange?.isRange && (
-                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
-                                        (Selected Price: ₹{selectedVariant.price?.toLocaleString()})
-                                    </span>
-                                )}
-                                {currentStock > 0
+                                {!isOutOfStock
                                     ? <span className={styles.inStock}><CheckCircle size={13} /> {currentStock} sarees in stock</span>
-                                    : <span className={styles.outOfStock}><X size={13} /> Saree Not Available</span>
+                                    : <span className={styles.outOfStock}><X size={13} /> Out of Stock</span>
                                 }
                             </div>
                         );
@@ -327,26 +434,75 @@ export default function ProductDetailsPage() {
                         </p>
                     </div>
 
-                    {/* Variants / Size Selector */}
-                    {product.type === 'variant' && variants.length > 0 && (
+                    {/* Multi-Option Selectors (Shopify Style: Size, Color, etc.) */}
+                    {product.type === 'variant' && variants.length > 0 && parsedOptionGroups.length > 1 && (
+                        <div className={styles.variantsSection} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+                            {parsedOptionGroups.map((grp) => (
+                                <div key={grp.index}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                                        <p className={styles.variantLabel} style={{ margin: 0, fontSize: '0.85rem' }}>
+                                            Select {grp.label}: <strong style={{ color: '#0f172a' }}>{activeOptionValues[grp.index] || ''}</strong>
+                                        </p>
+                                    </div>
+                                    <div className={styles.variantChips}>
+                                        {grp.values.map(val => {
+                                            const isSelected = (activeOptionValues[grp.index] || '').toLowerCase() === val.toLowerCase();
+                                            // Check if this option value has any in-stock combo
+                                            const hasInStock = variants.some(v => {
+                                                const parts = String(v.name || '').split('/').map(p => p.trim().toLowerCase());
+                                                return parts[grp.index] === val.toLowerCase() && Number(v.stock || 0) > 0;
+                                            });
+
+                                            return (
+                                                <button
+                                                    key={val}
+                                                    type="button"
+                                                    className={`${styles.variantChip} ${isSelected ? styles.activeVariant : ''} ${!hasInStock ? styles.variantOutOfStock : ''}`}
+                                                    onClick={() => handleSelectOptionValue(grp.index, val)}
+                                                >
+                                                    {val} {!hasInStock ? '(Out of Stock)' : ''}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Single Option / Direct Combinations Selector */}
+                    {product.type === 'variant' && variants.length > 0 && parsedOptionGroups.length <= 1 && (
                         <div className={styles.variantsSection}>
-                            <p className={styles.variantLabel}>Select Size / Option</p>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                                <p className={styles.variantLabel} style={{ margin: 0 }}>Select Size / Option:</p>
+                                {selectedVariant?.sku && (
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, fontFamily: 'monospace' }}>
+                                        SKU: {selectedVariant.sku}
+                                    </span>
+                                )}
+                            </div>
                             <div className={styles.variantChips}>
-                                {variants.map(v => (
-                                    <button
-                                        key={v.id}
-                                        className={`${styles.variantChip} ${selectedVariant?.id === v.id ? styles.activeVariant : ''}`}
-                                        onClick={() => setSelectedVariant(v)}
-                                    >
-                                        {v.name}
-                                    </button>
-                                ))}
+                                {variants.map(v => {
+                                    const vOutOfStock = Number(v.stock ?? 0) <= 0;
+                                    const isSelected = selectedVariant?.id === v.id;
+                                    return (
+                                        <button
+                                            key={v.id}
+                                            type="button"
+                                            className={`${styles.variantChip} ${isSelected ? styles.activeVariant : ''} ${vOutOfStock ? styles.variantOutOfStock : ''}`}
+                                            onClick={() => handleSelectVariant(v)}
+                                            title={vOutOfStock ? `${v.name} is currently Out of Stock` : `${v.name} (${v.stock} in stock)`}
+                                        >
+                                            {v.name} {vOutOfStock ? '(Out of Stock)' : ''}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
 
                     {/* Actions */}
-                    {currentStock > 0 ? (
+                    {!isOutOfStock ? (
                         <div>
                             <div className={styles.actions}>
                                 <div className={styles.qtySelector}>
@@ -384,14 +540,14 @@ export default function ProductDetailsPage() {
                                     alignItems: 'center',
                                     gap: '6px'
                                 }}>
-                                     Saree Not Available for higher quantity (Maximum {currentStock} in stock)
+                                    Out of Stock for higher quantity (Maximum {currentStock} in stock)
                                 </div>
                             )}
                         </div>
                     ) : (
                         <div className={styles.actions}>
-                            <button disabled className={styles.addToCartBtn} style={{ background: '#cbd5e1', cursor: 'not-allowed', color: '#64748b' }}>
-                                Saree Not Available
+                            <button disabled className={styles.addToCartBtn} style={{ background: '#f1f5f9', cursor: 'not-allowed', color: '#94a3b8', border: '1px solid #e2e8f0', gridColumn: '1 / -1', height: '52px', fontWeight: 800 }}>
+                                Out of Stock
                             </button>
                         </div>
                     )}

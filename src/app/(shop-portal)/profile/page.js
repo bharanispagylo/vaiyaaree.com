@@ -14,10 +14,15 @@ import Link from 'next/link';
 import styles from './profile.module.css';
 import ReturnWizard from '@/components/ReturnWizard';
 
-function formatPhoneDisplay(phone) {
+function formatPhoneDisplay(phone, countryCode) {
     if (!phone) return '';
     const clean = String(phone).trim();
     const digits = clean.replace(/\D/g, '');
+    const code = countryCode ? (countryCode.startsWith('+') ? countryCode : `+${countryCode}`) : null;
+    
+    if (code) {
+        return `${code} ${digits.startsWith(code.replace('+', '')) ? digits.slice(code.replace('+', '').length) : digits}`;
+    }
     if (digits.startsWith('91') && digits.length === 12) {
         return `+91 ${digits.slice(2)}`;
     }
@@ -950,7 +955,7 @@ export default function ProfilePage() {
                     <div className={styles.avatarLarge}>{(user.name?.[0] || 'U').toUpperCase()}</div>
                     <div className={styles.headerInfo}>
                         <h2>{user.name}</h2>
-                        <p className={styles.userPhone}>{formatPhoneDisplay(user.phone)} • {user.email || 'No email specified'}</p>
+                        <p className={styles.userPhone}>{formatPhoneDisplay(user.phone, user.country_code)} • {user.email || 'No email specified'}</p>
                     </div>
                 </div>
 

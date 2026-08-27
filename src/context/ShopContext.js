@@ -330,15 +330,16 @@ export function ShopProvider({ children }) {
                         setCheckoutForm(prev => ({
                             ...prev,
                             billingName: activeUser.name || prev.billingName || '',
-                            billingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : (prev.billingPhone || ''),
-                            billingWhatsApp: activeUser.phone ? activeUser.phone.replace(/^91/, '') : (prev.billingWhatsApp || ''),
+                            billingCountryCode: activeUser.country_code || prev.billingCountryCode || '+91',
+                            billingPhone: activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.billingPhone || ''),
+                            billingWhatsApp: activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.billingWhatsApp || ''),
                             billingEmail: activeUser.email || prev.billingEmail || '',
                             billingAddress: activeUser.address || prev.billingAddress || '',
                             billingCity: activeUser.city || prev.billingCity || '',
                             billingState: activeUser.state || prev.billingState || 'Tamil Nadu',
                             billingPincode: activeUser.pincode || prev.billingPincode || '',
                             shippingName: activeUser.name || prev.shippingName || '',
-                            shippingPhone: activeUser.phone ? activeUser.phone.replace(/^91/, '') : (prev.shippingPhone || '')
+                            shippingPhone: activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.shippingPhone || '')
                         }));
                     }
                 } catch (dbErr) {
@@ -360,15 +361,16 @@ export function ShopProvider({ children }) {
             setCheckoutForm(prev => ({
                 ...prev,
                 billingName: user.name || prev.billingName || '',
-                billingPhone: user.phone ? user.phone.replace(/^91/, '') : (prev.billingPhone || ''),
-                billingWhatsApp: user.phone ? user.phone.replace(/^91/, '') : (prev.billingWhatsApp || ''),
+                billingCountryCode: user.country_code || prev.billingCountryCode || '+91',
+                billingPhone: user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.billingPhone || ''),
+                billingWhatsApp: user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.billingWhatsApp || ''),
                 billingEmail: user.email || prev.billingEmail || '',
                 billingAddress: user.address || prev.billingAddress || '',
                 billingCity: user.city || prev.billingCity || '',
                 billingState: user.state || prev.billingState || 'Tamil Nadu',
                 billingPincode: user.pincode || prev.billingPincode || '',
                 shippingName: user.name || prev.shippingName || '',
-                shippingPhone: user.phone ? user.phone.replace(/^91/, '') : (prev.shippingPhone || '')
+                shippingPhone: user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.shippingPhone || '')
             }));
         }
     }, [user]);
@@ -461,11 +463,13 @@ export function ShopProvider({ children }) {
             const newEntry = {
                 ...product,
                 price: variant ? variant.price : product.price,
+                compare_price: variant ? (variant.compare_price || variant.original_price) : (product.compare_price || product.original_price),
                 image_url: (variant && variant.image_url) ? variant.image_url : product.image_url,
                 qty: quantity,
                 stock: itemStock,
                 variantId: variant?.id,
-                variantName: variant?.name
+                variantName: variant?.name,
+                variantSku: variant?.sku
             };
             return [...prev, newEntry];
         });

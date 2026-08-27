@@ -454,8 +454,12 @@ export default function HomePage() {
                                         onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.05)'; }}
                                     >
                                         <div style={{ aspectRatio: '4/5', marginBottom: '1rem', overflow: 'hidden', borderRadius: '12px', background: '#faf6f2', position: 'relative' }}>
-                                            <img src={product.image_url?.split(',')[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            {product.stock <= 5 && (
+                                            <img src={product.image_url?.split(',')[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: Number(product.stock || 0) <= 0 ? 'grayscale(25%)' : 'none' }} />
+                                            {Number(product.stock || 0) <= 0 ? (
+                                                <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#e11d48', color: '#ffffff', fontSize: '0.7rem', fontWeight: 800, padding: '0.25rem 0.6rem', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--font-roboto), sans-serif', boxShadow: '0 4px 12px rgba(225, 29, 72, 0.35)' }}>
+                                                    Out of Stock
+                                                </span>
+                                            ) : Number(product.stock || 0) <= 5 && (
                                                 <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#5d0821', color: '#ffffff', fontSize: '0.7rem', fontWeight: 700, padding: '0.25rem 0.6rem', borderRadius: '20px', fontFamily: 'var(--font-roboto), sans-serif' }}>
                                                     Only {product.stock} Left
                                                 </span>
@@ -463,7 +467,12 @@ export default function HomePage() {
                                         </div>
                                         <span style={{ color: '#777', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.08em', fontWeight: 600, fontFamily: 'var(--font-roboto), sans-serif' }}>{product.category || 'Vaiyaaree Exclusive'}</span>
                                         <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#1a1a1a', margin: '0.4rem 0 0.5rem', fontFamily: 'var(--font-roboto), sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</h3>
-                                        <p style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.15rem', margin: 0, fontFamily: 'var(--font-roboto), sans-serif' }}>₹{product.price.toLocaleString()}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <p style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.15rem', margin: 0, fontFamily: 'var(--font-roboto), sans-serif' }}>₹{product.price.toLocaleString()}</p>
+                                            {Number(product.stock || 0) <= 0 && (
+                                                <span style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', fontSize: '0.68rem', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>Out of Stock</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </Link>
                             ))}
@@ -500,11 +509,25 @@ export default function HomePage() {
                                         onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.05)'; }}
                                     >
                                         <div style={{ aspectRatio: '4/5', marginBottom: '1rem', overflow: 'hidden', borderRadius: '12px', background: '#faf6f2', position: 'relative' }}>
-                                            <img src={product.image_url?.split(',')[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <img src={product.image_url?.split(',')[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: Number(product.stock || 0) <= 0 ? 'grayscale(25%)' : 'none' }} />
+                                            {Number(product.stock || 0) <= 0 ? (
+                                                <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#e11d48', color: '#ffffff', fontSize: '0.7rem', fontWeight: 800, padding: '0.25rem 0.6rem', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--font-roboto), sans-serif', boxShadow: '0 4px 12px rgba(225, 29, 72, 0.35)' }}>
+                                                    Out of Stock
+                                                </span>
+                                            ) : Number(product.stock || 0) <= 5 && (
+                                                <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#5d0821', color: '#ffffff', fontSize: '0.7rem', fontWeight: 700, padding: '0.25rem 0.6rem', borderRadius: '20px', fontFamily: 'var(--font-roboto), sans-serif' }}>
+                                                    Only {product.stock} Left
+                                                </span>
+                                            )}
                                         </div>
                                         <span style={{ color: '#777', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.08em', fontWeight: 600, fontFamily: 'var(--font-roboto), sans-serif' }}>{product.category || 'Authentic Weave'}</span>
                                         <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#1a1a1a', margin: '0.4rem 0 0.5rem', fontFamily: 'var(--font-roboto), sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</h3>
-                                        <p style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.15rem', margin: 0, fontFamily: 'var(--font-roboto), sans-serif' }}>₹{product.price.toLocaleString()}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <p style={{ color: '#5d0821', fontWeight: 800, fontSize: '1.15rem', margin: 0, fontFamily: 'var(--font-roboto), sans-serif' }}>₹{product.price.toLocaleString()}</p>
+                                            {Number(product.stock || 0) <= 0 && (
+                                                <span style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', fontSize: '0.68rem', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase' }}>Out of Stock</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </Link>
                             ))}

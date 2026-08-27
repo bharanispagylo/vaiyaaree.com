@@ -8,7 +8,7 @@ export const revalidate = 0;
 export async function POST(req) {
     try {
         const body = await req.json();
-        const { identifier, password } = body;
+        const { identifier, country_code, password } = body;
 
         if (!identifier || !identifier.trim()) {
             return NextResponse.json({ error: 'Please enter your Mobile Number or Email address.' }, { status: 400 });
@@ -25,13 +25,13 @@ export async function POST(req) {
         if (isEmail) {
             query = query.eq('email', cleanInput.toLowerCase());
         } else {
-            const digits = cleanInput.replace(/\D/g, '').slice(-10);
-            if (digits.length !== 10) {
-                return NextResponse.json({ error: 'Please enter a valid 10-digit Mobile Number or Email address.' }, { status: 400 });
+            const rawDigits = cleanInput.replace(/\D/g, '');
+            if (!rawDigits || rawDigits.length < 7) {
+                return NextResponse.json({ error: 'Please enter a valid Mobile Number or Email address.' }, { status: 400 });
             }
-            const phone10 = digits;
-            const phone12 = `91${digits}`;
-            query = query.or(`phone.eq.${phone10},phone.eq.${phone12}`);
+            const phone10 = rawDigits.slice(-10);
+            const phone12 = `91${phone10}`;
+            query = query.or(`phone.eq.${phone10},phone.eq.${phone12},phone.eq.${rawDigits}`);
         }
 
         const { data: customers, error: fetchErr } = await query;
@@ -71,6 +71,7 @@ export async function POST(req) {
             name: customer.name,
             email: customer.email,
             phone: customer.phone,
+            country_code: customer.country_code || '+91',
             address: customer.address,
             city: customer.city,
             state: customer.state,

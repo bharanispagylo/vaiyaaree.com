@@ -1,6 +1,6 @@
 'use client';
 
-import { ShoppingCart, Activity } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
 import { useCompare } from '@/context/CompareContext';
@@ -11,6 +11,7 @@ export default function ProductCard({ product, gridView = true }) {
     const { addToCart } = useShop();
     const { compareItems, toggleCompare } = useCompare();
     const firstImage = product.image_url?.split(',')[0] || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
+    const isOutOfStock = Number(product.stock ?? 0) <= 0;
 
     if (!gridView) {
         return (
@@ -22,12 +23,13 @@ export default function ProductCard({ product, gridView = true }) {
                             src={firstImage}
                             alt={product.name}
                             className={styles.productImage}
-                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
-                            style={{ position: 'relative', zIndex: 1 }}
+                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                            style={{ position: 'relative', zIndex: 1, filter: isOutOfStock ? 'grayscale(30%)' : 'none' }}
                         />
                     </Link>
 
-                    {product.stock <= 0 && <div className={styles.outOfStockOverlay}>Saree Not Available</div>}
+                    {isOutOfStock && <div className={styles.outOfStockBadge}>Out of Stock</div>}
+                    {isOutOfStock && <div className={styles.outOfStockOverlay}>Out of Stock</div>}
                 </div>
                 <div className={styles.productInfo}>
                     <div className={styles.productCategory}>{product.category}</div>
@@ -35,13 +37,16 @@ export default function ProductCard({ product, gridView = true }) {
                         <h3 className={styles.productName}>{product.name}</h3>
                     </Link>
                     <p className={styles.productDescription}>{product.description?.slice(0, 150)}...</p>
-                    <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                        <div className={styles.productPrice}>₹{(product.price || 0).toLocaleString()}</div>
+                        {isOutOfStock && <span className={styles.outOfStockTag}>Out of Stock</span>}
+                    </div>
                     <button
                         onClick={() => addToCart(product)}
-                        disabled={product.stock <= 0}
-                        className={`${styles.addToCartBtn} ${product.stock <= 0 ? styles.addToCartDisabled : ''}`}
+                        disabled={isOutOfStock}
+                        className={`${styles.addToCartBtn} ${isOutOfStock ? styles.addToCartDisabled : ''}`}
                     >
-                        {product.stock <= 0 ? 'Saree Not Available' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
+                        {isOutOfStock ? 'Out of Stock' : (product.type === 'variant' ? 'Select Option' : 'Add to Cart')}
                     </button>
                 </div>
             </div>
@@ -58,16 +63,15 @@ export default function ProductCard({ product, gridView = true }) {
                         alt={product.name}
                         className={styles.productImage}
                         onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
-                        style={{ position: 'relative', zIndex: 1 }}
+                        style={{ position: 'relative', zIndex: 1, filter: isOutOfStock ? 'grayscale(30%)' : 'none' }}
                     />
                 </Link>
 
-                {product.stock <= 0 && <div className={styles.outOfStockOverlay}>Saree Not Available</div>}
-                {product.type === 'variant' && <div className={styles.variantBadge}> Variants Available</div>}
+                {isOutOfStock && <div className={styles.outOfStockBadge}>Out of Stock</div>}
+                {isOutOfStock && <div className={styles.outOfStockOverlay}>Out of Stock</div>}
+                {!isOutOfStock && product.type === 'variant' && <div className={styles.variantBadge}>Variants Available</div>}
 
-
-
-                {product.stock > 0 && (
+                {!isOutOfStock && (
                     <div
                         className={styles.hoverAddToCart}
                         onClick={(e) => {
@@ -107,6 +111,9 @@ export default function ProductCard({ product, gridView = true }) {
                                         {discountPercent}% OFF
                                     </span>
                                 </>
+                            )}
+                            {isOutOfStock && (
+                                <span className={styles.outOfStockTag}>Out of Stock</span>
                             )}
                         </div>
                     );

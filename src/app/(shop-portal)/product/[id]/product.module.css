@@ -374,6 +374,36 @@
     font-weight: 800 !important;
 }
 
+.variantOutOfStock {
+    opacity: 0.65;
+    background: #fff1f2;
+    border-style: dashed;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+.variantOutOfStock:hover {
+    border-color: #ef4444;
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.imageOutOfStockBadge {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: #e11d48;
+    color: #ffffff;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    box-shadow: 0 4px 14px rgba(225, 29, 72, 0.4);
+    z-index: 5;
+}
+
 /* ── Action Buttons ── */
 .actions {
     display: grid;

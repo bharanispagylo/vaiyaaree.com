@@ -107,13 +107,55 @@ export async function POST(request) {
             fileExt = file.name ? (file.name.split('.').pop() || 'jpg') : 'jpg';
             fileNameHint = file.name || 'image.jpg';
         } else if (imageUrlParam) {
-            const imgRes = await fetch(imageUrlParam);
-            if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imgRes.statusText}`);
-            const arrayBuffer = await imgRes.arrayBuffer();
-            buffer = Buffer.from(arrayBuffer);
-            const cleanUrl = imageUrlParam.split('?')[0];
+            const cleanUrl = String(imageUrlParam).split('?')[0].trim();
             fileExt = cleanUrl.split('.').pop() || 'jpg';
             fileNameHint = cleanUrl.split('/').pop() || 'image.jpg';
+
+            if (imageUrlParam.startsWith('data:image/')) {
+                const base64Data = imageUrlParam.split(',')[1] || '';
+                buffer = Buffer.from(base64Data, 'base64');
+            } else if (imageUrlParam.startsWith('/') || !imageUrlParam.startsWith('http')) {
+                // Local relative path (e.g. /uploads/media/without-watermark/CAT-123.jpg)
+                const relPath = imageUrlParam.startsWith('/') ? imageUrlParam.slice(1) : imageUrlParam;
+                const localFilePath = path.join(process.cwd(), 'public', relPath);
+
+                if (existsSync(localFilePath)) {
+                    buffer = await fs.readFile(localFilePath);
+                } else {
+                    // Try direct match in uploadBaseDir
+                    const normalizedUploadRel = relPath.replace(/^uploads[\\\/]media[\\\/]?/, '');
+                    const uploadSubPath = path.join(uploadBaseDir, normalizedUploadRel);
+                    if (existsSync(uploadSubPath)) {
+                        buffer = await fs.readFile(uploadSubPath);
+                    } else {
+                        // Fallback: construct absolute URL from request
+                        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (request.url ? new URL(request.url).origin : 'http://localhost:3000');
+                        const fetchUrl = `${baseUrl.replace(/\/$/, '')}/${relPath}`;
+                        const imgRes = await fetch(fetchUrl);
+                        if (!imgRes.ok) throw new Error(`Failed to fetch image from local URL: ${fetchUrl} (${imgRes.statusText})`);
+                        const arrayBuffer = await imgRes.arrayBuffer();
+                        buffer = Buffer.from(arrayBuffer);
+                    }
+                }
+            } else {
+                // Remote HTTP/HTTPS URL
+                try {
+                    const parsedUrl = new URL(imageUrlParam);
+                    if (parsedUrl.pathname.startsWith('/uploads/')) {
+                        const diskPath = path.join(process.cwd(), 'public', parsedUrl.pathname.slice(1));
+                        if (existsSync(diskPath)) {
+                            buffer = await fs.readFile(diskPath);
+                        }
+                    }
+                } catch (e) {}
+
+                if (!buffer) {
+                    const imgRes = await fetch(imageUrlParam);
+                    if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imgRes.statusText}`);
+                    const arrayBuffer = await imgRes.arrayBuffer();
+                    buffer = Buffer.from(arrayBuffer);
+                }
+            }
         } else {
             return NextResponse.json({ error: 'No file or imageUrl provided' }, { status: 400 });
         }

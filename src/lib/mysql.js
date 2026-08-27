@@ -73,4 +73,37 @@ export async function getConnection() {
     return await pool.getConnection();
 }
 
+/**
+ * Executes a callback within a managed MySQL ACID transaction.
+ * Automatically handles connection acquisition, beginTransaction, commit,
+ * rollback on error, and guaranteed connection release.
+ * 
+ * @template T
+ * @param {(connection: mysql.PoolConnection) => Promise<T>} callback
+ * @returns {Promise<T>}
+ */
+export async function withTransaction(callback) {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const result = await callback(connection);
+        await connection.commit();
+        return result;
+    } catch (err) {
+        try {
+            await connection.rollback();
+        } catch (rollbackErr) {
+            console.error('[MYSQL TRANSACTION ROLLBACK ERROR]', rollbackErr);
+        }
+        console.error('[MYSQL TRANSACTION FAILED & ROLLED BACK]', {
+            message: err.message,
+            code: err.code,
+            errno: err.errno
+        });
+        throw err;
+    } finally {
+        connection.release();
+    }
+}
+
 export default pool;

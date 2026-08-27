@@ -1947,10 +1947,18 @@ export default function OrdersPage() {
                                                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                                             <div style={{ fontWeight: 800, fontSize: '1rem', color: 'hsl(var(--text-main))' }}>{item.product_name}</div>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                                                <span style={{ fontSize: '0.82rem', color: 'hsl(var(--primary))', fontWeight: 600 }}>{item.variant_name || 'Standard Unit'}</span>
-                                                                {(item.products?.sku || item.products?.product_no || item.product_id) && (
-                                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '2px 7px', borderRadius: '5px' }}>
-                                                                        SKU: {item.products?.sku || item.products?.product_no || item.product_id}
+                                                                {item.variant_name ? (
+                                                                    <span style={{ fontSize: '0.78rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '3px 9px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                        🏷️ Variant: {item.variant_name}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{ fontSize: '0.75rem', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', padding: '2px 7px', borderRadius: '5px', fontWeight: 600 }}>
+                                                                        Simple Product
+                                                                    </span>
+                                                                )}
+                                                                {(item.variant?.sku || item.products?.sku || item.products?.product_no || item.product_id) && (
+                                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '2px 7px', borderRadius: '5px', fontFamily: 'monospace' }}>
+                                                                        SKU: {item.variant?.sku || item.products?.sku || item.products?.product_no || item.product_id}
                                                                     </span>
                                                                 )}
                                                                 {item.products?.category && (
@@ -2906,50 +2914,19 @@ export default function OrdersPage() {
                                                                     setNotification({ message: 'Please fill all customer details and add at least one item.', type: 'error' });
                                                                     return;
                                                                 }
-                                                                setNotification({ message: 'Order creating...', type: 'info' });
+                                                                setNotification({ message: 'Creating order with ACID transaction guarantee...', type: 'info' });
                                                                 setIsCreatingOrder(true);
                                                                 try {
-                                                                    const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('MAN', mysqlClient);
-
-                                                                    //  NORMALISE PHONE & SYNC CUSTOMER 
                                                                     const cleanPhone = newOrder.billing_phone.replace(/\D/g, '');
                                                                     const normalizedPhone = cleanPhone.startsWith('91') ? cleanPhone : (cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone);
 
-                                                                    const { data: existingCusts, error: lookupError } = await mysqlClient.from('customers').select('id, name').eq('phone', normalizedPhone);
-
-                                                                    if (!existingCusts || existingCusts.length === 0) {
-                                                                        const { error: custErr } = await mysqlClient.from('customers').insert({
-                                                                            phone: normalizedPhone,
-                                                                            name: newOrder.customer_name || 'Website User',
-                                                                            address: newOrder.billing_address,
-                                                                            city: newOrder.billing_city,
-                                                                            state: newOrder.billing_state,
-                                                                            role: 'user'
-                                                                        });
-                                                                        if (custErr) console.error('Failed to auto-create customer profile:', custErr);
-                                                                    } else {
-                                                                        // Update existing customer with new latest details
-                                                                        await mysqlClient.from('customers').update({
-                                                                            name: newOrder.customer_name || existingCusts[0].name,
-                                                                            address: newOrder.billing_address || existingCusts[0].address,
-                                                                            city: newOrder.billing_city || existingCusts[0].city,
-                                                                            state: newOrder.billing_state || existingCusts[0].state
-                                                                        }).eq('id', existingCusts[0].id);
-                                                                    }
-
-                                                                    const { error: ordErr } = await mysqlClient.from('orders').insert({
-                                                                        id: orderId,
-                                                                        customer_name: newOrder.customer_name,
-                                                                        customer_email: newOrder.billing_email || null,
-                                                                        customer_phone: normalizedPhone,
-                                                                        billing_email: newOrder.billing_email || null,
-                                                                        shipping_email: newOrder.same_as_billing ? (newOrder.billing_email || null) : (newOrder.shipping_email || null),
-                                                                        billing_phone: normalizedPhone,
-                                                                        shipping_phone: newOrder.same_as_billing ? normalizedPhone : (newOrder.shipping_phone ? (newOrder.shipping_phone.startsWith('91') ? newOrder.shipping_phone : `91${newOrder.shipping_phone}`) : normalizedPhone),
-                                                                        delivery_address: newOrder.same_as_billing
-                                                                            ? `${newOrder.billing_address}, ${newOrder.billing_city} - ${newOrder.billing_pincode} (${newOrder.billing_state})`
-                                                                            : `${newOrder.shipping_address}, ${newOrder.shipping_city} - ${newOrder.shipping_pincode} (${newOrder.shipping_state})`,
-                                                                        billing_address: {
+                                                                    const orderPayload = {
+                                                                        source: 'MANUAL',
+                                                                        customerName: newOrder.customer_name,
+                                                                        customerPhone: normalizedPhone,
+                                                                        customerEmail: newOrder.billing_email || null,
+                                                                        paymentMethod: newOrder.payment_method || 'COD',
+                                                                        billingAddress: {
                                                                             name: newOrder.customer_name,
                                                                             phone: normalizedPhone,
                                                                             email: newOrder.billing_email || null,
@@ -2958,7 +2935,7 @@ export default function OrdersPage() {
                                                                             pincode: newOrder.billing_pincode,
                                                                             state: newOrder.billing_state
                                                                         },
-                                                                        shipping_address: newOrder.same_as_billing ? {
+                                                                        shippingAddress: newOrder.same_as_billing ? {
                                                                             name: newOrder.customer_name,
                                                                             phone: normalizedPhone,
                                                                             email: newOrder.billing_email || null,
@@ -2967,7 +2944,7 @@ export default function OrdersPage() {
                                                                             pincode: newOrder.billing_pincode,
                                                                             state: newOrder.billing_state
                                                                         } : {
-                                                                            name: newOrder.customer_name, // fallback or add shipping_name field
+                                                                            name: newOrder.customer_name,
                                                                             phone: newOrder.shipping_phone || normalizedPhone,
                                                                             email: newOrder.shipping_email || newOrder.billing_email || null,
                                                                             address: newOrder.shipping_address,
@@ -2975,79 +2952,48 @@ export default function OrdersPage() {
                                                                             pincode: newOrder.shipping_pincode,
                                                                             state: newOrder.shipping_state
                                                                         },
-                                                                        shipping_state: newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state,
-                                                                        total_amount: total,
-                                                                        tax_amount: tax,
-                                                                        cgst: cgst,
-                                                                        sgst: sgst,
-                                                                        igst: igst,
-                                                                        shipping_cost: shipping,
-                                                                        status: 'PLACED',
-                                                                        source: 'MANUAL',
-                                                                        payment_method: newOrder.payment_method
-                                                                    });
-                                                                    if (ordErr) throw ordErr;
-                                                                    const { error: itemErr } = await mysqlClient.from('order_items').insert(newOrder.items.map(it => ({
-                                                                        order_id: orderId,
-                                                                        product_id: it.product_id,
-                                                                        product_name: it.product_name,
-                                                                        quantity: it.quantity,
-                                                                        price_at_time: it.price
-                                                                    })));
-                                                                    if (itemErr) throw itemErr;
+                                                                        shippingState: newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state,
+                                                                        shippingCost: shipping,
+                                                                        cart: newOrder.items.map(it => ({
+                                                                            id: it.product_id,
+                                                                            qty: it.quantity,
+                                                                            name: it.product_name,
+                                                                            variantId: it.variant_id || null
+                                                                        })),
+                                                                        adminNotes: 'Manual order created from admin panel'
+                                                                    };
 
-                                                                    // Add initial PLACED log entry
-                                                                    await mysqlClient.from('order_status_logs').insert({
-                                                                        order_id: orderId,
-                                                                        status: 'PLACED',
-                                                                        notes: 'Order placed',
-                                                                        created_at: new Date().toISOString()
+                                                                    const res = await fetch('/api/orders/create', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify(orderPayload)
                                                                     });
 
-                                                                    //  DEDUCT STOCK & LOG HISTORY 
-                                                                    for (const item of newOrder.items) {
-                                                                        const { data: prod } = await mysqlClient.from('products').select('stock').eq('id', item.product_id).single();
-                                                                        if (prod) {
-                                                                            const newStock = Math.max(0, prod.stock - item.quantity);
-                                                                            await mysqlClient.from('products').update({ stock: newStock }).eq('id', item.product_id);
-
-                                                                            await mysqlClient.from('product_history').insert({
-                                                                                product_id: item.product_id,
-                                                                                change_type: 'SALE',
-                                                                                quantity_change: -item.quantity,
-                                                                                new_stock: newStock,
-                                                                                reason: `Admin Manual Order #${orderId}`
-                                                                            });
-
-                                                                            await mysqlClient.rpc('increment_total_sold', { prod_id: item.product_id, qty: item.quantity });
-                                                                        }
+                                                                    const resData = await res.json();
+                                                                    if (!res.ok || resData.error) {
+                                                                        throw new Error(resData.error || 'Failed to create manual order');
                                                                     }
 
-                                                                    //  SEND NOTIFICATIONS 
+                                                                    const createdOrderId = resData.orderId;
+
+                                                                    // Send custom notifications if selected
                                                                     if (newOrder.send_notifications !== 'none') {
                                                                         try {
-                                                                            const response = await fetch('/api/admin/send-order-notification', {
+                                                                            await fetch('/api/admin/send-order-notification', {
                                                                                 method: 'POST',
                                                                                 headers: { 'Content-Type': 'application/json' },
                                                                                 body: JSON.stringify({
-                                                                                    orderId: orderId,
+                                                                                    orderId: createdOrderId,
                                                                                     sendWhatsApp: newOrder.send_notifications === 'both' || newOrder.send_notifications === 'whatsapp',
                                                                                     sendEmail: newOrder.send_notifications === 'both' || newOrder.send_notifications === 'email'
                                                                                 })
                                                                             });
-
-                                                                            if (response.ok) {
-                                                                                const result = await response.json();
-                                                                                console.log(result.message);
-                                                                            } else {
-                                                                                console.error('Failed to send notifications');
-                                                                            }
                                                                         } catch (notifErr) {
                                                                             console.error('Error sending notifications:', notifErr);
                                                                         }
                                                                     }
 
-                                                                    setNotification({ message: 'Manual Order Created Successfully! Stock updated.', type: 'success' });
+                                                                    setNotification({ message: `Manual Order #${createdOrderId} Created Successfully with ACID transaction guarantee!`, type: 'success' });
                                                                     setIsAddingOrder(false);
                                                                     setNewOrder({
                                                                         customer_name: '',
@@ -3728,7 +3674,13 @@ export default function OrdersPage() {
                                                 />
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontSize: '0.9rem', fontWeight: 700, wordBreak: 'break-word', color: 'hsl(var(--text-main))', lineHeight: '1.2' }}>{item.product_name}</div>
-                                                    {item.variant_name && <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>{item.variant_name}</div>}
+                                                    {item.variant_name ? (
+                                                        <div style={{ marginTop: '4px' }}>
+                                                            <span style={{ fontSize: '0.74rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 7px', borderRadius: '4px', fontWeight: 700 }}>
+                                                                🏷️ Variant: {item.variant_name}
+                                                            </span>
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                                 <div style={{ fontSize: '0.9rem', fontWeight: 800, flexShrink: 0, whiteSpace: 'nowrap', color: 'hsl(var(--success))' }}>{item.quantity} x ₹{Number(item.price_at_time || item.price || 0).toLocaleString('en-IN')}</div>
                                             </div>

@@ -1,35 +1,54 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, KeyRound, CheckCircle2, ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { 
+    MessageCircle, Lock, KeyRound, CheckCircle2, ArrowLeft, Eye, EyeOff, 
+    Loader2, Phone, ShieldCheck, RefreshCw 
+} from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 
 export default function ResetPasswordPage() {
     const router = useRouter();
     const { showToast } = useShop();
 
-    // 4-step state: 1 = Email, 2 = Verify OTP, 3 = New Password, 4 = Success
+    // 4-step flow: 1 = Phone/WhatsApp, 2 = Verify OTP, 3 = New Password, 4 = Success
     const [step, setStep] = useState(1);
 
-    const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
+    const [maskedPhone, setMaskedPhone] = useState('');
     const [otp, setOtp] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     const [loading, setLoading] = useState(false);
+    const [resending, setResending] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
-    // Step 1: Send Verification OTP to Email
+    // Timer effect for Resend OTP cooldown
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const timer = setInterval(() => {
+            setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [resendCooldown]);
+
+    // Clean phone number (extract digits)
+    const cleanDigits = phone.replace(/\D/g, '');
+
+    // Step 1: Send Verification OTP via WhatsApp
     const handleSendOTP = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setError('');
         setSuccessMessage('');
 
-        if (!email.trim() || !email.includes('@')) {
-            setError('Please enter a valid Email Address.');
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length < 10) {
+            setError('Please enter a valid 10-digit WhatsApp Mobile Number.');
             return;
         }
 
@@ -40,16 +59,18 @@ export default function ResetPasswordPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'send-otp',
-                    email: email.trim()
+                    phone: digits.slice(-10)
                 })
             });
 
             const data = await res.json();
             if (res.ok && data.success) {
-                setSuccessMessage(data.message || 'Verification OTP sent to your email.');
+                setMaskedPhone(data.maskedPhone || `+91 ******${digits.slice(-4)}`);
+                setSuccessMessage(data.message || 'Verification OTP sent to your WhatsApp number.');
+                setResendCooldown(45);
                 setStep(2);
             } else {
-                setError(data.error || 'Failed to send verification code. Please check your email.');
+                setError(data.error || 'Failed to send WhatsApp verification code. Please check your number.');
             }
         } catch (err) {
             setError('Connection failed. Please try again.');
@@ -58,35 +79,68 @@ export default function ResetPasswordPage() {
         }
     };
 
-    // Step 2: Verify OTP Code
+    // Resend OTP handler
+    const handleResendOTP = async () => {
+        if (resendCooldown > 0 || resending) return;
+        setError('');
+        setSuccessMessage('');
+        setResending(true);
+
+        const digits = phone.replace(/\D/g, '');
+        try {
+            const res = await fetch('/api/auth/customer/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'send-otp',
+                    phone: digits.slice(-10)
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setSuccessMessage('A new verification code has been sent to your WhatsApp!');
+                setResendCooldown(45);
+            } else {
+                setError(data.error || 'Failed to resend code. Please wait a moment and try again.');
+            }
+        } catch (err) {
+            setError('Connection failed. Please try again.');
+        } finally {
+            setResending(false);
+        }
+    };
+
+    // Step 2: Verify WhatsApp OTP Code
     const handleVerifyOTP = async (e) => {
         e.preventDefault();
         setError('');
         setSuccessMessage('');
 
         if (!otp.trim() || otp.trim().length !== 6) {
-            setError('Please enter the 6-digit Verification OTP code.');
+            setError('Please enter the 6-digit WhatsApp OTP code.');
             return;
         }
 
         setLoading(true);
         try {
+            const digits = phone.replace(/\D/g, '');
             const res = await fetch('/api/auth/customer/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'verify-otp',
-                    email: email.trim(),
+                    phone: digits.slice(-10),
                     otp: otp.trim()
                 })
             });
 
             const data = await res.json();
             if (res.ok && data.success) {
-                setSuccessMessage('OTP Verified Successfully! Please set your new password.');
+                setSuccessMessage('WhatsApp OTP verified successfully! Please set your new password.');
                 setStep(3);
             } else {
-                setError(data.error || 'Invalid or expired OTP code.');
+                setError(data.error || 'Invalid or expired WhatsApp OTP code.');
             }
         } catch (err) {
             setError('Verification failed. Please try again.');
@@ -112,12 +166,13 @@ export default function ResetPasswordPage() {
 
         setLoading(true);
         try {
+            const digits = phone.replace(/\D/g, '');
             const res = await fetch('/api/auth/customer/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'update-password',
-                    email: email.trim(),
+                    phone: digits.slice(-10),
                     otp: otp.trim(),
                     newPassword
                 })
@@ -153,14 +208,14 @@ export default function ResetPasswordPage() {
             color: '#2b2623'
         }}>
             <div style={{
-                maxWidth: '440px',
+                maxWidth: '460px',
                 width: '100%',
                 margin: '0 auto',
                 background: '#ffffff',
                 padding: '2.5rem 2rem',
-                borderRadius: '20px',
+                borderRadius: '24px',
                 border: '1px solid #f0e6df',
-                boxShadow: '0 15px 45px rgba(93, 8, 33, 0.08)'
+                boxShadow: '0 20px 50px rgba(93, 8, 33, 0.08)'
             }}>
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -168,22 +223,48 @@ export default function ResetPasswordPage() {
                         <div style={{
                             width: '72px',
                             height: '72px',
-                            borderRadius: '16px',
+                            borderRadius: '18px',
                             overflow: 'hidden',
-                            boxShadow: '0 8px 20px rgba(93, 8, 33, 0.12)',
+                            boxShadow: '0 8px 24px rgba(93, 8, 33, 0.12)',
                             background: '#ffffff',
-                            padding: '6px'
+                            padding: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}>
-                            <img src="/images/vaiyaaree-logo.png" alt="Vaiyaaree" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} />
+                            <img 
+                                src="/images/vaiyaaree-logo.png" 
+                                alt="Vaiyaaree" 
+                                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
+                            />
                         </div>
                     </div>
-                    <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 0.35rem' }}>Reset Password</h1>
-                    <p style={{ fontSize: '0.85rem', color: '#5d0821', letterSpacing: '0.08em', fontWeight: 700, textTransform: 'uppercase', margin: 0 }}>
-                        {step === 1 && 'Step 1: Enter Registered Email'}
-                        {step === 2 && 'Step 2: Enter Verification OTP'}
-                        {step === 3 && 'Step 3: Generate New Password'}
-                        {step === 4 && 'Password Updated Successfully'}
-                    </p>
+                    
+                    <h1 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 0.4rem' }}>
+                        Reset Password
+                    </h1>
+                    
+                    {/* Stepper Indicator Badge */}
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: '#f8f4ee',
+                        border: '1px solid #e7dcd3',
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.78rem',
+                        color: '#5d0821',
+                        fontWeight: 800,
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase'
+                    }}>
+                        {step === 1 && <><MessageCircle size={14} color="#25D366" /> Step 1: WhatsApp Number</>}
+                        {step === 2 && <><KeyRound size={14} /> Step 2: WhatsApp OTP</>}
+                        {step === 3 && <><Lock size={14} /> Step 3: New Password</>}
+                        {step === 4 && <><CheckCircle2 size={14} color="#166534" /> Completed</>}
+                    </div>
                 </div>
 
                 {/* Error & Success Messages */}
@@ -193,12 +274,15 @@ export default function ResetPasswordPage() {
                         border: '1px solid #f8b4b4',
                         color: '#981b1b',
                         padding: '0.85rem 1rem',
-                        borderRadius: '10px',
+                        borderRadius: '12px',
                         fontSize: '0.85rem',
                         fontWeight: 600,
-                        marginBottom: '1.5rem'
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                     }}>
-                        {error}
+                        <span>⚠️</span> {error}
                     </div>
                 )}
                 {successMessage && step !== 4 && (
@@ -207,121 +291,225 @@ export default function ResetPasswordPage() {
                         border: '1px solid #bbf7d0',
                         color: '#166534',
                         padding: '0.85rem 1rem',
-                        borderRadius: '10px',
+                        borderRadius: '12px',
                         fontSize: '0.85rem',
                         fontWeight: 600,
-                        marginBottom: '1.5rem'
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                     }}>
-                        {successMessage}
+                        <span>✅</span> {successMessage}
                     </div>
                 )}
 
-                {/* STEP 1: ENTER EMAIL */}
+                {/* STEP 1: ENTER WHATSAPP NUMBER */}
                 {step === 1 && (
                     <form onSubmit={handleSendOTP}>
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Email Address <span style={{ color: '#5d0821' }}>*</span>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                WhatsApp Mobile Number <span style={{ color: '#5d0821' }}>*</span>
                             </label>
-                            <div style={{ position: 'relative' }}>
-                                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                    placeholder="Enter your registered email"
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.85rem 1rem 0.85rem 2.75rem',
-                                        borderRadius: '10px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '0.95rem',
-                                        outline: 'none',
-                                        background: '#faf9f6'
-                                    }}
-                                />
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: '#faf9f6',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '12px',
+                                    padding: '0.85rem 0.9rem',
+                                    fontSize: '0.95rem',
+                                    fontWeight: 700,
+                                    color: '#444'
+                                }}>
+                                    <span style={{ fontSize: '1rem' }}>🇮🇳</span> +91
+                                </div>
+                                <div style={{ position: 'relative', flex: 1 }}>
+                                    <input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                        placeholder="10-digit mobile number"
+                                        maxLength="10"
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.85rem 1rem 0.85rem 2.6rem',
+                                            borderRadius: '12px',
+                                            border: '1px solid #ddd',
+                                            fontSize: '1rem',
+                                            fontWeight: 600,
+                                            outline: 'none',
+                                            background: '#faf9f6',
+                                            letterSpacing: '0.04em'
+                                        }}
+                                    />
+                                    <MessageCircle 
+                                        size={18} 
+                                        style={{ 
+                                            position: 'absolute', 
+                                            left: '0.9rem', 
+                                            top: '50%', 
+                                            transform: 'translateY(-50%)', 
+                                            color: '#25D366' 
+                                        }} 
+                                    />
+                                </div>
                             </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            style={{
-                                width: '100%',
-                                padding: '1rem',
-                                background: '#5d0821',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                fontWeight: 800,
-                                fontSize: '0.95rem',
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
-                                cursor: 'pointer',
-                                boxShadow: '0 6px 20px rgba(93, 8, 33, 0.2)'
-                            }}
-                        >
-                            {loading ? 'Sending Code...' : 'Send Verification OTP →'}
-                        </button>
-                    </form>
-                )}
-
-                {/* STEP 2: VERIFY OTP */}
-                {step === 2 && (
-                    <form onSubmit={handleVerifyOTP}>
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                6-Digit Verification OTP
-                            </label>
-                            <div style={{ position: 'relative' }}>
-                                <KeyRound size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type="text"
-                                    value={otp}
-                                    onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                                    placeholder="Enter 6-digit OTP code"
-                                    maxLength="6"
-                                    minLength="6"
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.85rem 1rem 0.85rem 2.75rem',
-                                        borderRadius: '10px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '1.1rem',
-                                        letterSpacing: '0.2em',
-                                        fontWeight: 700,
-                                        outline: 'none',
-                                        background: '#faf9f6'
-                                    }}
-                                />
-                            </div>
-                            <p style={{ fontSize: '0.8rem', color: '#777', marginTop: '0.5rem' }}>
-                                Code sent to <strong>{email}</strong>
+                            <p style={{ fontSize: '0.78rem', color: '#777', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                🔒 A 6-digit OTP will be sent to your WhatsApp account.
                             </p>
                         </div>
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || cleanDigits.length !== 10}
                             style={{
                                 width: '100%',
                                 padding: '1rem',
-                                background: '#5d0821',
+                                background: cleanDigits.length === 10 ? '#5d0821' : '#94a3b8',
                                 color: '#ffffff',
                                 border: 'none',
-                                borderRadius: '10px',
+                                borderRadius: '12px',
                                 fontWeight: 800,
                                 fontSize: '0.95rem',
-                                letterSpacing: '0.08em',
+                                letterSpacing: '0.06em',
                                 textTransform: 'uppercase',
-                                cursor: 'pointer',
-                                boxShadow: '0 6px 20px rgba(93, 8, 33, 0.2)'
+                                cursor: cleanDigits.length === 10 ? 'pointer' : 'not-allowed',
+                                boxShadow: cleanDigits.length === 10 ? '0 6px 20px rgba(93, 8, 33, 0.25)' : 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                transition: 'all 0.2s'
                             }}
                         >
-                            {loading ? 'Verifying...' : 'Verify OTP Code →'}
+                            {loading ? (
+                                <><Loader2 size={18} className="animate-spin" /> Sending WhatsApp OTP...</>
+                            ) : (
+                                <><MessageCircle size={18} /> Send WhatsApp OTP →</>
+                            )}
                         </button>
+                    </form>
+                )}
+
+                {/* STEP 2: VERIFY WHATSAPP OTP */}
+                {step === 2 && (
+                    <form onSubmit={handleVerifyOTP}>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                6-Digit WhatsApp Verification OTP
+                            </label>
+                            
+                            <div style={{ position: 'relative' }}>
+                                <KeyRound size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#5d0821' }} />
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={otp}
+                                    onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="••••••"
+                                    maxLength="6"
+                                    minLength="6"
+                                    autoFocus
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.9rem 1rem 0.9rem 2.85rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid #5d0821',
+                                        fontSize: '1.25rem',
+                                        letterSpacing: '0.3em',
+                                        fontWeight: 800,
+                                        outline: 'none',
+                                        background: '#faf9f6',
+                                        color: '#1a1a1a',
+                                        fontFamily: 'monospace, sans-serif'
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', flexWrap: 'wrap', gap: '4px' }}>
+                                <span style={{ fontSize: '0.8rem', color: '#666' }}>
+                                    Sent to <strong>{maskedPhone || phone}</strong>
+                                </span>
+                                
+                                <button
+                                    type="button"
+                                    onClick={handleResendOTP}
+                                    disabled={resendCooldown > 0 || resending}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: resendCooldown > 0 ? '#94a3b8' : '#25D366',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 700,
+                                        cursor: resendCooldown > 0 ? 'default' : 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    {resending ? (
+                                        <><Loader2 size={13} className="animate-spin" /> Sending...</>
+                                    ) : resendCooldown > 0 ? (
+                                        `Resend OTP in ${resendCooldown}s`
+                                    ) : (
+                                        <><RefreshCw size={13} /> Resend via WhatsApp</>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                            <button
+                                type="button"
+                                onClick={() => { setStep(1); setOtp(''); setError(''); }}
+                                style={{
+                                    padding: '0.9rem 1.25rem',
+                                    background: '#f1f5f9',
+                                    color: '#475569',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '12px',
+                                    fontWeight: 700,
+                                    fontSize: '0.9rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Change Number
+                            </button>
+
+                            <button
+                                type="submit"
+                                disabled={loading || otp.length !== 6}
+                                style={{
+                                    flex: 1,
+                                    padding: '0.9rem',
+                                    background: otp.length === 6 ? '#5d0821' : '#94a3b8',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    fontWeight: 800,
+                                    fontSize: '0.95rem',
+                                    letterSpacing: '0.06em',
+                                    textTransform: 'uppercase',
+                                    cursor: otp.length === 6 ? 'pointer' : 'not-allowed',
+                                    boxShadow: otp.length === 6 ? '0 6px 20px rgba(93, 8, 33, 0.2)' : 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                {loading ? (
+                                    <><Loader2 size={18} className="animate-spin" /> Verifying...</>
+                                ) : (
+                                    <>Verify OTP →</>
+                                )}
+                            </button>
+                        </div>
                     </form>
                 )}
 
@@ -329,7 +517,7 @@ export default function ResetPasswordPage() {
                 {step === 3 && (
                     <form onSubmit={handleUpdatePassword}>
                         <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 New Password <span style={{ color: '#5d0821' }}>*</span>
                             </label>
                             <div style={{ position: 'relative' }}>
@@ -341,7 +529,15 @@ export default function ResetPasswordPage() {
                                     placeholder="At least 6 characters"
                                     minLength="6"
                                     required
-                                    style={{ width: '100%', padding: '0.85rem 2.75rem 0.85rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.95rem', outline: 'none', background: '#faf9f6' }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.85rem 2.75rem 0.85rem 2.75rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid #ddd',
+                                        fontSize: '0.95rem',
+                                        outline: 'none',
+                                        background: '#faf9f6'
+                                    }}
                                 />
                                 <button
                                     type="button"
@@ -354,7 +550,7 @@ export default function ResetPasswordPage() {
                         </div>
 
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 Confirm New Password <span style={{ color: '#5d0821' }}>*</span>
                             </label>
                             <div style={{ position: 'relative' }}>
@@ -366,30 +562,46 @@ export default function ResetPasswordPage() {
                                     placeholder="Re-enter new password"
                                     minLength="6"
                                     required
-                                    style={{ width: '100%', padding: '0.85rem 1rem 0.85rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.95rem', outline: 'none', background: '#faf9f6' }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.85rem 1rem 0.85rem 2.75rem',
+                                        borderRadius: '12px',
+                                        border: '1px solid #ddd',
+                                        fontSize: '0.95rem',
+                                        outline: 'none',
+                                        background: '#faf9f6'
+                                    }}
                                 />
                             </div>
                         </div>
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || newPassword.length < 6 || newPassword !== confirmPassword}
                             style={{
                                 width: '100%',
                                 padding: '1rem',
-                                background: '#5d0821',
+                                background: (newPassword.length >= 6 && newPassword === confirmPassword) ? '#5d0821' : '#94a3b8',
                                 color: '#ffffff',
                                 border: 'none',
-                                borderRadius: '10px',
+                                borderRadius: '12px',
                                 fontWeight: 800,
                                 fontSize: '0.95rem',
-                                letterSpacing: '0.08em',
+                                letterSpacing: '0.06em',
                                 textTransform: 'uppercase',
-                                cursor: 'pointer',
-                                boxShadow: '0 6px 20px rgba(93, 8, 33, 0.2)'
+                                cursor: (newPassword.length >= 6 && newPassword === confirmPassword) ? 'pointer' : 'not-allowed',
+                                boxShadow: (newPassword.length >= 6 && newPassword === confirmPassword) ? '0 6px 20px rgba(93, 8, 33, 0.2)' : 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
                             }}
                         >
-                            {loading ? 'Updating Password...' : 'Update Password →'}
+                            {loading ? (
+                                <><Loader2 size={18} className="animate-spin" /> Updating Password...</>
+                            ) : (
+                                <>Update Password & Save →</>
+                            )}
                         </button>
                     </form>
                 )}
@@ -400,11 +612,26 @@ export default function ResetPasswordPage() {
                         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem', color: '#166534' }}>
                             <CheckCircle2 size={64} />
                         </div>
-                        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#166534', marginBottom: '0.5rem' }}>Password Successfully Updated!</h2>
-                        <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1.5rem' }}>
-                            Your password has been changed. Redirecting you to the Login page...
+                        <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#166534', marginBottom: '0.5rem' }}>
+                            Password Successfully Updated!
+                        </h2>
+                        <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1.75rem', lineHeight: '1.5' }}>
+                            Your password has been changed. A confirmation message was sent to your WhatsApp. Redirecting you to login...
                         </p>
-                        <Link href="/login" style={{ display: 'inline-block', padding: '0.75rem 2rem', background: '#5d0821', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '0.85rem' }}>
+                        <Link 
+                            href="/login" 
+                            style={{
+                                display: 'inline-block',
+                                padding: '0.85rem 2.25rem',
+                                background: '#5d0821',
+                                color: '#fff',
+                                borderRadius: '12px',
+                                textDecoration: 'none',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                boxShadow: '0 6px 18px rgba(93, 8, 33, 0.2)'
+                            }}
+                        >
                             Click Here to Login
                         </Link>
                     </div>
