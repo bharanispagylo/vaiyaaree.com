@@ -680,7 +680,7 @@ export async function handleProductInquiry(to, catalogId) {
 export async function sendMainMenu(to) {
     try {
         // Build shop URL
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.vercel.app');
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
         const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(to)}`;
 
         // Fetch dynamic welcome message
@@ -696,7 +696,7 @@ export async function sendMainMenu(to) {
 
         // Ensure it's absolute HTTPS URL so WhatsApp Meta API can fetch it
         if (welcomeImg && !welcomeImg.startsWith('http')) {
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.vercel.app');
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
             welcomeImg = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl) + (welcomeImg.startsWith('/') ? '' : '/') + welcomeImg;
         }
 
@@ -1893,7 +1893,7 @@ export async function handleRefundOrder(to) {
     let msg = "Refund Request\n\nYour delivered orders:\n";
     orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
     msg += "\nPlease reply with the Order ID you want to refund\n\n_Example: ORD-123456_";
-    msg += "\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=refund";
+    msg += "\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree.com/profile?tab=refund";
     return sendText(to, msg);
 }
 
@@ -1943,7 +1943,7 @@ export async function processRefundOrder(to, orderId) {
     // Store that this user is now in "Waiting for Refund Reason" state for this order
     await updateCustomerAdminNotes(customerId || to, `WAITING_REFUND_REASON:${upperOrderId}`);
 
-    return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.\n\n🌐 *Or submit via Website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=refund`);
+    return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.\n\n🌐 *Or submit via Website:*\nhttps://vaiyaaree.com/profile?tab=refund`);
 }
 
 export async function handleReturnExchangeOrder(customerId, to) {
@@ -1984,7 +1984,7 @@ export async function handleReturnExchangeOrder(customerId, to) {
 
     if (!allDelivered?.length) {
         console.log(' No delivered orders found - sending error message');
-        return sendButtons(to, " No delivered orders found. Only delivered orders can be returned or exchanged.\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return", [{ id: "menu_main", title: " Main Menu" }]);
+        return sendButtons(to, " No delivered orders found. Only delivered orders can be returned or exchanged.\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree.com/profile?tab=return", [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Filter for 10-day delivery deadline
@@ -2012,13 +2012,13 @@ export async function handleReturnExchangeOrder(customerId, to) {
     }).slice(0, 10);
 
     if (!orders?.length) {
-        return sendButtons(to, " No orders found eligible for return or exchange (delivery window exceeded or request already submitted).\n\n🌐 *View status on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return", [{ id: "menu_main", title: " Main Menu" }]);
+        return sendButtons(to, " No orders found eligible for return or exchange (delivery window exceeded or request already submitted).\n\n🌐 *View status on website:*\nhttps://vaiyaaree.com/profile?tab=return", [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     let msg = " *Return or Exchange*\n\nYour delivered orders:\n";
     orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
     msg += "\n *Please reply with the Order ID* you want to return/exchange\n\n_Example: ORD-123456_";
-    msg += "\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return";
+    msg += "\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree.com/profile?tab=return";
     return sendText(to, msg);
 }
 
@@ -2039,7 +2039,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     }
 
     if (!order || order.status !== 'DELIVERED') {
-        return sendButtons(to, ` Order *${orderId}* not found or is not DELIVERED.\n\nOnly delivered orders can be returned or exchanged.\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return`, [{ id: "menu_main", title: " Main Menu" }]);
+        return sendButtons(to, ` Order *${orderId}* not found or is not DELIVERED.\n\nOnly delivered orders can be returned or exchanged.\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree.com/profile?tab=return`, [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Verify 10-day deadline
@@ -2062,7 +2062,7 @@ export async function processReturnExchangeOrder(customerId, orderId, to) {
     // Store state: WAITING_RETURN_TYPE:ORDER_ID
     await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_TYPE:${upperOrderId}`);
 
-    return sendButtons(to, `Order *${upperOrderId}* selected.\n\nWhat would you like to do?\n\n🌐 *Or manage on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=return`, [
+    return sendButtons(to, `Order *${upperOrderId}* selected.\n\nWhat would you like to do?\n\n🌐 *Or manage on website:*\nhttps://vaiyaaree.com/profile?tab=return`, [
         { id: `rectype_return_${upperOrderId}`, title: " Return & Refund" },
         { id: `rectype_exchange_${upperOrderId}`, title: " Exchange Item" }
     ]);
@@ -2072,7 +2072,7 @@ export async function handleReturnExchangeTypeSelection(customerId, type, orderI
     // type is 'RETURN' or 'EXCHANGE'
     await updateCustomerAdminNotes(customerId || to, `WAITING_RETURN_REASON:${type}:${orderId}`);
 
-    const webUrl = type === 'EXCHANGE' ? 'https://vaiyaaree-com-ten.vercel.app/profile?tab=return' : 'https://vaiyaaree-com-ten.vercel.app/profile?tab=refund';
+    const webUrl = type === 'EXCHANGE' ? 'https://vaiyaaree.com/profile?tab=return' : 'https://vaiyaaree.com/profile?tab=refund';
 
     return sendText(to, `You selected *${type}* for Order *${orderId}*.\n\nPlease reply with the *reason* for your request and which item(s) you wish to ${type.toLowerCase()}.\n\n🌐 *Or complete on website:*\n${webUrl}`);
 }
@@ -2081,7 +2081,7 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
     console.log('\n === SUBMIT RETURN/EXCHANGE REQUEST (INTERNAL) ===');
     console.log(`[RETURN] Order: ${orderId}, Type: ${type}`);
 
-    const webUrl = type === 'EXCHANGE' ? 'https://vaiyaaree-com-ten.vercel.app/profile?tab=return' : 'https://vaiyaaree-com-ten.vercel.app/profile?tab=refund';
+    const webUrl = type === 'EXCHANGE' ? 'https://vaiyaaree.com/profile?tab=return' : 'https://vaiyaaree.com/profile?tab=refund';
 
     try {
         // Fetch order items for the service (try exact match first, then uppercase)
@@ -2178,7 +2178,7 @@ export async function confirmRefundOrder(to, orderId, reason) {
         });
     }
 
-    return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.\n\n🌐 *Track refund on website:*\nhttps://vaiyaaree-com-ten.vercel.app/profile?tab=refund`, [{ id: "menu_main", title: "Main Menu" }]);
+    return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.\n\n🌐 *Track refund on website:*\nhttps://vaiyaaree.com/profile?tab=refund`, [{ id: "menu_main", title: "Main Menu" }]);
 }
 
 async function getOrderCatalogNumbers(orderId) {

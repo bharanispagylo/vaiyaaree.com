@@ -120,7 +120,7 @@ export async function POST(request) {
         const amount = refund.amount || 0;
         const brand = 'Vaiyaaree';
 
-        const webUrl = 'https://vaiyaaree-com-ten.vercel.app/profile?tab=refund';
+        const webUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://vaiyaaree.com') + '/profile?tab=refund';
 
         let message = '';
         if (status === 'REQUESTED' || status === 'PENDING' || status === 'SUBMITTED') {
