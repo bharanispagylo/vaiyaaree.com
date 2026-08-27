@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/mysql.js';
 import { verifyAdmin } from '@/lib/auth.js';
-import { validateRefundTransition } from '@/services/refundService.js';
+import { validateRefundTransition, logRefundStatus } from '@/services/refundService.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,10 +25,18 @@ export async function POST(request) {
         }
 
         const current = rows[0];
+        const oldStatus = current.refund_status;
 
-        if (!validateRefundTransition(current.refund_status, status)) {
+        // ── Idempotency: block re-processing an already-completed refund ──────
+        if (oldStatus === 'REFUNDED' && status === 'REFUNDED') {
+            return NextResponse.json({ success: false, code: 'REFUND_ALREADY_PROCESSED', message: 'This refund has already been marked as completed.' }, { status: 400 });
+        }
+
+        if (!validateRefundTransition(oldStatus, status)) {
             return NextResponse.json({
-                error: `Invalid status transition from ${current.refund_status} to ${status}`
+                success: false,
+                code: 'INVALID_STATUS_TRANSITION',
+                message: `Invalid status transition from ${oldStatus} to ${status}`
             }, { status: 400 });
         }
 
@@ -71,6 +79,13 @@ export async function POST(request) {
         params.push(refundRequestId);
         const sql = `UPDATE refund_requests SET ${setClauses.join(', ')} WHERE id = ?`;
         await pool.query(sql, params);
+
+        // ── Audit log every status change ─────────────────────────────────────
+        await logRefundStatus(
+            refundRequestId, oldStatus, status,
+            auth.user?.id || auth.user?.name || 'admin', 'admin',
+            adminNote || failureReason || null
+        );
 
         // Send WhatsApp & Email Notifications async
         try {

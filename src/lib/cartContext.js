@@ -8,14 +8,14 @@ export function CartProvider({ children }) {
     const [cart, setCart] = useState([]);
 
     useEffect(() => {
-        const savedCart = localStorage.getItem('vaiyaaree_cart');
+        const savedCart = localStorage.getItem('cast_prince_cart');
         if (savedCart) {
             setCart(JSON.parse(savedCart));
         }
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('vaiyaaree_cart', JSON.stringify(cart));
+        localStorage.setItem('cast_prince_cart', JSON.stringify(cart));
     }, [cart]);
 
     const addToCart = (product) => {

@@ -6,7 +6,8 @@ import {
     User, Mail, MapPin, Phone, MessageCircle, Save, 
     ShoppingBag, History, RotateCcw, IndianRupee, 
     CheckCircle, Clock, XCircle, Package, ArrowRight, FileText, Send, AlertCircle,
-    Truck, Search, Globe, Download, RefreshCw, ChevronDown, ChevronLeft, ChevronRight
+    Truck, Search, Globe, Download, RefreshCw, ChevronDown, ChevronLeft, ChevronRight,
+    Camera, Upload, Trash2, Eye, ImageIcon
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
@@ -215,7 +216,9 @@ export default function ProfilePage() {
         reason: 'Defective Product',
         otherReason: '',
         amount: '',
-        upiId: ''
+        upiId: '',
+        image_url: '',
+        uploadingImage: false
     });
     const [submittingRefund, setSubmittingRefund] = useState(false);
 
@@ -234,6 +237,11 @@ export default function ProfilePage() {
     const [trackSearchId, setTrackSearchId] = useState('');
     const [trackOrderData, setTrackOrderData] = useState(null);
     const [loadingTrack, setLoadingTrack] = useState(false);
+
+    // Order cancellation modal state
+    const [cancelModalOrder, setCancelModalOrder] = useState(null);
+    const [cancelReason, setCancelReason] = useState('Changed my mind');
+    const [cancellingOrder, setCancellingOrder] = useState(false);
 
     const getOrderSourceBadge = (order) => {
         const src = (order.source || '').toUpperCase();
@@ -657,6 +665,45 @@ export default function ProfilePage() {
         }
     }
 
+    // Damaged product photo upload handler
+    async function handleDamagedImageUpload(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type.toLowerCase())) {
+            showToast('Invalid file format. Please upload JPG, PNG or WEBP image.', 'error');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            showToast('File size is too large. Max 10MB allowed.', 'error');
+            return;
+        }
+
+        setRefundForm(prev => ({ ...prev, uploadingImage: true }));
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch('/api/refund-requests/upload-image', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to upload damaged product image');
+            }
+
+            setRefundForm(prev => ({ ...prev, image_url: data.url, uploadingImage: false }));
+            showToast('Damaged product photo uploaded successfully!');
+        } catch (err) {
+            console.error('Damaged image upload error:', err);
+            showToast(err?.message || 'Image upload failed', 'error');
+            setRefundForm(prev => ({ ...prev, uploadingImage: false }));
+        }
+    }
+
     // Submit Refund Request (Handwritten Feature 4)
     async function handleSubmitRefund(e) {
         e.preventDefault();
@@ -683,7 +730,8 @@ export default function ProfilePage() {
                     order_item_id: productId && productId !== 'undefined' ? productId : null,
                     customer_id: user.id,
                     reason: finalReason,
-                    customer_note: refundForm.otherReason || null
+                    customer_note: refundForm.otherReason || null,
+                    image_url: refundForm.image_url || null
                 })
             });
 
@@ -693,7 +741,7 @@ export default function ProfilePage() {
             }
 
             showToast('Refund request submitted successfully!');
-            setRefundForm({ orderItemKey: '', reason: 'Defective Product', otherReason: '', amount: '', upiId: '' });
+            setRefundForm({ orderItemKey: '', reason: 'Defective Product', otherReason: '', amount: '', upiId: '', image_url: '', uploadingImage: false });
             fetchRefunds();
         } catch (err) {
             console.error('Error submitting refund:', err?.message || err);
@@ -725,6 +773,41 @@ export default function ProfilePage() {
         } catch (err) {
             console.error('Error submitting shipping details:', err?.message || err);
             showToast(err?.message || 'Failed to submit shipping details', 'error');
+        }
+    }
+
+    // Cancel Active Order Handler
+    async function handleCancelOrderSubmit(e) {
+        e.preventDefault();
+        if (!cancelModalOrder) return;
+
+        setCancellingOrder(true);
+        try {
+            const res = await fetch('/api/orders/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: cancelModalOrder.id,
+                    customerId: user.id,
+                    reason: cancelReason
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to cancel order');
+            }
+
+            showToast('Order cancelled successfully!');
+            setCancelModalOrder(null);
+            setCancelReason('Changed my mind');
+            // fetchUserOrders() already calls fetchRefunds(orderIds) internally after loading orders
+            await fetchUserOrders();
+        } catch (err) {
+            console.error('Cancel order error:', err);
+            showToast(err?.message || 'Failed to cancel order', 'error');
+        } finally {
+            setCancellingOrder(false);
         }
     }
 
@@ -1013,18 +1096,36 @@ export default function ProfilePage() {
                                                             </span>
                                                         </td>
                                                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                            <button 
-                                                                onClick={() => {
-                                                                    const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
-                                                                    setTrackSearchId(inv);
-                                                                    handleTabChange('track');
-                                                                    handleTrackSearch(order.id);
-                                                                }}
-                                                                className={styles.actionBtnOutline}
-                                                                style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
-                                                            >
-                                                                Track Order <ArrowRight size={13} />
-                                                            </button>
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                                                {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setCancelModalOrder(order);
+                                                                            setCancelReason('Changed my mind');
+                                                                        }}
+                                                                        style={{
+                                                                            padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                                                                            whiteSpace: 'nowrap', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626',
+                                                                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                                                                        }}
+                                                                    >
+                                                                        <XCircle size={13} /> Cancel
+                                                                    </button>
+                                                                )}
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
+                                                                        setTrackSearchId(inv);
+                                                                        handleTabChange('track');
+                                                                        handleTrackSearch(order.id);
+                                                                    }}
+                                                                    className={styles.actionBtnOutline}
+                                                                    style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                                                >
+                                                                    Track Order <ArrowRight size={13} />
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 );
@@ -1680,7 +1781,55 @@ export default function ProfilePage() {
                                         </div>
                                     )}
 
-                                    <button type="submit" className={styles.formSubmitBtn} disabled={submittingRefund}>
+                                    {/* DAMAGED PRODUCT IMAGE UPLOAD FIELD */}
+                                    <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155' }}>
+                                            UPLOAD DAMAGED PRODUCT IMAGE (RECOMMENDED)
+                                        </label>
+                                        {refundForm.image_url ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+                                                <img src={refundForm.image_url} alt="Damaged product preview" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>Image Attached Successfully</div>
+                                                    <a href={refundForm.image_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: 'hsl(var(--primary))', fontWeight: 700, textDecoration: 'underline' }}>
+                                                        Preview Full Photo
+                                                    </a>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRefundForm(prev => ({ ...prev, image_url: '' }))}
+                                                    style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '0.5rem 0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                >
+                                                    <Trash2 size={15} /> Remove
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div style={{ position: 'relative' }}>
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                    onChange={handleDamagedImageUpload}
+                                                    disabled={refundForm.uploadingImage}
+                                                    style={{ display: 'none' }}
+                                                    id="damaged_product_image_input"
+                                                />
+                                                <label
+                                                    htmlFor="damaged_product_image_input"
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.65rem',
+                                                        padding: '1rem', borderRadius: '12px', border: '2px dashed #cbd5e1',
+                                                        background: '#f8fafc', cursor: refundForm.uploadingImage ? 'not-allowed' : 'pointer',
+                                                        fontWeight: 700, fontSize: '0.88rem', color: '#475569', transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    <Camera size={20} color="hsl(var(--primary))" />
+                                                    {refundForm.uploadingImage ? 'Uploading Photo...' : 'Click to Upload Photo of Damaged Product (JPG, PNG, WEBP)'}
+                                                </label>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button type="submit" className={styles.formSubmitBtn} disabled={submittingRefund || refundForm.uploadingImage}>
                                         <Send size={16} />
                                         {submittingRefund ? 'Submitting...' : 'Submit Refund Request'}
                                     </button>
@@ -1756,6 +1905,17 @@ export default function ProfilePage() {
                                                 {/* Details */}
                                                 <div style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '0.85rem' }}>
                                                     <strong>Reason:</strong> {r.reason || 'N/A'}
+                                                    {r.image_url && (
+                                                        <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                            <img src={r.image_url} alt="Damaged Product" style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '6px' }} />
+                                                            <div>
+                                                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155' }}>Uploaded Damaged Product Photo</div>
+                                                                <a href={r.image_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'hsl(var(--primary))', textDecoration: 'underline', fontWeight: 700 }}>
+                                                                    View Full Photo
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     {r.customer_note && (
                                                         <div style={{ marginTop: '0.35rem', fontSize: '0.82rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '8px' }}>
                                                             Note: {r.customer_note}
@@ -1910,6 +2070,83 @@ export default function ProfilePage() {
                     </div>
                 </aside>
             </div>
+
+            {/* Cancel Order Confirmation Modal */}
+            {cancelModalOrder && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)', zIndex: 9999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '1.5rem'
+                }}>
+                    <div style={{
+                        background: '#ffffff', borderRadius: '16px', maxWidth: '480px', width: '100%',
+                        padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.25)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <XCircle size={20} color="#dc2626" /> Cancel Order Request
+                            </h3>
+                            <button type="button" onClick={() => setCancelModalOrder(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                                <XCircle size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '10px', marginBottom: '1.25rem', fontSize: '0.88rem' }}>
+                            <div style={{ fontWeight: 700, color: '#1e293b' }}>
+                                Invoice: {cancelModalOrder.invoice_no ? (cancelModalOrder.invoice_no.startsWith('#') ? cancelModalOrder.invoice_no : `#${cancelModalOrder.invoice_no}`) : `#${String(cancelModalOrder.id).replace(/^[A-Z]+-/, 'INV-')}`}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                                Total Amount: ₹{Number(cancelModalOrder.total_amount || 0).toLocaleString('en-IN')}
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleCancelOrderSubmit}>
+                            <div style={{ marginBottom: '1.25rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', color: '#334155' }}>
+                                    SELECT CANCELLATION REASON *
+                                </label>
+                                <select
+                                    value={cancelReason}
+                                    onChange={(e) => setCancelReason(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '0.75rem 1rem', borderRadius: '10px',
+                                        border: '1px solid #cbd5e1', background: '#ffffff', fontWeight: 600, fontSize: '0.88rem'
+                                    }}
+                                >
+                                    <option value="Changed my mind">Changed my mind / Want to re-order</option>
+                                    <option value="Ordered by mistake">Ordered by mistake</option>
+                                    <option value="Delivery time too long">Delivery time too long</option>
+                                    <option value="Found better price elsewhere">Found better price elsewhere</option>
+                                    <option value="Incorrect shipping address">Incorrect shipping address</option>
+                                    <option value="Other">Other Reason</option>
+                                </select>
+                            </div>
+
+                            <p style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.4 }}>
+                                Are you sure you want to cancel this order? Once cancelled, stock will be restored automatically. If you already paid, refund processing will be initiated.
+                            </p>
+
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setCancelModalOrder(null)}
+                                    style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 700, cursor: 'pointer' }}
+                                >
+                                    Keep Order
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={cancellingOrder}
+                                    style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', border: 'none', background: '#dc2626', color: '#ffffff', fontWeight: 800, cursor: 'pointer' }}
+                                >
+                                    {cancellingOrder ? 'Cancelling...' : 'Confirm Cancel Order'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

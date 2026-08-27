@@ -46,15 +46,22 @@ export function validateRefundTransition(oldStatus, newStatus) {
  */
 export async function generateRefundId() {
     try {
-        const [rows] = await pool.query('SELECT refund_id FROM refund_requests ORDER BY created_at DESC LIMIT 100');
+        const [rows] = await pool.query(`
+            SELECT refund_id FROM refund_requests 
+            WHERE refund_id NOT LIKE 'RF-TEST-%' 
+              AND order_id NOT LIKE 'ORD-TEST-%'
+            ORDER BY created_at DESC
+        `);
         let maxNum = 0;
         if (rows && rows.length > 0) {
             for (const r of rows) {
                 if (r.refund_id) {
-                    const match = r.refund_id.match(/RF-(\d+)/i);
+                    const match = r.refund_id.match(/^RF-(\d{1,5})$/i);
                     if (match) {
                         const num = parseInt(match[1], 10);
-                        if (!isNaN(num) && num > maxNum) maxNum = num;
+                        if (!isNaN(num) && num > maxNum) {
+                            maxNum = num;
+                        }
                     }
                 }
             }
@@ -62,14 +69,58 @@ export async function generateRefundId() {
         const nextNum = maxNum + 1;
         return `RF-${String(nextNum).padStart(4, '0')}`;
     } catch (e) {
-        console.warn('[REFUND-SERVICE] Error generating refund_id, fallback to timestamp:', e);
-        return `RF-${Date.now().toString().slice(-6)}`;
+        console.warn('[REFUND-SERVICE] Error generating refund_id, fallback to count:', e);
+        try {
+            const [countRows] = await pool.query("SELECT COUNT(*) as count FROM refund_requests WHERE order_id NOT LIKE 'ORD-TEST-%'");
+            const count = (countRows[0]?.count || 0) + 1;
+            return `RF-${String(count).padStart(4, '0')}`;
+        } catch (err) {
+            return `RF-${Date.now().toString().slice(-4)}`;
+        }
+    }
+}
+
+/**
+ * Log a refund status change to refund_status_logs (audit trail).
+ */
+export async function logRefundStatus(refundRequestId, oldStatus, newStatus, actor = 'system', actorType = 'system', notes = null) {
+    try {
+        await pool.query(
+            `INSERT INTO refund_status_logs (refund_request_id, old_status, new_status, actor, actor_type, notes)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [refundRequestId, oldStatus || null, newStatus, actor, actorType, notes || null]
+        );
+    } catch (err) {
+        console.error('[REFUND-SERVICE] Failed to log refund status:', err.message);
+        // Non-fatal: do not throw
+    }
+}
+
+/**
+ * Check if an active return_request exists for the given order_item_id or order_id.
+ * Returns the conflicting request ID if found, null otherwise.
+ */
+export async function checkReturnConflict(orderId, orderItemId = null) {
+    try {
+        const col = orderItemId ? 'order_item_id' : 'order_id';
+        const val = orderItemId || orderId;
+        const [rows] = await pool.query(
+            `SELECT return_id FROM return_requests
+             WHERE ${col} = ?
+               AND status NOT IN ('CANCELLED', 'RETURN_REJECTED', 'REJECTED', 'INSPECTION_REJECTED', 'RETURN_CLOSED', 'COMPLETED')
+             LIMIT 1`,
+            [val]
+        );
+        return rows && rows.length > 0 ? rows[0].return_id : null;
+    } catch (err) {
+        console.error('[REFUND-SERVICE] checkReturnConflict error:', err.message);
+        return null;
     }
 }
 
 /**
  * Calculate eligible refund amount for an order or specific order item.
- * Calculates: product price - item discount
+ * Calculates: product price × qty − discount (from original order snapshot).
  */
 export async function calculateEligibleRefund(orderId, orderItemId = null) {
     try {

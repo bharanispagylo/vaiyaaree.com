@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
-import { cookies } from 'next/headers';
+import pool from '@/lib/mysql';
+import { randomUUID } from 'crypto';
 
 export async function POST(req) {
     try {
@@ -13,47 +13,41 @@ export async function POST(req) {
         if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
         // 1. Verify against DB (table: otps)
-        const { data: otpData, error: dbError } = await mysqlClient
-            .from('otps')
-            .select('*')
-            .eq('phone', cleanPhone)
-            .eq('code', otp)
-            .gte('expires_at', new Date().toISOString())
-            .single();
+        const [otpRows] = await pool.query(
+            'SELECT id, phone, code, expires_at, (expires_at < NOW()) AS is_expired FROM otps WHERE phone = ? AND code = ? LIMIT 1',
+            [cleanPhone, String(otp).trim()]
+        );
 
-        if (dbError || !otpData) {
+        if (!otpRows || otpRows.length === 0 || Boolean(otpRows[0].is_expired)) {
             console.warn(`[AUTH] Failed verification for ${cleanPhone}: Incorrect or expired code.`);
             // SECURITY: Artificial delay to prevent brute-force (slow down bots)
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 1500));
             return NextResponse.json({ error: 'Invalid or expired verification code' }, { status: 401 });
         }
 
         // 2. Clear used OTP
-        await mysqlClient.from('otps').delete().eq('phone', cleanPhone);
+        await pool.query('DELETE FROM otps WHERE phone = ?', [cleanPhone]);
 
         // 3. Get or Create Customer
-        let { data: customer } = await mysqlClient.from('customers').select('*').eq('phone', cleanPhone).single();
+        const [custRows] = await pool.query('SELECT * FROM customers WHERE phone = ? LIMIT 1', [cleanPhone]);
+        let customer = custRows?.[0] || null;
 
         if (!customer) {
-            const { data: newCustomer, error: insertError } = await mysqlClient.from('customers').insert({
-                phone: cleanPhone,
-                name: 'Valued Customer',
-                role: 'user',
-                is_verified: true,
-                last_login: new Date().toISOString()
-            }).select().single();
-
-            if (insertError) {
-                console.error('[AUTH] Customer creation error:', insertError);
-                return NextResponse.json({ error: 'Failed to create customer account' }, { status: 500 });
-            }
-            customer = newCustomer;
+            const newId = randomUUID();
+            await pool.query(
+                `INSERT INTO customers (id, phone, name, role, is_verified, last_login, created_at)
+                 VALUES (?, ?, 'Valued Customer', 'user', 1, NOW(), NOW())`,
+                [newId, cleanPhone]
+            );
+            const [createdRows] = await pool.query('SELECT * FROM customers WHERE id = ?', [newId]);
+            customer = createdRows[0];
         } else {
-            // Update existing customer
-            await mysqlClient.from('customers').update({ 
-                is_verified: true,
-                last_login: new Date().toISOString()
-            }).eq('id', customer.id);
+            // Update existing customer last login
+            await pool.query(
+                'UPDATE customers SET is_verified = 1, last_login = NOW() WHERE id = ?',
+                [customer.id]
+            );
+            customer.is_verified = 1;
         }
 
         // Final role check
@@ -72,4 +66,3 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
     }
 }
-

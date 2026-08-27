@@ -23,38 +23,37 @@ export async function POST(req) {
             [normalizedEmail]
         );
 
-        if (customerRows.length === 0) {
+        if (!customerRows || customerRows.length === 0) {
             return NextResponse.json({ error: 'No account found with this email address. Please check your email or Create an Account.' }, { status: 404 });
         }
 
         const customer = customerRows[0];
 
-        // STEP 1: SEND OTP
+        // ── STEP 1: SEND OTP ──────────────────────────────────────────────────
         if (action === 'send-otp') {
             const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
             const { randomUUID } = await import('crypto');
             const id = randomUUID();
-            const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
 
             // Remove previous OTPs for this email from otps table
             await pool.query('DELETE FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?))', [normalizedEmail]);
 
-            // Save new OTP to otps table
+            // Save new OTP to otps table using MySQL server clock DATE_ADD(NOW(), INTERVAL 10 MINUTE)
             await pool.query(
-                'INSERT INTO otps (id, phone, code, expires_at, created_at) VALUES (?, ?, ?, ?, NOW())',
-                [id, normalizedEmail, otpCode, expiresAt]
+                'INSERT INTO otps (id, phone, code, expires_at, created_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), NOW())',
+                [id, normalizedEmail, otpCode]
             );
 
             // Send Email OTP
             try {
                 const subject = `Password Reset Verification Code - Vaiyaaree`;
                 const html = `
-                    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; borderRadius: 10px;">
+                    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                         <h2 style="color: #5d0821; text-align: center;">Vaiyaaree</h2>
                         <h3 style="color: #333;">Password Reset Request</h3>
                         <p>Hello <strong>${customer.name || 'Valued Customer'}</strong>,</p>
                         <p>Your verification code for resetting your password is:</p>
-                        <div style="background: #f8f4ee; border: 1px solid #5d0821; color: #5d0821; font-size: 24px; font-weight: bold; letter-spacing: 5px; text-align: center; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <div style="background: #f8f4ee; border: 1px solid #5d0821; color: #5d0821; font-size: 28px; font-weight: bold; letter-spacing: 6px; text-align: center; padding: 15px; border-radius: 8px; margin: 20px 0;">
                             ${otpCode}
                         </div>
                         <p style="color: #666; font-size: 13px;">This code will expire in 10 minutes. Please do not share this code with anyone.</p>
@@ -72,7 +71,7 @@ export async function POST(req) {
             });
         }
 
-        // STEP 2: VERIFY OTP
+        // ── STEP 2: VERIFY OTP ────────────────────────────────────────────────
         if (action === 'verify-otp') {
             const normalizedOtp = String(otp || '').trim();
             if (!normalizedOtp) {
@@ -80,11 +79,11 @@ export async function POST(req) {
             }
 
             const [rows] = await pool.query(
-                'SELECT id, phone, code, expires_at FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?)) ORDER BY created_at DESC LIMIT 1',
+                'SELECT id, phone, code, expires_at, (expires_at < NOW()) AS is_expired FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?)) ORDER BY created_at DESC LIMIT 1',
                 [normalizedEmail]
             );
 
-            if (rows.length === 0) {
+            if (!rows || rows.length === 0) {
                 return NextResponse.json({ error: 'No active OTP request found. Please click "Resend Code".' }, { status: 400 });
             }
 
@@ -94,7 +93,7 @@ export async function POST(req) {
                 return NextResponse.json({ error: 'Invalid verification OTP code. Please check and try again.' }, { status: 400 });
             }
 
-            if (new Date() > new Date(otpRecord.expires_at)) {
+            if (Boolean(otpRecord.is_expired)) {
                 return NextResponse.json({ error: 'Verification OTP has expired. Please request a new code.' }, { status: 400 });
             }
 
@@ -105,7 +104,7 @@ export async function POST(req) {
             });
         }
 
-        // STEP 3: UPDATE PASSWORD
+        // ── STEP 3: UPDATE PASSWORD ───────────────────────────────────────────
         if (action === 'update-password') {
             const normalizedOtp = String(otp || '').trim();
             if (!normalizedOtp) {
@@ -116,11 +115,11 @@ export async function POST(req) {
             }
 
             const [rows] = await pool.query(
-                'SELECT id, phone, code, expires_at FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?)) ORDER BY created_at DESC LIMIT 1',
+                'SELECT id, phone, code, expires_at, (expires_at < NOW()) AS is_expired FROM otps WHERE LOWER(TRIM(phone)) = LOWER(TRIM(?)) ORDER BY created_at DESC LIMIT 1',
                 [normalizedEmail]
             );
 
-            if (rows.length === 0) {
+            if (!rows || rows.length === 0) {
                 return NextResponse.json({ error: 'Session expired. Please start password reset again.' }, { status: 400 });
             }
 
@@ -130,11 +129,11 @@ export async function POST(req) {
                 return NextResponse.json({ error: 'Invalid verification OTP code.' }, { status: 400 });
             }
 
-            if (new Date() > new Date(otpRecord.expires_at)) {
+            if (Boolean(otpRecord.is_expired)) {
                 return NextResponse.json({ error: 'OTP has expired. Please start password reset again.' }, { status: 400 });
             }
 
-            // Update customer password hash
+            // Update customer password hash in admin_notes
             const hashedPassword = hashPassword(newPassword);
             const notesPayload = JSON.stringify({ pwd: hashedPassword });
 

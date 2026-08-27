@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { mysqlAdmin } from '@/lib/mysqlClient';
+import pool from '@/lib/mysql.js';
 import { transitionReturnStatus, logReturnStatus } from '@/services/returnService';
 
 export const dynamic = 'force-dynamic';
@@ -319,14 +320,69 @@ export async function PATCH(request, { params }) {
                 break;
             }
 
-            // ── PROCESS EXCHANGE ──────────────────────────────────────────────
+            // ══ PROCESS EXCHANGE ══════════════════════════════════════════════════
             case 'process_exchange': {
                 const { replacementProductId, replacementVariantId, exchangeNotes } = exchangeData || {};
 
+                // ── Atomic stock reservation using MySQL transaction ───────────────
+                let priceDiff = 0;
+                let originalPrice = null;
+                let replacementPrice = null;
+
                 if (replacementProductId) {
-                    const { data: prod } = await mysqlAdmin.from('products').select('stock, name').eq('id', replacementProductId).single();
-                    if (prod && prod.stock < 1) {
-                        return NextResponse.json({ error: `"${prod.name}" is out of stock.` }, { status: 400 });
+                    const conn = await pool.getConnection();
+                    try {
+                        await conn.beginTransaction();
+
+                        // Lock the row to prevent concurrent oversell
+                        const [prodRows] = await conn.query(
+                            'SELECT id, name, stock, price FROM products WHERE id = ? FOR UPDATE',
+                            [replacementProductId]
+                        );
+
+                        if (!prodRows || prodRows.length === 0) {
+                            await conn.rollback();
+                            conn.release();
+                            return NextResponse.json({ success: false, code: 'PRODUCT_NOT_FOUND', message: 'Replacement product not found.' }, { status: 404 });
+                        }
+
+                        const prod = prodRows[0];
+                        if (Number(prod.stock) < 1) {
+                            await conn.rollback();
+                            conn.release();
+                            return NextResponse.json({ success: false, code: 'INSUFFICIENT_STOCK', message: `"${prod.name}" is currently out of stock.` }, { status: 400 });
+                        }
+
+                        // Decrement stock atomically
+                        await conn.query(
+                            'UPDATE products SET stock = stock - 1 WHERE id = ? AND stock > 0',
+                            [replacementProductId]
+                        );
+
+                        await conn.commit();
+                        conn.release();
+
+                        replacementPrice = Number(prod.price) || 0;
+
+                        // Get original product price from order
+                        const [origItemRows] = await pool.query(
+                            'SELECT price_at_time, price, paid_price_per_unit FROM order_items WHERE order_id = ? AND product_id = ? LIMIT 1',
+                            [ret.order_id, ret.product_id || null]
+                        );
+                        if (origItemRows && origItemRows.length > 0) {
+                            originalPrice = Number(
+                                origItemRows[0].paid_price_per_unit ||
+                                origItemRows[0].price_at_time ||
+                                origItemRows[0].price
+                            ) || 0;
+                        }
+
+                        priceDiff = replacementPrice - (originalPrice || 0);
+
+                    } catch (txErr) {
+                        await conn.rollback();
+                        conn.release();
+                        throw txErr;
                     }
                 }
 

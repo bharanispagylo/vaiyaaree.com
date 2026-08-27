@@ -1,4 +1,24 @@
 import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
+import pool from '@/lib/mysql.js';
+
+// ─── TIMEZONE HELPER (Asia/Kolkata = IST) ────────────────────────────────────
+/**
+ * Returns the current time as a Date adjusted so that comparisons made in
+ * plain JS reflect IST midnight boundaries correctly.
+ */
+function nowIST() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+}
+
+function toIST(dateInput) {
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    return new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+}
+
+// ─── STANDARDIZED ERROR HELPER ────────────────────────────────────────────────
+function returnError(code, message) {
+    return { success: false, code, message };
+}
 
 // ─── STATUS CONSTANTS ───────────────────────────────────────────────────────
 
@@ -148,8 +168,9 @@ async function notifyReturnStatus(returnRequestId, status, extraData = {}) {
 
 /**
  * Process a full return/exchange submission from the customer.
- * In this workflow, initial request creation only creates a RETURN_REQUESTED record.
- * Pickup address is not collected.
+ * Performs: ownership verification, cross-table duplicate check, partial
+ * quantity validation, IST-aware 10-day window, discount-rule eligibility,
+ * and inserts with standardized error codes.
  */
 export async function processReturnRequest({
     orderId,
@@ -157,6 +178,7 @@ export async function processReturnRequest({
     items,
     productId,
     customerId,
+    requestedQuantity = 1,
     type,
     reason,
     description,
@@ -168,19 +190,26 @@ export async function processReturnRequest({
     console.log(`[RETURN-SERVICE] Processing ${type} for Order ${orderId} (Source: ${requestedFrom})`);
 
     try {
-        // 1. Fetch Order
+        // ── 1. Fetch Order ───────────────────────────────────────────────────────
         const { data: order, error: orderError } = await mysqlAdmin
             .from('orders')
-            .select('status, created_at, total_amount, customer_phone, customer_name')
+            .select('status, created_at, total_amount, customer_phone, customer_name, customer_id')
             .eq('id', orderId)
             .single();
 
-        if (orderError || !order) return { success: false, error: 'Order not found' };
-        if (order.status !== 'DELIVERED') {
-            return { success: false, error: `Cannot request ${type.toLowerCase()} for an order that is not DELIVERED.` };
+        if (orderError || !order) return returnError('ORDER_NOT_FOUND', 'Order not found.');
+
+        // ── 2. Customer ownership verification ──────────────────────────────────
+        // Only check if customerId is provided (guest orders may skip)
+        if (customerId && order.customer_id && String(customerId) !== String(order.customer_id)) {
+            return returnError('ORDER_NOT_OWNED', 'You do not have permission to request a return for this order.');
         }
 
-        // 2. Check 10-day return window
+        if (order.status !== 'DELIVERED') {
+            return returnError('ORDER_NOT_DELIVERED', `Cannot request ${type.toLowerCase()} for an order that is not DELIVERED. Current status: ${order.status}.`);
+        }
+
+        // ── 3. IST-aware 10-day return window check ──────────────────────────────
         const { data: deliveryLog } = await mysqlAdmin
             .from('order_status_logs')
             .select('created_at')
@@ -190,28 +219,103 @@ export async function processReturnRequest({
             .limit(1)
             .single();
 
-        const deliveryDate = deliveryLog ? new Date(deliveryLog.created_at) : new Date(order.created_at);
-        const windowEnd = new Date(deliveryDate);
-        windowEnd.setDate(windowEnd.getDate() + 10);
-        if (new Date() > windowEnd) {
-            return { success: false, error: 'Return window (10 days from delivery) has expired for this order.' };
+        const deliveryDateIST = deliveryLog ? toIST(deliveryLog.created_at) : toIST(order.created_at);
+        const windowEndIST = new Date(deliveryDateIST);
+        windowEndIST.setDate(windowEndIST.getDate() + 10);
+        windowEndIST.setHours(23, 59, 59, 999); // allow until end of day 10 in IST
+        if (nowIST() > windowEndIST) {
+            return returnError('RETURN_WINDOW_EXPIRED', 'The 10-day return period has expired for this order.');
         }
 
-        // 3. Check for duplicate active requests
+        // ── 4. Validate order item ownership and quantity ────────────────────────
+        const effectiveProdId = productId || null;
+        if (orderItemId) {
+            const [itemRows] = await pool.query(
+                'SELECT quantity FROM order_items WHERE id = ? AND order_id = ?',
+                [orderItemId, orderId]
+            );
+            if (!itemRows || itemRows.length === 0) {
+                return returnError('ITEM_NOT_FOUND', 'The selected item does not belong to this order.');
+            }
+            const orderedQty = Number(itemRows[0].quantity) || 1;
+            const reqQty = Number(requestedQuantity) || 1;
+            if (reqQty < 1 || reqQty > orderedQty) {
+                return returnError('INVALID_QUANTITY', `Requested quantity (${reqQty}) exceeds ordered quantity (${orderedQty}).`);
+            }
+
+            // Check how much has already been returned/exchanged for this item
+            const [alreadyRows] = await pool.query(
+                `SELECT COALESCE(SUM(COALESCE(approved_quantity, requested_quantity, 1)), 0) AS already_qty
+                 FROM return_requests
+                 WHERE order_id = ? AND order_item_id = ?
+                   AND status NOT IN ('CANCELLED', 'RETURN_REJECTED', 'REJECTED', 'INSPECTION_REJECTED', 'RETURN_CLOSED')`,
+                [orderId, orderItemId]
+            );
+            const alreadyQty = Number(alreadyRows[0]?.already_qty) || 0;
+            if (alreadyQty + reqQty > orderedQty) {
+                return returnError('ITEM_ALREADY_RETURNED', `Only ${orderedQty - alreadyQty} unit(s) of this item are eligible for return/exchange.`);
+            }
+        }
+
+        // ── 5. Cross-table duplicate check: block if active refund_request exists ─
+        if (orderItemId || effectiveProdId) {
+            const dupCheckCol = orderItemId ? 'order_item_id' : 'order_id';
+            const dupCheckVal = orderItemId || orderId;
+            const [existingRefund] = await pool.query(
+                `SELECT id FROM refund_requests
+                 WHERE ${dupCheckCol} = ?
+                   AND refund_status NOT IN ('REJECTED', 'CANCELLED', 'REFUNDED', 'REFUND_FAILED')
+                 LIMIT 1`,
+                [dupCheckVal]
+            );
+            if (existingRefund && existingRefund.length > 0) {
+                return returnError('DUPLICATE_REQUEST', 'An active refund request already exists for this item. Please cancel it before filing a return.');
+            }
+        }
+
+        // ── 6. Discount rule eligibility ─────────────────────────────────────────
+        // Check if any active discount rule marks this product/category as non-returnable
+        if (effectiveProdId) {
+            const [productRows] = await pool.query(
+                'SELECT category FROM products WHERE id = ? LIMIT 1',
+                [effectiveProdId]
+            );
+            if (productRows && productRows.length > 0) {
+                const productCategory = productRows[0].category;
+                const [discountRuleRows] = await pool.query(
+                    `SELECT id FROM discounts
+                     WHERE is_active = 1
+                       AND (
+                           (target_scope = 'SPECIFIC_PRODUCTS' AND JSON_CONTAINS(eligible_products, JSON_QUOTE(?)))
+                           OR (target_scope = 'SPECIFIC_CATEGORIES' AND JSON_CONTAINS(eligible_categories, JSON_QUOTE(?)))
+                       )
+                       AND is_non_returnable = 1
+                     LIMIT 1`,
+                    [effectiveProdId, productCategory || '']
+                );
+                if (discountRuleRows && discountRuleRows.length > 0) {
+                    return returnError('NON_RETURNABLE_ITEM', 'This product was purchased under a promotional offer and is not eligible for return or exchange.');
+                }
+            }
+        }
+
+        // ── 7. Check for duplicate active return_requests ───────────────────────
         const { data: existingRequests } = await mysqlAdmin
             .from('return_requests')
-            .select('id, product_id')
+            .select('id, product_id, status')
             .eq('order_id', orderId);
 
-        const effectiveProdId = productId || null;
-        const isDuplicate = (existingRequests || []).some(r =>
-            (String(r.product_id) === String(effectiveProdId) || (effectiveProdId === null && r.product_id === null))
-        );
+        const isDuplicate = (existingRequests || []).some(r => {
+            const productMatch = String(r.product_id) === String(effectiveProdId) ||
+                (effectiveProdId === null && r.product_id === null);
+            const isActive = !['CANCELLED', 'RETURN_REJECTED', 'REJECTED', 'INSPECTION_REJECTED', 'RETURN_CLOSED', 'COMPLETED'].includes(r.status);
+            return productMatch && isActive;
+        });
         if (isDuplicate) {
-            return { success: true, alreadyExists: true, message: 'A return request for this product already exists.' };
+            return returnError('DUPLICATE_REQUEST', 'An active return or exchange request already exists for this product.');
         }
 
-        // 4. Generate Return ID
+        // ── 8. Generate Return ID ─────────────────────────────────────────────
         const returnId = await generateReturnId();
 
         const payload = {
@@ -226,6 +330,7 @@ export async function processReturnRequest({
             policy_accepted: policyAccepted ? 1 : 0,
             status: 'RETURN_REQUESTED',
             return_id: returnId,
+            requested_quantity: Number(requestedQuantity) || 1,
             notes: null,
         };
 
@@ -238,7 +343,7 @@ export async function processReturnRequest({
 
         if (insertError) {
             console.error('[RETURN-SERVICE] Insert error:', insertError);
-            return { success: false, error: insertError.message };
+            return returnError('DB_INSERT_FAILED', insertError.message);
         }
 
         // 6. Log status
@@ -272,7 +377,7 @@ export async function processReturnRequest({
 
     } catch (error) {
         console.error('[RETURN-SERVICE] Critical Exception:', error);
-        return { success: false, error: error.message };
+        return returnError('INTERNAL_ERROR', error.message);
     }
 }
 

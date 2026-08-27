@@ -1,9 +1,36 @@
 // API Route: Send Refund WhatsApp Notifications
 import { mysqlClient } from '@/lib/mysqlClient';
+import pool from '@/lib/mysql.js';
+import { randomUUID } from 'crypto';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
 const WHATSAPP_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
+
+// ─── Notification log helper ────────────────────────────────────────────────
+async function logNotification({ logId, refundId, customerId, eventType, channel, recipient, status, errorMessage }) {
+    try {
+        if (logId) {
+            // Update existing log row
+            await pool.query(
+                `UPDATE notification_logs SET status = ?, error_message = ?, sent_at = NOW(), last_attempted_at = NOW()
+                 WHERE id = ?`,
+                [status, errorMessage || null, logId]
+            );
+        } else {
+            const newId = randomUUID();
+            await pool.query(
+                `INSERT INTO notification_logs (id, refund_id, customer_id, event_type, channel, recipient, recipient_type, status, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 'CUSTOMER', ?, NOW())`,
+                [newId, refundId || null, customerId || null, eventType, channel, recipient || '', status]
+            );
+            return newId;
+        }
+    } catch (e) {
+        console.error('[REFUND-NOTIFY-LOG] Failed to write notification_log:', e.message);
+    }
+    return logId;
+}
 
 async function sendWhatsAppText(to, text) {
     if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
@@ -166,7 +193,30 @@ export async function POST(request) {
         }
 
         if (phone && message) {
-            await sendWhatsAppText(phone, message);
+            // ── Log BEFORE sending (so we have a record even if it fails) ─────────
+            const notifLogId = await logNotification({
+                refundId,
+                customerId: refund.customer_id,
+                eventType: `REFUND_${status}`,
+                channel: 'WHATSAPP',
+                recipient: phone,
+                status: 'LOGGED_ONLY',
+                errorMessage: null
+            });
+
+            try {
+                await sendWhatsAppText(phone, message);
+                await logNotification({ logId: notifLogId, status: 'SENT' });
+            } catch (waErr) {
+                console.error('[REFUND-NOTIFY] WhatsApp send failed, attempting text fallback:', waErr.message);
+                // Text-only fallback (message is already plain text so just retry)
+                try {
+                    await sendWhatsAppText(phone, `Refund update for Order #${orderId}: Status is now ${status}. Visit vaiyaaree.com for details.`);
+                    await logNotification({ logId: notifLogId, status: 'SENT', errorMessage: 'Primary failed; text fallback sent' });
+                } catch (fallbackErr) {
+                    await logNotification({ logId: notifLogId, status: 'FAILED', errorMessage: fallbackErr.message });
+                }
+            }
         }
 
         // Send Email Notification to Customer

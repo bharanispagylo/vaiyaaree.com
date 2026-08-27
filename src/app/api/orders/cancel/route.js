@@ -1,14 +1,18 @@
-import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
+import { mysqlClient } from '@/lib/mysqlClient';
+import pool from '@/lib/mysql.js';
+import { generateRefundId } from '@/services/refundService.js';
+import { randomUUID } from 'crypto';
 
 export async function POST(request) {
     try {
-        const { orderId, otp } = await request.json();
+        const body = await request.json();
+        const { orderId, otp, customerId, reason } = body;
 
-        if (!orderId || !otp) {
-            return new Response(JSON.stringify({ error: 'Order ID and verification code required' }), { status: 400 });
+        if (!orderId) {
+            return new Response(JSON.stringify({ error: 'Order ID is required' }), { status: 400 });
         }
 
-        // 1. Fetch Order to get customer phone
+        // 1. Fetch Order
         const { data: order, error: orderError } = await mysqlClient
             .from('orders')
             .select('*, order_items(*)')
@@ -20,33 +24,44 @@ export async function POST(request) {
         }
 
         const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
-        if (!cancellableStatuses.includes(order.status)) {
-            return new Response(JSON.stringify({ error: 'This order cannot be cancelled anymore.' }), { status: 400 });
+        if (!cancellableStatuses.includes((order.status || '').toUpperCase())) {
+            return new Response(JSON.stringify({ error: 'This order cannot be cancelled as it is already being processed or shipped.' }), { status: 400 });
         }
 
-        let phone = order.customer_phone;
-        if (!phone) {
-            return new Response(JSON.stringify({ error: 'No phone number associated with this order' }), { status: 400 });
+        // 2. Authentication Verification: OTP or Logged-in Customer ID
+        let cleanPhone = null;
+        if (otp) {
+            let phone = order.customer_phone;
+            if (!phone) {
+                return new Response(JSON.stringify({ error: 'No phone number associated with this order' }), { status: 400 });
+            }
+            cleanPhone = phone.trim().replace(/\D/g, '');
+            if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+
+            const { data: otpData, error: otpError } = await mysqlClient
+                .from('otps')
+                .select('*')
+                .eq('phone', cleanPhone)
+                .eq('code', otp)
+                .gte('expires_at', new Date().toISOString())
+                .maybeSingle();
+
+            if (otpError || !otpData) {
+                return new Response(JSON.stringify({ error: 'Invalid or expired verification code' }), { status: 401 });
+            }
+        } else if (customerId) {
+            // Verify order belongs to customer
+            const orderCustId = String(order.customer_id || '');
+            if (orderCustId && orderCustId !== String(customerId)) {
+                return new Response(JSON.stringify({ error: 'Unauthorized to cancel this order.' }), { status: 403 });
+            }
+        } else {
+            return new Response(JSON.stringify({ error: 'Verification code or customer authentication required' }), { status: 400 });
         }
 
-        // Clean phone
-        let cleanPhone = phone.trim().replace(/\D/g, '');
-        if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+        const cancelReasonNote = reason ? `Reason: ${reason}` : 'Order cancelled by customer';
 
-        // 2. Verify OTP
-        const { data: otpData, error: otpError } = await mysqlClient
-            .from('otps')
-            .select('*')
-            .eq('phone', cleanPhone)
-            .eq('code', otp)
-            .gte('expires_at', new Date().toISOString())
-            .maybeSingle();
-
-        if (otpError || !otpData) {
-            return new Response(JSON.stringify({ error: 'Invalid or expired verification code' }), { status: 401 });
-        }
-
-        // 3. OTP is valid! Proceed with atomic cancellation.
+        // 3. Proceed with Atomic Cancellation:
         
         // 3a. Restore Stock
         if (order.order_items) {
@@ -78,7 +93,7 @@ export async function POST(request) {
             .from('orders')
             .update({ 
                 status: 'CANCELLED',
-                admin_notes: `Order cancelled by customer via website on ${new Date().toLocaleString()}`
+                admin_notes: `Order cancelled by customer via website on ${new Date().toLocaleString()}. ${cancelReasonNote}`
             })
             .eq('id', orderId);
 
@@ -88,27 +103,47 @@ export async function POST(request) {
         await mysqlClient.from('order_status_logs').insert({ 
             order_id: orderId, 
             status: 'CANCELLED', 
-            notes: 'Order cancelled by customer via website verification', 
+            notes: `Order cancelled by customer. ${cancelReasonNote}`, 
             created_at: new Date().toISOString() 
         });
 
-        // 3d. Create Refund Entry if paid
-        if (['PAID', 'AWAITING_PAYMENT'].includes(order.status)) {
-            await mysqlClient.from('refunds').insert({
-                order_id: orderId,
-                amount: order.total_amount,
-                status: 'REQUESTED',
-                reason: 'Customer Cancellation via Website'
-            });
+        // 3d. Create Refund Entry in refund_requests if order was paid
+        if (['PAID', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase())) {
+            try {
+                const refundUuid = randomUUID();
+                const refundCode = await generateRefundId();
+                const now = new Date().toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
+
+                await pool.query(`
+                    INSERT INTO \`refund_requests\` (
+                        id, refund_id, order_id, customer_id, reason, customer_note, requested_amount, approved_amount, return_status, refund_status, requested_at, created_at, updated_at
+                    ) VALUES (
+                        ?, ?, ?, ?, 'Order Cancelled', ?, ?, ?, 'NOT_REQUIRED', 'REFUND_REQUESTED', ?, NOW(), NOW()
+                    )
+                `, [
+                    refundUuid,
+                    refundCode,
+                    orderId,
+                    order.customer_id || customerId || 'guest',
+                    cancelReasonNote,
+                    order.total_amount || 0,
+                    order.total_amount || 0,
+                    now
+                ]);
+            } catch (refErr) {
+                console.warn('[CANCEL-API] Warning creating refund_requests record:', refErr.message);
+            }
         }
 
-        // 4. Delete the used OTP
-        await mysqlClient.from('otps').delete().eq('phone', cleanPhone);
+        // 4. Delete the used OTP if OTP path
+        if (cleanPhone) {
+            await mysqlClient.from('otps').delete().eq('phone', cleanPhone);
+        }
 
         return new Response(JSON.stringify({ success: true, message: 'Order cancelled successfully' }), { status: 200 });
 
     } catch (err) {
         console.error('[CANCEL-API-ERROR]', err);
-        return new Response(JSON.stringify({ error: 'Cancellation failed: ' + err.message }), { status: 500 });
+        return new Response(JSON.stringify({ error: 'Cancellation failed: ' + (err.message || 'Unknown error') }), { status: 500 });
     }
 }

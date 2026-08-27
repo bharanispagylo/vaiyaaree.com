@@ -307,6 +307,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                 productCondition: form.productCondition,
                 policyAccepted: true,
                 photoUrls,
+                requestedQuantity: Number(form.requestedQuantity) || 1,
                 requestedFrom: 'WEBSITE',
             };
 
@@ -318,7 +319,21 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
             const data = await res.json();
 
             if (!res.ok || !data.success) {
-                setError(data.error || 'Submission failed. Please try again.');
+                // Map machine-readable error codes to user-friendly messages
+                const errorMessages = {
+                    ORDER_NOT_FOUND: 'Order not found. Please refresh and try again.',
+                    ORDER_NOT_OWNED: 'You do not have permission to request a return for this order.',
+                    ORDER_NOT_DELIVERED: 'Returns can only be requested for delivered orders.',
+                    RETURN_WINDOW_EXPIRED: 'The 10-day return period for this order has expired.',
+                    ITEM_NOT_FOUND: 'The selected product could not be found in this order.',
+                    INVALID_QUANTITY: 'The requested quantity exceeds the quantity you purchased.',
+                    ITEM_ALREADY_RETURNED: 'Some or all units of this product have already been included in a return request.',
+                    DUPLICATE_REQUEST: 'A return or refund request already exists for this product. Please check your active requests.',
+                    NON_RETURNABLE_ITEM: 'This product was purchased under a promotional offer and is not eligible for return.',
+                    INSUFFICIENT_STOCK: 'The replacement product you selected is currently out of stock.',
+                };
+                const userMessage = errorMessages[data.code] || data.message || 'Submission failed. Please try again.';
+                setError(userMessage);
                 return;
             }
 
@@ -334,9 +349,9 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
 
     // ── Submit Shipping Info (Post Approval) ──────────────────────────────────
     async function handleShippingSubmit(e) {
-        e.preventDefault();
         if (shippingSubmitLoading) return;
         if (!shippingModalReturn) return;
+
         if (!shippingForm.courierCompanyName) { setShippingError('Please select or enter Courier Company'); return; }
         if (!shippingForm.trackingNumber.trim()) { setShippingError('Please enter Courier Tracking / AWB Number'); return; }
         if (!shippingForm.shippingDate) { setShippingError('Please select Shipping Date'); return; }

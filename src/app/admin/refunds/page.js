@@ -9,7 +9,7 @@ import ModalPortal from '@/components/ModalPortal';
 import { 
     ArrowLeft, RefreshCcw, Clock, CheckCircle, XCircle, AlertCircle, 
     IndianRupee, Package, User, Phone, Calendar, Search, Filter,
-    ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink, ChevronLeft, ChevronRight, Truck
+    ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink, ChevronLeft, ChevronRight, Truck, Camera
 } from 'lucide-react';
 
 export default function RefundsPage() {
@@ -648,6 +648,48 @@ export default function RefundsPage() {
                                         <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Customer Notes</div>
                                         <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px' }}>
                                             {selectedRefund.customer_note}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Damaged Product Photo uploaded by customer */}
+                                {selectedRefund.image_url && (
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Camera size={15} color="hsl(var(--primary))" /> DAMAGED PRODUCT PHOTO ATTACHED BY CUSTOMER
+                                        </div>
+                                        <div style={{
+                                            padding: '1rem', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '12px',
+                                            display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap'
+                                        }}>
+                                            <img 
+                                                src={selectedRefund.image_url} 
+                                                alt="Damaged Product Uploaded by Customer" 
+                                                style={{
+                                                    width: '110px', height: '110px', objectFit: 'cover', borderRadius: '10px',
+                                                    border: '1px solid #cbd5e1', boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                                                }}
+                                            />
+                                            <div style={{ flex: 1, minWidth: '200px' }}>
+                                                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a', marginBottom: '0.25rem' }}>
+                                                    Uploaded Proof Image
+                                                </div>
+                                                <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 0.75rem 0' }}>
+                                                    Customer uploaded photo showing damaged/defective product condition.
+                                                </p>
+                                                <a 
+                                                    href={selectedRefund.image_url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '0.45rem 0.9rem', borderRadius: '8px', background: '#3b82f6',
+                                                        color: '#ffffff', fontWeight: 700, fontSize: '0.82rem', textDecoration: 'none'
+                                                    }}
+                                                >
+                                                    <ExternalLink size={14} /> View Full Photo
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
                                 )}

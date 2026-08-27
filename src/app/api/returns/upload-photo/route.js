@@ -5,7 +5,8 @@ import fs from 'fs/promises';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export async function POST(request) {
@@ -19,8 +20,9 @@ export async function POST(request) {
         }
 
         const ext = path.extname(file.name).toLowerCase();
-        if (!ALLOWED_EXTS.has(ext)) {
-            return NextResponse.json({ error: 'Invalid file type. Only JPG, PNG, WEBP allowed.' }, { status: 400 });
+        const mime = file.type || '';
+        if (!ALLOWED_EXTS.has(ext) && !ALLOWED_MIME.has(mime)) {
+            return NextResponse.json({ error: 'Invalid file type. Only JPG, PNG, WEBP, PDF allowed.' }, { status: 400 });
         }
 
         const arrayBuffer = await file.arrayBuffer();
@@ -51,9 +53,12 @@ export async function POST(request) {
             });
         }
 
-        return NextResponse.json({ success: true, url: publicUrl });
+        return NextResponse.json({ success: true, url: relativeUrl });
     } catch (err) {
         console.error('[RETURN-UPLOAD]', err);
-        return NextResponse.json({ error: 'Upload failed: ' + err.message }, { status: 500 });
+        return NextResponse.json({
+            error: 'Upload failed: ' + err.message,
+            details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        }, { status: 500 });
     }
 }
