@@ -1,4 +1,5 @@
-import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
+import crypto from 'crypto';
+import pool, { withTransaction } from '@/lib/mysql';
 import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 import { calculateDiscounts } from '@/services/discountService';
 import { dispatchNotification, EVENT_TYPES } from '@/services/notificationEngine';
@@ -14,25 +15,17 @@ export async function POST(request) {
             customerEmail,
             shippingAddress,
             billingAddress,
-            paymentMethod,
+            paymentMethod = 'COD',
             cart,
             shippingCost,
             shippingZoneId,
             shippingState,
-            couponCode
+            shippingCountry: rawShippingCountry,
+            couponCode,
+            source = 'WEBSITE',
+            customerNotes,
+            adminNotes
         } = body;
-
-        // Generate unified sequential order ID & invoice number if missing or non-sequential format
-        let orderId = rawOrderId;
-        let invoiceNo = null;
-        if (!orderId || !/^WEB-\d{3,}$/i.test(orderId)) {
-            const nextData = await getNextOrderAndInvoiceId('WEB', mysqlClient);
-            orderId = nextData.orderId;
-            invoiceNo = nextData.invoiceNo;
-        } else {
-            const num = orderId.split('-')[1] || '0001';
-            invoiceNo = `INV-${num.padStart(4, '0')}`;
-        }
 
         // 0. INPUT VALIDATION (Negative Case)
         if (!cart || !Array.isArray(cart) || cart.length === 0) {
@@ -41,336 +34,454 @@ export async function POST(request) {
 
         for (const item of cart) {
             if (!item.qty || typeof item.qty !== 'number' || item.qty <= 0) {
-                return new Response(JSON.stringify({ error: `Invalid quantity for ${item.name}` }), { status: 400 });
+                return new Response(JSON.stringify({ error: `Invalid quantity for ${item.name || 'item'}` }), { status: 400 });
             }
         }
 
-        // 1. RE-CALCULATE PRICES ON SERVER (Financial Integrity)
-        let subtotal = 0;
-        const itemsToInsert = [];
-
-        // Fetch business state for tax calculation
-        const { data: bizStateData } = await mysqlClient.from('app_settings').select('value').eq('key', 'business_state').single();
-        const businessState = bizStateData?.value || 'Tamil Nadu';
-
-        const verifiedCartItems = [];
-        for (const item of cart) {
-            let actualPrice = 0;
-            let actualName = item.name;
-            let actualCategory = item.category || '';
-
-            if (item.variantId) {
-                const { data: v } = await mysqlClient.from('product_variants').select('price, name, stock').eq('id', item.variantId).single();
-                if (!v) throw new Error(`Product variant not found: ${item.name}`);
-                if (v.stock < item.qty) throw new Error(`Insufficient stock for ${item.name} (${v.name}). Only ${v.stock} left.`);
-                actualPrice = v.price;
-            } else {
-                const { data: p } = await mysqlClient.from('products').select('price, name, stock, category').eq('id', item.id).single();
-                if (!p) throw new Error(`Product not found: ${item.name}`);
-                if (p.stock < item.qty) throw new Error(`Insufficient stock for ${item.name}. Only ${p.stock} left.`);
-                actualPrice = p.price;
-                if (p.category) actualCategory = p.category;
-            }
-
-            subtotal += actualPrice * item.qty;
-            verifiedCartItems.push({
-                id: item.id,
-                name: actualName,
-                category: actualCategory,
-                price: actualPrice,
-                qty: item.qty,
-                variantId: item.variantId || null
-            });
+        // Generate unified sequential order ID & invoice number if missing
+        let orderId = rawOrderId;
+        let invoiceNo = null;
+        const prefix = (source === 'MANUAL' ? 'MAN' : 'WEB');
+        if (!orderId || !/^[A-Z]{3,4}-\d{3,}$/i.test(orderId)) {
+            const nextData = await getNextOrderAndInvoiceId(prefix);
+            orderId = nextData.orderId;
+            invoiceNo = nextData.invoiceNo;
+        } else {
+            const num = orderId.split('-')[1] || '0001';
+            invoiceNo = `INV-${num.padStart(4, '0')}`;
         }
 
-        // --- Server-Side Shipping & Tax Recalculation ---
-        const shippingCountry = (body.shippingCountry || shippingAddress?.country || billingAddress?.country || 'India').trim();
-        const isInternational = shippingCountry.toLowerCase() !== 'india' && shippingCountry.toLowerCase() !== 'in';
-        const shippingCity = (shippingAddress?.city || '').trim().toLowerCase();
-        const normShippingState = (shippingState || shippingAddress?.state || 'Tamil Nadu').trim();
-        const normBizState = businessState.trim().toLowerCase();
+        // ═════════════════════════════════════════════════════════════════════════
+        // ACID TRANSACTION EXECUTION
+        // Every database operation below is executed on a single MySQL connection
+        // under an explicit transaction with row-level locks and atomic commits/rollbacks.
+        // ═════════════════════════════════════════════════════════════════════════
+        const orderResult = await withTransaction(async (conn) => {
+            // 1. Fetch business state for GST calculation
+            const [bizRows] = await conn.query(
+                "SELECT `value` FROM `app_settings` WHERE `key` = 'business_state' LIMIT 1"
+            );
+            const businessState = bizRows[0]?.value || 'Tamil Nadu';
 
-        // 2. Shipping Recalculation from Database
-        const isZoneIntl = (z) => {
-            if (!z) return false;
-            return z.is_international === true || z.is_international === 1 || z.is_international === '1' || String(z.is_international).toLowerCase() === 'true';
-        };
+            // 2. Pessimistic Row-Level Locking & Stock Verification (SELECT ... FOR UPDATE)
+            let subtotal = 0;
+            const verifiedCartItems = [];
 
-        const { data: dbZones } = await mysqlClient.from('shipping_zones').select('*');
-        const { data: dbMappings } = await mysqlClient.from('shipping_zone_states').select('*');
+            for (const item of cart) {
+                let actualPrice = 0;
+                let actualName = item.name;
+                let actualCategory = item.category || '';
+                let actualVariantName = item.variantName || null;
 
-        let calculatedShippingCost = 0;
-        let validatedZoneId = shippingZoneId || null;
-        let activeZone = null;
+                if (item.variantId) {
+                    // Lock variant row for update
+                    const [vRows] = await conn.query(
+                        "SELECT `id`, `name`, `price`, `stock` FROM `product_variants` WHERE `id` = ? FOR UPDATE",
+                        [item.variantId]
+                    );
 
-        if (dbZones && dbZones.length > 0) {
-            if (isInternational) {
-                const intlZones = dbZones.filter(z => isZoneIntl(z));
-                const intlZoneIds = new Set(intlZones.map(z => z.id));
-                const mappings = dbMappings || [];
+                    if (vRows.length === 0) {
+                        throw new Error(`Product variant not found: ${item.name || item.variantId}`);
+                    }
 
-                const countryMapping = mappings.find(m => 
-                    intlZoneIds.has(m.zone_id) &&
-                    m.state_name?.trim().toLowerCase() === shippingCountry.toLowerCase()
-                );
+                    const variant = vRows[0];
+                    const currentStock = parseInt(variant.stock, 10) || 0;
+                    if (currentStock < item.qty) {
+                        throw new Error(`Insufficient stock for "${item.name}" (${variant.name}). Only ${currentStock} left in stock.`);
+                    }
 
-                if (countryMapping) {
-                    activeZone = intlZones.find(z => z.id === countryMapping.zone_id) || null;
-                }
-                if (!activeZone) {
-                    activeZone = intlZones[0] || null;
-                }
-            } else {
-                const domesticZones = dbZones.filter(z => !isZoneIntl(z));
-                const domesticZoneIds = new Set(domesticZones.map(z => z.id));
-                const mappings = dbMappings || [];
-
-                const districtMapping = mappings.find(m => 
-                    domesticZoneIds.has(m.zone_id) &&
-                    m.state_name === normShippingState && 
-                    m.district_name?.toLowerCase() === shippingCity
-                );
-
-                if (districtMapping) {
-                    activeZone = domesticZones.find(z => z.id === districtMapping.zone_id);
+                    actualPrice = parseFloat(variant.price || 0);
+                    actualVariantName = variant.name;
                 } else {
-                    const stateMapping = mappings.find(m => domesticZoneIds.has(m.zone_id) && m.state_name === normShippingState && !m.district_name);
-                    if (stateMapping) {
-                        activeZone = domesticZones.find(z => z.id === stateMapping.zone_id);
+                    // Lock product row for update
+                    const [pRows] = await conn.query(
+                        "SELECT `id`, `name`, `price`, `stock`, `category` FROM `products` WHERE `id` = ? FOR UPDATE",
+                        [item.id]
+                    );
+
+                    if (pRows.length === 0) {
+                        throw new Error(`Product not found: ${item.name || item.id}`);
+                    }
+
+                    const product = pRows[0];
+                    const currentStock = parseInt(product.stock, 10) || 0;
+                    if (currentStock < item.qty) {
+                        throw new Error(`Insufficient stock for "${item.name}". Only ${currentStock} left in stock.`);
+                    }
+
+                    actualPrice = parseFloat(product.price || 0);
+                    if (product.name) actualName = product.name;
+                    if (product.category) actualCategory = product.category;
+                }
+
+                subtotal += actualPrice * item.qty;
+                verifiedCartItems.push({
+                    id: item.id,
+                    name: actualName,
+                    category: actualCategory,
+                    price: actualPrice,
+                    qty: item.qty,
+                    variantId: item.variantId || null,
+                    variantName: actualVariantName
+                });
+            }
+
+            // 3. Shipping Calculation from DB
+            const effectiveCountry = (rawShippingCountry || shippingAddress?.country || billingAddress?.country || 'India').trim();
+            const isInternational = effectiveCountry.toLowerCase() !== 'india' && effectiveCountry.toLowerCase() !== 'in';
+            const shippingCity = (shippingAddress?.city || '').trim().toLowerCase();
+            const normShippingState = (shippingState || shippingAddress?.state || 'Tamil Nadu').trim();
+            const normBizState = businessState.trim().toLowerCase();
+
+            const [dbZones] = await conn.query("SELECT * FROM `shipping_zones`");
+            const [dbMappings] = await conn.query("SELECT * FROM `shipping_zone_states`");
+
+            let calculatedShippingCost = 0;
+            let validatedZoneId = shippingZoneId || null;
+            let activeZone = null;
+
+            if (dbZones && dbZones.length > 0) {
+                const isZoneIntl = (z) => z.is_international === 1 || z.is_international === true || String(z.is_international).toLowerCase() === 'true';
+
+                if (isInternational) {
+                    const intlZones = dbZones.filter(z => isZoneIntl(z));
+                    const intlZoneIds = new Set(intlZones.map(z => z.id));
+                    const mappings = dbMappings || [];
+
+                    const countryMapping = mappings.find(m => 
+                        intlZoneIds.has(m.zone_id) &&
+                        m.state_name?.trim().toLowerCase() === effectiveCountry.toLowerCase()
+                    );
+
+                    activeZone = countryMapping ? (intlZones.find(z => z.id === countryMapping.zone_id) || intlZones[0]) : (intlZones[0] || null);
+                } else {
+                    const domesticZones = dbZones.filter(z => !isZoneIntl(z));
+                    const domesticZoneIds = new Set(domesticZones.map(z => z.id));
+                    const mappings = dbMappings || [];
+
+                    const districtMapping = mappings.find(m => 
+                        domesticZoneIds.has(m.zone_id) &&
+                        m.state_name === normShippingState && 
+                        m.district_name?.toLowerCase() === shippingCity
+                    );
+
+                    if (districtMapping) {
+                        activeZone = domesticZones.find(z => z.id === districtMapping.zone_id);
                     } else {
-                        activeZone = domesticZones[0] || null;
+                        const stateMapping = mappings.find(m => domesticZoneIds.has(m.zone_id) && m.state_name === normShippingState && !m.district_name);
+                        activeZone = stateMapping ? domesticZones.find(z => z.id === stateMapping.zone_id) : (domesticZones[0] || null);
                     }
                 }
-            }
 
-            if (activeZone) {
-                validatedZoneId = activeZone.id;
-                const rate = parseFloat(activeZone.rate || 0);
-                const threshold = parseFloat(activeZone.free_threshold || 0);
-                if (threshold > 0 && subtotal >= threshold) {
-                    calculatedShippingCost = 0;
+                if (activeZone) {
+                    validatedZoneId = activeZone.id;
+                    const rate = parseFloat(activeZone.rate || 0);
+                    const threshold = parseFloat(activeZone.free_threshold || 0);
+                    calculatedShippingCost = (threshold > 0 && subtotal >= threshold) ? 0 : rate;
                 } else {
-                    calculatedShippingCost = rate;
+                    calculatedShippingCost = isInternational ? 1500 : 100;
                 }
             } else {
-                calculatedShippingCost = isInternational ? 1500 : 100;
+                calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 1500 : 100);
             }
-        } else {
-            calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 1500 : 100);
-        }
 
-        // --- 3. CENTRAL SERVER-SIDE DISCOUNT ENGINE RECALCULATION ---
-        const discountResult = await calculateDiscounts({
-            cartItems: verifiedCartItems,
-            subtotal,
-            shippingCost: calculatedShippingCost,
-            couponCode: couponCode || null,
-            customer: customerId ? { id: customerId } : null
-        });
-
-        const finalShippingCost = discountResult.shipping;
-        const taxableSubtotal = discountResult.taxableAmount;
-
-        // 4. Tax Recalculation based on taxable subtotal after discounts
-        let cgst = 0, sgst = 0, igst = 0;
-        if (isInternational) {
-            igst = Math.round(taxableSubtotal * 0.05);
-        } else if (normShippingState.toLowerCase() === normBizState) {
-            cgst = Math.round(taxableSubtotal * 0.025);
-            sgst = Math.round(taxableSubtotal * 0.025);
-        } else {
-            igst = Math.round(taxableSubtotal * 0.05);
-        }
-        const taxAmount = cgst + sgst + igst;
-
-        const totalAmount = taxableSubtotal + taxAmount + finalShippingCost;
-
-        // Prepare order items to insert with allocated paid unit prices
-        for (let idx = 0; idx < cart.length; idx++) {
-            const rawItem = cart[idx];
-            const verified = verifiedCartItems[idx];
-            const discounted = discountResult.discountedItems[idx];
-
-            itemsToInsert.push({
-                order_id: orderId,
-                product_id: rawItem.id,
-                product_name: verified.name,
-                quantity: rawItem.qty,
-                price_at_time: verified.price,
-                paid_price_per_unit: discounted?.paidUnitPrice ?? verified.price,
-                variant_id: rawItem.variantId || null,
-                variant_name: rawItem.variantName || null
+            // 4. Server-Side Discount Calculation
+            const discountResult = await calculateDiscounts({
+                cartItems: verifiedCartItems,
+                subtotal,
+                shippingCost: calculatedShippingCost,
+                couponCode: couponCode || null,
+                customer: customerId ? { id: customerId } : null
             });
-        }
 
-        // --- End Tax & Shipping & Discount Recalculation ---
+            const finalShippingCost = discountResult.shipping;
+            const taxableSubtotal = discountResult.taxableAmount;
 
-        // 5. CREATE ORDER (Atomic)
-        const { error: orderError } = await mysqlClient.from('orders').insert({
-            id: orderId,
-            invoice_no: invoiceNo,
-            customer_id: customerId,
-            customer_phone: customerPhone,
-            customer_name: customerName,
-            customer_email: customerEmail,
-            delivery_address: shippingAddress.address_line,
-            billing_address: billingAddress,
-            shipping_address: shippingAddress,
-            status: paymentMethod === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT',
-            subtotal: subtotal,
-            product_discount: discountResult.productDiscount,
-            cart_discount: discountResult.cartDiscount,
-            coupon_discount: discountResult.couponDiscount,
-            shipping_discount: discountResult.shippingDiscount,
-            total_discount: discountResult.totalDiscount,
-            coupon_code: discountResult.appliedCouponCode,
-            total_amount: totalAmount,
-            tax_amount: taxAmount,
-            cgst: cgst > 0 ? cgst : null,
-            sgst: sgst > 0 ? sgst : null,
-            igst: igst > 0 ? igst : null,
-            payment_method: paymentMethod,
-            source: 'WEBSITE',
-            shipping_cost: finalShippingCost,
-            shipping_zone_id: validatedZoneId,
-            shipping_state: shippingState,
-            created_at: new Date().toISOString()
-        });
+            // 5. Tax Recalculation (CGST/SGST vs IGST)
+            let cgst = 0, sgst = 0, igst = 0;
+            if (isInternational) {
+                igst = Math.round(taxableSubtotal * 0.05);
+            } else if (normShippingState.toLowerCase() === normBizState) {
+                cgst = Math.round(taxableSubtotal * 0.025);
+                sgst = Math.round(taxableSubtotal * 0.025);
+            } else {
+                igst = Math.round(taxableSubtotal * 0.05);
+            }
+            const taxAmount = cgst + sgst + igst;
+            const totalAmount = Math.round(taxableSubtotal + taxAmount + finalShippingCost);
 
-        if (orderError) throw orderError;
+            // 6. Atomic Inventory Deduction & History Logging
+            for (let idx = 0; idx < verifiedCartItems.length; idx++) {
+                const item = verifiedCartItems[idx];
+                const histId = crypto.randomUUID ? crypto.randomUUID() : `ph_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-        // Record order discount snapshot into order_discounts table
-        if (discountResult.appliedRules && discountResult.appliedRules.length > 0) {
-            const orderDiscountInserts = discountResult.appliedRules.map(ar => ({
-                id: `od_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                order_id: orderId,
-                discount_rule_id: ar.id,
-                discount_name: ar.name,
-                discount_type: ar.discountType,
-                discount_value: ar.discountValue,
-                discount_amount: ar.discountAmount
-            }));
-            await mysqlClient.from('order_discounts').insert(orderDiscountInserts);
+                if (item.variantId) {
+                    // Decrement variant stock with strict atomic check
+                    const [vUpdate] = await conn.query(
+                        "UPDATE `product_variants` SET `stock` = `stock` - ? WHERE `id` = ? AND `stock` >= ?",
+                        [item.qty, item.variantId, item.qty]
+                    );
 
-            // Increment usage_count on applied discount rules via RPC
-            for (const ar of discountResult.appliedRules) {
-                if (ar.id) {
-                    const { error: rpcErr } = await mysqlClient.rpc('increment_discount_usage', { rule_id: ar.id });
-                    if (rpcErr) {
-                        console.error(`[Discount Usage Increment Error for rule ${ar.id}]:`, rpcErr);
+                    if (vUpdate.affectedRows === 0) {
+                        throw new Error(`Inventory conflict: Variant "${item.name} (${item.variantName})" stock changed or insufficient.`);
+                    }
+
+                    // Decrement parent product stock & increment total_sold
+                    await conn.query(
+                        "UPDATE `products` SET `stock` = GREATEST(0, `stock` - ?), `total_sold` = COALESCE(`total_sold`, 0) + ? WHERE `id` = ?",
+                        [item.qty, item.qty, item.id]
+                    );
+
+                    // Fetch resulting stock for audit trail
+                    const [vAfter] = await conn.query(
+                        "SELECT `stock` FROM `product_variants` WHERE `id` = ?",
+                        [item.variantId]
+                    );
+                    const newStock = vAfter[0]?.stock ?? 0;
+
+                    // Log stock change in product_history
+                    await conn.query(
+                        `INSERT INTO \`product_history\` 
+                         (\`id\`, \`product_id\`, \`variant_id\`, \`change_type\`, \`quantity_change\`, \`new_stock\`, \`reason\`, \`created_at\`)
+                         VALUES (?, ?, ?, 'SALE', ?, ?, ?, NOW())`,
+                        [histId, item.id, item.variantId, -item.qty, newStock, `Order Placed (#${orderId})`]
+                    );
+                } else {
+                    // Decrement product stock directly with strict atomic check
+                    const [pUpdate] = await conn.query(
+                        "UPDATE `products` SET `stock` = `stock` - ?, `total_sold` = COALESCE(`total_sold`, 0) + ? WHERE `id` = ? AND `stock` >= ?",
+                        [item.qty, item.qty, item.id, item.qty]
+                    );
+
+                    if (pUpdate.affectedRows === 0) {
+                        throw new Error(`Inventory conflict: Product "${item.name}" stock changed or insufficient.`);
+                    }
+
+                    // Fetch resulting stock for audit trail
+                    const [pAfter] = await conn.query(
+                        "SELECT `stock` FROM `products` WHERE `id` = ?",
+                        [item.id]
+                    );
+                    const newStock = pAfter[0]?.stock ?? 0;
+
+                    // Log stock change in product_history
+                    await conn.query(
+                        `INSERT INTO \`product_history\` 
+                         (\`id\`, \`product_id\`, \`variant_id\`, \`change_type\`, \`quantity_change\`, \`new_stock\`, \`reason\`, \`created_at\`)
+                         VALUES (?, ?, NULL, 'SALE', ?, ?, ?, NOW())`,
+                        [histId, item.id, -item.qty, newStock, `Order Placed (#${orderId})`]
+                    );
+                }
+            }
+
+            // 7. Insert Order Record
+            const deliveryAddressText = shippingAddress?.address_line || shippingAddress?.address || (typeof shippingAddress === 'string' ? shippingAddress : null);
+            const billingAddressStr = billingAddress ? JSON.stringify(billingAddress) : null;
+            const shippingAddressStr = shippingAddress ? JSON.stringify(shippingAddress) : null;
+            const initialStatus = paymentMethod === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT';
+
+            await conn.query(
+                `INSERT INTO \`orders\` (
+                    \`id\`, \`invoice_no\`, \`customer_id\`, \`customer_phone\`, \`customer_name\`, \`customer_email\`,
+                    \`delivery_address\`, \`billing_address\`, \`shipping_address\`, \`status\`, \`subtotal\`,
+                    \`product_discount\`, \`cart_discount\`, \`coupon_discount\`, \`shipping_discount\`, \`total_discount\`,
+                    \`coupon_code\`, \`total_amount\`, \`tax_amount\`, \`cgst\`, \`sgst\`, \`igst\`,
+                    \`cgst_amount\`, \`sgst_amount\`, \`igst_amount\`,
+                    \`payment_method\`, \`source\`, \`shipping_cost\`, \`shipping_zone_id\`, \`shipping_state\`,
+                    \`customer_notes\`, \`admin_notes\`, \`created_at\`, \`updated_at\`
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, NOW(), NOW()
+                )`,
+                [
+                    orderId,
+                    invoiceNo,
+                    customerId || null,
+                    customerPhone || null,
+                    customerName || null,
+                    customerEmail || null,
+                    deliveryAddressText,
+                    billingAddressStr,
+                    shippingAddressStr,
+                    initialStatus,
+                    Math.round(subtotal),
+                    discountResult.productDiscount,
+                    discountResult.cartDiscount,
+                    discountResult.couponDiscount,
+                    discountResult.shippingDiscount,
+                    discountResult.totalDiscount,
+                    discountResult.appliedCouponCode || null,
+                    totalAmount,
+                    taxAmount,
+                    cgst,
+                    sgst,
+                    igst > 0 ? String(igst) : null,
+                    cgst,
+                    sgst,
+                    igst,
+                    paymentMethod,
+                    source,
+                    finalShippingCost,
+                    validatedZoneId,
+                    normShippingState,
+                    customerNotes || null,
+                    adminNotes || null
+                ]
+            );
+
+            // 8. Insert Order Items
+            for (let idx = 0; idx < verifiedCartItems.length; idx++) {
+                const verified = verifiedCartItems[idx];
+                const discounted = discountResult.discountedItems[idx];
+                const itemId = crypto.randomUUID ? crypto.randomUUID() : `item_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+                await conn.query(
+                    `INSERT INTO \`order_items\` (
+                        \`id\`, \`order_id\`, \`product_id\`, \`quantity\`, \`price_at_time\`, \`price\`,
+                        \`paid_price_per_unit\`, \`product_name\`, \`variant_id\`, \`variant_name\`, \`created_at\`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                    [
+                        itemId,
+                        orderId,
+                        verified.id,
+                        verified.qty,
+                        Math.round(verified.price),
+                        verified.price,
+                        discounted?.paidUnitPrice ?? verified.price,
+                        verified.name,
+                        verified.variantId || null,
+                        verified.variantName || null
+                    ]
+                );
+            }
+
+            // 9. Record Applied Discounts and Increment Usage Count
+            if (discountResult.appliedRules && discountResult.appliedRules.length > 0) {
+                for (const ar of discountResult.appliedRules) {
+                    const odId = `od_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+                    await conn.query(
+                        `INSERT INTO \`order_discounts\` (
+                            \`id\`, \`order_id\`, \`discount_rule_id\`, \`discount_name\`, \`discount_type\`,
+                            \`discount_value\`, \`discount_amount\`, \`created_at\`
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+                        [
+                            odId,
+                            orderId,
+                            ar.id || null,
+                            ar.name || 'Promotion',
+                            ar.discountType || 'PERCENTAGE',
+                            ar.discountValue || 0,
+                            ar.discountAmount || 0
+                        ]
+                    );
+
+                    if (ar.id) {
+                        await conn.query(
+                            "UPDATE `discount_rules` SET `usage_count` = COALESCE(`usage_count`, 0) + 1 WHERE `id` = ?",
+                            [ar.id]
+                        );
                     }
                 }
             }
-        }
 
-        // Save address into customer_addresses database table
-        if (customerId && shippingAddress) {
-            try {
-                const { saveCustomerAddress } = await import('@/services/customerAddressService');
-                await saveCustomerAddress({
-                    customerId,
-                    name: shippingAddress.full_name || shippingAddress.name || customerName,
-                    phone: shippingAddress.phone || customerPhone,
-                    address: shippingAddress.address_line || shippingAddress.address,
-                    address_line: shippingAddress.address_line || shippingAddress.address,
-                    city: shippingAddress.city,
-                    state: shippingAddress.state || shippingState,
-                    pincode: shippingAddress.pincode || shippingAddress.zip,
-                    country: shippingAddress.country || 'India',
-                    is_default: 1
-                });
-            } catch (addrErr) {
-                console.error('[ORDER-CREATE] Address save error:', addrErr);
-            }
-        }
+            // 10. Persist Customer Address in Address Book
+            if (customerId && shippingAddress) {
+                const addrId = `addr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+                const addrName = shippingAddress.name || shippingAddress.full_name || customerName || '';
+                const addrPhone = shippingAddress.phone || customerPhone || '';
+                const addrLine = shippingAddress.address_line || shippingAddress.address || '';
+                const addrCity = shippingAddress.city || '';
+                const addrState = shippingAddress.state || normShippingState;
+                const addrPincode = shippingAddress.pincode || shippingAddress.zip || '';
+                const addrCountry = shippingAddress.country || 'India';
 
-        // 4. INSERT ITEMS
-        const { error: itemsError } = await mysqlClient.from('order_items').insert(itemsToInsert);
-        if (itemsError) throw itemsError;
-
-        // 5. ATOMIC STOCK DEDUCTION (Race Condition Fix)
-        // We iterate and use a conditional update to ensure stock never goes negative
-        for (const item of cart) {
-            const table = item.variantId ? 'product_variants' : 'products';
-            const id = item.variantId || item.id;
-            
-            // Atomic update: only decrement if stock is sufficient
-            // Using a raw RPC or a careful update sequence
-            const { data: updated, error: deductError } = await mysqlClient.rpc('deduct_stock_atomic', {
-                p_id: item.id,
-                p_qty: item.qty,
-                p_variant_id: item.variantId || null
-            });
-
-            // Fallback if RPC doesn't exist yet (not ideal, but keeps system running)
-            if (deductError) {
-                console.warn('[STOCK] RPC missing, falling back to manual atomic check');
-                // Pattern: UPDATE ... WHERE id = x AND stock >= qty
-                // Since mysqlClient client doesn't support easy WHERE clauses on increments yet, we'll fetch and update
-                // But for a PROPER fix, we'll provide the SQL for the user to run.
-                
-                const { data: current } = await mysqlClient.from(table).select('stock').eq('id', id).single();
-                if (!current || current.stock < item.qty) {
-                     throw new Error(`Insufficient stock for ${item.name}`);
-                }
-                
-                // SECURITY: Conditional Update (Atomic)
-                // We only update IF the stock is still >= qty. 
-                // This prevents race conditions where another order took the stock 1ms ago.
-                const { data: updatedRows, error: finalError } = await mysqlClient
-                    .from(table)
-                    .update({ stock: current.stock - item.qty })
-                    .eq('id', id)
-                    .gte('stock', item.qty) // THE GUARD
-                    .select('id, stock');
-
-                if (finalError || !updatedRows || updatedRows.length === 0) {
-                    throw new Error(`Item "${item.name}" is out of stock or was just purchased by another customer.`);
-                }
+                await conn.query(
+                    `INSERT INTO \`customer_addresses\` (
+                        \`id\`, \`customer_id\`, \`name\`, \`phone\`, \`address\`, \`address_line\`,
+                        \`city\`, \`state\`, \`pincode\`, \`country\`, \`is_default\`, \`created_at\`, \`updated_at\`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                    ON DUPLICATE KEY UPDATE
+                        \`name\` = VALUES(\`name\`),
+                        \`phone\` = VALUES(\`phone\`),
+                        \`address\` = VALUES(\`address\`),
+                        \`address_line\` = VALUES(\`address_line\`),
+                        \`city\` = VALUES(\`city\`),
+                        \`state\` = VALUES(\`state\`),
+                        \`pincode\` = VALUES(\`pincode\`),
+                        \`country\` = VALUES(\`country\`),
+                        \`updated_at\` = NOW()`,
+                    [
+                        addrId, customerId, addrName, addrPhone, addrLine, addrLine,
+                        addrCity, addrState, addrPincode, addrCountry
+                    ]
+                );
             }
 
-            // History log
-            if (!item.variantId) {
-                await mysqlClient.from('product_history').insert({
-                    product_id: id,
-                    change_type: 'SALE',
-                    quantity_change: -item.qty,
-                    reason: `Order Created (#${orderId})`
-                });
-            }
-        }
+            // 11. Insert Initial Status Log
+            const logId = crypto.randomUUID ? crypto.randomUUID() : `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            await conn.query(
+                `INSERT INTO \`order_status_logs\` (\`id\`, \`order_id\`, \`status\`, \`notes\`, \`created_at\`)
+                 VALUES (?, ?, ?, 'Order created via secure server API with ACID transaction guarantee', NOW())`,
+                [logId, orderId, initialStatus]
+            );
 
-        // 6. STATUS LOG & NOTIFICATION
-        await mysqlClient.from('order_status_logs').insert({
-            order_id: orderId,
-            status: 'PLACED',
-            notes: 'Order created via secure server API with tax & stock verification',
-            created_at: new Date().toISOString()
+            return {
+                orderId,
+                invoiceNo,
+                totalAmount,
+                subtotal,
+                taxAmount,
+                cgst,
+                sgst,
+                igst,
+                shippingCost: finalShippingCost,
+                initialStatus,
+                customerName,
+                customerPhone,
+                customerEmail,
+                paymentMethod
+            };
         });
 
-        // Trigger Customer & Admin Notifications
+        // ═════════════════════════════════════════════════════════════════════════
+        // POST-COMMIT ACTIONS
+        // These asynchronous side-effects run ONLY AFTER the database transaction
+        // has successfully committed, preventing spurious emails/messages on failure.
+        // ═════════════════════════════════════════════════════════════════════════
         try {
-            const { data: fullCreatedOrder } = await mysqlClient.from('orders').select('*').eq('id', orderId).single();
             await dispatchNotification({
                 eventType: EVENT_TYPES.ORDER_PLACED,
-                order: fullCreatedOrder || {
-                    id: orderId,
-                    invoice_no: invoiceNo,
-                    customer_name: customerName,
-                    customer_phone: customerPhone,
-                    customer_email: customerEmail,
-                    total_amount: totalAmount,
-                    payment_method: paymentMethod
+                order: {
+                    id: orderResult.orderId,
+                    invoice_no: orderResult.invoiceNo,
+                    customer_name: orderResult.customerName,
+                    customer_phone: orderResult.customerPhone,
+                    customer_email: orderResult.customerEmail,
+                    total_amount: orderResult.totalAmount,
+                    payment_method: orderResult.paymentMethod,
+                    status: orderResult.initialStatus
                 }
             });
         } catch (notifErr) {
-            console.error('[ORDER-CREATE-NOTIF-ERROR]', notifErr);
+            console.error('[ORDER-CREATE-NOTIF-ERROR] Notification dispatch failed:', notifErr);
         }
 
-        return new Response(JSON.stringify({ success: true, orderId }), { status: 200 });
+        return new Response(JSON.stringify({ 
+            success: true, 
+            orderId: orderResult.orderId,
+            invoiceNo: orderResult.invoiceNo,
+            totalAmount: orderResult.totalAmount
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
     } catch (err) {
-        console.error('[ORDER-CREATE-ERROR]', err);
-        return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+        console.error('[ORDER-CREATE-ERROR] Transaction rolled back:', err);
+        return new Response(JSON.stringify({ 
+            error: err.message || 'Failed to place order. Transaction was rolled back.' 
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 }

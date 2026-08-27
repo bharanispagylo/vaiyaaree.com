@@ -1,0 +1,492 @@
+'use client';
+
+import {
+    Check, X, AlertTriangle, Upload, FileDown, Loader2, Search,
+    Facebook, Instagram, ThumbsUp, MessageSquare, Share2, Heart
+} from 'lucide-react';
+import ModalPortal from '@/components/ModalPortal';
+
+/**
+ * Excel Bulk Import Modal
+ */
+export function ExcelImportModal({
+    isOpen,
+    onClose,
+    onFileChange,
+    importing
+}) {
+    if (!isOpen) return null;
+
+    return (
+        <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+            <div className="card shadow-premium" style={{
+                maxWidth: '600px',
+                margin: '0 auto',
+                padding: 0,
+                borderRadius: '32px',
+                overflow: 'hidden',
+                background: '#ffffff',
+                border: '1px solid hsl(var(--border-subtle))',
+                textAlign: 'center'
+            }}>
+                <div style={{ padding: '4rem' }}>
+                    <div style={{
+                        width: '100px',
+                        height: '100px',
+                        borderRadius: '50%',
+                        background: '#f8fafc',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 2.5rem',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+                        color: '#0f172a',
+                        border: '1px solid #f1f5f9'
+                    }}>
+                        <Upload size={44} strokeWidth={1.5} />
+                    </div>
+                    <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1rem', color: '#0f172a', letterSpacing: '-0.04em' }}>
+                        Bulk Catalog Import
+                    </h2>
+                    <p style={{ fontSize: '1rem', color: '#64748b', lineHeight: '1.6', marginBottom: '3rem' }}>
+                        Upload your inventory spreadsheet to synchronize your collection in seconds.
+                    </p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <input
+                            key={`file-import-${Date.now()}`}
+                            type="file"
+                            accept=".xlsx, .xls, .csv"
+                            id="bulk-import-input"
+                            style={{ display: 'none' }}
+                            onChange={onFileChange}
+                        />
+                        <label htmlFor="bulk-import-input" style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '1rem',
+                            height: '64px',
+                            background: '#0f172a',
+                            borderRadius: '16px',
+                            color: 'white',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            transition: '0.2s',
+                            boxShadow: '0 20px 40px -10px rgba(15, 23, 42, 0.3)',
+                            fontSize: '1.1rem'
+                        }}>
+                            {importing ? (
+                                <><Loader2 size={24} className="animate-spin" /> Processing Spreadsheet...</>
+                            ) : (
+                                <><FileDown size={22} /> Choose Spreadsheet</>
+                            )}
+                        </label>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#64748b',
+                                fontWeight: 700,
+                                fontSize: '0.95rem',
+                                cursor: 'pointer',
+                                marginTop: '1rem'
+                            }}
+                        >
+                            Cancel and Go Back
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Watermark Detection & Confirmation Modal
+ */
+export function WatermarkModal({ watermarkModal, onClose }) {
+    if (!watermarkModal) return null;
+
+    return (
+        <ModalPortal>
+            <div className="modal-overlay">
+                {watermarkModal.type === 'existing' ? (
+                    <div className="modal-box shadow-premium" style={{
+                        maxWidth: '520px', padding: 0, borderRadius: '32px',
+                        overflow: 'hidden', background: '#ffffff',
+                        boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{ padding: '3.5rem' }}>
+                            <div style={{
+                                width: '88px', height: '88px', borderRadius: '50%',
+                                background: '#fef2f2', color: '#ef4444',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 2rem',
+                                border: '1px solid #fee2e2'
+                            }}>
+                                <AlertTriangle size={40} strokeWidth={1.5} />
+                            </div>
+
+                            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a', letterSpacing: '-0.025em' }}>
+                                Watermark Detected
+                            </h3>
+                            <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2.5rem' }}>
+                                This image already contains a digital identity <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span>. To avoid visual issues, please use an original, clean file.
+                            </p>
+
+                            <div className="modal-actions">
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    style={{
+                                        width: '100%', background: '#0f172a', height: '56px',
+                                        borderRadius: '16px', color: '#fff', fontSize: '1rem',
+                                        fontWeight: 800, border: 'none', cursor: 'pointer',
+                                        boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Dismiss Alert
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="modal-box shadow-premium" style={{
+                        maxWidth: '520px', padding: 0, borderRadius: '32px',
+                        overflow: 'hidden', background: '#ffffff',
+                        boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
+                        maxHeight: '90vh', overflowY: 'auto'
+                    }}>
+                        <div style={{ padding: '2rem', textAlign: 'center' }}>
+                            <h3 style={{
+                                fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem',
+                                color: '#0f172a', letterSpacing: '-0.025em'
+                            }}>
+                                Apply Watermark?
+                            </h3>
+                            <p style={{
+                                color: '#64748b', lineHeight: '1.6', fontSize: '1rem',
+                                marginBottom: '2rem'
+                            }}>
+                                This is a clean image. We will generate code <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span> and apply the watermark for you.
+                            </p>
+
+                            <div style={{ borderRadius: '16px', overflow: 'hidden', background: '#fff', border: '1px solid #e2e8f0', position: 'relative' }}>
+                                <img
+                                    src={watermarkModal.url}
+                                    alt=""
+                                    style={{ width: '100%', height: '200px', objectFit: 'contain' }}
+                                />
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: '20px',
+                                    right: '20px',
+                                    background: 'rgba(0,0,0,0.85)',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    borderRadius: '50px',
+                                    fontSize: '1rem',
+                                    fontWeight: 900,
+                                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                                    border: '1.5px solid rgba(255,255,255,0.3)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    zIndex: 10,
+                                    fontFamily: 'var(--font-roboto)',
+                                    letterSpacing: '0.05em'
+                                }}>
+                                    {watermarkModal.detectedCode}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: "2rem" }}>
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    style={{
+                                        flex: 1, height: '56px', borderRadius: '16px',
+                                        fontSize: '1rem', fontWeight: 700, border: 'none',
+                                        color: '#64748b', background: '#f1f5f9', cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={watermarkModal.onProceed}
+                                    style={{
+                                        flex: 1.5, height: '56px', borderRadius: '16px',
+                                        fontSize: '1rem', fontWeight: 800, border: 'none',
+                                        color: '#fff', background: '#0f172a',
+                                        boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
+                                        cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Apply & Proceed
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </ModalPortal>
+    );
+}
+
+/**
+ * Social Media Feed Preview Modal (Facebook & Instagram)
+ */
+export function SocialPreviewModal({ previewModal, onClose }) {
+    if (!previewModal) return null;
+
+    return (
+        <ModalPortal>
+            <div className="modal-overlay" onClick={onClose}>
+                <div
+                    className="modal-box shadow-premium"
+                    style={{ maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', borderRadius: '24px', background: '#f8fafc' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Social Media Preview</h3>
+                            <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', marginTop: '4px' }}>See how your product will look on Meta platforms.</p>
+                        </div>
+                        <button type="button" onClick={onClose} className="btn btn-secondary" style={{ padding: '0.4rem', borderRadius: '50%' }}>
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: previewModal.platform ? '1fr' : '1fr 1fr', gap: '1.5rem', justifyContent: 'center' }}>
+                        {/* Facebook Mock */}
+                        {(!previewModal.platform || previewModal.platform === 'facebook') && (
+                            <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f0f2f5' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1877F2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Facebook size={16} />
+                                    </div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Vaiyaaree</div>
+                                </div>
+                                <div style={{ padding: '12px', fontSize: '0.88rem', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                    {(() => {
+                                        const parts = (previewModal.caption || '').split('\n\n#');
+                                        return (
+                                            <>
+                                                {parts[0]}
+                                                {parts[1] && <div style={{ color: '#1877F2', marginTop: '0.5rem', fontWeight: 500 }}>#{parts[1]}</div>}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                                {previewModal.product?.image_url && (
+                                    <div style={{ width: '100%', height: '240px', overflow: 'hidden', borderTop: '1px solid #eee', background: '#f1f5f9' }}>
+                                        <img src={previewModal.product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    </div>
+                                )}
+                                <div style={{ padding: '8px 12px', fontSize: '0.75rem', fontWeight: 700, color: '#65676B', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ThumbsUp size={14} /> Like</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MessageSquare size={14} /> Comment</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Share2 size={14} /> Share</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Instagram Mock */}
+                        {(!previewModal.platform || previewModal.platform === 'instagram') && (
+                            <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden', height: 'fit-content', margin: '0 auto', width: '100%', maxWidth: '400px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px' }}>
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743, #bc1888)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Instagram size={14} />
+                                    </div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>vaiyaaree</div>
+                                </div>
+                                {previewModal.product?.image_url && (
+                                    <div style={{ width: '100%', height: '300px', overflow: 'hidden', background: '#f1f5f9' }}>
+                                        <img src={previewModal.product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    </div>
+                                )}
+                                <div style={{ padding: '12px' }}>
+                                    <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', color: '#262626' }}>
+                                        <Heart size={18} /> <MessageSquare size={18} /> <Share2 size={18} />
+                                    </div>
+                                    <div style={{ fontSize: '0.82rem', lineHeight: 1.4, maxHeight: '200px', overflowY: 'auto' }}>
+                                        <span style={{ fontWeight: 700 }}>vaiyaaree</span>{' '}
+                                        {(() => {
+                                            const parts = (previewModal.caption || '').split('\n\n#');
+                                            return (
+                                                <>
+                                                    <span style={{ whiteSpace: 'pre-wrap' }}>{parts[0]}</span>
+                                                    {parts[1] && <div style={{ color: '#00376b', display: 'inline', marginLeft: '4px' }}>#{parts[1]}</div>}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
+
+/**
+ * Success Notification Modal
+ */
+export function SuccessModal({ isOpen, onClose, title = 'Success!', message = 'Operation completed successfully.' }) {
+    if (!isOpen) return null;
+
+    return (
+        <ModalPortal>
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '3rem' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0fdf4', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #dcfce7' }}>
+                            <Check size={40} strokeWidth={2} />
+                        </div>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{title}</h3>
+                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                            {message}
+                        </p>
+                        <button type="button" onClick={onClose} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                            Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
+
+/**
+ * Error Notification Modal
+ */
+export function ErrorModal({ errorModal, onClose }) {
+    if (!errorModal) return null;
+
+    return (
+        <ModalPortal>
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '3rem' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #fee2e2' }}>
+                            <X size={40} strokeWidth={2} />
+                        </div>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{errorModal.title || 'Error'}</h3>
+                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                            {errorModal.message}
+                        </p>
+                        <button type="button" onClick={onClose} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
+
+/**
+ * Action Confirmation Modal
+ */
+export function ConfirmModal({ confirmModal, onClose }) {
+    if (!confirmModal) return null;
+
+    return (
+        <ModalPortal>
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-box modal-warning" onClick={e => e.stopPropagation()}>
+                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fffbeb', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', fontSize: '2.5rem', boxShadow: 'inset 0 0 0 2px #fef3c7' }}>
+                        <AlertTriangle size={40} strokeWidth={2.5} />
+                    </div>
+                    <h3 className="modal-title">{confirmModal.title}</h3>
+                    <p className="modal-message">
+                        {confirmModal.message}
+                    </p>
+                    <div className="modal-actions">
+                        <button type="button" onClick={onClose} className="modal-btn modal-btn-secondary" style={{ flex: 1 }}>
+                            No, Cancel
+                        </button>
+                        <button type="button" onClick={() => { confirmModal.onConfirm(); onClose(); }} className="modal-btn modal-btn-primary" style={{ flex: 1.2, background: '#ef4444' }}>
+                            Yes, Proceed
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
+
+/**
+ * Generic Result Modal (for import / export feedback)
+ */
+export function ResultModal({ resultModal, onClose }) {
+    if (!resultModal) return null;
+
+    return (
+        <ModalPortal>
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '3rem' }}>
+                        <div style={{
+                            width: '80px', height: '80px', borderRadius: '50%',
+                            background: resultModal.type === 'error' ? '#fef2f2' : '#f0fdf4',
+                            color: resultModal.type === 'error' ? '#ef4444' : '#10b981',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 2rem',
+                            border: `1px solid ${resultModal.type === 'error' ? '#fee2e2' : '#dcfce7'}`
+                        }}>
+                            {resultModal.type === 'error' ? <X size={40} strokeWidth={2} /> : <Check size={40} strokeWidth={2} />}
+                        </div>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{resultModal.title}</h3>
+                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
+                            {resultModal.message}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onClose();
+                                if (resultModal.onClose) resultModal.onClose();
+                            }}
+                            style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}
+
+/**
+ * Fullscreen Loading Overlay
+ */
+export function OcrLoadingOverlay({ isLoading, text = 'Searching for WaterMark...' }) {
+    if (!isLoading) return null;
+
+    return (
+        <ModalPortal>
+            <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.8)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+                    <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+                        <div style={{ position: 'absolute', inset: 0, border: '4px solid rgba(255,255,255,0.1)', borderRadius: '50%' }}></div>
+                        <div style={{ position: 'absolute', inset: 0, border: '4px solid #fff', borderRadius: '50%', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }}></div>
+                        <Search size={32} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', color: 'white' }} />
+                    </div>
+                    <div style={{ color: 'white', fontWeight: 900, fontSize: '1.5rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                        {text}
+                    </div>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+}

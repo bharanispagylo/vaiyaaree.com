@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag } from 'lucide-react';
+import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import CheckoutAuthModal from '@/components/CheckoutAuthModal';
+import ModalPortal from '@/components/ModalPortal';
 import Link from 'next/link';
 import styles from './checkout.module.css';
 
@@ -384,12 +385,12 @@ export default function CheckoutPage() {
 
                             <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                                 <div className={styles.formGroup}>
-                                    <label>PINCODE <span className={styles.requiredStar}>*</span></label>
+                                    <label>PINCODE (POSTAL CODE) <span className={styles.requiredStar}>*</span></label>
                                     <input 
                                         type="text" 
                                         value={checkoutForm.billingPincode || ''} 
                                         onChange={e => setCheckoutForm(p => ({ ...p, billingPincode: e.target.value.replace(/[^0-9a-zA-Z\s-]/g, '').slice(0, 10) }))} 
-                                        placeholder="Pincode / Postal Code" 
+                                        placeholder="6-digit Pincode (e.g. 600001)" 
                                         required
                                     />
                                 </div>
@@ -601,9 +602,23 @@ export default function CheckoutPage() {
                         </div>
                         <div className={styles.itemList}>
                             {cart.map((item, i) => (
-                                <div key={i} className={styles.summaryItem}>
-                                    <span>{item.name} <strong>× {item.qty}</strong></span>
-                                    <span>₹{(item.price * item.qty).toLocaleString()}.00</span>
+                                <div key={i} className={styles.summaryItem} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                    <div>
+                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>{item.name} <strong>× {item.qty}</strong></div>
+                                        {item.variantName && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                                                <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 7px', borderRadius: '4px', fontWeight: 700 }}>
+                                                    Variant: {item.variantName}
+                                                </span>
+                                                {item.variantSku && (
+                                                    <span style={{ fontSize: '0.7rem', color: '#64748b', fontFamily: 'monospace' }}>
+                                                        ({item.variantSku})
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.9rem' }}>₹{(item.price * item.qty).toLocaleString()}.00</span>
                                 </div>
                             ))}
                         </div>
@@ -767,6 +782,7 @@ export default function CheckoutPage() {
 
         {/* Order Confirmed Pop-up Modal */}
         {orderData && (
+            <ModalPortal>
             <div className={styles.modalOverlay}>
                 <div className={styles.modalContent}>
                     <div className={styles.modalHeaderBadge}>
@@ -784,6 +800,7 @@ export default function CheckoutPage() {
                     </div>
                 </div>
             </div>
+            </ModalPortal>
         )}
         </>
     );

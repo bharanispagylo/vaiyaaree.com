@@ -69,7 +69,7 @@ export default function ShopPage() {
         }
 
         filtered = filtered.filter(p => (p.price || 0) >= priceRange.min && (p.price || 0) <= priceRange.max);
-        if (showInStockOnly) filtered = filtered.filter(p => p.stock > 0);
+        if (showInStockOnly) filtered = filtered.filter(p => Number(p.stock || 0) > 0);
 
         if (sortBy === 'price-asc') filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
         else if (sortBy === 'price-desc') filtered.sort((a, b) => (b.price || 0) - (a.price || 0));

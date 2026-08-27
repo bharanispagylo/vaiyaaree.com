@@ -461,11 +461,13 @@ export function ShopProvider({ children }) {
             const newEntry = {
                 ...product,
                 price: variant ? variant.price : product.price,
+                compare_price: variant ? (variant.compare_price || variant.original_price) : (product.compare_price || product.original_price),
                 image_url: (variant && variant.image_url) ? variant.image_url : product.image_url,
                 qty: quantity,
                 stock: itemStock,
                 variantId: variant?.id,
-                variantName: variant?.name
+                variantName: variant?.name,
+                variantSku: variant?.sku
             };
             return [...prev, newEntry];
         });
