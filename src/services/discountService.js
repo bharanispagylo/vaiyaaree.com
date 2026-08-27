@@ -125,15 +125,7 @@ export async function calculateDiscounts({
             const dateCheck = isRuleActiveByDate(rule.start_date, rule.end_date);
             if (!dateCheck.active) continue;
 
-            // Check minimum cart subtotal
-            const minCart = parseFloat(rule.minimum_cart_amount || 0);
-            if (minCart > 0 && subtotal < minCart) continue;
-
-            // Check customer specific target
-            if (rule.target_type === 'SPECIFIC_CUSTOMERS') {
-                const allowedCustomers = ruleCustomersMap.get(rule.id);
-                if (!allowedCustomers || !customer?.id || !allowedCustomers.has(customer.id)) continue;
-            }
+            const calculationBasis = (rule.calculation_basis || 'PRODUCT').toUpperCase();
 
             // Check stackability guard
             if (nonStackableApplied && (!rule.stackable || rule.stackable === 0 || rule.stackable === false)) {
@@ -148,10 +140,90 @@ export async function calculateDiscounts({
                 }
             }
 
-            // 4. Calculate discount amount for this rule
-            let ruleDiscount = 0;
+            // Check customer specific target if specified
+            if (rule.target_type === 'SPECIFIC_CUSTOMERS') {
+                const allowedCustomers = ruleCustomersMap.get(rule.id);
+                if (!allowedCustomers || !customer?.id || !allowedCustomers.has(customer.id)) continue;
+            }
 
-            // Determine eligible items in cart for this rule
+            let ruleDiscount = 0;
+            const val = parseFloat(rule.discount_value || 0);
+
+            // ==========================================
+            // BRANCH 1: CART-LEVEL CONDITIONAL DISCOUNT
+            // ==========================================
+            if (calculationBasis === 'CART') {
+                const thresholdType = (
+                    rule.threshold_type || 
+                    (rule.target_type === 'CART_COUNT' ? 'COUNT' : (rule.target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT'))
+                ).toUpperCase();
+
+                if (thresholdType === 'COUNT') {
+                    const minCount = (rule.threshold_count !== null && rule.threshold_count !== undefined)
+                        ? parseInt(rule.threshold_count, 10)
+                        : (rule.minimum_cart_products ? parseInt(rule.minimum_cart_products, 10) : 1);
+                    
+                    const totalCartQuantity = cart.reduce((sum, item) => sum + parseInt(item.qty || 1, 10), 0);
+                    if (totalCartQuantity < minCount) {
+                        continue; // Cart does not meet total quantity threshold
+                    }
+                } else if (thresholdType === 'VALUE') {
+                    const minValue = (rule.threshold_value !== null && rule.threshold_value !== undefined)
+                        ? parseFloat(rule.threshold_value)
+                        : parseFloat(rule.minimum_cart_amount || 0);
+
+                    if (subtotal < minValue) {
+                        continue; // Cart subtotal does not meet value threshold
+                    }
+                }
+
+                // Cart-level discount applies to the entire cart subtotal
+                if (rule.discount_type === 'PERCENTAGE') {
+                    ruleDiscount = (val / 100) * subtotal;
+                } else if (rule.discount_type === 'FIXED' || rule.discount_type === 'FIXED_AMOUNT') {
+                    ruleDiscount = Math.min(val, subtotal);
+                } else if (rule.discount_type === 'FREE_SHIPPING') {
+                    shippingDiscount = shippingCost;
+                    ruleDiscount = 0;
+                }
+
+                ruleDiscount = Math.round(ruleDiscount * 100) / 100;
+
+                if (ruleDiscount > 0 || rule.discount_type === 'FREE_SHIPPING') {
+                    if (isCouponRule) {
+                        couponDiscount += ruleDiscount;
+                    } else {
+                        cartDiscount += ruleDiscount;
+                    }
+
+                    appliedRules.push({
+                        id: rule.id,
+                        name: rule.name,
+                        couponCode: rule.coupon_code || null,
+                        discountType: rule.discount_type,
+                        discountValue: val,
+                        discountAmount: ruleDiscount,
+                        isCoupon: isCouponRule,
+                        calculationBasis: 'CART',
+                        thresholdType
+                    });
+
+                    if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {
+                        nonStackableApplied = true;
+                    }
+                }
+
+                continue;
+            }
+
+            // ==========================================
+            // BRANCH 2: PRODUCT / CATEGORY SCOPED DISCOUNT
+            // ==========================================
+            // Check minimum cart subtotal for product offers
+            const minCart = parseFloat(rule.minimum_cart_amount || 0);
+            if (minCart > 0 && subtotal < minCart) continue;
+
+            // Determine eligible items in cart for this product rule
             let eligibleCartItems = cart;
             if (rule.target_type === 'SPECIFIC_PRODUCTS') {
                 const allowedProds = ruleProductsMap.get(rule.id) || new Set();
@@ -176,7 +248,6 @@ export async function calculateDiscounts({
                 }
             }
 
-            const val = parseFloat(rule.discount_value || 0);
             if (rule.discount_type === 'PERCENTAGE') {
                 ruleDiscount = (val / 100) * targetSubtotal;
             } else if (rule.discount_type === 'FIXED' || rule.discount_type === 'FIXED_AMOUNT') {
@@ -204,7 +275,8 @@ export async function calculateDiscounts({
                     discountType: rule.discount_type,
                     discountValue: val,
                     discountAmount: ruleDiscount,
-                    isCoupon: isCouponRule
+                    isCoupon: isCouponRule,
+                    calculationBasis: 'PRODUCT'
                 });
 
                 if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {
@@ -251,28 +323,56 @@ export async function validateCouponCode(couponCode, { subtotal = 0, cartItems =
         }
     }
 
-    const minCart = parseFloat(rule.minimum_cart_amount || 0);
-    if (minCart > 0 && subtotal < minCart) {
-        return { valid: false, message: `Coupon requires a minimum cart subtotal of ₹${minCart.toLocaleString()}.` };
-    }
+    const calculationBasis = (rule.calculation_basis || 'PRODUCT').toUpperCase();
 
-    const minProdsEnabled = rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true;
-    const minProdsReq = rule.minimum_cart_products ? parseInt(rule.minimum_cart_products, 10) : 0;
-    if (minProdsEnabled && minProdsReq > 0 && Array.isArray(cartItems)) {
-        let eligibleCartItems = cartItems;
-        if (rule.target_type === 'SPECIFIC_PRODUCTS') {
-            const { data: prods } = await mysqlClient.from('discount_rule_products').select('product_id').eq('discount_rule_id', rule.id);
-            const allowedProds = new Set((prods || []).map(p => p.product_id));
-            eligibleCartItems = cartItems.filter(i => allowedProds.has(i.id));
-        } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
-            const { data: cats } = await mysqlClient.from('discount_rule_categories').select('category').eq('discount_rule_id', rule.id);
-            const allowedCats = new Set((cats || []).map(c => c.category.trim().toLowerCase()));
-            eligibleCartItems = cartItems.filter(i => i.category && allowedCats.has(i.category.trim().toLowerCase()));
+    if (calculationBasis === 'CART') {
+        const thresholdType = (
+            rule.threshold_type || 
+            (rule.target_type === 'CART_COUNT' ? 'COUNT' : (rule.target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT'))
+        ).toUpperCase();
+
+        if (thresholdType === 'COUNT') {
+            const minCount = (rule.threshold_count !== null && rule.threshold_count !== undefined)
+                ? parseInt(rule.threshold_count, 10)
+                : (rule.minimum_cart_products ? parseInt(rule.minimum_cart_products, 10) : 1);
+            
+            const totalCartQty = Array.isArray(cartItems) ? cartItems.reduce((sum, i) => sum + parseInt(i.qty || 1, 10), 0) : 0;
+            if (totalCartQty < minCount) {
+                return { valid: false, message: `Coupon requires a minimum of ${minCount} total items in cart.` };
+            }
+        } else if (thresholdType === 'VALUE') {
+            const minValue = (rule.threshold_value !== null && rule.threshold_value !== undefined)
+                ? parseFloat(rule.threshold_value)
+                : parseFloat(rule.minimum_cart_amount || 0);
+
+            if (subtotal < minValue) {
+                return { valid: false, message: `Coupon requires a minimum cart subtotal of ₹${minValue.toLocaleString()}.` };
+            }
+        }
+    } else {
+        const minCart = parseFloat(rule.minimum_cart_amount || 0);
+        if (minCart > 0 && subtotal < minCart) {
+            return { valid: false, message: `Coupon requires a minimum cart subtotal of ₹${minCart.toLocaleString()}.` };
         }
 
-        const eligibleQty = eligibleCartItems.reduce((sum, i) => sum + parseInt(i.qty || 1, 10), 0);
-        if (eligibleQty < minProdsReq) {
-            return { valid: false, message: `Coupon requires a minimum of ${minProdsReq} eligible product units in cart.` };
+        const minProdsEnabled = rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true;
+        const minProdsReq = rule.minimum_cart_products ? parseInt(rule.minimum_cart_products, 10) : 0;
+        if (minProdsEnabled && minProdsReq > 0 && Array.isArray(cartItems)) {
+            let eligibleCartItems = cartItems;
+            if (rule.target_type === 'SPECIFIC_PRODUCTS') {
+                const { data: prods } = await mysqlClient.from('discount_rule_products').select('product_id').eq('discount_rule_id', rule.id);
+                const allowedProds = new Set((prods || []).map(p => p.product_id));
+                eligibleCartItems = cartItems.filter(i => allowedProds.has(i.id));
+            } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
+                const { data: cats } = await mysqlClient.from('discount_rule_categories').select('category').eq('discount_rule_id', rule.id);
+                const allowedCats = new Set((cats || []).map(c => c.category.trim().toLowerCase()));
+                eligibleCartItems = cartItems.filter(i => i.category && allowedCats.has(i.category.trim().toLowerCase()));
+            }
+
+            const eligibleQty = eligibleCartItems.reduce((sum, i) => sum + parseInt(i.qty || 1, 10), 0);
+            if (eligibleQty < minProdsReq) {
+                return { valid: false, message: `Coupon requires a minimum of ${minProdsReq} eligible product units in cart.` };
+            }
         }
     }
 
