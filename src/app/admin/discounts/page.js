@@ -28,6 +28,10 @@ export default function AdminDiscountsPage() {
         name: '',
         description: '',
         coupon_code: '',
+        calculation_basis: 'PRODUCT', // 'PRODUCT' | 'CART'
+        threshold_type: 'COUNT', // 'COUNT' | 'VALUE'
+        threshold_count: '5',
+        threshold_value: '5000',
         discount_type: 'PERCENTAGE',
         discount_value: '10',
         target_type: 'ALL_PRODUCTS',
@@ -82,11 +86,17 @@ export default function AdminDiscountsPage() {
     const handleOpenForm = (rule = null) => {
         setError(null);
         if (rule) {
+            const basis = (rule.calculation_basis || 'PRODUCT').toUpperCase();
+            const threshType = rule.threshold_type || (rule.target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT');
             setEditingRule(rule);
             setFormData({
                 name: rule.name || '',
                 description: rule.description || '',
                 coupon_code: rule.coupon_code || '',
+                calculation_basis: basis,
+                threshold_type: threshType,
+                threshold_count: rule.threshold_count !== null && rule.threshold_count !== undefined ? String(rule.threshold_count) : '5',
+                threshold_value: rule.threshold_value !== null && rule.threshold_value !== undefined ? String(rule.threshold_value) : '5000',
                 discount_type: rule.discount_type || 'PERCENTAGE',
                 discount_value: rule.discount_value !== undefined ? String(rule.discount_value) : '10',
                 target_type: rule.target_type || 'ALL_PRODUCTS',
@@ -108,6 +118,10 @@ export default function AdminDiscountsPage() {
                 name: '',
                 description: '',
                 coupon_code: '',
+                calculation_basis: 'PRODUCT',
+                threshold_type: 'COUNT',
+                threshold_count: '5',
+                threshold_value: '5000',
                 discount_type: 'PERCENTAGE',
                 discount_value: '10',
                 target_type: 'ALL_PRODUCTS',
@@ -138,13 +152,21 @@ export default function AdminDiscountsPage() {
         setSaving(true);
         setError(null);
         try {
+            const isCartBasis = formData.calculation_basis === 'CART';
+
             const payload = {
                 ...formData,
-                discount_value: parseFloat(formData.discount_value || 0),
+                calculation_basis: formData.calculation_basis,
+                threshold_type: isCartBasis ? formData.threshold_type : null,
+                threshold_count: isCartBasis && formData.threshold_type === 'COUNT' ? parseInt(formData.threshold_count || '1', 10) : null,
+                threshold_value: isCartBasis && formData.threshold_type === 'VALUE' ? parseFloat(formData.threshold_value || '0') : null,
+                discount_value: formData.discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(formData.discount_value || 0),
                 minimum_cart_amount: parseFloat(formData.minimum_cart_amount || 0),
                 maximum_discount_amount: null,
-                minimum_cart_products_enabled: formData.minimum_cart_products_enabled ? 1 : 0,
-                minimum_cart_products: formData.minimum_cart_products_enabled ? parseInt(formData.minimum_cart_products || '1', 10) : null,
+                minimum_cart_products_enabled: !isCartBasis && formData.minimum_cart_products_enabled ? 1 : 0,
+                minimum_cart_products: !isCartBasis && formData.minimum_cart_products_enabled ? parseInt(formData.minimum_cart_products || '1', 10) : null,
+                categories: isCartBasis ? [] : formData.categories,
+                product_ids: isCartBasis ? [] : formData.product_ids,
                 priority: parseInt(formData.priority || '10', 10),
                 usage_limit: null,
                 customer_limit: parseInt(formData.customer_limit || '1', 10),
@@ -380,13 +402,21 @@ export default function AdminDiscountsPage() {
                                             <div className="rule-offer-box">
                                                 <div className="offer-value">
                                                     {rule.discount_type === 'PERCENTAGE' && `${rule.discount_value}% OFF`}
-                                                    {rule.discount_type === 'FIXED_AMOUNT' && `₹${rule.discount_value} OFF`}
+                                                    {(rule.discount_type === 'FIXED_AMOUNT' || rule.discount_type === 'FIXED') && `₹${rule.discount_value} OFF`}
                                                     {rule.discount_type === 'FREE_SHIPPING' && `FREE SHIPPING`}
                                                 </div>
                                                 <div className="offer-meta">
-                                                    {rule.target_type === 'ALL_PRODUCTS' && 'Storewide (All Products)'}
-                                                    {rule.target_type === 'SPECIFIC_CATEGORIES' && `Categories (${rule.categories?.length || 0})`}
-                                                    {rule.target_type === 'SPECIFIC_PRODUCTS' && `Specific Sarees (${rule.products?.length || 0})`}
+                                                    {rule.calculation_basis === 'CART' ? (
+                                                        (rule.threshold_type === 'COUNT' || rule.target_type === 'CART_COUNT')
+                                                            ? `Cart Offer (≥ ${rule.threshold_count || rule.minimum_cart_products || 1} units)`
+                                                            : `Cart Offer (≥ ₹${parseFloat(rule.threshold_value || rule.minimum_cart_amount || 0).toLocaleString()})`
+                                                    ) : (
+                                                        <>
+                                                            {rule.target_type === 'ALL_PRODUCTS' && 'Storewide (All Products)'}
+                                                            {rule.target_type === 'SPECIFIC_CATEGORIES' && `Categories (${rule.categories?.length || 0})`}
+                                                            {rule.target_type === 'SPECIFIC_PRODUCTS' && `Specific Sarees (${rule.products?.length || 0})`}
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -520,126 +550,258 @@ export default function AdminDiscountsPage() {
                             </div>
                         </div>
 
-                        {/* SECTION 2: DISCOUNT VALUE & TARGET SCOPE */}
+                        {/* SECTION 2: OFFER CALCULATION & SCOPE */}
                         <div className="form-section-card">
                             <div className="section-title">
                                 <Percent size={20} color="#6366f1" />
                                 <h3>2. Offer Calculation & Scope</h3>
                             </div>
 
-                            <div className="form-grid-3">
-                                <div className="form-field">
-                                    <label className="field-label">Discount Type</label>
-                                    <select
-                                        value={formData.discount_type}
-                                        onChange={e => {
-                                            const newType = e.target.value;
-                                            setFormData({
-                                                ...formData,
-                                                discount_type: newType,
-                                                discount_value: newType === 'FREE_SHIPPING' ? '0' : (formData.discount_value === '0' ? '10' : formData.discount_value)
-                                            });
-                                        }}
-                                        className="styled-select"
+                            {/* DISCOUNT BASIS SELECTOR */}
+                            <div className="form-field mb-4" style={{ marginBottom: '1.5rem' }}>
+                                <label className="field-label" style={{ fontWeight: 800, fontSize: '0.85rem' }}>
+                                    Discount Basis <span className="req">*</span>
+                                </label>
+                                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.4rem' }}>
+                                    <button
+                                        type="button"
+                                        className={`basis-btn ${formData.calculation_basis === 'PRODUCT' ? 'active' : ''}`}
+                                        onClick={() => setFormData({ ...formData, calculation_basis: 'PRODUCT', categories: [], product_ids: [] })}
                                     >
-                                        <option value="PERCENTAGE">Percentage (%)</option>
-                                        <option value="FIXED_AMOUNT">Fixed Amount (₹)</option>
-                                        <option value="FREE_SHIPPING">Free Shipping</option>
-                                    </select>
-                                    <div className="field-explain">
-                                        Choose percentage off, flat rupee discount, or free delivery.
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="field-label">
-                                        Discount Value {formData.discount_type === 'FREE_SHIPPING' ? '(Free Shipping)' : (formData.discount_type === 'PERCENTAGE' ? '(%)' : '(₹)')}
-                                    </label>
-                                    <input
-                                        type={formData.discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
-                                        step="0.01"
-                                        min="0"
-                                        placeholder={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
-                                        value={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : formData.discount_value}
-                                        onChange={e => setFormData({ ...formData, discount_value: e.target.value })}
-                                        disabled={formData.discount_type === 'FREE_SHIPPING'}
-                                        className="styled-input"
-                                    />
-                                    <div className="field-explain">
-                                        {formData.discount_type === 'FREE_SHIPPING'
-                                            ? 'Free delivery automatically waives shipping charges for eligible cart items.'
-                                            : (formData.discount_type === 'PERCENTAGE' ? 'Percentage reduction (e.g. 20 for 20% off).' : 'Flat rupee discount (e.g. 500 for ₹500 off).')}
-                                    </div>
-                                </div>
-
-                                <div className="form-field">
-                                    <label className="field-label">Target Scope</label>
-                                    <select
-                                        value={formData.target_type}
-                                        onChange={e => setFormData({ ...formData, target_type: e.target.value })}
-                                        className="styled-select"
+                                        Products (Catalog / Category Scoped)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`basis-btn ${formData.calculation_basis === 'CART' ? 'active' : ''}`}
+                                        onClick={() => setFormData({ ...formData, calculation_basis: 'CART', categories: [], product_ids: [] })}
                                     >
-                                        <option value="ALL_PRODUCTS">All Products (Storewide)</option>
-                                        <option value="SPECIFIC_CATEGORIES">Specific Categories</option>
-                                        <option value="SPECIFIC_PRODUCTS">Specific Sarees</option>
-                                    </select>
-                                    <div className="field-explain">
-                                        Applies storewide to all catalog items or restricted to selected categories/products.
-                                    </div>
+                                        Cart (Conditional Cart Level)
+                                    </button>
+                                </div>
+                                <div className="field-explain" style={{ marginTop: '0.4rem' }}>
+                                    {formData.calculation_basis === 'PRODUCT'
+                                        ? 'Offer applies to specific products, selected categories, or storewide catalog items.'
+                                        : 'Offer is triggered by cart-level conditions (e.g. minimum 5 total items or ₹5,000 cart value).'}
                                 </div>
                             </div>
 
-                            {/* TARGET CATEGORIES PICKER */}
-                            {formData.target_type === 'SPECIFIC_CATEGORIES' && (
-                                <div className="picker-container mt-3">
-                                    <label className="field-label">Select Eligible Categories</label>
-                                    <div className="chip-grid">
-                                        {availableCategories.map(cat => {
-                                            const selected = formData.categories.includes(cat);
-                                            return (
-                                                <label key={cat} className={`chip-item ${selected ? 'selected' : ''}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selected}
-                                                        onChange={e => {
-                                                            if (e.target.checked) setFormData({ ...formData, categories: [...formData.categories, cat] });
-                                                            else setFormData({ ...formData, categories: formData.categories.filter(c => c !== cat) });
-                                                        }}
-                                                    />
-                                                    <span>{cat}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
+                            {formData.calculation_basis === 'PRODUCT' ? (
+                                /* PRODUCT SCOPE FIELDS */
+                                <>
+                                    <div className="form-grid-3">
+                                        <div className="form-field">
+                                            <label className="field-label">Discount Type</label>
+                                            <select
+                                                value={formData.discount_type}
+                                                onChange={e => {
+                                                    const newType = e.target.value;
+                                                    setFormData({
+                                                        ...formData,
+                                                        discount_type: newType,
+                                                        discount_value: newType === 'FREE_SHIPPING' ? '0' : (formData.discount_value === '0' ? '10' : formData.discount_value)
+                                                    });
+                                                }}
+                                                className="styled-select"
+                                            >
+                                                <option value="PERCENTAGE">Percentage (%)</option>
+                                                <option value="FIXED_AMOUNT">Fixed Amount (₹)</option>
+                                                <option value="FREE_SHIPPING">Free Shipping</option>
+                                            </select>
+                                            <div className="field-explain">
+                                                Choose percentage off, flat rupee discount, or free delivery.
+                                            </div>
+                                        </div>
 
-                            {/* TARGET PRODUCTS PICKER */}
-                            {formData.target_type === 'SPECIFIC_PRODUCTS' && (
-                                <div className="picker-container mt-3">
-                                    <label className="field-label">Select Eligible Sarees ({formData.product_ids.length} selected)</label>
-                                    <div className="product-scroll-list">
-                                        {availableProducts.map(p => {
-                                            const selected = formData.product_ids.includes(p.id);
-                                            return (
-                                                <label key={p.id} className={`product-select-row ${selected ? 'selected' : ''}`}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selected}
-                                                            onChange={e => {
-                                                                if (e.target.checked) setFormData({ ...formData, product_ids: [...formData.product_ids, p.id] });
-                                                                else setFormData({ ...formData, product_ids: formData.product_ids.filter(id => id !== p.id) });
-                                                            }}
-                                                        />
-                                                        <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{p.name}</span>
-                                                    </div>
-                                                    <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.85rem' }}>₹{p.price}</span>
-                                                </label>
-                                            );
-                                        })}
+                                        <div className="form-field">
+                                            <label className="field-label">
+                                                Discount Value {formData.discount_type === 'FREE_SHIPPING' ? '(Free Shipping)' : (formData.discount_type === 'PERCENTAGE' ? '(%)' : '(₹)')}
+                                            </label>
+                                            <input
+                                                type={formData.discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
+                                                step="0.01"
+                                                min="0"
+                                                placeholder={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
+                                                value={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : formData.discount_value}
+                                                onChange={e => setFormData({ ...formData, discount_value: e.target.value })}
+                                                disabled={formData.discount_type === 'FREE_SHIPPING'}
+                                                className="styled-input"
+                                            />
+                                            <div className="field-explain">
+                                                {formData.discount_type === 'FREE_SHIPPING'
+                                                    ? 'Free delivery automatically waives shipping charges for eligible cart items.'
+                                                    : (formData.discount_type === 'PERCENTAGE' ? 'Percentage reduction (e.g. 20 for 20% off).' : 'Flat rupee discount (e.g. 500 for ₹500 off).')}
+                                            </div>
+                                        </div>
+
+                                        <div className="form-field">
+                                            <label className="field-label">Target Scope</label>
+                                            <select
+                                                value={formData.target_type}
+                                                onChange={e => setFormData({ ...formData, target_type: e.target.value })}
+                                                className="styled-select"
+                                            >
+                                                <option value="ALL_PRODUCTS">All Products (Storewide)</option>
+                                                <option value="SPECIFIC_CATEGORIES">Specific Categories</option>
+                                                <option value="SPECIFIC_PRODUCTS">Specific Sarees</option>
+                                            </select>
+                                            <div className="field-explain">
+                                                Applies storewide to all catalog items or restricted to selected categories/products.
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+
+                                    {/* TARGET CATEGORIES PICKER */}
+                                    {formData.target_type === 'SPECIFIC_CATEGORIES' && (
+                                        <div className="picker-container mt-3">
+                                            <label className="field-label">Select Eligible Categories</label>
+                                            <div className="chip-grid">
+                                                {availableCategories.map(cat => {
+                                                    const selected = formData.categories.includes(cat);
+                                                    return (
+                                                        <label key={cat} className={`chip-item ${selected ? 'selected' : ''}`}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selected}
+                                                                onChange={e => {
+                                                                    if (e.target.checked) setFormData({ ...formData, categories: [...formData.categories, cat] });
+                                                                    else setFormData({ ...formData, categories: formData.categories.filter(c => c !== cat) });
+                                                                }}
+                                                            />
+                                                            <span>{cat}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TARGET PRODUCTS PICKER */}
+                                    {formData.target_type === 'SPECIFIC_PRODUCTS' && (
+                                        <div className="picker-container mt-3">
+                                            <label className="field-label">Select Eligible Sarees ({formData.product_ids.length} selected)</label>
+                                            <div className="product-scroll-list">
+                                                {availableProducts.map(p => {
+                                                    const selected = formData.product_ids.includes(p.id);
+                                                    return (
+                                                        <label key={p.id} className={`product-select-row ${selected ? 'selected' : ''}`}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selected}
+                                                                    onChange={e => {
+                                                                        if (e.target.checked) setFormData({ ...formData, product_ids: [...formData.product_ids, p.id] });
+                                                                        else setFormData({ ...formData, product_ids: formData.product_ids.filter(id => id !== p.id) });
+                                                                    }}
+                                                                />
+                                                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{p.name}</span>
+                                                            </div>
+                                                            <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.85rem' }}>₹{p.price}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                /* CART CONDITIONAL SCOPE FIELDS (Matches Handwritten Diagram) */
+                                <>
+                                    <div className="form-grid-3">
+                                        <div className="form-field">
+                                            <label className="field-label">Target Scope</label>
+                                            <select
+                                                value={formData.threshold_type}
+                                                onChange={e => setFormData({ ...formData, threshold_type: e.target.value })}
+                                                className="styled-select"
+                                            >
+                                                <option value="COUNT">Cart Count (Item Quantity)</option>
+                                                <option value="VALUE">Cart Value (Subtotal Amount ₹)</option>
+                                            </select>
+                                            <div className="field-explain">
+                                                Trigger condition: Minimum total cart items or minimum subtotal amount.
+                                            </div>
+                                        </div>
+
+                                        {formData.threshold_type === 'COUNT' ? (
+                                            <div className="form-field">
+                                                <label className="field-label">Cart Count (Min Units)</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    placeholder="e.g. 5"
+                                                    value={formData.threshold_count}
+                                                    onChange={e => setFormData({ ...formData, threshold_count: e.target.value })}
+                                                    className="styled-input"
+                                                />
+                                                <div className="field-explain">
+                                                    Discount qualifies when total cart quantity is at least this amount (e.g. 5 units).
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="form-field">
+                                                <label className="field-label">Cart Value (Min Amount ₹)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    placeholder="e.g. 5000"
+                                                    value={formData.threshold_value}
+                                                    onChange={e => setFormData({ ...formData, threshold_value: e.target.value })}
+                                                    className="styled-input"
+                                                />
+                                                <div className="field-explain">
+                                                    Discount qualifies when cart subtotal reaches or exceeds this amount (e.g. ₹5,000).
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="form-field">
+                                            <label className="field-label">Discount Type</label>
+                                            <select
+                                                value={formData.discount_type}
+                                                onChange={e => {
+                                                    const newType = e.target.value;
+                                                    setFormData({
+                                                        ...formData,
+                                                        discount_type: newType,
+                                                        discount_value: newType === 'FREE_SHIPPING' ? '0' : (formData.discount_value === '0' ? '10' : formData.discount_value)
+                                                    });
+                                                }}
+                                                className="styled-select"
+                                            >
+                                                <option value="PERCENTAGE">Percentage (%)</option>
+                                                <option value="FIXED_AMOUNT">Fixed Amount (₹)</option>
+                                                <option value="FREE_SHIPPING">Free Shipping</option>
+                                            </select>
+                                            <div className="field-explain">
+                                                Choose percentage off, flat rupee discount, or free delivery.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-grid-2 mt-3" style={{ marginTop: '1rem' }}>
+                                        <div className="form-field">
+                                            <label className="field-label">
+                                                Discount Value {formData.discount_type === 'FREE_SHIPPING' ? '(Free Shipping)' : (formData.discount_type === 'PERCENTAGE' ? '(%)' : '(₹)')}
+                                            </label>
+                                            <input
+                                                type={formData.discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
+                                                step="0.01"
+                                                min="0"
+                                                placeholder={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
+                                                value={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : formData.discount_value}
+                                                onChange={e => setFormData({ ...formData, discount_value: e.target.value })}
+                                                disabled={formData.discount_type === 'FREE_SHIPPING'}
+                                                className="styled-input"
+                                            />
+                                            <div className="field-explain">
+                                                {formData.discount_type === 'FREE_SHIPPING'
+                                                    ? 'Automatically waives shipping charges when cart condition is satisfied.'
+                                                    : (formData.discount_type === 'PERCENTAGE' ? 'Percentage reduction on qualifying cart subtotal.' : 'Flat rupee discount on qualifying cart subtotal.')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
                             )}
                         </div>
 
@@ -650,36 +812,42 @@ export default function AdminDiscountsPage() {
                                 <h3>3. Cart Thresholds</h3>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '480px' }}>
-                                <label className="styled-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.minimum_cart_products_enabled}
-                                        onChange={e => setFormData({ ...formData, minimum_cart_products_enabled: e.target.checked })}
-                                        style={{ width: '18px', height: '18px', accentColor: '#4f46e5', cursor: 'pointer' }}
-                                    />
-                                    <span>Enable Minimum Cart Products</span>
-                                </label>
-
-                                <div className="form-field">
-                                    <label className="field-label" style={{ opacity: formData.minimum_cart_products_enabled ? 1 : 0.5 }}>
-                                        Minimum Cart Products
+                            {formData.calculation_basis === 'PRODUCT' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '480px' }}>
+                                    <label className="styled-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.minimum_cart_products_enabled}
+                                            onChange={e => setFormData({ ...formData, minimum_cart_products_enabled: e.target.checked })}
+                                            style={{ width: '18px', height: '18px', accentColor: '#4f46e5', cursor: 'pointer' }}
+                                        />
+                                        <span>Enable Minimum Cart Products</span>
                                     </label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        placeholder="e.g. 3"
-                                        value={formData.minimum_cart_products}
-                                        onChange={e => setFormData({ ...formData, minimum_cart_products: e.target.value })}
-                                        disabled={!formData.minimum_cart_products_enabled}
-                                        className="styled-input"
-                                        style={{ opacity: formData.minimum_cart_products_enabled ? 1 : 0.5, cursor: formData.minimum_cart_products_enabled ? 'text' : 'not-allowed' }}
-                                    />
-                                    <div className="field-explain">
-                                        Minimum number of eligible product units required to apply this offer. The discount applies when the cart contains this quantity or more of eligible products.
+
+                                    <div className="form-field">
+                                        <label className="field-label" style={{ opacity: formData.minimum_cart_products_enabled ? 1 : 0.5 }}>
+                                            Minimum Cart Products
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            placeholder="e.g. 3"
+                                            value={formData.minimum_cart_products}
+                                            onChange={e => setFormData({ ...formData, minimum_cart_products: e.target.value })}
+                                            disabled={!formData.minimum_cart_products_enabled}
+                                            className="styled-input"
+                                            style={{ opacity: formData.minimum_cart_products_enabled ? 1 : 0.5, cursor: formData.minimum_cart_products_enabled ? 'text' : 'not-allowed' }}
+                                        />
+                                        <div className="field-explain">
+                                            Minimum number of eligible product units required to apply this offer. The discount applies when the cart contains this quantity or more of eligible products.
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0', color: '#475569', fontSize: '0.9rem', fontWeight: 600 }}>
+                                    Cart threshold trigger is active: <strong>{formData.threshold_type === 'COUNT' ? `Minimum ${formData.threshold_count || 1} units in cart` : `Minimum ₹${formData.threshold_value || 0} cart subtotal`}</strong> (configured in Section 2 above).
+                                </div>
+                            )}
                         </div>
 
                         {/* SECTION 4: SCHEDULE & ACTIVE STATUS */}
@@ -767,6 +935,10 @@ export default function AdminDiscountsPage() {
 
                 .btn-primary-glow { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; padding: 0.85rem 1.8rem; border-radius: 14px; font-weight: 800; display: flex; align-items: center; gap: 0.65rem; cursor: pointer; box-shadow: 0 10px 20px -5px rgba(99,102,241,0.4); transition: 0.3s; font-size: 0.95rem; }
                 .btn-primary-glow:hover { transform: translateY(-2px); box-shadow: 0 15px 30px -5px rgba(99,102,241,0.6); }
+
+                .basis-btn { flex: 1; padding: 0.85rem 1.25rem; border-radius: 14px; border: 2px solid #e2e8f0; background: #f8fafc; color: #475569; font-weight: 800; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease; text-align: center; }
+                .basis-btn:hover { border-color: #cbd5e1; background: #f1f5f9; }
+                .basis-btn.active { border-color: #6366f1; background: #eef2ff; color: #4338ca; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.18); }
 
                 /* STATS */
                 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-bottom: 2rem; }

@@ -45,6 +45,10 @@ export async function POST(request) {
             name,
             description,
             coupon_code,
+            calculation_basis,
+            threshold_type,
+            threshold_count,
+            threshold_value,
             discount_type,
             discount_value,
             target_type,
@@ -68,6 +72,39 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Discount Rule Title is required' }, { status: 400 });
         }
 
+        const basis = (calculation_basis || 'PRODUCT').toUpperCase();
+        let finalThresholdType = null;
+        let finalThresholdCount = null;
+        let finalThresholdValue = null;
+        let finalTargetType = target_type || 'ALL_PRODUCTS';
+
+        if (basis === 'CART') {
+            finalThresholdType = (threshold_type || (target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT')).toUpperCase();
+            if (finalThresholdType === 'COUNT') {
+                finalThresholdCount = threshold_count !== null && threshold_count !== undefined ? parseInt(threshold_count, 10) : 1;
+                if (isNaN(finalThresholdCount) || finalThresholdCount < 1) {
+                    return NextResponse.json({ error: 'Cart Count threshold must be at least 1' }, { status: 400 });
+                }
+                finalTargetType = 'ALL_PRODUCTS';
+            } else if (finalThresholdType === 'VALUE') {
+                finalThresholdValue = threshold_value !== null && threshold_value !== undefined ? parseFloat(threshold_value) : 0;
+                if (isNaN(finalThresholdValue) || finalThresholdValue <= 0) {
+                    return NextResponse.json({ error: 'Cart Value threshold must be greater than 0' }, { status: 400 });
+                }
+                finalTargetType = 'ALL_PRODUCTS';
+            }
+        }
+
+        const dType = discount_type || 'PERCENTAGE';
+        const dVal = dType === 'FREE_SHIPPING' ? 0 : parseFloat(discount_value || 0);
+
+        if (dType === 'PERCENTAGE' && (dVal <= 0 || dVal > 100)) {
+            return NextResponse.json({ error: 'Percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+        }
+        if (dType === 'FIXED_AMOUNT' && dVal <= 0) {
+            return NextResponse.json({ error: 'Fixed amount discount must be greater than 0' }, { status: 400 });
+        }
+
         const id = `rule_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         const cleanCoupon = coupon_code && coupon_code.trim() ? coupon_code.trim().toUpperCase() : null;
 
@@ -76,9 +113,13 @@ export async function POST(request) {
             name: name.trim(),
             description: description || null,
             coupon_code: cleanCoupon,
-            discount_type: discount_type || 'PERCENTAGE',
-            discount_value: parseFloat(discount_value || 0),
-            target_type: target_type || 'ALL_PRODUCTS',
+            calculation_basis: basis,
+            threshold_type: finalThresholdType,
+            threshold_count: finalThresholdCount,
+            threshold_value: finalThresholdValue,
+            discount_type: dType,
+            discount_value: dVal,
+            target_type: finalTargetType,
             minimum_cart_amount: parseFloat(minimum_cart_amount || 0),
             maximum_discount_amount: null,
             minimum_cart_products_enabled: minimum_cart_products_enabled ? 1 : 0,
@@ -100,28 +141,30 @@ export async function POST(request) {
 
         if (insertErr) throw insertErr;
 
-        // Insert targets if applicable
-        if (target_type === 'SPECIFIC_PRODUCTS' && Array.isArray(product_ids) && product_ids.length > 0) {
-            const prodInserts = product_ids.map(pid => ({
-                id: `drp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                discount_rule_id: id,
-                product_id: pid
-            }));
-            await mysqlClient.from('discount_rule_products').insert(prodInserts);
-        } else if (target_type === 'SPECIFIC_CATEGORIES' && Array.isArray(categories) && categories.length > 0) {
-            const catInserts = categories.map(cat => ({
-                id: `drc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                discount_rule_id: id,
-                category: cat
-            }));
-            await mysqlClient.from('discount_rule_categories').insert(catInserts);
-        } else if (target_type === 'SPECIFIC_CUSTOMERS' && Array.isArray(customer_ids) && customer_ids.length > 0) {
-            const custInserts = customer_ids.map(cid => ({
-                id: `drcust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                discount_rule_id: id,
-                customer_id: cid
-            }));
-            await mysqlClient.from('discount_rule_customers').insert(custInserts);
+        // Insert targets if applicable for product rules
+        if (basis === 'PRODUCT') {
+            if (finalTargetType === 'SPECIFIC_PRODUCTS' && Array.isArray(product_ids) && product_ids.length > 0) {
+                const prodInserts = product_ids.map(pid => ({
+                    id: `drp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                    discount_rule_id: id,
+                    product_id: pid
+                }));
+                await mysqlClient.from('discount_rule_products').insert(prodInserts);
+            } else if (finalTargetType === 'SPECIFIC_CATEGORIES' && Array.isArray(categories) && categories.length > 0) {
+                const catInserts = categories.map(cat => ({
+                    id: `drc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                    discount_rule_id: id,
+                    category: cat
+                }));
+                await mysqlClient.from('discount_rule_categories').insert(catInserts);
+            } else if (finalTargetType === 'SPECIFIC_CUSTOMERS' && Array.isArray(customer_ids) && customer_ids.length > 0) {
+                const custInserts = customer_ids.map(cid => ({
+                    id: `drcust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                    discount_rule_id: id,
+                    customer_id: cid
+                }));
+                await mysqlClient.from('discount_rule_customers').insert(custInserts);
+            }
         }
 
         return NextResponse.json({ success: true, rule: newRule }, { status: 200 });
@@ -144,6 +187,20 @@ export async function PUT(request) {
             updateFields.coupon_code = updateFields.coupon_code && updateFields.coupon_code.trim() ? updateFields.coupon_code.trim().toUpperCase() : null;
         }
 
+        if (updateFields.discount_type === 'FREE_SHIPPING') {
+            updateFields.discount_value = 0;
+        } else if (updateFields.discount_value !== undefined) {
+            updateFields.discount_value = parseFloat(updateFields.discount_value || 0);
+        }
+
+        if (updateFields.calculation_basis === 'CART') {
+            if (updateFields.threshold_type === 'COUNT' && updateFields.threshold_count !== undefined) {
+                updateFields.threshold_count = parseInt(updateFields.threshold_count || 1, 10);
+            } else if (updateFields.threshold_type === 'VALUE' && updateFields.threshold_value !== undefined) {
+                updateFields.threshold_value = parseFloat(updateFields.threshold_value || 0);
+            }
+        }
+
         const { data: updatedRule, error: updateErr } = await mysqlClient
             .from('discount_rules')
             .update(updateFields)
@@ -156,7 +213,7 @@ export async function PUT(request) {
         // Sync relationships if targets provided
         if (Array.isArray(product_ids)) {
             await mysqlClient.from('discount_rule_products').delete().eq('discount_rule_id', id);
-            if (product_ids.length > 0) {
+            if (product_ids.length > 0 && updateFields.calculation_basis !== 'CART') {
                 const prodInserts = product_ids.map(pid => ({
                     id: `drp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
                     discount_rule_id: id,
@@ -168,7 +225,7 @@ export async function PUT(request) {
 
         if (Array.isArray(categories)) {
             await mysqlClient.from('discount_rule_categories').delete().eq('discount_rule_id', id);
-            if (categories.length > 0) {
+            if (categories.length > 0 && updateFields.calculation_basis !== 'CART') {
                 const catInserts = categories.map(cat => ({
                     id: `drc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
                     discount_rule_id: id,
