@@ -1,10 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { Users, Mail, Phone, MapPin, Lock, X, Check, Loader2 } from 'lucide-react';
+import { Users, Mail, Phone, MapPin, Lock, X, Check, Loader2, Globe } from 'lucide-react';
+import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
 
 export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
     const [formData, setFormData] = useState({
         name: '',
+        country_code: DEFAULT_COUNTRY_CODE,
         phone: '',
         email: '',
         address: '',
@@ -25,8 +27,8 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
         }
 
         const cleanPhone = formData.phone.replace(/\D/g, '');
-        if (cleanPhone.length < 10) {
-            setError('Please enter a valid 10-digit mobile number.');
+        if (cleanPhone.length < 7 || (formData.country_code === '+91' && cleanPhone.length !== 10)) {
+            setError('Please enter a valid Mobile Number (10 digits for India).');
             return;
         }
 
@@ -47,7 +49,8 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: formData.name.trim(),
-                    phone: formData.phone.trim(),
+                    country_code: formData.country_code || DEFAULT_COUNTRY_CODE,
+                    phone: cleanPhone,
                     email: formData.email.trim() || null,
                     address: formData.address.trim() || null,
                     password: formData.password.trim() || null
@@ -85,7 +88,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                 className="card shadow-premium animate-enter" 
                 style={{
                     width: '100%',
-                    maxWidth: '520px',
+                    maxWidth: '540px',
                     padding: '2.25rem 2rem',
                     borderRadius: '24px',
                     background: '#ffffff',
@@ -150,40 +153,55 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#333', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                Phone Number <span style={{ color: '#dc2626' }}>*</span>
-                            </label>
-                            <div style={{ position: 'relative' }}>
+                    <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#333', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Mobile Number <span style={{ color: '#dc2626' }}>*</span>
+                        </label>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <select
+                                value={formData.country_code}
+                                onChange={(e) => setFormData({ ...formData, country_code: e.target.value })}
+                                className="admin-input-select"
+                                style={{ width: '140px', padding: '0.65rem 0.5rem', fontWeight: 700, fontSize: '0.82rem', borderRadius: '8px', background: '#f8fafc' }}
+                            >
+                                {COUNTRY_CODES.map(c => (
+                                    <option key={c.code} value={c.code}>
+                                        {c.flag} {c.code} ({c.name})
+                                    </option>
+                                ))}
+                            </select>
+                            <div style={{ position: 'relative', flex: 1 }}>
                                 <Phone size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                                 <input
                                     type="tel"
                                     value={formData.phone}
-                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
                                     className="admin-input"
-                                    placeholder="e.g. 9876543210"
+                                    placeholder={formData.country_code === '+91' ? '9876543210' : 'Enter mobile'}
                                     required
                                     style={{ width: '100%', paddingLeft: '2.5rem' }}
                                 />
                             </div>
                         </div>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                            Only national mobile number is saved in mobile field; country code is stored separately.
+                        </span>
+                    </div>
 
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#333', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                Email Address (Optional)
-                            </label>
-                            <div style={{ position: 'relative' }}>
-                                <Mail size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                                <input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="admin-input"
-                                    placeholder="e.g. customer@gmail.com"
-                                    style={{ width: '100%', paddingLeft: '2.5rem' }}
-                                />
-                            </div>
+                    <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#333', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Email Address (Optional)
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                            <Mail size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            <input
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="admin-input"
+                                placeholder="e.g. customer@gmail.com"
+                                style={{ width: '100%', paddingLeft: '2.5rem' }}
+                            />
                         </div>
                     </div>
 

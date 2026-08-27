@@ -4,6 +4,7 @@ import {
     ArrowLeft, Phone, Mail, MapPin, Edit2, Check, X, 
     MessageCircle, KeyRound, Trash2, Loader2, ShieldCheck, User 
 } from 'lucide-react';
+import { COUNTRY_CODES } from '@/lib/countryCodes';
 import CustomerOrders from './CustomerOrders';
 
 export default function CustomerDetail({ 
@@ -16,6 +17,8 @@ export default function CustomerDetail({
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({
         name: customer?.name || '',
+        country_code: customer?.country_code || '+91',
+        phone: customer?.phone || '',
         email: customer?.email || '',
         address: customer?.lastAddress || customer?.address || ''
     });
@@ -43,6 +46,12 @@ export default function CustomerDetail({
             return;
         }
 
+        const cleanPhone = formData.phone.replace(/\D/g, '');
+        if (!cleanPhone || cleanPhone.length < 7) {
+            setError('Please enter a valid Mobile Number.');
+            return;
+        }
+
         setIsUpdating(true);
         try {
             const res = await fetch('/api/admin/customers', {
@@ -50,7 +59,8 @@ export default function CustomerDetail({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: customer?.id,
-                    phone: customer?.phone,
+                    phone: cleanPhone,
+                    country_code: formData.country_code || '+91',
                     name: formData.name.trim(),
                     email: formData.email.trim() || null,
                     address: formData.address.trim() || null
@@ -70,6 +80,10 @@ export default function CustomerDetail({
             setIsUpdating(false);
         }
     };
+
+    const displayCountryCode = customer?.country_code || '+91';
+    const cleanDisplayPhone = customer?.phone || '';
+    const fullWaPhone = `${displayCountryCode.replace('+', '')}${cleanDisplayPhone}`;
 
     return (
         <div className="animate-enter" style={{ paddingBottom: '3rem' }}>
@@ -93,7 +107,7 @@ export default function CustomerDetail({
                             )}
                         </h1>
                         <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'hsl(var(--text-muted))', margin: '4px 0 0', fontSize: '0.85rem' }}>
-                            <Phone size={14} /> {customer?.phone}
+                            <Phone size={14} /> <strong style={{ color: '#0f172a' }}>{displayCountryCode} {cleanDisplayPhone}</strong>
                             {customer?.email && <> • <Mail size={14} /> {customer?.email}</>}
                         </p>
                     </div>
@@ -120,6 +134,16 @@ export default function CustomerDetail({
                         </>
                     ) : (
                         <>
+                            <a
+                                href={`https://wa.me/${fullWaPhone}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-secondary"
+                                style={{ borderRadius: '12px', padding: '0.65rem 1.1rem', display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', textDecoration: 'none', fontWeight: 700 }}
+                            >
+                                <MessageCircle size={15} /> WhatsApp
+                            </a>
+
                             <button 
                                 onClick={() => onResetPasswordClick && onResetPasswordClick(customer)} 
                                 className="btn btn-secondary"
@@ -204,14 +228,42 @@ export default function CustomerDetail({
 
                         <div>
                             <label style={{ fontSize: '0.72rem', fontWeight: 800, color: 'hsl(var(--text-muted))', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                WhatsApp Mobile Number
+                                Mobile Number
                             </label>
-                            <div style={{ fontSize: '1rem', color: 'hsl(var(--text-main))', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
-                                {customer?.phone}
-                                <span style={{ fontSize: '0.65rem', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
-                                    PRIMARY ID
-                                </span>
-                            </div>
+                            {isEditing ? (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <select
+                                        value={formData.country_code}
+                                        onChange={(e) => setFormData({ ...formData, country_code: e.target.value })}
+                                        className="admin-input-select"
+                                        style={{ width: '130px', fontWeight: 700, fontSize: '0.82rem', borderRadius: '8px', background: '#f8fafc' }}
+                                    >
+                                        {COUNTRY_CODES.map(c => (
+                                            <option key={c.code} value={c.code}>
+                                                {c.flag} {c.code}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
+                                        className="admin-input"
+                                        style={{ flex: 1 }}
+                                        placeholder="Mobile number"
+                                    />
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '1rem', color: 'hsl(var(--text-main))', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                                    <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '6px', fontSize: '0.78rem', color: '#475569' }}>
+                                        {displayCountryCode}
+                                    </span>
+                                    {cleanDisplayPhone}
+                                    <span style={{ fontSize: '0.65rem', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
+                                        PRIMARY ID
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div>
@@ -258,54 +310,39 @@ export default function CustomerDetail({
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
                             <div style={{ textAlign: 'center', padding: '1.25rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
                                 <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
-                                    {customer?.totalOrders || 0}
+                                    ₹{(customer?.totalSpent || 0).toLocaleString()}
                                 </div>
-                                <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 800, textTransform: 'uppercase' }}>
-                                    ORDERS
+                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginTop: '4px' }}>
+                                    Lifetime Spent
                                 </div>
                             </div>
                             <div style={{ textAlign: 'center', padding: '1.25rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
                                 <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'hsl(var(--success))' }}>
-                                    ₹{(customer?.totalSpent || 0).toLocaleString()}
+                                    {customer?.totalOrders || 0}
                                 </div>
-                                <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 800, textTransform: 'uppercase' }}>
-                                    REVENUE
+                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginTop: '4px' }}>
+                                    Total Orders
                                 </div>
                             </div>
                         </div>
 
-                        {/* WhatsApp Direct Chat Button */}
-                        <a 
-                            href={`https://wa.me/${customer?.phone}`} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            style={{
-                                background: '#25D366',
-                                color: '#ffffff',
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '8px',
-                                padding: '0.9rem',
-                                borderRadius: '12px',
-                                fontWeight: 800,
-                                fontSize: '0.95rem',
-                                textDecoration: 'none',
-                                boxShadow: '0 4px 14px rgba(37, 211, 102, 0.3)',
-                                marginTop: '0.5rem',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            <MessageCircle size={20} /> Chat with Customer on WhatsApp
-                        </a>
+                        {/* Additional Meta Information */}
+                        <div style={{ paddingTop: '1rem', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>
+                            <div>
+                                <strong>Registered On:</strong> {customer?.created_at ? new Date(customer.created_at).toLocaleString('en-IN') : 'Unknown'}
+                            </div>
+                            <div>
+                                <strong>Password Protected:</strong> {customer?.hasPassword ? '✅ Yes' : '❌ No (OTP Only)'}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Right Column: Order History Component */}
+                {/* Right Column: Customer Orders List */}
                 <CustomerOrders 
-                    orders={customer?.orders || []} 
-                    onOrderUpdated={onCustomerUpdated} 
+                    customerPhone={customer?.phone}
+                    customerName={customer?.name}
+                    initialOrders={customer?.orders}
                 />
             </div>
         </div>

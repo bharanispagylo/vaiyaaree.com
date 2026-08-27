@@ -4,13 +4,15 @@ import Link from 'next/link';
 import { User, Mail, Phone, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, MessageCircle, Loader2, KeyRound } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ModalPortal from '@/components/ModalPortal';
+import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
 
 export default function CheckoutAuthModal({ onSuccess }) {
     const { setUser, showToast, setCheckoutForm } = useShop();
 
     const [activeTab, setActiveTab] = useState('otp'); // 'otp' | 'register' | 'login'
 
-    // OTP Auth State (6-Digit WhatsApp OTP)
+    // OTP Auth State (WhatsApp OTP)
+    const [otpCountryCode, setOtpCountryCode] = useState(DEFAULT_COUNTRY_CODE);
     const [otpPhone, setOtpPhone] = useState('');
     const [otpCode, setOtpCode] = useState('');
     const [otpStep, setOtpStep] = useState(1); // 1 = Enter Phone, 2 = Enter 6-digit OTP
@@ -19,6 +21,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
     // New User Sign Up State
     const [regName, setRegName] = useState('');
     const [regEmail, setRegEmail] = useState('');
+    const [regCountryCode, setRegCountryCode] = useState(DEFAULT_COUNTRY_CODE);
     const [regPhone, setRegPhone] = useState('');
     const [regPassword, setRegPassword] = useState('');
     const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -42,10 +45,12 @@ export default function CheckoutAuthModal({ onSuccess }) {
     }, [otpCountdown]);
 
     const syncCustomerToForm = (customerData) => {
-        const phoneClean = customerData.phone ? customerData.phone.replace(/^91/, '') : '';
+        const phoneClean = customerData.phone ? String(customerData.phone).replace(/^91/, '').replace(/\D/g, '') : '';
+        const cCode = customerData.country_code || DEFAULT_COUNTRY_CODE;
         setCheckoutForm(prev => ({
             ...prev,
             billingName: customerData.name || prev.billingName || '',
+            billingCountryCode: cCode,
             billingPhone: phoneClean || prev.billingPhone || '',
             billingWhatsApp: phoneClean || prev.billingWhatsApp || '',
             billingEmail: customerData.email || prev.billingEmail || '',
@@ -63,9 +68,9 @@ export default function CheckoutAuthModal({ onSuccess }) {
         if (e) e.preventDefault();
         setError('');
 
-        const cleanDigits = otpPhone.replace(/\D/g, '').slice(-10);
-        if (cleanDigits.length !== 10) {
-            setError('Please enter a valid 10-digit Mobile Number.');
+        const cleanDigits = otpPhone.replace(/\D/g, '');
+        if (cleanDigits.length < 7 || (otpCountryCode === '+91' && cleanDigits.length !== 10)) {
+            setError('Please enter a valid Mobile Number (10 digits for India).');
             return;
         }
 
@@ -74,7 +79,10 @@ export default function CheckoutAuthModal({ onSuccess }) {
             const res = await fetch('/api/auth/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: cleanDigits })
+                body: JSON.stringify({ 
+                    phone: cleanDigits,
+                    country_code: otpCountryCode
+                })
             });
             const data = await res.json();
             if (!res.ok && data.error && !data.error.includes('WA-DEBUG')) {
@@ -104,21 +112,28 @@ export default function CheckoutAuthModal({ onSuccess }) {
             return;
         }
 
-        const cleanDigits = otpPhone.replace(/\D/g, '').slice(-10);
+        const cleanDigits = otpPhone.replace(/\D/g, '');
         setLoading(true);
 
         try {
             const res = await fetch('/api/auth/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: cleanDigits, code: otpCode.trim() })
+                body: JSON.stringify({ 
+                    phone: cleanDigits, 
+                    country_code: otpCountryCode,
+                    code: otpCode.trim() 
+                })
             });
 
             const data = await res.json();
             if (res.ok && data.success) {
                 const customerData = {
                     id: data.user?.id || 'cust_' + cleanDigits,
-                    phone: '91' + cleanDigits,
+                    name: data.user?.name || '',
+                    email: data.user?.email || '',
+                    phone: cleanDigits,
+                    country_code: otpCountryCode,
                     role: data.user?.role || 'user',
                     login_at: Date.now()
                 };
@@ -150,9 +165,9 @@ export default function CheckoutAuthModal({ onSuccess }) {
             setError('Please enter a valid Email Address.');
             return;
         }
-        const cleanDigits = regPhone.replace(/\D/g, '').slice(-10);
-        if (cleanDigits.length !== 10) {
-            setError('Please enter a valid 10-digit Mobile Number.');
+        const cleanDigits = regPhone.replace(/\D/g, '');
+        if (cleanDigits.length < 7 || (regCountryCode === '+91' && cleanDigits.length !== 10)) {
+            setError('Please enter a valid Mobile Number (10 digits for India).');
             return;
         }
         if (!regPassword || regPassword.length < 6) {
@@ -173,6 +188,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                     name: regName.trim(),
                     email: regEmail.trim(),
                     phone: cleanDigits,
+                    country_code: regCountryCode,
                     password: regPassword
                 })
             });
@@ -255,7 +271,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                 <div 
                     className="no-scrollbar"
                     style={{
-                        maxWidth: '460px',
+                        maxWidth: '480px',
                         width: '100%',
                         maxHeight: '92vh',
                         overflowY: 'auto',
@@ -380,17 +396,29 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#444', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                             Mobile / WhatsApp Number <span style={{ color: '#5d0821' }}>*</span>
                                         </label>
-                                        <div style={{ position: 'relative' }}>
-                                            <Phone size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                            <input
-                                                type="tel"
-                                                value={otpPhone}
-                                                onChange={e => setOtpPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                                placeholder="Enter 10-digit mobile number"
-                                                maxLength={10}
-                                                required
-                                                style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.95rem', outline: 'none', background: '#faf9f6' }}
-                                            />
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <select
+                                                value={otpCountryCode}
+                                                onChange={e => setOtpCountryCode(e.target.value)}
+                                                style={{ width: '115px', padding: '0.75rem 0.4rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: 700, background: '#faf9f6', outline: 'none' }}
+                                            >
+                                                {COUNTRY_CODES.map(c => (
+                                                    <option key={c.code} value={c.code}>
+                                                        {c.flag} {c.code}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <Phone size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                                <input
+                                                    type="tel"
+                                                    value={otpPhone}
+                                                    onChange={e => setOtpPhone(e.target.value.replace(/\D/g, ''))}
+                                                    placeholder={otpCountryCode === '+91' ? '10-digit mobile' : 'Enter mobile'}
+                                                    required
+                                                    style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.95rem', outline: 'none', background: '#faf9f6' }}
+                                                />
+                                            </div>
                                         </div>
                                         <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '6px', display: 'block' }}>
                                             🔒 A 6-digit verification code will be sent to your WhatsApp.
@@ -399,19 +427,19 @@ export default function CheckoutAuthModal({ onSuccess }) {
 
                                     <button
                                         type="submit"
-                                        disabled={loading || otpPhone.length !== 10}
+                                        disabled={loading || !otpPhone}
                                         style={{
                                             width: '100%',
                                             padding: '0.9rem',
-                                            background: otpPhone.length === 10 ? '#16a34a' : '#94a3b8',
+                                            background: otpPhone ? '#16a34a' : '#94a3b8',
                                             color: '#ffffff',
                                             border: 'none',
                                             borderRadius: '12px',
                                             fontWeight: 800,
                                             fontSize: '0.92rem',
                                             letterSpacing: '0.04em',
-                                            cursor: otpPhone.length === 10 ? 'pointer' : 'not-allowed',
-                                            boxShadow: otpPhone.length === 10 ? '0 6px 20px rgba(22, 163, 74, 0.25)' : 'none',
+                                            cursor: otpPhone ? 'pointer' : 'not-allowed',
+                                            boxShadow: otpPhone ? '0 6px 20px rgba(22, 163, 74, 0.25)' : 'none',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
@@ -425,7 +453,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                 <form onSubmit={handleVerifyOtp}>
                                     <div style={{ marginBottom: '1.25rem', textAlign: 'center' }}>
                                         <div style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '0.5rem' }}>
-                                            Enter the 6-digit OTP sent to: <strong>+91 {otpPhone}</strong>
+                                            Enter the 6-digit OTP sent to: <strong>{otpCountryCode} {otpPhone}</strong>
                                         </div>
                                         <input
                                             type="text"
@@ -541,18 +569,29 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#444', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                     Mobile Number <span style={{ color: '#5d0821' }}>*</span>
                                 </label>
-                                <div style={{ position: 'relative' }}>
-                                    <Phone size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                    <input
-                                        type="tel"
-                                        value={regPhone}
-                                        onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                                        placeholder="10-digit mobile number"
-                                        maxLength="10"
-                                        minLength="10"
-                                        required
-                                        style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '9px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
-                                    />
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <select
+                                        value={regCountryCode}
+                                        onChange={e => setRegCountryCode(e.target.value)}
+                                        style={{ width: '115px', padding: '0.75rem 0.4rem', borderRadius: '9px', border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: 700, background: '#faf9f6', outline: 'none' }}
+                                    >
+                                        {COUNTRY_CODES.map(c => (
+                                            <option key={c.code} value={c.code}>
+                                                {c.flag} {c.code}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div style={{ position: 'relative', flex: 1 }}>
+                                        <Phone size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                        <input
+                                            type="tel"
+                                            value={regPhone}
+                                            onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                                            placeholder={regCountryCode === '+91' ? '10-digit mobile number' : 'Mobile number'}
+                                            required
+                                            style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '9px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -635,7 +674,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                         type="text"
                                         value={loginIdentifier}
                                         onChange={e => setLoginIdentifier(e.target.value)}
-                                        placeholder="Enter 10-digit Mobile or Email"
+                                        placeholder="Enter Mobile or Email"
                                         required
                                         style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '9px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
                                     />

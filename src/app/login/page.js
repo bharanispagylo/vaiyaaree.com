@@ -2,8 +2,9 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Phone, Mail, Lock, User, Eye, EyeOff, CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Phone, Mail, Lock, User, Eye, EyeOff, CheckCircle2, ArrowRight, ShieldCheck, Globe } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
+import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
 
 function LoginContent() {
     const router = useRouter();
@@ -21,6 +22,7 @@ function LoginContent() {
     // Register Form State
     const [regName, setRegName] = useState('');
     const [regEmail, setRegEmail] = useState('');
+    const [regCountryCode, setRegCountryCode] = useState(DEFAULT_COUNTRY_CODE);
     const [regPhone, setRegPhone] = useState('');
     const [regPassword, setRegPassword] = useState('');
     const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -101,9 +103,9 @@ function LoginContent() {
             setError('Please enter a valid Email Address.');
             return;
         }
-        const cleanDigits = regPhone.replace(/\D/g, '').slice(-10);
-        if (cleanDigits.length !== 10) {
-            setError('Please enter a valid 10-digit Mobile Number.');
+        const cleanDigits = regPhone.replace(/\D/g, '');
+        if (cleanDigits.length < 7 || (regCountryCode === '+91' && cleanDigits.length !== 10)) {
+            setError('Please enter a valid Mobile Number (10 digits for India).');
             return;
         }
         if (!regPassword || regPassword.length < 6) {
@@ -124,6 +126,7 @@ function LoginContent() {
                     name: regName.trim(),
                     email: regEmail.trim(),
                     phone: cleanDigits,
+                    country_code: regCountryCode,
                     password: regPassword
                 })
             });
@@ -164,7 +167,7 @@ function LoginContent() {
             color: '#2b2623'
         }}>
             <div style={{
-                maxWidth: '460px',
+                maxWidth: '480px',
                 width: '100%',
                 margin: '0 auto',
                 background: '#ffffff',
@@ -301,7 +304,7 @@ function LoginContent() {
                                     type="text"
                                     value={loginIdentifier}
                                     onChange={e => setLoginIdentifier(e.target.value)}
-                                    placeholder="Enter 10-digit Mobile or Email"
+                                    placeholder="Enter Mobile or Email"
                                     required
                                     style={{
                                         width: '100%',
@@ -419,18 +422,29 @@ function LoginContent() {
                             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Mobile Number <span style={{ color: '#5d0821' }}>*</span>
                             </label>
-                            <div style={{ position: 'relative' }}>
-                                <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type="tel"
-                                    value={regPhone}
-                                    onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                                    placeholder="10-digit mobile number"
-                                    maxLength="10"
-                                    minLength="10"
-                                    required
-                                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
-                                />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <select
+                                    value={regCountryCode}
+                                    onChange={e => setRegCountryCode(e.target.value)}
+                                    style={{ width: '120px', padding: '0.8rem 0.4rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: 700, background: '#faf9f6', outline: 'none' }}
+                                >
+                                    {COUNTRY_CODES.map(c => (
+                                        <option key={c.code} value={c.code}>
+                                            {c.flag} {c.code}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div style={{ position: 'relative', flex: 1 }}>
+                                    <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                    <input
+                                        type="tel"
+                                        value={regPhone}
+                                        onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                                        placeholder={regCountryCode === '+91' ? '10-digit mobile number' : 'Mobile number'}
+                                        required
+                                        style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -459,7 +473,7 @@ function LoginContent() {
                             </div>
                         </div>
 
-                        <div style={{ marginBottom: '1.25rem' }}>
+                        <div style={{ marginBottom: '1.5rem' }}>
                             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Confirm Password <span style={{ color: '#5d0821' }}>*</span>
                             </label>
@@ -483,7 +497,6 @@ function LoginContent() {
                             style={{
                                 width: '100%',
                                 padding: '1rem',
-                                marginTop: '0.5rem',
                                 background: '#5d0821',
                                 color: '#ffffff',
                                 border: 'none',
@@ -501,14 +514,20 @@ function LoginContent() {
                         </button>
                     </form>
                 )}
+
+                {/* Footer Security Badges */}
+                <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #f0e6df', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#888', fontSize: '0.78rem' }}>
+                    <ShieldCheck size={16} color="#16a34a" />
+                    <span>256-Bit Encrypted & 100% Safe Checkout</span>
+                </div>
             </div>
         </div>
     );
 }
 
-export default function CustomerLoginPage() {
+export default function LoginPage() {
     return (
-        <Suspense fallback={<div style={{ padding: '4rem', textAlign: 'center' }}>Loading authentication page...</div>}>
+        <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>}>
             <LoginContent />
         </Suspense>
     );

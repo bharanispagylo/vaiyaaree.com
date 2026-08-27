@@ -129,7 +129,7 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
                             {customer?.hasPassword ? 'Reset Customer Password' : 'Create Customer Password'}
                         </h3>
                         <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', margin: 0 }}>
-                            For {customer?.name || 'Customer'} ({customer?.phone})
+                            For {customer?.name || 'Customer'} ({customer?.country_code || '+91'} {customer?.phone})
                         </p>
                     </div>
                 </div>

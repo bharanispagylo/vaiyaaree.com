@@ -6,13 +6,9 @@ import { hashPassword } from '@/lib/hash';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-function normalizePhone(input) {
+function cleanMobileDigits(input) {
     if (!input) return '';
-    const digits = input.toString().replace(/\D/g, '');
-    if (digits.length === 10) return `91${digits}`;
-    if (digits.length === 12 && digits.startsWith('91')) return digits;
-    if (digits.length > 10) return digits.slice(-10).padStart(12, '91');
-    return digits;
+    return input.toString().replace(/\D/g, '');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,7 +35,7 @@ export async function GET(req) {
         }
 
         // Fetch all registered customers matching search
-        let queryStr = 'SELECT `id`, `name`, `phone`, `email`, `address`, `city`, `state`, `pincode`, `role`, `created_at`, `last_login`, `admin_notes` FROM `customers`';
+        let queryStr = 'SELECT `id`, `name`, `phone`, `country_code`, `email`, `address`, `city`, `state`, `pincode`, `role`, `created_at`, `last_login`, `admin_notes` FROM `customers`';
         if (searchConditions.length > 0) {
             queryStr += ' WHERE ' + searchConditions.join(' AND ');
         }
@@ -47,15 +43,19 @@ export async function GET(req) {
 
         const [customerRows] = await pool.query(queryStr, searchParamsList);
 
-        // Collect all normalized phones to query orders
+        // Collect all phones to query orders
         const phoneList = [];
         customerRows.forEach(c => {
-            const norm = normalizePhone(c.phone);
-            if (norm) {
-                phoneList.push(norm);
-                const digits10 = norm.slice(-10);
-                phoneList.push(digits10);
-                phoneList.push(`+${norm}`);
+            const raw = cleanMobileDigits(c.phone);
+            if (raw) {
+                phoneList.push(raw);
+                phoneList.push(raw.slice(-10));
+                phoneList.push(`91${raw.slice(-10)}`);
+                phoneList.push(`+91${raw.slice(-10)}`);
+                if (c.country_code) {
+                    phoneList.push(`${c.country_code}${raw}`);
+                    phoneList.push(`${c.country_code.replace('+', '')}${raw}`);
+                }
             }
         });
         const uniquePhones = [...new Set(phoneList.filter(Boolean))];
@@ -70,44 +70,69 @@ export async function GET(req) {
             orderRows = orders;
         }
 
-        // Build customer aggregated data map
+        // Build customer aggregated data map (keyed by clean phone or customer id)
         const customerMap = {};
         customerRows.forEach(cust => {
-            const normPhone = normalizePhone(cust.phone) || cust.phone || cust.id;
-            customerMap[normPhone] = {
-                id: cust.id,
-                name: cust.name || 'Customer',
-                phone: cust.phone || '',
-                email: cust.email || '',
-                address: cust.address || '',
-                city: cust.city || '',
-                state: cust.state || '',
-                pincode: cust.pincode || '',
-                hasPassword: Boolean(cust.admin_notes && (cust.admin_notes.includes('pwd') || cust.admin_notes.includes('password'))),
-                totalOrders: 0,
-                totalSpent: 0,
-                created_at: cust.created_at,
-                lastOrder: cust.created_at,
-                lastAddress: cust.address || '',
-                orders: []
-            };
+            const cleanPhone = cleanMobileDigits(cust.phone);
+            const countryCode = cust.country_code ? (cust.country_code.startsWith('+') ? cust.country_code : `+${cust.country_code}`) : '+91';
+            const mapKey = cleanPhone || cust.id;
+
+            if (!customerMap[mapKey]) {
+                customerMap[mapKey] = {
+                    id: cust.id,
+                    name: cust.name || 'Customer',
+                    phone: cleanPhone || cust.phone || '',
+                    country_code: countryCode,
+                    email: cust.email || '',
+                    address: cust.address || '',
+                    city: cust.city || '',
+                    state: cust.state || '',
+                    pincode: cust.pincode || '',
+                    hasPassword: Boolean(cust.admin_notes && (cust.admin_notes.includes('pwd') || cust.admin_notes.includes('password'))),
+                    totalOrders: 0,
+                    totalSpent: 0,
+                    created_at: cust.created_at,
+                    lastOrder: cust.created_at,
+                    lastAddress: cust.address || '',
+                    orders: []
+                };
+            } else {
+                const existing = customerMap[mapKey];
+                if (cust.id && !existing.id) existing.id = cust.id;
+                if (cust.name && cust.name !== 'Customer') existing.name = cust.name;
+                if (cust.email && !existing.email) existing.email = cust.email;
+                if (cust.address && !existing.address) existing.address = cust.address;
+                if (cust.city && !existing.city) existing.city = cust.city;
+                if (cust.state && !existing.state) existing.state = cust.state;
+                if (cust.pincode && !existing.pincode) existing.pincode = cust.pincode;
+                if (cust.created_at && (!existing.created_at || new Date(cust.created_at) < new Date(existing.created_at))) {
+                    existing.created_at = cust.created_at;
+                }
+            }
         });
 
-        // Aggregate orders per customer
+        // Match orders to customers by phone number
         orderRows.forEach(order => {
-            const normPhone = normalizePhone(order.customer_phone);
-            if (normPhone && customerMap[normPhone]) {
-                customerMap[normPhone].totalOrders += 1;
-                customerMap[normPhone].totalSpent += (Number(order.total_amount) || 0);
-                customerMap[normPhone].orders.push(order);
-                if (new Date(order.created_at) > new Date(customerMap[normPhone].lastOrder)) {
-                    customerMap[normPhone].lastOrder = order.created_at;
+            const ordDigits = cleanMobileDigits(order.customer_phone);
+            if (!ordDigits) return;
+
+            const targetCustomer = Object.values(customerMap).find(c => {
+                const cDigits = cleanMobileDigits(c.phone);
+                return cDigits && (cDigits === ordDigits || cDigits.slice(-10) === ordDigits.slice(-10));
+            });
+
+            if (targetCustomer) {
+                targetCustomer.totalOrders += 1;
+                targetCustomer.totalSpent += (Number(order.total_amount) || 0);
+                targetCustomer.orders.push(order);
+                if (new Date(order.created_at) > new Date(targetCustomer.lastOrder)) {
+                    targetCustomer.lastOrder = order.created_at;
                 }
                 if (order.customer_name && !['WhatsApp Customer', 'Website User'].includes(order.customer_name)) {
-                    customerMap[normPhone].name = order.customer_name;
+                    targetCustomer.name = order.customer_name;
                 }
-                if (order.delivery_address && !customerMap[normPhone].lastAddress) {
-                    customerMap[normPhone].lastAddress = order.delivery_address;
+                if (order.delivery_address && !targetCustomer.lastAddress) {
+                    targetCustomer.lastAddress = order.delivery_address;
                 }
             }
         });
@@ -158,20 +183,24 @@ export async function GET(req) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST: Create New Customer with Optional Email and Initial Password
+// POST: Create New Customer with Separate Country Code and Mobile Number
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(req) {
     try {
         const body = await req.json();
-        const { name, phone, email, address, password } = body;
+        const { name, phone, country_code, email, address, password } = body;
 
         if (!name?.trim() || !phone?.trim()) {
             return NextResponse.json({ error: 'Full Name and Phone Number are required.' }, { status: 400 });
         }
 
-        const normalizedPhone = normalizePhone(phone);
-        if (!normalizedPhone || normalizedPhone.length < 10) {
-            return NextResponse.json({ error: 'Please enter a valid 10-digit mobile number.' }, { status: 400 });
+        const selectedCountryCode = (country_code || '+91').trim();
+        const formattedCountryCode = selectedCountryCode.startsWith('+') ? selectedCountryCode : `+${selectedCountryCode}`;
+        const rawDigits = cleanMobileDigits(phone);
+        const cleanPhone = (formattedCountryCode === '+91') ? rawDigits.slice(-10) : rawDigits;
+
+        if (!cleanPhone || cleanPhone.length < 7 || (formattedCountryCode === '+91' && cleanPhone.length !== 10)) {
+            return NextResponse.json({ error: 'Please enter a valid Mobile Number.' }, { status: 400 });
         }
 
         const cleanEmail = (email || '').trim().toLowerCase();
@@ -180,11 +209,9 @@ export async function POST(req) {
         }
 
         // Check if customer already exists with this phone
-        const phone10 = normalizedPhone.slice(-10);
-        const phone12 = `91${phone10}`;
         const [existing] = await pool.query(
             'SELECT `id` FROM `customers` WHERE `phone` IN (?, ?) LIMIT 1',
-            [phone10, phone12]
+            [cleanPhone, `91${cleanPhone}`]
         );
 
         if (existing.length > 0) {
@@ -200,18 +227,18 @@ export async function POST(req) {
         }
 
         await pool.query(
-            `INSERT INTO \`customers\` (\`id\`, \`phone\`, \`name\`, \`email\`, \`address\`, \`role\`, \`admin_notes\`, \`is_verified\`, \`created_at\`, \`updated_at\`)
-             VALUES (?, ?, ?, ?, ?, 'user', ?, 1, NOW(), NOW())`,
-            [newId, phone12, name.trim(), cleanEmail || null, (address || '').trim() || null, adminNotes]
+            `INSERT INTO \`customers\` (\`id\`, \`phone\`, \`country_code\`, \`name\`, \`email\`, \`address\`, \`role\`, \`admin_notes\`, \`is_verified\`, \`created_at\`, \`updated_at\`)
+             VALUES (?, ?, ?, ?, ?, ?, 'user', ?, 1, NOW(), NOW())`,
+            [newId, cleanPhone, formattedCountryCode, name.trim(), cleanEmail || null, (address || '').trim() || null, adminNotes]
         );
 
         // Also add address record if address provided
         if (address && address.trim()) {
             const addrId = `addr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
             await pool.query(
-                `INSERT INTO \`customer_addresses\` (\`id\`, \`customer_id\`, \`name\`, \`phone\`, \`address\`, \`is_default\`, \`created_at\`)
-                 VALUES (?, ?, ?, ?, ?, '1', NOW())`,
-                [addrId, newId, name.trim(), phone12, address.trim()]
+                `INSERT INTO \`customer_addresses\` (\`id\`, \`customer_id\`, \`name\`, \`phone\`, \`country_code\`, \`address\`, \`is_default\`, \`created_at\`)
+                 VALUES (?, ?, ?, ?, ?, ?, '1', NOW())`,
+                [addrId, newId, name.trim(), cleanPhone, formattedCountryCode, address.trim()]
             );
         }
 
@@ -228,12 +255,12 @@ export async function POST(req) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PUT: Update Existing Customer Profile (Name, Email, Address)
+// PUT: Update Existing Customer Profile (Name, Email, Address, Phone, Country Code)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function PUT(req) {
     try {
         const body = await req.json();
-        const { id, phone, name, email, address } = body;
+        const { id, phone, country_code, name, email, address } = body;
 
         if (!id && !phone) {
             return NextResponse.json({ error: 'Customer ID or Phone Number is required.' }, { status: 400 });
@@ -248,18 +275,27 @@ export async function PUT(req) {
             return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
         }
 
-        let query = 'UPDATE `customers` SET `name` = ?, `email` = ?, `address` = ?, `updated_at` = NOW() WHERE ';
+        let formattedCountryCode = country_code ? (country_code.startsWith('+') ? country_code : `+${country_code}`) : '+91';
+        let cleanPhone = phone ? cleanMobileDigits(phone) : null;
+        if (cleanPhone && formattedCountryCode === '+91') {
+            cleanPhone = cleanPhone.slice(-10);
+        }
+
+        let query = 'UPDATE `customers` SET `name` = ?, `email` = ?, `address` = ?';
         const params = [name.trim(), cleanEmail || null, (address || '').trim() || null];
+
+        if (cleanPhone) {
+            query += ', `phone` = ?, `country_code` = ?';
+            params.push(cleanPhone, formattedCountryCode);
+        }
+        query += ', `updated_at` = NOW() WHERE ';
 
         if (id) {
             query += '`id` = ?';
             params.push(id);
         } else {
-            const norm = normalizePhone(phone);
-            const phone10 = norm.slice(-10);
-            const phone12 = `91${phone10}`;
             query += '`phone` IN (?, ?)';
-            params.push(phone10, phone12);
+            params.push(cleanPhone, `91${cleanPhone}`);
         }
 
         const [result] = await pool.query(query, params);
@@ -294,13 +330,13 @@ export async function DELETE(req) {
             return NextResponse.json({ error: 'Please specify customer IDs or phone numbers to delete.' }, { status: 400 });
         }
 
-        // Expand phone list to include 10 and 12-digit variants
         const expandedPhones = [];
         phoneList.forEach(p => {
-            const norm = normalizePhone(p);
-            if (norm) {
-                expandedPhones.push(norm.slice(-10));
-                expandedPhones.push(`91${norm.slice(-10)}`);
+            const raw = cleanMobileDigits(p);
+            if (raw) {
+                expandedPhones.push(raw);
+                expandedPhones.push(raw.slice(-10));
+                expandedPhones.push(`91${raw.slice(-10)}`);
             }
         });
 

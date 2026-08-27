@@ -202,13 +202,14 @@ export default function CustomerTable({
                                 </td>
                             </tr>
                         ) : (
-                            customers.map((customer) => {
+                            customers.map((customer, index) => {
                                 const isSelected = selectedPhones.includes(customer.phone);
                                 const tier = getTierBadge(customer.totalSpent || 0);
+                                const uniqueKey = customer.id || `${customer.phone}-${index}`;
 
                                 return (
                                     <tr 
-                                        key={customer.phone} 
+                                        key={uniqueKey} 
                                         onClick={() => onCustomerClick && onCustomerClick(customer)} 
                                         style={{ 
                                             cursor: 'pointer', 
@@ -243,6 +244,19 @@ export default function CustomerTable({
 
                                         {/* Phone */}
                                         <td style={{ padding: '1rem', color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>
+                                            <span style={{
+                                                background: '#f1f5f9',
+                                                border: '1px solid #cbd5e1',
+                                                color: '#334155',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.72rem',
+                                                fontWeight: 800,
+                                                marginRight: '6px',
+                                                display: 'inline-block'
+                                            }}>
+                                                {customer.country_code || '+91'}
+                                            </span>
                                             {customer.phone}
                                         </td>
 
@@ -285,7 +299,7 @@ export default function CustomerTable({
                                         <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
                                                 <a 
-                                                    href={`https://wa.me/${customer.phone}`} 
+                                                    href={`https://wa.me/${(customer.country_code || '+91').replace('+', '')}${customer.phone}`} 
                                                     target="_blank" 
                                                     rel="noreferrer"
                                                     title="Chat on WhatsApp"
