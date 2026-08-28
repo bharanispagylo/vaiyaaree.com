@@ -183,30 +183,61 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
     }, [user, mysqlClient]);
 
     useEffect(() => {
-        fetchUserReturns();
+        let mounted = true;
+
+        async function loadReturns() {
+            if (!user?.id && !user?.phone) return;
+            try {
+                let query = mysqlClient
+                    .from('return_requests')
+                    .select('*, products(id, name, image_url, price), orders:order_id(id, invoice_no, created_at, customer_name, customer_phone), return_shipping(*)')
+                    .order('created_at', { ascending: false });
+
+                if (user?.id) {
+                    query = query.eq('customer_id', user.id);
+                }
+                
+                const { data, error } = await query;
+                if (mounted && !error && data) {
+                    setUserReturns(data);
+                }
+            } catch (err) {
+                console.error('[RETURN-WIZARD] Fetch error:', err);
+            }
+        }
+
+        loadReturns();
 
         // Subscribe to database changes for real-time status updates from Admin
         const channel = mysqlClient.channel('customer_returns_sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'return_requests' }, () => {
-                fetchUserReturns();
+                loadReturns();
             })
             .subscribe();
 
-        return () => { mysqlClient.removeChannel(channel); };
-    }, [fetchUserReturns, mysqlClient]);
+        return () => { 
+            mounted = false;
+            mysqlClient.removeChannel(channel); 
+        };
+    }, [user, mysqlClient]);
 
     // Fetch Couriers list
     useEffect(() => {
+        let mounted = true;
         fetch('/api/returns/couriers')
             .then(res => res.json())
             .then(data => {
-                if (Array.isArray(data) && data.length > 0) {
+                if (mounted && Array.isArray(data) && data.length > 0) {
                     setCouriersList(data);
                     const first = data[0];
                     setShippingForm(f => ({ ...f, courierCompanyId: first.id, courierCompanyName: first.name }));
                 }
             })
             .catch(() => {});
+
+        return () => {
+            mounted = false;
+        };
     }, []);
 
     // Build eligible items: DELIVERED orders, no active non-rejected return

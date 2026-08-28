@@ -11,7 +11,7 @@ import {
     Search, Eye, ChevronDown, rotateCcw, ChevronLeft, ChevronRight,
     Loader2, MessageCircle, Truck, RefreshCw, Plus, Trash2, Download, ExternalLink, Package,
     Mail, XCircle, AlertCircle, CheckCircle, Send, Save, X, Trophy, TrendingUp, ShoppingCart, CreditCard, IndianRupee, Info,
-    User, Phone, MapPin, Globe, ShieldAlert, FileText
+    User, Phone, MapPin, Globe, ShieldAlert, FileText, Tag
 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
@@ -1949,7 +1949,7 @@ export default function OrdersPage() {
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                                                 {item.variant_name ? (
                                                                     <span style={{ fontSize: '0.78rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '3px 9px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                        🏷️ Variant: {item.variant_name}
+                                                                        <Tag size={12} /> Variant: {item.variant_name}
                                                                     </span>
                                                                 ) : (
                                                                     <span style={{ fontSize: '0.75rem', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', padding: '2px 7px', borderRadius: '5px', fontWeight: 600 }}>
@@ -3676,8 +3676,8 @@ export default function OrdersPage() {
                                                     <div style={{ fontSize: '0.9rem', fontWeight: 700, wordBreak: 'break-word', color: 'hsl(var(--text-main))', lineHeight: '1.2' }}>{item.product_name}</div>
                                                     {item.variant_name ? (
                                                         <div style={{ marginTop: '4px' }}>
-                                                            <span style={{ fontSize: '0.74rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 7px', borderRadius: '4px', fontWeight: 700 }}>
-                                                                🏷️ Variant: {item.variant_name}
+                                                            <span style={{ fontSize: '0.74rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 7px', borderRadius: '4px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                                <Tag size={11} /> Variant: {item.variant_name}
                                                             </span>
                                                         </div>
                                                     ) : null}

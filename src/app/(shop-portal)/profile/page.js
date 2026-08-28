@@ -7,7 +7,7 @@ import {
     ShoppingBag, History, RotateCcw, IndianRupee, 
     CheckCircle, Clock, XCircle, Package, ArrowRight, FileText, Send, AlertCircle,
     Truck, Search, Globe, Download, RefreshCw, ChevronDown, ChevronLeft, ChevronRight,
-    Camera, Upload, Trash2, Eye, ImageIcon
+    Camera, Upload, Trash2, Eye, ImageIcon, Building
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import Link from 'next/link';
@@ -1076,32 +1076,32 @@ export default function ProfilePage() {
                                                 return (
                                                     <tr key={order.id}>
                                                         <td style={{ whiteSpace: 'nowrap' }}>
-                                                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
+                                                            <div style={{ fontWeight: 800, fontSize: '0.82rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
                                                         </td>
-                                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
                                                             {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                         </td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                        <td>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                                                <span style={{ fontWeight: 700, fontSize: '0.84rem' }}>{totalItems} item(s)</span>
-                                                                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={firstItemName}>
+                                                                <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{totalItems} item(s)</span>
+                                                                <span style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={firstItemName}>
                                                                     {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
                                                                 </span>
                                                             </div>
                                                         </td>
-                                                        <td style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
+                                                        <td style={{ fontWeight: 800, fontSize: '0.85rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
                                                             ₹{(order.total_amount || 0).toLocaleString('en-IN')}
                                                         </td>
                                                         <td style={{ whiteSpace: 'nowrap' }}>
                                                             {getOrderSourceBadge(order)}
                                                         </td>
                                                         <td style={{ whiteSpace: 'nowrap' }}>
-                                                            <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                            <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.5rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
                                                                 {order.status}
                                                             </span>
                                                         </td>
                                                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
                                                                 {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
                                                                     <button
                                                                         type="button"
@@ -1110,12 +1110,12 @@ export default function ProfilePage() {
                                                                             setCancelReason('Changed my mind');
                                                                         }}
                                                                         style={{
-                                                                            padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                                                                            padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700,
                                                                             whiteSpace: 'nowrap', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626',
-                                                                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                                                                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px'
                                                                         }}
                                                                     >
-                                                                        <XCircle size={13} /> Cancel
+                                                                        <XCircle size={12} /> Cancel
                                                                     </button>
                                                                 )}
                                                                 <button 
@@ -1126,9 +1126,9 @@ export default function ProfilePage() {
                                                                         handleTrackSearch(order.id);
                                                                     }}
                                                                     className={styles.actionBtnOutline}
-                                                                    style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                                                    style={{ padding: '0.25rem 0.55rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}
                                                                 >
-                                                                    Track Order <ArrowRight size={13} />
+                                                                    Track Order <ArrowRight size={12} />
                                                                 </button>
                                                             </div>
                                                         </td>
@@ -1943,7 +1943,8 @@ export default function ProfilePage() {
                                                             Please ship your product to our return address below and submit courier details:
                                                         </p>
                                                         <div style={{ background: '#ffffff', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.84rem', color: '#1e293b', marginBottom: '1rem', fontWeight: 600 }}>
-                                                            🏢 <strong>VAIYAAREE Returns Dept.</strong><br />
+                                                            <Building size={16} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '6px', color: '#c2410c' }} />
+                                                            <strong>VAIYAAREE Returns Dept.</strong><br />
                                                             16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015
                                                         </div>
 
@@ -1959,45 +1960,65 @@ export default function ProfilePage() {
                                                                 try {
                                                                     const upRes = await fetch('/api/refund-requests/upload-receipt', { method: 'POST', body: upFd });
                                                                     const upData = await upRes.json();
-                                                                    if (upData.url) receiptUrl = upData.url;
+                                                                    if (upData.success && upData.fileUrl) receiptUrl = upData.fileUrl;
                                                                 } catch (err) {
-                                                                    console.error('Receipt upload error:', err);
+                                                                    console.error('[RECEIPT-UPLOAD-ERROR]', err);
                                                                 }
                                                             }
-                                                            handleRefundShippingSubmit(r.id, {
-                                                                courierCompany: fd.get('courier_company'),
+
+                                                            const payload = {
+                                                                refundRequestId: r.id,
+                                                                courierName: fd.get('courier_name'),
                                                                 trackingNumber: fd.get('tracking_number'),
                                                                 shippingDate: fd.get('shipping_date'),
-                                                                shippingCost: fd.get('shipping_cost'),
-                                                                receiptUrl,
-                                                                customerNotes: fd.get('customer_notes')
-                                                            });
+                                                                notes: fd.get('notes'),
+                                                                receiptUrl
+                                                            };
+
+                                                            try {
+                                                                const res = await fetch('/api/refund-requests/submit-shipping', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify(payload)
+                                                                });
+                                                                const data = await res.json();
+                                                                if (data.success) {
+                                                                    alert('Courier details submitted successfully!');
+                                                                    fetchRefunds();
+                                                                } else {
+                                                                    alert('Failed to submit courier details: ' + (data.error || 'Unknown error'));
+                                                                }
+                                                            } catch (err) {
+                                                                alert('Error submitting courier details: ' + err.message);
+                                                            }
                                                         }}>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                                                                 <div>
-                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>COURIER COMPANY *</label>
-                                                                    <input name="courier_company" required placeholder="e.g. DTDC, BlueDart" style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.85rem' }} />
+                                                                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#9a3412', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Courier Company *</label>
+                                                                    <input type="text" name="courier_name" required placeholder="e.g. DTDC, BlueDart" style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '6px', border: '1px solid #fdba74', fontSize: '0.82rem', background: '#fff' }} />
                                                                 </div>
                                                                 <div>
-                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>TRACKING / AWB NO *</label>
-                                                                    <input name="tracking_number" required placeholder="Tracking Number" style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.85rem' }} />
+                                                                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#9a3412', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Tracking / AWB No *</label>
+                                                                    <input type="text" name="tracking_number" required placeholder="Tracking Number" style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '6px', border: '1px solid #fdba74', fontSize: '0.82rem', background: '#fff' }} />
                                                                 </div>
                                                                 <div>
-                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>SHIPPING DATE</label>
-                                                                    <input type="date" name="shipping_date" defaultValue={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.85rem' }} />
-                                                                </div>
-                                                            </div>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                                                                <div>
-                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>UPLOAD RECEIPT (OPTIONAL)</label>
-                                                                    <input type="file" name="receipt_file" accept="image/*,.pdf" style={{ fontSize: '0.8rem' }} />
-                                                                </div>
-                                                                <div>
-                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#9a3412', display: 'block', marginBottom: '4px' }}>NOTES</label>
-                                                                    <input name="customer_notes" placeholder="Optional notes..." style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #fed7aa', fontSize: '0.85rem' }} />
+                                                                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#9a3412', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Shipping Date</label>
+                                                                    <input type="date" name="shipping_date" defaultValue={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '6px', border: '1px solid #fdba74', fontSize: '0.82rem', background: '#fff' }} />
                                                                 </div>
                                                             </div>
-                                                            <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 700, background: '#c2410c', border: 'none', borderRadius: '8px' }}>
+
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#9a3412', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Upload Receipt (Optional)</label>
+                                                                    <input type="file" name="receipt_file" accept="image/*,.pdf" style={{ fontSize: '0.8rem', width: '100%' }} />
+                                                                </div>
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#9a3412', marginBottom: '0.25rem', textTransform: 'uppercase' }}>Notes</label>
+                                                                    <input type="text" name="notes" placeholder="Optional notes..." style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '6px', border: '1px solid #fdba74', fontSize: '0.82rem', background: '#fff' }} />
+                                                                </div>
+                                                            </div>
+
+                                                            <button type="submit" style={{ background: '#c2410c', color: '#fff', border: 'none', padding: '0.45rem 1.25rem', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                                                 Submit Courier Details
                                                             </button>
                                                         </form>

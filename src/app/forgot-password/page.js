@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
     MessageCircle, Lock, KeyRound, CheckCircle2, ArrowLeft, Eye, EyeOff, 
-    Loader2, Phone, ShieldCheck, RefreshCw, UserCheck, Mail
+    Loader2, Phone, ShieldCheck, RefreshCw, UserCheck, Mail, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 
@@ -376,7 +376,7 @@ function ForgotPasswordContent() {
                         alignItems: 'center',
                         gap: '8px'
                     }}>
-                        <span>⚠️</span> {error}
+                        <AlertCircle size={16} /> {error}
                     </div>
                 )}
                 {successMessage && step !== 4 && (
@@ -393,7 +393,7 @@ function ForgotPasswordContent() {
                         alignItems: 'center',
                         gap: '8px'
                     }}>
-                        <span>✅</span> {successMessage}
+                        <CheckCircle size={16} /> {successMessage}
                     </div>
                 )}
 
@@ -418,7 +418,7 @@ function ForgotPasswordContent() {
                                     fontWeight: 700,
                                     color: '#444'
                                 }}>
-                                    <span style={{ fontSize: '1rem' }}>🇮🇳</span> +91
+                                    +91
                                 </div>
                                 <div style={{ position: 'relative', flex: 1 }}>
                                     <input
@@ -453,7 +453,7 @@ function ForgotPasswordContent() {
                                 </div>
                             </div>
                             <p style={{ fontSize: '0.78rem', color: '#777', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                🔒 A 6-digit OTP will be sent to your WhatsApp account.
+                                <ShieldCheck size={14} style={{ color: '#2563eb' }} /> A 6-digit OTP will be sent to your WhatsApp account.
                             </p>
                         </div>
 

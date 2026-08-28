@@ -1,6 +1,6 @@
 'use client';
 
-import { Settings, Layers } from 'lucide-react';
+import { Settings, Layers, CheckCircle, FileText, Lock, Eye } from 'lucide-react';
 
 export default function ProductFormSidebar({
     currentProduct,
@@ -22,12 +22,10 @@ export default function ProductFormSidebar({
                         fontWeight: 800,
                         padding: '2px 8px',
                         borderRadius: '12px',
-                        background: productStatus === 'active' ? '#f0fdf4' : '#fffbeb',
-                        color: productStatus === 'active' ? '#16a34a' : '#b45309',
-                        border: productStatus === 'active' ? '1px solid #bbf7d0' : '1px solid #fde68a',
-                        textTransform: 'uppercase'
+                        background: productStatus === 'active' ? '#dcfce7' : '#fef3c7',
+                        color: productStatus === 'active' ? '#166534' : '#92400e'
                     }}>
-                        {productStatus === 'active' ? '● Active' : '● Draft'}
+                        {productStatus === 'active' ? 'PUBLISHED' : 'DRAFT'}
                     </span>
                 </div>
 
@@ -35,7 +33,7 @@ export default function ProductFormSidebar({
                 <input type="hidden" name="is_active" value={productStatus === 'active' ? 'on' : 'off'} />
 
                 {/* Interactive Status Selector Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1rem' }}>
                     <button
                         type="button"
                         onClick={() => setProductStatus('active')}
@@ -49,8 +47,8 @@ export default function ProductFormSidebar({
                             transition: 'all 0.15s'
                         }}
                     >
-                        <div style={{ fontWeight: 800, fontSize: '0.82rem', color: productStatus === 'active' ? '#15803d' : '#475569' }}>
-                            🟢 Active
+                        <div style={{ fontWeight: 800, fontSize: '0.82rem', color: productStatus === 'active' ? '#15803d' : '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                            <CheckCircle size={14} /> Active
                         </div>
                         <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px' }}>
                             Visible in Store
@@ -70,8 +68,8 @@ export default function ProductFormSidebar({
                             transition: 'all 0.15s'
                         }}
                     >
-                        <div style={{ fontWeight: 800, fontSize: '0.82rem', color: productStatus === 'draft' ? '#b45309' : '#475569' }}>
-                            🟡 Draft
+                        <div style={{ fontWeight: 800, fontSize: '0.82rem', color: productStatus === 'draft' ? '#b45309' : '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                            <FileText size={14} /> Draft
                         </div>
                         <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '2px' }}>
                             Hidden from Shop
@@ -79,10 +77,10 @@ export default function ProductFormSidebar({
                     </button>
                 </div>
 
-                <p style={{ fontSize: '0.74rem', color: '#64748b', lineHeight: 1.4, margin: '0 0 1rem' }}>
+                <p style={{ fontSize: '0.74rem', color: '#64748b', lineHeight: 1.4, margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {productStatus === 'active' 
-                        ? '✅ This product will be publicly published and searchable on the store.' 
-                        : '🔒 This product is saved as a private draft and will not appear in the store.'}
+                        ? <><Eye size={14} style={{ color: '#16a34a', flexShrink: 0 }} /> This product will be publicly published and searchable on the store.</> 
+                        : <><Lock size={14} style={{ color: '#d97706', flexShrink: 0 }} /> This product is saved as a private draft and will not appear in the store.</>}
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>

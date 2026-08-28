@@ -422,8 +422,8 @@ export default function ProductFormContainer({ productId = null, isNew = false }
 
             const isDraft = productData.is_active === 0;
             const successTitle = isDraft
-                ? 'Saved as Draft 📝'
-                : (isEditingMode ? 'Product Updated Successfully! ✅' : 'Product Published Successfully! 🎉');
+                ? 'Saved as Draft'
+                : (isEditingMode ? 'Product Updated Successfully!' : 'Product Published Successfully!');
             const successMessage = isDraft
                 ? `Product "${productData.name}" has been saved as a private draft.`
                 : (isEditingMode
@@ -447,7 +447,7 @@ export default function ProductFormContainer({ productId = null, isNew = false }
         } catch (error) {
             console.error('Save product exception:', error);
             setErrorModal({
-                title: 'Publish Failed ❌',
+                title: 'Publish Failed',
                 message: error.message || 'An error occurred while publishing the product. Please check all fields and try again.'
             });
         } finally {

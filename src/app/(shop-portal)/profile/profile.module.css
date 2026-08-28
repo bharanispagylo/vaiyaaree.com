@@ -146,7 +146,7 @@
     background: hsl(var(--card-bg, #fff));
     border: 1px solid hsl(var(--text-main) / 0.08);
     border-radius: 20px;
-    padding: 2.25rem;
+    padding: 1.5rem 1.5rem;
     box-shadow: 0 4px 20px hsl(var(--text-main) / 0.03);
 }
 
@@ -585,33 +585,40 @@
     overflow-x: auto;
     border: 1px solid hsl(var(--text-main) / 0.08);
     border-radius: 14px;
+    background: hsl(var(--card-bg, #fff));
+}
+
+@media (min-width: 1024px) {
+    .tableContainer {
+        overflow-x: visible;
+    }
 }
 
 .dataTable {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
+    font-size: 0.84rem;
     text-align: left;
+    table-layout: auto;
 }
 
 .dataTable th {
     background: hsl(var(--text-main) / 0.03);
     color: hsl(var(--text-muted));
     font-weight: 700;
-    padding: 0.65rem 1rem;
+    padding: 0.6rem 0.5rem;
     border-bottom: 1px solid hsl(var(--text-main) / 0.08);
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     white-space: nowrap;
 }
 
 .dataTable td {
-    padding: 0.55rem 1rem;
+    padding: 0.5rem 0.5rem;
     border-bottom: 1px solid hsl(var(--text-main) / 0.06);
     color: hsl(var(--text-main));
     vertical-align: middle;
-    white-space: nowrap;
 }
 
 .dataTable tr:hover {

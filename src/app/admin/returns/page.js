@@ -1066,8 +1066,8 @@ export default function AdminReturnsPage() {
                                                             <Camera size={16} /> Customer / Damaged Product Photos ({returnPhotos.length})
                                                         </div>
                                                         {detailReturn.product_condition === 'DAMAGED' || (detailReturn.reason && detailReturn.reason.toLowerCase().includes('damage')) ? (
-                                                            <span style={{ background: '#fee2e2', color: '#991b1b', fontSize: '0.7rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '20px' }}>
-                                                                ⚠️ Damaged Product Proof
+                                                            <span style={{ background: '#fee2e2', color: '#991b1b', fontSize: '0.7rem', fontWeight: 800, padding: '0.2rem 0.6rem', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                <AlertTriangle size={13} /> Damaged Product Proof
                                                             </span>
                                                         ) : null}
                                                     </div>

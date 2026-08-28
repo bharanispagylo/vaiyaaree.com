@@ -5,7 +5,7 @@ import { mysqlClient } from '@/lib/mysqlClient';
 import {
     CreditCard, Save, CheckCircle2, AlertCircle, Loader2,
     ShieldCheck, Lock, Globe, Server, Info, Copy, Check, Zap,
-    Key, Eye, EyeOff, Sparkles
+    Key, Eye, EyeOff, Sparkles, TestTube, Activity
 } from 'lucide-react';
 
 export default function AdminPaymentSettingsPage() {
@@ -223,9 +223,9 @@ export default function AdminPaymentSettingsPage() {
                         style={{
                             padding: '0.6rem 1.25rem',
                             borderRadius: '10px',
-                            border: !isLive ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.25)',
-                            background: !isLive ? '#38bdf8' : 'rgba(255,255,255,0.1)',
-                            color: !isLive ? '#0f172a' : '#ffffff',
+                            border: !isLive ? '2px solid #0284c7' : '1px solid rgba(255,255,255,0.25)',
+                            background: !isLive ? '#0284c7' : 'rgba(255,255,255,0.1)',
+                            color: !isLive ? '#ffffff' : '#ffffff',
                             fontWeight: 800,
                             fontSize: '0.85rem',
                             cursor: 'pointer',
@@ -235,7 +235,7 @@ export default function AdminPaymentSettingsPage() {
                             gap: '0.4rem'
                         }}
                     >
-                        🧪 Sandbox (Test)
+                        <TestTube size={16} /> Sandbox (Test)
                     </button>
                     <button
                         type="button"
@@ -255,7 +255,7 @@ export default function AdminPaymentSettingsPage() {
                             gap: '0.4rem'
                         }}
                     >
-                        🚀 Live (Production)
+                        <Activity size={16} /> Live (Production)
                     </button>
                 </div>
             </div>
@@ -291,30 +291,27 @@ export default function AdminPaymentSettingsPage() {
                             onChange={(e) => handleUpdate('razorpay_mode', e.target.value)}
                             style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.9rem', backgroundColor: '#ffffff' }}
                         >
-                            <option value="test">🧪 Sandbox / Test Mode (rzp_test_...)</option>
-                            <option value="live">🚀 Production / Live Mode (rzp_live_...)</option>
+                            <option value="test">Sandbox / Test Mode (rzp_test_...)</option>
+                            <option value="live">Production / Live Mode (rzp_live_...)</option>
                         </select>
                     </div>
 
                     <div className="field-group" style={{ margin: 0 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.5rem' }}>
-                            <CreditCard size={15} color="#0284c7" /> Default Checkout Method
+                            <CreditCard size={15} color="#0284c7" /> Gateway Display Title
                         </label>
-                        <select
-                            value={settings.default_gateway}
-                            onChange={(e) => handleUpdate('default_gateway', e.target.value)}
+                        <input
+                            type="text"
+                            value={settings.razorpay_title}
+                            onChange={(e) => handleUpdate('razorpay_title', e.target.value)}
                             style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 600, fontSize: '0.9rem', backgroundColor: '#ffffff' }}
-                        >
-                            <option value="razorpay">Razorpay Online Payment (Default)</option>
-                            <option value="cod">Cash on Delivery (COD)</option>
-                        </select>
+                        />
                     </div>
                 </div>
             </div>
 
-            {/* Perfect 2-Column Side-by-Side API Credentials Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.75rem', marginBottom: '2rem' }}>
-                
+            {/* API Credentials Settings */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                 {/* Sandbox Credentials Card */}
                 <div style={{
                     background: '#ffffff',
@@ -324,7 +321,7 @@ export default function AdminPaymentSettingsPage() {
                     padding: '1.5rem',
                     display: 'flex',
                     flexDirection: 'column',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     position: 'relative'
                 }}>
                     <div>
@@ -334,7 +331,7 @@ export default function AdminPaymentSettingsPage() {
                                     <Key size={18} color="#0284c7" />
                                 </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>🧪 Sandbox (Test) API Credentials</h3>
+                                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>Sandbox (Test) API Credentials</h3>
                                     <span style={{ fontSize: '0.78rem', color: '#64748b' }}>For development & staging checkout tests</span>
                                 </div>
                             </div>
@@ -350,7 +347,6 @@ export default function AdminPaymentSettingsPage() {
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1rem' }}>
-                            {/* Test Key ID */}
                             <div className="field-group" style={{ margin: 0 }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>
                                     <Key size={14} color="#0284c7" /> Test Key ID
@@ -362,10 +358,8 @@ export default function AdminPaymentSettingsPage() {
                                     onChange={(e) => handleUpdate('razorpay_test_key_id', e.target.value)}
                                     style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'monospace', fontSize: '0.88rem', backgroundColor: '#f8fafc' }}
                                 />
-                                <p className="hint" style={{ marginTop: '4px', fontSize: '0.78rem', color: '#64748b' }}>Starts with <code>rzp_test_</code>. Found in Razorpay Dashboard → Test Mode.</p>
                             </div>
 
-                            {/* Test Key Secret */}
                             <div className="field-group" style={{ margin: 0 }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>
                                     <Lock size={14} color="#0284c7" /> Test Key Secret
@@ -382,12 +376,10 @@ export default function AdminPaymentSettingsPage() {
                                         type="button"
                                         onClick={() => setShowTestSecret(!showTestSecret)}
                                         style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', padding: '4px' }}
-                                        title={showTestSecret ? 'Hide secret' : 'Show secret'}
                                     >
                                         {showTestSecret ? <EyeOff size={16} /> : <Eye size={16} />}
                                     </button>
                                 </div>
-                                <p className="hint" style={{ marginTop: '4px', fontSize: '0.78rem', color: '#64748b' }}>Used for server-side HMAC signature verification in Test Mode.</p>
                             </div>
                         </div>
                     </div>
@@ -402,7 +394,7 @@ export default function AdminPaymentSettingsPage() {
                     padding: '1.5rem',
                     display: 'flex',
                     flexDirection: 'column',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     position: 'relative'
                 }}>
                     <div>
@@ -412,7 +404,7 @@ export default function AdminPaymentSettingsPage() {
                                     <ShieldCheck size={18} color="#16a34a" />
                                 </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>🚀 Live (Production) API Credentials</h3>
+                                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>Live (Production) API Credentials</h3>
                                     <span style={{ fontSize: '0.78rem', color: '#64748b' }}>For real customer payments & transactions</span>
                                 </div>
                             </div>
@@ -544,7 +536,7 @@ export default function AdminPaymentSettingsPage() {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.88rem', color: '#64748b' }}>
                     <Info size={18} color="#0284c7" />
-                    <span>Mode: <strong style={{ color: '#0f172a' }}>{isLive ? '🚀 LIVE PRODUCTION' : '🧪 SANDBOX TEST'}</strong> | Gateway: <strong style={{ color: isEnabled ? '#16a34a' : '#dc2626' }}>{isEnabled ? 'ENABLED' : 'DISABLED'}</strong></span>
+                    <span>Mode: <strong style={{ color: '#0f172a' }}>{isLive ? 'LIVE PRODUCTION' : 'SANDBOX TEST'}</strong> | Gateway: <strong style={{ color: isEnabled ? '#16a34a' : '#dc2626' }}>{isEnabled ? 'ENABLED' : 'DISABLED'}</strong></span>
                 </div>
 
                 <button
