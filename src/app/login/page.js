@@ -166,7 +166,7 @@ function LoginContent() {
             fontFamily: 'var(--font-roboto), sans-serif',
             color: '#2b2623'
         }}>
-            <div style={{
+            <div className="login-card-container" style={{
                 maxWidth: '480px',
                 width: '100%',
                 margin: '0 auto',

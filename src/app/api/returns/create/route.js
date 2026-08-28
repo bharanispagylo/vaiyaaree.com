@@ -2,7 +2,7 @@ import { processReturnRequest } from '@/services/returnService';
 
 export const dynamic = 'force-dynamic';
 
-// Map service error codes to user-friendly HTTP status codes
+// Map service error codes to HTTP status codes
 const ERROR_STATUS_MAP = {
     ORDER_NOT_FOUND: 404,
     ORDER_NOT_OWNED: 403,
@@ -21,6 +21,7 @@ export async function POST(request) {
     try {
         const body = await request.json();
 
+        // Delegate execution to centralized return service
         const result = await processReturnRequest({
             ...body,
             requestedQuantity: Number(body.requestedQuantity || body.quantity) || 1,
@@ -41,7 +42,7 @@ export async function POST(request) {
         });
 
     } catch (error) {
-        console.error('[API /api/returns/submit Error]:', error);
+        console.error('[API /api/returns/create Error]:', error);
         return new Response(
             JSON.stringify({ success: false, code: 'INTERNAL_ERROR', message: error.message }),
             { status: 500, headers: { 'Content-Type': 'application/json' } }

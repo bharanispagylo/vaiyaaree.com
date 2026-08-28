@@ -209,7 +209,8 @@ export async function processReturnRequest({
             return returnError('ORDER_NOT_DELIVERED', `Cannot request ${type.toLowerCase()} for an order that is not DELIVERED. Current status: ${order.status}.`);
         }
 
-        // ── 3. IST-aware 10-day return window check ──────────────────────────────
+        // ── 3. Single Source of Truth: 7-day return window check ────────────────
+        const RETURN_WINDOW_DAYS = 7;
         const { data: deliveryLog } = await mysqlAdmin
             .from('order_status_logs')
             .select('created_at')
@@ -221,10 +222,10 @@ export async function processReturnRequest({
 
         const deliveryDateIST = deliveryLog ? toIST(deliveryLog.created_at) : toIST(order.created_at);
         const windowEndIST = new Date(deliveryDateIST);
-        windowEndIST.setDate(windowEndIST.getDate() + 10);
-        windowEndIST.setHours(23, 59, 59, 999); // allow until end of day 10 in IST
+        windowEndIST.setDate(windowEndIST.getDate() + RETURN_WINDOW_DAYS);
+        windowEndIST.setHours(23, 59, 59, 999);
         if (nowIST() > windowEndIST) {
-            return returnError('RETURN_WINDOW_EXPIRED', 'The 10-day return period has expired for this order.');
+            return returnError('RETURN_WINDOW_EXPIRED', `The ${RETURN_WINDOW_DAYS}-day return period has expired for this order.`);
         }
 
         // ── 4. Validate order item ownership and quantity ────────────────────────

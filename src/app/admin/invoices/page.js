@@ -582,7 +582,20 @@ export default function InvoicesPage() {
                                             </tr>
                                         ))}
                                         
-                                        {/* Additional charges */}
+                                        {/* Additional charges & Discounts */}
+                                        {parseFloat(selectedInvoice.total_discount || selectedInvoice.discount_amount || selectedInvoice.cart_discount || 0) > 0 && (
+                                            <tr>
+                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                                <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>
+                                                    {selectedInvoice.coupon_code ? `Discount (${selectedInvoice.coupon_code}):` : 'Discount:'}
+                                                </td>
+                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                                <td style={{ padding: '5px', textAlign: 'right', color: '#dc2626' }}>
+                                                    -{parseFloat(selectedInvoice.total_discount || selectedInvoice.discount_amount || selectedInvoice.cart_discount || 0).toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        )}
                                         {selectedInvoice.shipping_cost > 0 && (
                                             <tr>
                                                 <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>

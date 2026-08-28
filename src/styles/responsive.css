@@ -1,0 +1,262 @@
+/* ════════════════════════════════════════════════════════════════
+   VAIYAAREE GLOBAL RESPONSIVE UTILITIES & BREAKPOINT SYSTEM
+   Breakpoints:
+   - Mobile:  320px - 767px (Includes 320px, 375px, 390px, 412px, 414px, 430px)
+   - Tablet:  768px - 1023px
+   - Desktop: 1024px+
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Global Viewport & Body Overflow Reset ── */
+html, body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* ── 2. Utility Containers & Grids ── */
+.responsive-container {
+  width: 100%;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.responsive-grid,
+.admin-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.admin-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.admin-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.responsive-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.responsive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── 3. Table & Horizontal Scroll Handling ── */
+.table-responsive,
+.mobile-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+}
+
+.mobile-scroll::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.mobile-scroll::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+/* ── 4. Responsive Modal Standard ── */
+.responsive-modal {
+  width: calc(100vw - 24px) !important;
+  max-width: 800px;
+  max-height: calc(100vh - 24px) !important;
+  overflow-y: auto;
+  margin: auto;
+  border-radius: 16px;
+}
+
+/* ── 5. Responsive Images ── */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── 6. Home Hero Banner Component Rules ── */
+.hero-banner-section {
+  position: relative;
+  min-height: 520px;
+  height: 75vh;
+  max-height: 700px;
+  background: linear-gradient(135deg, #fbf7f4 0%, #f6eae1 50%, #f0dcd2 100%);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.hero-banner-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 2rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+  z-index: 5;
+}
+
+.login-card-container {
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 2.5rem 2rem;
+  border-radius: 20px;
+  border: 1px solid #f0e6df;
+  box-shadow: 0 15px 45px rgba(93, 8, 33, 0.08);
+}
+
+/* ── 7. Mobile & Small Screen Adaptations (max-width: 767px) ── */
+@media (max-width: 767px) {
+  .hero-banner-section {
+    min-height: auto !important;
+    height: auto !important;
+    padding: 2rem 0 3rem !important;
+  }
+
+  .hero-banner-grid {
+    grid-template-columns: 1fr !important;
+    padding: 0 1rem !important;
+    gap: 1.75rem !important;
+    text-align: center !important;
+  }
+
+  .hero-banner-grid > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .login-card-container {
+    padding: 1.5rem 1.15rem !important;
+    border-radius: 16px !important;
+  }
+
+  .responsive-container {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
+  .responsive-grid,
+  .admin-grid-4,
+  .admin-grid-3,
+  .admin-grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+  }
+
+  .responsive-form {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+  }
+
+  .responsive-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .responsive-actions > button,
+  .responsive-actions > a,
+  .responsive-actions > div {
+    width: 100% !important;
+  }
+
+  .responsive-modal {
+    width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+    padding: 1rem !important;
+    border-radius: 12px !important;
+  }
+
+  /* Form Controls Full Width on Mobile */
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="search"],
+  select,
+  textarea {
+    max-width: 100% !important;
+    font-size: 16px !important; /* Prevents iOS auto-zoom */
+  }
+
+  /* Stacked Flex Containers */
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+
+  /* Hide element on small mobile screen if needed */
+  .mobile-hide {
+    display: none !important;
+  }
+
+  /* Show element on small mobile screen */
+  .mobile-show {
+    display: block !important;
+  }
+
+  .mobile-flex-show {
+    display: flex !important;
+  }
+
+  /* Admin Header & Title Adaptations */
+  .admin-table-card .table-search .search-wrapper {
+    max-width: 100% !important;
+  }
+}
+
+/* ── 8. Tablet Adaptations (768px - 1023px) ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .responsive-grid,
+  .admin-grid-4,
+  .admin-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .responsive-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .responsive-modal {
+    max-width: 680px;
+  }
+
+  .hero-banner-grid {
+    gap: 1.5rem;
+    padding: 0 1.5rem;
+  }
+}
+
+/* ── 9. Desktop Adaptations (1024px+) ── */
+@media (min-width: 1024px) {
+  .mobile-show {
+    display: none !important;
+  }
+}

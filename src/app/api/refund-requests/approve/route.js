@@ -24,6 +24,17 @@ export async function POST(request) {
         }
 
         const current = rows[0];
+
+        // Idempotency guard: prevent duplicate processing/approval
+        if (current.refund_status === 'PROCESSED' || current.refund_status === 'REFUNDED' || current.refund_status === 'APPROVED') {
+            return NextResponse.json({
+                success: true,
+                message: 'Refund request has already been processed or approved.',
+                duplicate: true,
+                refund: current
+            });
+        }
+
         const newRefundStatus = returnRequired ? 'RETURN_REQUIRED' : 'APPROVED';
         const newReturnStatus = returnRequired ? 'RETURN_REQUIRED' : 'NOT_REQUIRED';
         const finalApprovedAmount = approvedAmount !== undefined && approvedAmount !== null ? Number(approvedAmount) : Number(current.requested_amount);

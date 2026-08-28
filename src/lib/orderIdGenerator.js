@@ -67,7 +67,7 @@ export async function getNextOrderAndInvoiceId(prefix = 'ORD', customClient = nu
         await db.from('app_settings').upsert({
             key: 'order_sequence_counter',
             value: JSON.stringify(nextSeq),
-            updated_at: new Date().toISOString()
+            updated_at: new Date()
         });
     } catch (e) {
         console.warn('[ORDER-ID] Error saving updated order_sequence_counter setting:', e);

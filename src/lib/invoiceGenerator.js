@@ -382,7 +382,14 @@ export async function generateInvoicePDF(order) {
         y = itemsStartY + 12; // minimum height
     }
 
-    // Additional charges
+    // Additional charges & Discounts
+    const discountVal = parseFloat(order.total_discount || order.discount_amount || order.cart_discount || 0);
+    if (discountVal > 0) {
+        const discountLabel = order.coupon_code ? `Discount (${order.coupon_code}):` : "Discount:";
+        doc.text(discountLabel, 148, y + 5, { align: "right" });
+        doc.text(`-${discountVal.toFixed(2)}`, 198, y + 5, { align: "right" });
+        y += 7;
+    }
     if (order.shipping_cost > 0) {
         doc.text("Shipping Cost:", 148, y + 5, { align: "right" });
         doc.text(parseFloat(order.shipping_cost).toFixed(2), 198, y + 5, { align: "right" });

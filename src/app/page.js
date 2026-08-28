@@ -289,27 +289,9 @@ export default function HomePage() {
 
 
             {/* Light Luxury Hero Banner Section (Vaiyaaree Theme) */}
-            <div style={{
-                position: 'relative',
-                minHeight: '520px',
-                height: '75vh',
-                maxHeight: '700px',
-                background: 'linear-gradient(135deg, #fbf7f4 0%, #f6eae1 50%, #f0dcd2 100%)',
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center'
-            }}>
-                <div style={{
-                    maxWidth: '1400px',
-                    margin: '0 auto',
-                    width: '100%',
-                    padding: '0 2rem',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '3rem',
-                    alignItems: 'center',
-                    zIndex: 5
-                }}>
+            <div className="hero-banner-section">
+                <div className="hero-banner-grid">
+
                     {/* Hero Text Content */}
                     <div style={{ animation: 'fadeInUp 0.8s ease' }}>
                         <span style={{

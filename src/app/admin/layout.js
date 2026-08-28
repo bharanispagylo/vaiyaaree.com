@@ -59,7 +59,7 @@ function ProtectedAdminLayout({ children, pathname }) {
 
     return (
         <div className="admin-layout" style={{ fontFamily: 'var(--font-roboto)' }}>
-            <AdminSidebar isOpen={isSidebarOpen} />
+            <AdminSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Mobile Overlay */}
             {isSidebarOpen && (

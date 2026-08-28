@@ -38,17 +38,22 @@ export async function POST(request) {
         console.log('Full payload:', JSON.stringify(body, null, 2));
         console.log('=== WEBHOOK PAYLOAD END ===');
 
-        // Simplified check
+        // Separate handling for WhatsApp message status updates (sent, delivered, read)
         const value = body?.entry?.[0]?.changes?.[0]?.value;
+        const statuses = value?.statuses;
         const messages = value?.messages;
-        
-        console.log('Extracted value:', value);
-        console.log('Extracted messages:', messages);
+
+        if (statuses && statuses.length > 0) {
+            console.log(`[WA-STATUS] Status update received for ${statuses.length} message(s). Status: ${statuses[0]?.status}`);
+            return new Response('OK', { status: 200 });
+        }
 
         if (messages && messages.length > 0) {
-            console.log('MESSAGE RECEIVED:', messages[0].text?.body);
-            console.log('MESSAGE TYPE:', messages[0].type);
-            console.log('MESSAGE FROM:', messages[0].from);
+            const msg = messages[0];
+            const msgText = msg.text?.body || msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || msg.button?.text || msg.type;
+            console.log('MESSAGE RECEIVED:', msgText);
+            console.log('MESSAGE TYPE:', msg.type);
+            console.log('MESSAGE FROM:', msg.from);
             
             try {
                 await processIncomingMessage(body);

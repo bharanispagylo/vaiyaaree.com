@@ -4,6 +4,7 @@ import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import { processReturnRequest } from './returnService';
 import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
 import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
+import { calculateDiscounts } from './discountService';
 
 //  1. CONFIGURATION & CLIENTS 
 
@@ -170,9 +171,31 @@ async function getConfig(key, fallback) {
 
 // Deterministic image selector based on Product ID
 function getPremiumImage(product) {
-    if (product.image_url && product.image_url.startsWith('http')) return product.image_url;
+    if (!product) return PREMIUM_IMAGES[0];
+
+    // Get website base URL for resolving relative product image paths (/uploads/...)
+    let baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://vaiyaaree.com').trim();
+    baseUrl = baseUrl.replace(/\/+$/, '');
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+        baseUrl = `https://${baseUrl}`;
+    }
+
+    let rawUrl = product.image_url || product.imageUrl || product.image;
+    if (rawUrl && typeof rawUrl === 'string') {
+        const firstUrl = rawUrl.split(',')[0].trim();
+        if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
+            return firstUrl;
+        }
+        if (firstUrl.startsWith('/')) {
+            return `${baseUrl}${firstUrl}`;
+        }
+        if (firstUrl) {
+            return `${baseUrl}/${firstUrl}`;
+        }
+    }
+
     let hash = 0;
-    const str = product.id || product.name || 'default';
+    const str = String(product.id || product.name || 'default');
     for (let i = 0; i < str.length; i++) { hash = str.charCodeAt(i) + ((hash << 5) - hash); }
     const index = Math.abs(hash) % PREMIUM_IMAGES.length;
     return PREMIUM_IMAGES[index];
@@ -249,14 +272,22 @@ export async function sendText(to, text) {
 }
 
 export async function sendImageButtons(to, imageUrl, bodyText, buttons) {
-    return sendRawMessage(to, {
+    const cleanImgUrl = imageUrl && typeof imageUrl === 'string' ? imageUrl.split(',')[0].trim() : imageUrl;
+    const res = await sendRawMessage(to, {
         messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive",
         interactive: {
-            type: "button", header: { type: "image", image: { link: imageUrl } },
+            type: "button", header: { type: "image", image: { link: cleanImgUrl } },
             body: { text: truncate(bodyText, 1024) },
             action: { buttons: buttons.slice(0, 3).map(b => ({ type: "reply", reply: { id: b.id, title: truncate(b.title, 20) } })) }
         }
     });
+
+    if (res && res.error) {
+        console.warn(`[WA] sendImageButtons image header failed (${res.error}). Falling back to text interactive buttons.`);
+        return await sendButtons(to, bodyText, buttons);
+    }
+
+    return res;
 }
 
 export async function sendButtons(to, bodyText, buttons) {
@@ -337,13 +368,16 @@ export async function sendPdfBuffer(to, pdfBuffer, filename, caption) {
 
 //  3. CART MANAGEMENT & STOCK 
 
-async function getCart(phone) {
-    const normalizedPhone = normalizePhoneNumber(phone);
-    const phoneVariations = [normalizedPhone];
-    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-        phoneVariations.push(normalizedPhone.substring(2));
-    }
+function getPhoneVariations(phone) {
+    const raw = String(phone || '').trim();
+    const normalizedPhone = normalizePhoneNumber(raw);
+    const cleanDigits = raw.replace(/\D/g, '');
+    const altDigits = cleanDigits.startsWith('91') && cleanDigits.length === 12 ? cleanDigits.substring(2) : `91${cleanDigits}`;
+    return [...new Set([raw, normalizedPhone, cleanDigits, altDigits].filter(Boolean))];
+}
 
+async function getCart(phone) {
+    const phoneVariations = getPhoneVariations(phone);
     const { data } = await mysqlClient
         .from('whatsapp_cart')
         .select('*')
@@ -352,16 +386,35 @@ async function getCart(phone) {
     return data || [];
 }
 
+async function getCartWithCategories(phone) {
+    const cart = await getCart(phone);
+    if (!cart || cart.length === 0) return [];
+
+    const productIds = [...new Set(cart.map(i => i.product_id).filter(Boolean))];
+    let prodCategoryMap = {};
+    if (productIds.length > 0) {
+        const { data: prods } = await mysqlClient.from('products').select('id, category').in('id', productIds);
+        (prods || []).forEach(p => {
+            if (p.id) prodCategoryMap[p.id] = p.category;
+        });
+    }
+
+    return cart.map(item => ({
+        id: item.product_id,
+        productId: item.product_id,
+        variantId: item.variant_id,
+        name: item.product_name,
+        price: parseFloat(item.price || 0),
+        qty: parseInt(item.quantity || 1, 10),
+        category: prodCategoryMap[item.product_id] || 'Saree'
+    }));
+}
+
 async function addToCart(phone, product, quantity = 1, variant = null) {
     const normalizedPhone = normalizePhoneNumber(phone);
     const productId = product.id;
     const variantId = variant?.id || null;
-
-    // Check both variations
-    const phoneVariations = [normalizedPhone];
-    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-        phoneVariations.push(normalizedPhone.substring(2));
-    }
+    const phoneVariations = getPhoneVariations(phone);
 
     const query = mysqlClient.from('whatsapp_cart')
         .select('*')
@@ -390,11 +443,7 @@ async function addToCart(phone, product, quantity = 1, variant = null) {
 }
 
 async function clearCart(phone) {
-    const normalizedPhone = normalizePhoneNumber(phone);
-    const phoneVariations = [normalizedPhone];
-    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-        phoneVariations.push(normalizedPhone.substring(2));
-    }
+    const phoneVariations = getPhoneVariations(phone);
     await mysqlClient.from('whatsapp_cart').delete().in('phone', phoneVariations);
 }
 
@@ -894,11 +943,11 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
             if (sendResult && sendResult.error) {
                 console.error(`    WA API Error for [${p.name}]:`, sendResult.error.message || sendResult.error);
-                await sendText(to, caption + "\n[Image failed, but you can Add to Cart]");
+                await sendButtons(to, caption, buttons);
             }
         } catch (err) {
             console.error(`    Exception sending [${p.name}]:`, err.message);
-            await sendText(to, caption + "\n[Image failed, but you can Add to Bag]");
+            await sendButtons(to, caption, buttons);
         }
 
         // Wait to guarantee WhatsApp delivers images in order
@@ -1017,14 +1066,28 @@ export async function handleViewCart(to) {
     const cart = await getCart(to);
     if (!cart || cart.length === 0) return sendButtons(to, "Your cart is empty.", [{ id: "menu_browse", title: " Shop Now" }]);
 
+    const formattedCartItems = await getCartWithCategories(to);
+    const discResult = await calculateDiscounts({
+        cartItems: formattedCartItems,
+        shippingCost: 0,
+        customer: { phone: to }
+    });
+
     let msg = ` *YOUR CART*\n\n`;
-    let total = 0;
     cart.forEach((item, i) => {
-        total += item.price * item.quantity;
         const name = item.variant_name ? `${item.product_name} (${item.variant_name})` : item.product_name;
         msg += `${i + 1}. ${name} x${item.quantity} = ₹${(item.price * item.quantity).toLocaleString()}\n`;
     });
-    msg += `\n *Total: ₹${total.toLocaleString()}*`;
+
+    msg += `\nSubtotal: *₹${discResult.subtotal.toLocaleString()}*`;
+    if (discResult.totalDiscount > 0) {
+        const ruleNames = (discResult.appliedRules || []).map(r => r.name).join(', ');
+        const ruleStr = ruleNames ? ` (${ruleNames})` : '';
+        msg += `\nDiscount${ruleStr}: *-₹${discResult.totalDiscount.toLocaleString()}*`;
+        msg += `\nEstimated Subtotal: *₹${discResult.taxableAmount.toLocaleString()}*`;
+    } else {
+        msg += `\n *Total: ₹${discResult.subtotal.toLocaleString()}*`;
+    }
 
     await sendButtons(to, msg, [
         { id: "start_checkout", title: " Place Order" },
@@ -1073,45 +1136,78 @@ export async function handleRemoveItem(to, itemId) {
 }
 
 export async function startCheckout(to) {
-    const cart = await getCart(to);
-    if (!cart.length) return sendText(to, "Cart empty!");
+    try {
+        const cart = await getCart(to);
+        if (!cart.length) return sendText(to, "Cart empty!");
 
-    const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('ORD', mysqlAdmin);
-    const subtotal = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+        const formattedCartItems = await getCartWithCategories(to);
+        const discResult = await calculateDiscounts({
+            cartItems: formattedCartItems,
+            shippingCost: FLAT_SHIPPING,
+            customer: { phone: to }
+        });
 
-    // Initial Draft
-    await mysqlClient.from('orders').insert({
-        id: orderId,
-        customer_phone: to,
-        status: "DRAFT",
-        subtotal: subtotal,
-        total_amount: subtotal,
-        source: 'WHATSAPP',
-        created_at: new Date()
-    });
+        const { orderId, invoiceNo } = await getNextOrderAndInvoiceId('ORD', mysqlAdmin);
+        const subtotal = discResult.subtotal;
+        const discountAmount = discResult.totalDiscount;
+        const taxableSubtotal = discResult.taxableAmount;
+        const cgst = Math.round(taxableSubtotal * 0.025);
+        const sgst = Math.round(taxableSubtotal * 0.025);
+        const initialTax = cgst + sgst;
+        const initialTotal = Math.round(taxableSubtotal + initialTax + FLAT_SHIPPING);
 
-    // Add Items (Support Variants)
-    const orderItems = cart.map(item => ({
-        order_id: orderId,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        quantity: item.quantity,
-        price_at_time: item.price,
-        variant_id: item.variant_id,
-        variant_name: item.variant_name
-    }));
-    await mysqlClient.from('order_items').insert(orderItems);
+        // Initial Draft
+        const { error: insertErr } = await mysqlClient.from('orders').insert({
+            id: orderId,
+            customer_phone: to,
+            status: "DRAFT",
+            subtotal: subtotal,
+            product_discount: discResult.productDiscount || 0,
+            cart_discount: discResult.cartDiscount || 0,
+            coupon_discount: discResult.couponDiscount || 0,
+            shipping_discount: discResult.shippingDiscount || 0,
+            total_discount: discountAmount,
+            coupon_code: discResult.appliedCouponCode || null,
+            tax_amount: initialTax,
+            cgst: cgst,
+            sgst: sgst,
+            igst: 0,
+            shipping_cost: FLAT_SHIPPING,
+            total_amount: initialTotal,
+            source: 'WHATSAPP',
+            created_at: new Date()
+        });
 
-    // Check Previous Orders for Billing Address Reuse
-    const { data: lastOrders } = await mysqlClient.from('orders')
-        .select('customer_name, billing_address, customer_phone')
-        .eq('customer_phone', to)
-        .not('billing_address', 'is', null)
-        .neq('status', 'DRAFT')
-        .order('created_at', { ascending: false })
-        .limit(1);
+        if (insertErr) {
+            console.error('[WHATSAPP-CHECKOUT-ERROR] Order creation failed:', insertErr);
+            return await sendText(to, " We could not process your order right now. Please try again in a moment!");
+        }
 
-    const lastOrder = lastOrders?.[0];
+        // Add Items (Support Variants)
+        const orderItems = cart.map(item => ({
+            order_id: orderId,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            price_at_time: item.price,
+            variant_id: item.variant_id,
+            variant_name: item.variant_name
+        }));
+        await mysqlClient.from('order_items').insert(orderItems);
+
+        // Check Previous Orders for Billing Address Reuse
+        const { data: lastOrders } = await mysqlClient.from('orders')
+            .select('customer_name, billing_address, customer_phone')
+            .eq('customer_phone', to)
+            .neq('status', 'DRAFT')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        const lastOrder = (lastOrders || []).find(o => {
+            if (!o || !o.billing_address) return false;
+            if (typeof o.billing_address === 'object') return !!o.billing_address.address;
+            return String(o.billing_address).trim() !== '';
+        });
 
     if (lastOrder && lastOrder.billing_address) {
         const billing = lastOrder.billing_address;
@@ -1133,6 +1229,10 @@ export async function startCheckout(to) {
             `*Name, Mobile Number, Email, Full Address*\n\n` +
             `Example:\n_Lakshmi, 9876543210, lakshmi@email.com, 12 Main St, Bangalore, 560001_`
         );
+    }
+    } catch (checkoutErr) {
+        console.error('[WHATSAPP-CHECKOUT-EXCEPTION]', checkoutErr);
+        return await sendText(to, " We could not process your checkout right now. Please try again!");
     }
 }
 
@@ -1348,25 +1448,59 @@ export async function handleStateSelection(to, stateNameClean, orderId) {
     const { data: order } = await mysqlClient.from('orders').select('*').eq('id', orderId).single();
     if (!order) return;
 
-    const subtotal = order.subtotal || 0;
-    const tax = subtotal * GST_RATE;
-    const shipping = FLAT_SHIPPING;
-    const total = subtotal + tax + shipping;
+    // Fetch order items and calculate central discounts
+    const { data: items } = await mysqlClient.from('order_items').select('*, products(category)').eq('order_id', orderId);
+    const formattedItems = (items || []).map(i => ({
+        id: i.product_id,
+        productId: i.product_id,
+        variantId: i.variant_id,
+        name: i.product_name,
+        price: parseFloat(i.price_at_time || 0),
+        qty: parseInt(i.quantity || 1, 10),
+        category: i.products?.category || 'Saree'
+    }));
 
-    // Calculate CGST/SGST vs IGST
-    let taxDetails = {};
+    const discResult = await calculateDiscounts({
+        cartItems: formattedItems,
+        shippingCost: FLAT_SHIPPING,
+        customer: { phone: to }
+    });
+
+    const subtotal = discResult.subtotal;
+    const discount = discResult.totalDiscount;
+    const taxableSubtotal = discResult.taxableAmount;
+    const shipping = FLAT_SHIPPING;
+
+    // Calculate CGST/SGST vs IGST matching Web Checkout exactly
+    let cgst = 0, sgst = 0, igst = 0;
     if (stateName === HOME_STATE) {
-        taxDetails = { cgst: tax / 2, sgst: tax / 2, igst: 0 };
+        cgst = Math.round(taxableSubtotal * 0.025);
+        sgst = Math.round(taxableSubtotal * 0.025);
+        igst = 0;
     } else {
-        taxDetails = { cgst: 0, sgst: 0, igst: tax };
+        cgst = 0;
+        sgst = 0;
+        igst = Math.round(taxableSubtotal * 0.05);
     }
+
+    const tax = cgst + sgst + igst;
+    const total = Math.round(taxableSubtotal + tax + shipping);
 
     await mysqlClient.from('orders').update({
         customer_state: stateName,
+        subtotal: subtotal,
+        product_discount: discResult.productDiscount || 0,
+        cart_discount: discResult.cartDiscount || 0,
+        coupon_discount: discResult.couponDiscount || 0,
+        shipping_discount: discResult.shippingDiscount || 0,
+        total_discount: discount,
+        coupon_code: discResult.appliedCouponCode || null,
         tax_amount: tax,
+        cgst: cgst,
+        sgst: sgst,
+        igst: igst,
         shipping_cost: shipping,
-        total_amount: total,
-        ...taxDetails
+        total_amount: total
     }).eq('id', orderId);
 
     return await askPaymentMode(to, orderId);
@@ -1374,9 +1508,28 @@ export async function handleStateSelection(to, stateNameClean, orderId) {
 
 export async function askPaymentMode(to, orderId) {
     const { data: order } = await mysqlClient.from('orders').select('*').eq('id', orderId).single();
-    const total = order?.total_amount?.toLocaleString() || '0';
+    if (!order) return;
 
-    await sendButtons(to, ` *Address & Taxes Confirmed!*\n\n *Total Billing: ₹${total}*\n(Inc. GST & Shipping)\n\nHow would you like to pay?`, [
+    const subtotal = order.subtotal || 0;
+    const discount = order.total_discount || order.cart_discount || order.product_discount || 0;
+    const tax = order.tax_amount || 0;
+    const shipping = order.shipping_cost || 0;
+    const total = order.total_amount || 0;
+
+    let summaryMsg = ` *Address & Taxes Confirmed!*\n\n`;
+    summaryMsg += `Subtotal: *₹${subtotal.toLocaleString()}*\n`;
+    if (discount > 0) {
+        summaryMsg += `Discount (Welcome offer, festival offer): *-₹${discount.toLocaleString()}*\n`;
+    }
+    if (tax > 0) {
+        summaryMsg += `GST (5%): *₹${tax.toLocaleString()}*\n`;
+    }
+    if (shipping > 0) {
+        summaryMsg += `Shipping: *₹${shipping.toLocaleString()}*\n`;
+    }
+    summaryMsg += `\n *Total Billing: ₹${total.toLocaleString()}*\n(Inc. Discount, GST & Shipping)\n\nHow would you like to pay?`;
+
+    await sendButtons(to, summaryMsg, [
         { id: `pay_upi_${orderId}`, title: " UPI / Online" },
         { id: `pay_cod_${orderId}`, title: " Cash on Delivery" }
     ]);
@@ -2273,97 +2426,146 @@ export async function handleContact(to) {
     await sendText(to, contactMsg);
 }
 
-//  IMAGE OCR: Read product catalog ID from customer screenshot 
-// Uses OCR.space free API. The customer screenshots the product image (which has
-// a CAT-XXXXX code stamped on it) and sends it — bot reads the code via OCR.
+// ── IMAGE OCR: Read product catalog ID from customer screenshot ───────────────
+// Uses OCR.space free API with FormData and AbortController timeouts.
 async function analyzeImageForCatalogId(mediaId) {
     try {
-        const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+        const accessToken = (process.env.WHATSAPP_ACCESS_TOKEN || WHATSAPP_TOKEN || '').trim();
 
-        // Step 1: Get image download URL from WhatsApp Graph API
-        const mediaRes = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const mediaJson = await mediaRes.json();
-        const mediaUrl = mediaJson?.url;
-        if (!mediaUrl) {
-            console.error('[OCR]  No media URL in response:', JSON.stringify(mediaJson));
-            return { catalogId: null, detectedText: 'Failed to get image from WhatsApp' };
+        if (!accessToken) {
+            console.error('[OCR] Missing WHATSAPP_ACCESS_TOKEN');
+            return { catalogId: null, detectedText: 'WhatsApp token missing' };
         }
-        console.log('[OCR]  Got media URL, downloading image...');
 
-        // Step 2: Download image
-        const imgRes = await fetch(mediaUrl, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-        const base64Image = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
+        // Step 1: Get image download URL from WhatsApp Graph API with timeout
+        const metaController = new AbortController();
+        const metaTimeout = setTimeout(() => metaController.abort(), 10000);
+        
+        let mediaUrl = null;
+        try {
+            const mediaRes = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+                signal: metaController.signal
+            });
+            clearTimeout(metaTimeout);
+            const mediaJson = await mediaRes.json();
+            mediaUrl = mediaJson?.url;
+        } catch (mErr) {
+            clearTimeout(metaTimeout);
+            console.error('[OCR] Error fetching media metadata:', mErr.message);
+            return { catalogId: null, detectedText: 'Media fetch timeout' };
+        }
 
-        // Step 4: Call OCR.space API (Try Engine 2 first, then Engine 1 as fallback)
+        if (!mediaUrl) {
+            console.error('[OCR] No media URL in Graph API response');
+            return { catalogId: null, detectedText: 'Failed to retrieve media URL' };
+        }
+        console.log('[OCR] Got media URL, downloading image buffer...');
+
+        // Step 2: Download image with timeout
+        const imgController = new AbortController();
+        const imgTimeout = setTimeout(() => imgController.abort(), 12000);
+        let base64Image = null;
+
+        try {
+            const imgRes = await fetch(mediaUrl, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+                signal: imgController.signal
+            });
+            clearTimeout(imgTimeout);
+            const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+            base64Image = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
+        } catch (dErr) {
+            clearTimeout(imgTimeout);
+            console.error('[OCR] Error downloading image binary:', dErr.message);
+            return { catalogId: null, detectedText: 'Image download failed' };
+        }
+
+        // Step 3: Call OCR.space API using FormData to prevent payload truncation
         const callOcr = async (engine) => {
-            const ocrApiKey = process.env.OCR_SPACE_API_KEY || 'K85953559988957';
-            const params = new URLSearchParams({
-                base64Image, language: 'eng', isOverlayRequired: 'false',
-                detectOrientation: 'true', scale: 'true', OCREngine: engine, isTable: 'false',
-            });
-            const res = await fetch('https://api.ocr.space/parse/image', {
-                method: 'POST',
-                headers: { 'apikey': ocrApiKey, 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: params.toString()
-            });
-            return res.json();
+            const ocrApiKey = (process.env.OCR_SPACE_API_KEY || 'K85953559988957').trim();
+            const formData = new FormData();
+            formData.append('base64Image', base64Image);
+            formData.append('language', 'eng');
+            formData.append('isOverlayRequired', 'false');
+            formData.append('detectOrientation', 'true');
+            formData.append('scale', 'true');
+            formData.append('OCREngine', engine);
+            formData.append('isTable', 'false');
+
+            const ocrController = new AbortController();
+            const ocrTimeout = setTimeout(() => ocrController.abort(), 12000);
+
+            try {
+                const res = await fetch('https://api.ocr.space/parse/image', {
+                    method: 'POST',
+                    headers: { 'apikey': ocrApiKey },
+                    body: formData,
+                    signal: ocrController.signal
+                });
+                clearTimeout(ocrTimeout);
+                return await res.json();
+            } catch (oErr) {
+                clearTimeout(ocrTimeout);
+                console.error(`[OCR] Engine ${engine} failed:`, oErr.message);
+                return null;
+            }
         };
 
-        console.log('[OCR] Trying Engine 2...');
+        console.log('[OCR] Trying OCR.space Engine 2...');
         let ocrJson = await callOcr('2');
         let detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
 
-        if (!detectedText.trim() || ocrJson.IsErroredOnProcessing) {
-            console.log('[OCR] Engine 2 failed or empty, trying Engine 1...');
+        if (!detectedText.trim() || ocrJson?.IsErroredOnProcessing) {
+            console.log('[OCR] Engine 2 produced empty/errored result, trying Engine 1...');
             ocrJson = await callOcr('1');
             detectedText = ocrJson?.ParsedResults?.[0]?.ParsedText || '';
         }
 
-        if (ocrJson.IsErroredOnProcessing && !detectedText) {
-            console.error('[OCR]  OCR.space error:', ocrJson.ErrorMessage);
-            return { catalogId: null, detectedText: `Service Error: ${ocrJson.ErrorMessage}` };
+        if (ocrJson?.IsErroredOnProcessing && !detectedText) {
+            console.error('[OCR] OCR.space returned error:', ocrJson?.ErrorMessage);
         }
 
-        console.log('[OCR] Detected text:', detectedText.substring(0, 300));
+        console.log('[OCR] Detected text from image:', detectedText.substring(0, 300));
 
-        // Step 5: Flexible pattern matching
+        // Step 4: Robust Code Pattern Extractions
         let catalogId = null;
 
-        // 1. STRONGEST MATCH: Process line by line to avoid gluing unrelated words (like "Reply" on a new line)
-        // Remove spaces/hyphens per line and look for CAT + 4 to 8 chars.
-        const lines = detectedText.split('\n');
-        for (const line of lines) {
-            const cleanLine = line.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-            const strictMatch = cleanLine.match(/CAT([A-Z0-9]{4,8})/);
-            if (strictMatch) {
-                catalogId = strictMatch[1];
-                console.log('[OCR]  Extracted code via strict CAT match:', catalogId);
-                break;
+        // 1. Direct Regex for CAT-XXXXX or CAT XXXXX
+        const catRegex = /CAT[-\s]?([A-Z0-9]{4,10})/i;
+        const catMatch = detectedText.match(catRegex);
+        if (catMatch) {
+            catalogId = catMatch[1].toUpperCase();
+            console.log('[OCR] Extracted catalog ID via direct CAT regex:', catalogId);
+        }
+
+        // 2. Line by line clean matching
+        if (!catalogId && detectedText) {
+            const lines = detectedText.split('\n');
+            for (const line of lines) {
+                const cleanLine = line.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                const strictMatch = cleanLine.match(/CAT([A-Z0-9]{4,10})/);
+                if (strictMatch) {
+                    catalogId = strictMatch[1];
+                    console.log('[OCR] Extracted catalog ID via clean line match:', catalogId);
+                    break;
+                }
             }
         }
 
-        if (catalogId) {
-            // Already found it
-        } else {
-            // 2. FALLBACK MATCHES: If no CAT prefix is found, try original patterns
-            const patterns = [
-                /([A-Z]{2,3})[-\s]([A-Z0-9]{3,5})/i,  // XX-YYYY or XXX-YYY
-                /([A-Z0-9]{5})/i, // Last resort: just any 5 chars
+        // 3. Fallback code extraction (XX-YYYY or 5-8 chars)
+        if (!catalogId && detectedText) {
+            const fallbackPatterns = [
+                /([A-Z]{2,4})[-\s]?([A-Z0-9]{3,6})/i,
+                /([A-Z0-9]{5,8})/i
             ];
-
-            for (const pattern of patterns) {
-                const m = detectedText.match(pattern);
+            for (const pat of fallbackPatterns) {
+                const m = detectedText.match(pat);
                 if (m) {
-                    const code = (m[1] + (m[2] || '')).replace(/[-\s]/g, '').toUpperCase();
-                    // Prevent extracting the brand name if it accidentally matches fallback
-                    if (code.length >= 4 && !code.includes('HAA') && !code.includes('MAHAA')) {
-                        catalogId = code;
-                        console.log('[OCR]  Extracted code via fallback:', catalogId);
+                    const candidate = (m[1] + (m[2] || '')).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                    if (candidate.length >= 4 && !candidate.includes('MAHAA') && !candidate.includes('REPLY') && !candidate.includes('ORDER')) {
+                        catalogId = candidate;
+                        console.log('[OCR] Extracted catalog ID via fallback pattern:', catalogId);
                         break;
                     }
                 }
@@ -2372,15 +2574,12 @@ async function analyzeImageForCatalogId(mediaId) {
 
         return { catalogId, detectedText };
     } catch (err) {
-        console.error('[OCR] Exception:', err.message);
+        console.error('[OCR] Global Exception in analyzeImageForCatalogId:', err.message);
         return { catalogId: null, detectedText: `Error: ${err.message}` };
     }
 }
 
-
-
-
-//  6. ROUTER 
+// ── 6. ROUTER ────────────────────────────────────────────────────────────────
 
 // Message deduplication — WhatsApp often delivers the same webhook 2-3x
 // Store processed message IDs for 5 minutes, then clean up
@@ -2419,7 +2618,14 @@ export async function processIncomingMessage(body) {
         const from = message.from;
         const msgType = message.type;
         const msgId = message.id;
-        const text = message.text?.body?.toLowerCase().trim();
+        const text = (
+            message.text?.body ||
+            message.interactive?.button_reply?.title ||
+            message.interactive?.list_reply?.title ||
+            message.button?.text ||
+            message.button?.payload ||
+            ''
+        ).toLowerCase().trim();
 
         console.log(' Message details:');
         console.log('  - From:', from);
@@ -2491,20 +2697,28 @@ export async function processIncomingMessage(body) {
         cancelStream(from);
 
         //  IMAGE MESSAGE — Customer sent a screenshot of a product
-        // Use Google Cloud Vision OCR to read the catalog ID stamped on the image
+        // Reads the catalog ID (e.g. CAT-BNR6S) stamped on the saree image via OCR
         if (msgType === 'image') {
             const mediaId = message.image?.id;
             await sendText(from, ' Searching in our catalogue... Please wait a moment!');
-            const ocrResult = await analyzeImageForCatalogId(mediaId);
-            if (ocrResult?.catalogId) {
-                console.log(`[WA] OCR found catalog ID: ${ocrResult.catalogId} from ${from}`);
-                return await handleProductInquiry(from, ocrResult.catalogId);
-            } else {
-                const debugInfo = ocrResult?.detectedText ? `\n\n *Detected Text:* ${ocrResult.detectedText.substring(0, 100)}...` : '';
+            try {
+                const ocrResult = await analyzeImageForCatalogId(mediaId);
+                if (ocrResult?.catalogId) {
+                    console.log(`[WA] OCR found catalog ID: ${ocrResult.catalogId} from ${from}`);
+                    return await handleProductInquiry(from, ocrResult.catalogId);
+                } else {
+                    const debugInfo = ocrResult?.detectedText ? `\n\n *Detected Text:* ${ocrResult.detectedText.substring(0, 100)}...` : '';
+                    return await sendText(from,
+                        ' Could not read a product code from the image.\n\n' +
+                        'Please make sure the image shows the product code clearly (e.g. *CAT-BNR6S*).\n' +
+                        'Or send *Hi* to browse our catalogue! ' + debugInfo
+                    );
+                }
+            } catch (imgErr) {
+                console.error('[WA] Image handling error:', imgErr);
                 return await sendText(from,
-                    ' Could not read a product code from the image.\n\n' +
-                    'Please make sure the image shows the product code clearly (e.g. *CAT-AB12X*).\n' +
-                    'Or send *Hi* to browse our catalogue! ' + debugInfo
+                    ' Could not process the image code right now.\n\n' +
+                    'Please text the product code directly (e.g. *CAT-BNR6S*), or send *Hi* for the main menu!'
                 );
             }
         }

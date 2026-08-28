@@ -101,6 +101,11 @@ class MySQLQueryBuilder {
         return this;
     }
 
+    not(col, op, val) {
+        this.filters.push({ type: 'not', col, op, val });
+        return this;
+    }
+
     in(col, vals) {
         this.filters.push({ type: 'in', col, val: Array.isArray(vals) ? vals : [vals] });
         return this;

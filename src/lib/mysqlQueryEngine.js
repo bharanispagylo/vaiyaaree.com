@@ -86,9 +86,13 @@ function formatValueForMySQL(val) {
         return val.toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
     }
     if (typeof val === 'string') {
+        let cleanStr = val.trim();
+        if (cleanStr.startsWith('"') && cleanStr.endsWith('"')) {
+            cleanStr = cleanStr.substring(1, cleanStr.length - 1);
+        }
         // Matches ISO timestamp strings like '2026-08-22T11:49:24.546Z' or '2026-08-22T11:49:24'
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
-            return val.replace('T', ' ').replace('Z', '').split('.')[0];
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(cleanStr)) {
+            return cleanStr.replace('T', ' ').replace('Z', '').split('.')[0];
         }
         return val;
     }
@@ -660,10 +664,12 @@ async function handleInsert({ table, data, returnColumns, isSingle }) {
             } catch (e) {}
         }
 
-        // Stringify Objects / Arrays to JSON
+        // Stringify Objects / Arrays to JSON (Excluding Date instances)
         for (const key of Object.keys(rowToInsert)) {
-            if (typeof rowToInsert[key] === 'object' && rowToInsert[key] !== null) {
-                rowToInsert[key] = JSON.stringify(rowToInsert[key]);
+            const val = rowToInsert[key];
+            if (val instanceof Date) continue;
+            if (typeof val === 'object' && val !== null) {
+                rowToInsert[key] = JSON.stringify(val);
             }
         }
 

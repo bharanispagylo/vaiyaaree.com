@@ -63,7 +63,7 @@ const menuItems = [
     { name: 'Razorpay Setting', href: '/admin/payment-settings', icon: CreditCard },
 ];
 
-export default function AdminSidebar({ isOpen }) {
+export default function AdminSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const router = useRouter();
     const [logo, setLogo] = useState('/images/vaiyaaree-logo.png');
@@ -204,6 +204,7 @@ export default function AdminSidebar({ isOpen }) {
                                                         if (isChildActive) {
                                                             window.dispatchEvent(new Event('resetAdminView'));
                                                         }
+                                                        if (onClose) onClose();
                                                     }}
                                                     style={{
                                                         padding: '0.6rem 1rem',
@@ -232,6 +233,7 @@ export default function AdminSidebar({ isOpen }) {
                                 if (isActive) {
                                     window.dispatchEvent(new Event('resetAdminView'));
                                 }
+                                if (onClose) onClose();
                             }}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '0.75rem',
