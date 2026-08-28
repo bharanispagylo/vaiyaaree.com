@@ -694,9 +694,6 @@ async function handleInsert({ table, data, returnColumns, isSingle, isMaybeSingl
             } catch (e) {}
         }
 
-<<<<<<< HEAD
-        // Stringify Objects / Arrays to JSON (Excluding Date instances)
-=======
         // Auto-populate timestamps if not provided
         if (!rowToInsert.created_at && (table === 'products' || table === 'orders' || table === 'customers' || table === 'product_variants' || table === 'categories')) {
             rowToInsert.created_at = new Date();
@@ -705,8 +702,7 @@ async function handleInsert({ table, data, returnColumns, isSingle, isMaybeSingl
             rowToInsert.updated_at = new Date();
         }
 
-        // Stringify Objects / Arrays to JSON
->>>>>>> 9f6f5559e06311702806d6d819cde25982c583ef
+        // Stringify Objects / Arrays to JSON (Excluding Date instances)
         for (const key of Object.keys(rowToInsert)) {
             const val = rowToInsert[key];
             if (val instanceof Date) continue;
