@@ -149,7 +149,7 @@ export default function CustomerDetail({
                                 className="btn btn-secondary"
                                 style={{ borderRadius: '12px', padding: '0.65rem 1.1rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
-                                <KeyRound size={15} color="hsl(var(--primary))" /> Set Password
+                                <KeyRound size={15} color="hsl(var(--primary))" /> Manage Password
                             </button>
 
                             <button 

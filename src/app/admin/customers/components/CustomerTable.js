@@ -1,7 +1,7 @@
 'use client';
 import { 
     Search, Filter, ChevronDown, ChevronLeft, ChevronRight, 
-    MessageCircle, Trash2, Mail, Phone, ExternalLink, Users, CheckSquare, Square 
+    MessageCircle, Trash2, Mail, Phone, ExternalLink, Users, CheckSquare, Square, KeyRound 
 } from 'lucide-react';
 
 export default function CustomerTable({
@@ -17,6 +17,7 @@ export default function CustomerTable({
     selectedPhones = [],
     setSelectedPhones,
     onCustomerClick,
+    onResetPasswordClick,
     onDeleteSingleClick,
     onDeleteBatchClick,
     onPageChange
@@ -319,6 +320,27 @@ export default function CustomerTable({
                                                 >
                                                     <MessageCircle size={14} /> Chat
                                                 </a>
+
+                                                <button
+                                                    type="button"
+                                                    title="Generate / Reset Password"
+                                                    onClick={() => onResetPasswordClick && onResetPasswordClick(customer)}
+                                                    style={{
+                                                        padding: '0.4rem 0.65rem',
+                                                        borderRadius: '8px',
+                                                        background: 'rgba(93, 8, 33, 0.08)',
+                                                        color: '#5d0821',
+                                                        border: '1px solid rgba(93, 8, 33, 0.2)',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 700
+                                                    }}
+                                                >
+                                                    <KeyRound size={13} /> Password
+                                                </button>
 
                                                 <button
                                                     type="button"

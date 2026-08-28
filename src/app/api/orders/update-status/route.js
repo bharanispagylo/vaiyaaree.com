@@ -64,10 +64,23 @@ export async function POST(request) {
                             "UPDATE `product_variants` SET `stock` = `stock` + ? WHERE `id` = ?",
                             [quantity, item.variant_id]
                         );
-                        await conn.query(
-                            "UPDATE `products` SET `stock` = `stock` + ?, `total_sold` = GREATEST(0, COALESCE(`total_sold`, 0) - ?) WHERE `id` = ?",
-                            [quantity, quantity, item.product_id]
-                        );
+
+                        let prodId = item.product_id;
+                        if (!prodId) {
+                            const [vRow] = await conn.query("SELECT `product_id` FROM `product_variants` WHERE `id` = ?", [item.variant_id]);
+                            prodId = vRow[0]?.product_id;
+                        }
+
+                        if (prodId) {
+                            await conn.query(
+                                `UPDATE \`products\` 
+                                 SET \`stock\` = (SELECT COALESCE(SUM(\`stock\`), 0) FROM \`product_variants\` WHERE \`product_id\` = ?),
+                                     \`total_sold\` = GREATEST(0, COALESCE(\`total_sold\` - ?, 0)) 
+                                 WHERE \`id\` = ?`,
+                                [prodId, quantity, prodId]
+                            );
+                        }
+
                         const [vAfter] = await conn.query("SELECT `stock` FROM `product_variants` WHERE `id` = ?", [item.variant_id]);
                         const newStock = vAfter[0]?.stock ?? 0;
 
@@ -75,11 +88,11 @@ export async function POST(request) {
                             `INSERT INTO \`product_history\` 
                              (\`id\`, \`product_id\`, \`variant_id\`, \`change_type\`, \`quantity_change\`, \`new_stock\`, \`reason\`, \`created_at\`)
                              VALUES (?, ?, ?, 'STOCK_IN', ?, ?, ?, NOW())`,
-                            [histId, item.product_id, item.variant_id, quantity, newStock, `Admin Status Cancellation (#${orderId})`]
+                            [histId, prodId || item.product_id, item.variant_id, quantity, newStock, `Admin Status Cancellation (#${orderId})`]
                         );
                     } else if (item.product_id) {
                         await conn.query(
-                            "UPDATE `products` SET `stock` = `stock` + ?, `total_sold` = GREATEST(0, COALESCE(`total_sold`, 0) - ?) WHERE `id` = ?",
+                            "UPDATE `products` SET `stock` = `stock` + ?, `total_sold` = GREATEST(0, COALESCE(`total_sold` - ?, 0)) WHERE `id` = ?",
                             [quantity, quantity, item.product_id]
                         );
                         const [pAfter] = await conn.query("SELECT `stock` FROM `products` WHERE `id` = ?", [item.product_id]);
@@ -90,6 +103,59 @@ export async function POST(request) {
                              (\`id\`, \`product_id\`, \`variant_id\`, \`change_type\`, \`quantity_change\`, \`new_stock\`, \`reason\`, \`created_at\`)
                              VALUES (?, ?, NULL, 'STOCK_IN', ?, ?, ?, NOW())`,
                             [histId, item.product_id, quantity, newStock, `Admin Status Cancellation (#${orderId})`]
+                        );
+                    }
+                }
+            } else if (oldStatus === 'CANCELLED' && status !== 'CANCELLED') {
+                // If transitioning FROM 'CANCELLED' to an active state, re-deduct inventory
+                for (const item of items) {
+                    const quantity = parseInt(item.quantity, 10) || 1;
+                    const histId = crypto.randomUUID ? crypto.randomUUID() : `ph_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+                    if (item.variant_id) {
+                        await conn.query(
+                            "UPDATE `product_variants` SET `stock` = GREATEST(0, `stock` - ?) WHERE `id` = ?",
+                            [quantity, item.variant_id]
+                        );
+
+                        let prodId = item.product_id;
+                        if (!prodId) {
+                            const [vRow] = await conn.query("SELECT `product_id` FROM `product_variants` WHERE `id` = ?", [item.variant_id]);
+                            prodId = vRow[0]?.product_id;
+                        }
+
+                        if (prodId) {
+                            await conn.query(
+                                `UPDATE \`products\` 
+                                 SET \`stock\` = (SELECT COALESCE(SUM(\`stock\`), 0) FROM \`product_variants\` WHERE \`product_id\` = ?),
+                                     \`total_sold\` = COALESCE(\`total_sold\` + ?, 0) 
+                                 WHERE \`id\` = ?`,
+                                [prodId, quantity, prodId]
+                            );
+                        }
+
+                        const [vAfter] = await conn.query("SELECT `stock` FROM `product_variants` WHERE `id` = ?", [item.variant_id]);
+                        const newStock = vAfter[0]?.stock ?? 0;
+
+                        await conn.query(
+                            `INSERT INTO \`product_history\` 
+                             (\`id\`, \`product_id\`, \`variant_id\`, \`change_type\`, \`quantity_change\`, \`new_stock\`, \`reason\`, \`created_at\`)
+                             VALUES (?, ?, ?, 'SALE', ?, ?, ?, NOW())`,
+                            [histId, prodId || item.product_id, item.variant_id, -quantity, newStock, `Admin Status Reactivated (#${orderId})`]
+                        );
+                    } else if (item.product_id) {
+                        await conn.query(
+                            "UPDATE `products` SET `stock` = GREATEST(0, `stock` - ?), `total_sold` = COALESCE(`total_sold` + ?, 0) WHERE `id` = ?",
+                            [quantity, quantity, item.product_id]
+                        );
+                        const [pAfter] = await conn.query("SELECT `stock` FROM `products` WHERE `id` = ?", [item.product_id]);
+                        const newStock = pAfter[0]?.stock ?? 0;
+
+                        await conn.query(
+                            `INSERT INTO \`product_history\` 
+                             (\`id\`, \`product_id\`, \`variant_id\`, \`change_type\`, \`quantity_change\`, \`new_stock\`, \`reason\`, \`created_at\`)
+                             VALUES (?, ?, NULL, 'SALE', ?, ?, ?, NOW())`,
+                            [histId, item.product_id, -quantity, newStock, `Admin Status Reactivated (#${orderId})`]
                         );
                     }
                 }

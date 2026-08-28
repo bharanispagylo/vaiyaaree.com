@@ -71,20 +71,23 @@ function LoginContent() {
                 const customerData = { ...data.customer, login_at: Date.now() };
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
+                setSuccessMessage('Logged in successfully! Redirecting...');
                 showToast('Login Successful! Welcome back.', 'success');
 
-                if (redirectUrl) {
-                    router.push(redirectUrl);
-                } else {
-                    router.push('/shop');
-                }
+                setTimeout(() => {
+                    if (redirectUrl) {
+                        router.push(redirectUrl);
+                    } else {
+                        router.push('/shop');
+                    }
+                }, 1200);
             } else {
                 setError(data.error || 'Invalid Mobile/Email or Password. Please try again.');
+                setLoading(false);
             }
         } catch (err) {
             console.error('Login Error:', err);
             setError('Connection failed. Please check your internet connection.');
-        } finally {
             setLoading(false);
         }
     };
@@ -136,20 +139,23 @@ function LoginContent() {
                 const customerData = { ...data.customer, login_at: Date.now() };
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
+                setSuccessMessage('Account created successfully! Redirecting to shop page...');
                 showToast('Account Created Successfully! Welcome to Vaiyaaree.', 'success');
 
-                if (redirectUrl) {
-                    router.push(redirectUrl);
-                } else {
-                    router.push('/shop');
-                }
+                setTimeout(() => {
+                    if (redirectUrl) {
+                        router.push(redirectUrl);
+                    } else {
+                        router.push('/shop');
+                    }
+                }, 1400);
             } else {
                 setError(data.error || 'Account creation failed. Please try again.');
+                setLoading(false);
             }
         } catch (err) {
             console.error('Register Error:', err);
             setError('Connection failed. Please check your internet connection.');
-        } finally {
             setLoading(false);
         }
     };
@@ -279,15 +285,20 @@ function LoginContent() {
                 {successMessage && (
                     <div style={{
                         background: '#f0fdf4',
-                        border: '1px solid #bbf7d0',
-                        color: '#166534',
-                        padding: '0.85rem 1rem',
-                        borderRadius: '10px',
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        marginBottom: '1.5rem'
+                        border: '1px solid #86efac',
+                        color: '#15803d',
+                        padding: '0.9rem 1.1rem',
+                        borderRadius: '12px',
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        boxShadow: '0 4px 14px rgba(22, 163, 74, 0.12)'
                     }}>
-                        {successMessage}
+                        <CheckCircle2 size={20} color="#16a34a" style={{ flexShrink: 0 }} />
+                        <span>{successMessage}</span>
                     </div>
                 )}
 
@@ -358,12 +369,12 @@ function LoginContent() {
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || Boolean(successMessage)}
                             style={{
                                 width: '100%',
                                 padding: '1rem',
                                 marginTop: '1rem',
-                                background: '#5d0821',
+                                background: successMessage ? '#16a34a' : '#5d0821',
                                 color: '#ffffff',
                                 border: 'none',
                                 borderRadius: '10px',
@@ -371,12 +382,12 @@ function LoginContent() {
                                 fontSize: '0.95rem',
                                 letterSpacing: '0.08em',
                                 textTransform: 'uppercase',
-                                cursor: 'pointer',
-                                boxShadow: '0 6px 20px rgba(93, 8, 33, 0.2)',
+                                cursor: successMessage ? 'default' : 'pointer',
+                                boxShadow: successMessage ? '0 6px 20px rgba(22, 163, 74, 0.25)' : '0 6px 20px rgba(93, 8, 33, 0.2)',
                                 transition: 'all 0.25s ease'
                             }}
                         >
-                            {loading ? 'Logging in...' : 'Login →'}
+                            {successMessage ? '✓ Logged In! Redirecting...' : (loading ? 'Signing In...' : 'Login →')}
                         </button>
                     </form>
                 )}
@@ -493,11 +504,11 @@ function LoginContent() {
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || Boolean(successMessage)}
                             style={{
                                 width: '100%',
                                 padding: '1rem',
-                                background: '#5d0821',
+                                background: successMessage ? '#16a34a' : '#5d0821',
                                 color: '#ffffff',
                                 border: 'none',
                                 borderRadius: '10px',
@@ -505,12 +516,12 @@ function LoginContent() {
                                 fontSize: '0.95rem',
                                 letterSpacing: '0.08em',
                                 textTransform: 'uppercase',
-                                cursor: 'pointer',
-                                boxShadow: '0 6px 20px rgba(93, 8, 33, 0.2)',
+                                cursor: successMessage ? 'default' : 'pointer',
+                                boxShadow: successMessage ? '0 6px 20px rgba(22, 163, 74, 0.25)' : '0 6px 20px rgba(93, 8, 33, 0.2)',
                                 transition: 'all 0.25s ease'
                             }}
                         >
-                            {loading ? 'Creating Account...' : 'Create Account →'}
+                            {successMessage ? '✓ Account Created! Redirecting...' : (loading ? 'Creating Account...' : 'Create Account →')}
                         </button>
                     </form>
                 )}

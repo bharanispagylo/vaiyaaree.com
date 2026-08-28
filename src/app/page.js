@@ -133,14 +133,45 @@ export default function HomePage() {
                         .from('products')
                         .select('*')
                         .eq('is_active', true)
-                        .order('created_at', { ascending: false });
+                        .order('created_at', { ascending: false })
+                        .order('id', { ascending: false });
 
                     if (prods && prods.length > 0) {
-                        const featured = prods.filter(p => p.is_featured === 1 || p.is_featured === true);
-                        setFeaturedProducts(featured.length > 0 ? featured : prods.slice(0, 8));
+                        const getSortKey = (p) => {
+                            let time = 0;
+                            if (p.created_at) {
+                                const parsed = typeof p.created_at === 'number' ? p.created_at : new Date(p.created_at).getTime();
+                                if (!isNaN(parsed) && parsed > 0) time = parsed;
+                            }
+                            if (time === 0 && p.updated_at) {
+                                const parsed = typeof p.updated_at === 'number' ? p.updated_at : new Date(p.updated_at).getTime();
+                                if (!isNaN(parsed) && parsed > 0) time = parsed;
+                            }
+                            let num = 0;
+                            if (p.product_no !== undefined && p.product_no !== null && !isNaN(Number(p.product_no))) {
+                                num = Number(p.product_no);
+                            } else if (p.sku && !isNaN(Number(p.sku))) {
+                                num = Number(p.sku);
+                            } else if (p.id) {
+                                const digits = Number(String(p.id).replace(/\D/g, ''));
+                                if (!isNaN(digits) && digits > 0) num = digits;
+                            }
+                            return { time, num, id: String(p.id || '') };
+                        };
 
-                        const explore = prods.filter(p => p.product_group === 'EXPLORE');
-                        setExploreProducts(explore.length > 0 ? explore : prods.slice(0, 8));
+                        const sortedProds = [...prods].sort((a, b) => {
+                            const keyA = getSortKey(a);
+                            const keyB = getSortKey(b);
+                            if (keyB.time !== keyA.time) return keyB.time - keyA.time;
+                            if (keyB.num !== keyA.num) return keyB.num - keyA.num;
+                            return keyB.id.localeCompare(keyA.id);
+                        });
+
+                        const featured = sortedProds.filter(p => p.is_featured === 1 || p.is_featured === true);
+                        setFeaturedProducts(featured.length > 0 ? featured : sortedProds.slice(0, 8));
+
+                        const explore = sortedProds.filter(p => p.product_group === 'EXPLORE');
+                        setExploreProducts(explore.length > 0 ? explore : sortedProds.slice(0, 8));
 
                         const uniqueCats = [];
                         const catMap = new Map();

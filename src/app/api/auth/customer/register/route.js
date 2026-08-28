@@ -46,11 +46,11 @@ export async function POST(req) {
             return NextResponse.json({ error: 'An account with this email address already exists. Please log in.' }, { status: 400 });
         }
 
-        // 3. Check for Duplicate Phone (check both pure phone and 91+phone for backward compatibility)
+        // 3. Check for Duplicate Phone (check clean phone, 91+phone, and +91+phone)
         const { data: existingPhone } = await mysqlClient
             .from('customers')
             .select('id')
-            .or(`phone.eq.${cleanPhone},phone.eq.${fullPhoneWith91}`)
+            .or(`phone.eq.${cleanPhone},phone.eq.${fullPhoneWith91},phone.eq.+91${cleanPhone}`)
             .maybeSingle();
 
         if (existingPhone) {
@@ -77,18 +77,20 @@ export async function POST(req) {
             .select()
             .single();
 
-        if (insertErr || !newCustomer) {
+        const customerRecord = Array.isArray(newCustomer) ? newCustomer[0] : newCustomer;
+
+        if (insertErr || !customerRecord) {
             console.error('[CUSTOMER-REGISTER] Insert error:', insertErr);
             return NextResponse.json({ error: 'Failed to create account. Please try again.' }, { status: 500 });
         }
 
         const customerSession = {
-            id: newCustomer.id,
-            name: newCustomer.name,
-            email: newCustomer.email,
-            phone: newCustomer.phone,
-            country_code: newCustomer.country_code || formattedCountryCode,
-            role: newCustomer.role || 'user',
+            id: customerRecord.id,
+            name: customerRecord.name,
+            email: customerRecord.email,
+            phone: customerRecord.phone,
+            country_code: customerRecord.country_code || formattedCountryCode,
+            role: customerRecord.role || 'user',
             login_at: Date.now()
         };
 

@@ -406,41 +406,10 @@ export default function ProductsPage() {
     if (!hasMounted) return null;
 
     // Actions
-    const openEditModal = async (product) => {
-        fetchActiveCategories();
-        setCurrentProduct(product);
-        setFormProductName(product?.name || '');
-        setCopiedProductUrl(false);
-        setProductType(product?.type || 'simple');
-        setProductImageUrl(product?.image_url || '');
-
-        let gallery = product?.gallery_image || [];
-        if (typeof gallery === 'string') {
-            try {
-                gallery = JSON.parse(gallery);
-            } catch (e) {
-                gallery = gallery.split(',').filter(Boolean);
-            }
-        }
-        setGalleryImageUrl(Array.isArray(gallery) ? gallery : []);
-
+    const openEditModal = (product) => {
         if (product?.id) {
-            const { data } = await mysqlClient
-                .from('product_variants')
-                .select('*')
-                .eq('product_id', product.id)
-                .order('created_at', { ascending: true });
-
-            const mappedVars = (data || []).map(v => ({
-                ...v,
-                compare_price: v.original_price || v.compare_price || v.price || '',
-                stock: Number(v.stock) || 0
-            }));
-            setVariants(mappedVars);
-        } else {
-            setVariants([]);
+            router.push(`/admin/products/${product.id}`);
         }
-        setIsEditing(true);
     };
 
     const addVariant = () => {
@@ -586,6 +555,9 @@ export default function ProductsPage() {
         const defaultSlugFromName = rawName.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'product';
         const cleanSlug = rawSlug ? rawSlug.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') : defaultSlugFromName;
 
+        const rawActive = formData.get('is_active');
+        const isActive = (rawActive === 'on' || rawActive === '1' || rawActive === 'active' || rawActive === true) ? 1 : 0;
+
         const productData = {
             name: rawName,
             slug: cleanSlug,
@@ -594,7 +566,7 @@ export default function ProductsPage() {
             description: formData.get('description')?.trim() || '',
             type: productType,
             tax_class: formData.get('tax_class') || 'GST_5',
-            is_active: formData.get('is_active') === 'on' ? 1 : 0,
+            is_active: isActive,
             is_featured: formData.get('is_featured') === 'on' ? 1 : 0,
             tags: userTags,
             gallery_image: Array.isArray(galleryImageUrl) ? galleryImageUrl.filter(Boolean) : (galleryImageUrl ? galleryImageUrl.split(',').filter(Boolean) : [])
@@ -707,7 +679,9 @@ export default function ProductsPage() {
                                 total_added: currentData.stock || 0,
                                 total_sold: 0,
                                 product_no: nextNo,
-                                sku: String(nextNo)
+                                sku: String(nextNo),
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString()
                             };
 
                             const res = await mysqlClient.from('products').insert([insertData]).select();
@@ -1054,17 +1028,7 @@ export default function ProductsPage() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        fetchActiveCategories();
-                                        setCurrentProduct(null);
-                                        setFormProductName('');
-                                        setCopiedProductUrl(false);
-                                        setProductType('simple');
-                                        setVariants([]);
-                                        setProductImageUrl('');
-                                        setGalleryImageUrl([]);
-                                        setIsEditing(true);
-                                    }}
+                                    onClick={() => router.push('/admin/products/new')}
                                     className="btn btn-primary"
                                 >
                                     <Plus size={18} /> Add Product
@@ -1152,40 +1116,6 @@ export default function ProductsPage() {
                     </>
                 )}
 
-                {/*  CREATE / EDIT PRODUCT PAGE  */}
-                {isEditing && (
-                    <ProductForm
-                        currentProduct={currentProduct}
-                        formProductName={formProductName}
-                        setFormProductName={setFormProductName}
-                        copiedProductUrl={copiedProductUrl}
-                        setCopiedProductUrl={setCopiedProductUrl}
-                        productType={productType}
-                        setProductType={setProductType}
-                        dbActiveCategories={dbActiveCategories}
-                        productImageUrl={productImageUrl}
-                        setProductImageUrl={setProductImageUrl}
-                        galleryImageUrl={galleryImageUrl}
-                        setGalleryImageUrl={setGalleryImageUrl}
-                        variants={variants}
-                        setVariants={setVariants}
-                        addVariant={addVariant}
-                        updateVariant={updateVariant}
-                        removeVariant={removeVariant}
-                        handleSave={handleSave}
-                        handleDelete={handleDelete}
-                        setIsEditing={setIsEditing}
-                        fbProcessing={fbProcessing}
-                        setZoomedImage={setZoomedImage}
-                        setActiveImageField={setActiveImageField}
-                        setShowMediaPicker={setShowMediaPicker}
-                        setLoadingOverlayText={setLoadingOverlayText}
-                        setOcrLoading={setOcrLoading}
-                        setWatermarkModal={setWatermarkModal}
-                        setErrorModal={setErrorModal}
-                    />
-                )}
-
                 {/*  STOCK HISTORY MODAL  */}
                 {showHistory && (
                     <ProductHistoryModal
@@ -1216,42 +1146,12 @@ export default function ProductsPage() {
                                 activeImageField?.type === 'gallery' ? galleryImageUrl :
                                     variants[activeImageField?.index]?.image_url
                         }
-                        onSelect={async (value) => {
+                        onSelect={async (value, isExistingWatermarked = false) => {
                             try {
                                 if (activeImageField?.type === 'gallery') {
                                     const urls = Array.isArray(value) ? value : [value];
-                                    setLoadingOverlayText('Checking Gallery Images...');
-                                    setOcrLoading(true);
                                     setShowMediaPicker(false);
-
-                                    let validUrls = [];
-                                    let blockedCount = 0;
-
-                                    for (const url of urls) {
-                                        const detRes = await fetch('/api/admin/watermark-detect', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ imageUrl: url })
-                                        });
-                                        const detData = await detRes.json();
-                                        if (detData.hasWatermark) {
-                                            blockedCount++;
-                                        } else {
-                                            validUrls.push(url);
-                                        }
-                                    }
-
-                                    if (blockedCount > 0) {
-                                        setErrorModal({
-                                            title: 'Watermarked Images Blocked',
-                                            message: `${blockedCount} image(s) already contained existing product watermarks.`
-                                        });
-                                    }
-
-                                    if (validUrls.length > 0) {
-                                        setGalleryImageUrl(prev => Array.from(new Set([...validUrls, ...prev])));
-                                    }
-                                    setOcrLoading(false);
+                                    setGalleryImageUrl(prev => Array.from(new Set([...urls, ...prev])));
                                     return;
                                 }
 
@@ -1260,6 +1160,30 @@ export default function ProductsPage() {
                                 setOcrLoading(true);
                                 setShowMediaPicker(false);
 
+                                const onConfirmSelection = async (finalUrl, catId) => {
+                                    if (activeImageField?.type === 'product') {
+                                        setProductImageUrl(prev => {
+                                            const existingArray = prev ? prev.split(',').filter(Boolean) : [];
+                                            return [...existingArray, finalUrl].join(',');
+                                        });
+                                        if (catId) {
+                                            setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
+                                        }
+                                    } else if (activeImageField?.type === 'variant') {
+                                        updateVariant(activeImageField.index, 'image_url', finalUrl);
+                                        if (catId) {
+                                            setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
+                                        }
+                                    }
+                                    setWatermarkModal(null);
+                                };
+
+                                if (isExistingWatermarked) {
+                                    onConfirmSelection(url, currentProduct?.product_catalog_image_id);
+                                    setOcrLoading(false);
+                                    return;
+                                }
+
                                 const detRes = await fetch('/api/admin/watermark-detect', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
@@ -1267,24 +1191,15 @@ export default function ProductsPage() {
                                 });
                                 const detData = await detRes.json();
 
-                                const onConfirmSelection = async (finalUrl, catId) => {
-                                    if (activeImageField.type === 'product') {
-                                        setProductImageUrl(prev => {
-                                            const existingArray = prev ? prev.split(',').filter(Boolean) : [];
-                                            return [...existingArray, finalUrl].join(',');
-                                        });
-                                        setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
-                                    } else if (activeImageField.type === 'variant') {
-                                        updateVariant(activeImageField.index, 'image_url', finalUrl);
-                                        setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
-                                    }
-                                    setWatermarkModal(null);
-                                };
-
                                 if (detData.hasWatermark) {
-                                    setErrorModal({
-                                        title: 'Watermarked Image Blocked',
-                                        message: `This image already contains an existing product watermark (${detData.catalogId || 'CAT-CODE'}).`
+                                    const existingCatId = detData.catalogId || currentProduct?.product_catalog_image_id || 'CAT-WATERMARK';
+                                    setWatermarkModal({
+                                        type: 'existing',
+                                        detectedCode: existingCatId,
+                                        url: url,
+                                        onUseExisting: () => {
+                                            onConfirmSelection(url, existingCatId);
+                                        }
                                     });
                                     setOcrLoading(false);
                                     return;

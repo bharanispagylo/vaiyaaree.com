@@ -20,7 +20,7 @@ export default function ShopPage() {
     const [selectedType, setSelectedType] = useState('All');
     const [priceRange, setPriceRange] = useState({ min: 0, max: 25000 });
     const [tempPriceRange, setTempPriceRange] = useState({ min: 0, max: 25000 });
-    const [sortBy, setSortBy] = useState('default');
+    const [sortBy, setSortBy] = useState('newness');
     const [gridView, setGridView] = useState(true);
     const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -71,9 +71,42 @@ export default function ShopPage() {
         filtered = filtered.filter(p => (p.price || 0) >= priceRange.min && (p.price || 0) <= priceRange.max);
         if (showInStockOnly) filtered = filtered.filter(p => Number(p.stock || 0) > 0);
 
-        if (sortBy === 'price-asc') filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
-        else if (sortBy === 'price-desc') filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
-        else if (sortBy === 'newness') filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        if (sortBy === 'price-asc') {
+            filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+        } else if (sortBy === 'price-desc') {
+            filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+        } else {
+            // Default & 'newness': Date DESC (latest first), then Product_No / ID DESC
+            const getSortKey = (p) => {
+                let time = 0;
+                if (p.created_at) {
+                    const parsed = typeof p.created_at === 'number' ? p.created_at : new Date(p.created_at).getTime();
+                    if (!isNaN(parsed) && parsed > 0) time = parsed;
+                }
+                if (time === 0 && p.updated_at) {
+                    const parsed = typeof p.updated_at === 'number' ? p.updated_at : new Date(p.updated_at).getTime();
+                    if (!isNaN(parsed) && parsed > 0) time = parsed;
+                }
+                let num = 0;
+                if (p.product_no !== undefined && p.product_no !== null && !isNaN(Number(p.product_no))) {
+                    num = Number(p.product_no);
+                } else if (p.sku && !isNaN(Number(p.sku))) {
+                    num = Number(p.sku);
+                } else if (p.id) {
+                    const digits = Number(String(p.id).replace(/\D/g, ''));
+                    if (!isNaN(digits) && digits > 0) num = digits;
+                }
+                return { time, num, id: String(p.id || '') };
+            };
+
+            filtered.sort((a, b) => {
+                const keyA = getSortKey(a);
+                const keyB = getSortKey(b);
+                if (keyB.time !== keyA.time) return keyB.time - keyA.time;
+                if (keyB.num !== keyA.num) return keyB.num - keyA.num;
+                return keyB.id.localeCompare(keyA.id);
+            });
+        }
 
         return filtered;
     }, [products, selectedCategory, selectedBrand, selectedType, searchQuery, priceRange, showInStockOnly, sortBy]);
@@ -85,7 +118,7 @@ export default function ShopPage() {
         setSearchQuery('');
         setPriceRange({ min: 0, max: 25000 });
         setTempPriceRange({ min: 0, max: 25000 });
-        setSortBy('default');
+        setSortBy('newness');
         setShowInStockOnly(false);
         setIsFilterPanelOpen(false);
         setCurrentPage(1);
@@ -221,8 +254,7 @@ export default function ShopPage() {
                                 onChange={e => setSortBy(e.target.value)}
                                 className={styles.sortSelect}
                             >
-                                <option value="default">Default sorting</option>
-                                <option value="newness">Sort by latest</option>
+                                <option value="newness">Sort by latest (Default)</option>
                                 <option value="price-asc">Price: Low to High</option>
                                 <option value="price-desc">Price: High to Low</option>
                             </select>

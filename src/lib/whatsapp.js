@@ -1,3 +1,7 @@
+const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
+const WHATSAPP_PHONE_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
+const WHATSAPP_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
+
 export function isValidPublicUrl(value) {
     if (!value || typeof value !== 'string') return false;
     const trimmed = value.trim();
