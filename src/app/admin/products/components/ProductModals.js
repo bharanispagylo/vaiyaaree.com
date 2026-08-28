@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
     Check, X, AlertTriangle, Upload, FileDown, Loader2, Search,
     Facebook, Instagram, ThumbsUp, MessageSquare, Share2, Heart
@@ -108,6 +109,7 @@ export function ExcelImportModal({
  * Watermark Detection & Confirmation Modal
  */
 export function WatermarkModal({ watermarkModal, onClose }) {
+    const [confirmChecked, setConfirmChecked] = useState(false);
     if (!watermarkModal) return null;
 
     return (
@@ -118,39 +120,120 @@ export function WatermarkModal({ watermarkModal, onClose }) {
                         maxWidth: '520px', padding: 0, borderRadius: '32px',
                         overflow: 'hidden', background: '#ffffff',
                         boxShadow: '0 40px 100px -20px rgba(0,0,0,0.12)',
-                        textAlign: 'center'
+                        textAlign: 'center', maxHeight: '90vh', overflowY: 'auto'
                     }}>
-                        <div style={{ padding: '3.5rem' }}>
+                        <div style={{ padding: '2rem' }}>
                             <div style={{
-                                width: '88px', height: '88px', borderRadius: '50%',
-                                background: '#fef2f2', color: '#ef4444',
+                                width: '70px', height: '70px', borderRadius: '50%',
+                                background: '#eff6ff', color: '#2563eb',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                margin: '0 auto 2rem',
-                                border: '1px solid #fee2e2'
+                                margin: '0 auto 1.25rem',
+                                border: '1px solid #bfdbfe'
                             }}>
-                                <AlertTriangle size={40} strokeWidth={1.5} />
+                                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                                    <circle cx="9" cy="9" r="2" />
+                                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                                </svg>
                             </div>
 
-                            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a', letterSpacing: '-0.025em' }}>
-                                Watermark Detected
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem', color: '#0f172a', letterSpacing: '-0.025em' }}>
+                                Existing Watermark Found
                             </h3>
-                            <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2.5rem' }}>
-                                This image already contains a digital identity <span style={{ color: '#0f172a', fontWeight: 800 }}>{watermarkModal.detectedCode}</span>. To avoid visual issues, please use an original, clean file.
+                            <p style={{ color: '#64748b', lineHeight: '1.5', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
+                                This image already has catalog watermark <span style={{ color: '#2563eb', fontWeight: 800 }}>{watermarkModal.detectedCode}</span>.
                             </p>
 
-                            <div className="modal-actions">
+                            {watermarkModal.url && (
+                                <div style={{ borderRadius: '14px', overflow: 'hidden', background: '#f8fafc', border: '1px solid #e2e8f0', marginBottom: '1.25rem', position: 'relative' }}>
+                                    <img
+                                        src={watermarkModal.url}
+                                        alt=""
+                                        style={{ width: '100%', height: '170px', objectFit: 'contain' }}
+                                    />
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: '10px',
+                                        right: '10px',
+                                        background: 'rgba(0,0,0,0.85)',
+                                        color: '#38bdf8',
+                                        padding: '4px 12px',
+                                        borderRadius: '50px',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 800,
+                                        border: '1px solid rgba(255,255,255,0.2)'
+                                    }}>
+                                        {watermarkModal.detectedCode}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Required Checkbox to Allow Upload / Use */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                padding: '12px 14px',
+                                background: confirmChecked ? '#f0fdf4' : '#f8fafc',
+                                border: confirmChecked ? '2px solid #16a34a' : '1px solid #cbd5e1',
+                                borderRadius: '12px',
+                                marginBottom: '1.5rem',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                            }} onClick={() => setConfirmChecked(prev => !prev)}>
+                                <input
+                                    type="checkbox"
+                                    id="watermark-confirm-check"
+                                    checked={confirmChecked}
+                                    onChange={(e) => setConfirmChecked(e.target.checked)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        width: '20px',
+                                        height: '20px',
+                                        accentColor: '#16a34a',
+                                        cursor: 'pointer',
+                                        flexShrink: 0
+                                    }}
+                                />
+                                <label htmlFor="watermark-confirm-check" style={{ cursor: 'pointer', fontSize: '0.86rem', fontWeight: 800, color: confirmChecked ? '#15803d' : '#334155', margin: 0, lineHeight: '1.4', userSelect: 'none' }}>
+                                    Use existing watermark image for this product
+                                </label>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
                                 <button
                                     type="button"
                                     onClick={onClose}
                                     style={{
-                                        width: '100%', background: '#0f172a', height: '56px',
-                                        borderRadius: '16px', color: '#fff', fontSize: '1rem',
-                                        fontWeight: 800, border: 'none', cursor: 'pointer',
-                                        boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
+                                        flex: 1, height: '48px', borderRadius: '14px',
+                                        fontSize: '0.88rem', fontWeight: 700, border: '1px solid #cbd5e1',
+                                        color: '#475569', background: '#f8fafc', cursor: 'pointer',
                                         transition: 'all 0.2s'
                                     }}
                                 >
-                                    Dismiss Alert
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={!confirmChecked}
+                                    onClick={() => {
+                                        if (confirmChecked && watermarkModal.onUseExisting) {
+                                            watermarkModal.onUseExisting();
+                                        }
+                                    }}
+                                    style={{
+                                        flex: 1.6, height: '48px', borderRadius: '14px',
+                                        fontSize: '0.88rem', fontWeight: 800, border: 'none',
+                                        color: '#ffffff',
+                                        background: confirmChecked ? '#16a34a' : '#94a3b8',
+                                        boxShadow: confirmChecked ? '0 4px 14px rgba(22, 163, 74, 0.3)' : 'none',
+                                        cursor: confirmChecked ? 'pointer' : 'not-allowed',
+                                        opacity: confirmChecked ? 1 : 0.6,
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    {confirmChecked ? '✓ Use Watermarked Image' : 'Check Box to Allow'}
                                 </button>
                             </div>
                         </div>
@@ -341,22 +424,33 @@ export function SocialPreviewModal({ previewModal, onClose }) {
 /**
  * Success Notification Modal
  */
-export function SuccessModal({ isOpen, onClose, title = 'Success!', message = 'Operation completed successfully.' }) {
-    if (!isOpen) return null;
+export function SuccessModal({ isOpen, successModal, onClose, title = 'Success!', message = 'Operation completed successfully.' }) {
+    const isVisible = isOpen || Boolean(successModal);
+    if (!isVisible) return null;
+
+    const displayTitle = successModal?.title || title;
+    const displayMessage = successModal?.message || message;
+    const handleClose = () => {
+        if (successModal?.onClose) {
+            successModal.onClose();
+        } else if (onClose) {
+            onClose();
+        }
+    };
 
     return (
         <ModalPortal>
-            <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-overlay" onClick={handleClose}>
                 <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                     <div style={{ padding: '3rem' }}>
-                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0fdf4', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #dcfce7' }}>
-                            <Check size={40} strokeWidth={2} />
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.75rem', border: '1.5px solid #86efac' }}>
+                            <Check size={40} strokeWidth={2.5} />
                         </div>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{title}</h3>
-                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
-                            {message}
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{displayTitle}</h3>
+                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '0.95rem', marginBottom: '2rem' }}>
+                            {displayMessage}
                         </p>
-                        <button type="button" onClick={onClose} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                        <button type="button" onClick={handleClose} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '0.95rem', transition: 'all 0.15s' }}>
                             Continue
                         </button>
                     </div>
@@ -369,22 +463,33 @@ export function SuccessModal({ isOpen, onClose, title = 'Success!', message = 'O
 /**
  * Error Notification Modal
  */
-export function ErrorModal({ errorModal, onClose }) {
-    if (!errorModal) return null;
+export function ErrorModal({ errorModal, isOpen, onClose, title = 'Error', message = '' }) {
+    const isVisible = isOpen || Boolean(errorModal);
+    if (!isVisible) return null;
+
+    const displayTitle = errorModal?.title || title;
+    const displayMessage = errorModal?.message || message || 'An unexpected error occurred.';
+    const handleClose = () => {
+        if (errorModal?.onClose) {
+            errorModal.onClose();
+        } else if (onClose) {
+            onClose();
+        }
+    };
 
     return (
         <ModalPortal>
-            <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-overlay" onClick={handleClose}>
                 <div className="modal-box shadow-premium" style={{ maxWidth: '440px', padding: 0, borderRadius: '32px', background: '#ffffff', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                     <div style={{ padding: '3rem' }}>
-                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 2rem', border: '1px solid #fee2e2' }}>
-                            <X size={40} strokeWidth={2} />
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#fef2f2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.75rem', border: '1.5px solid #fca5a5' }}>
+                            <X size={40} strokeWidth={2.5} />
                         </div>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{errorModal.title || 'Error'}</h3>
-                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '1rem', marginBottom: '2rem' }}>
-                            {errorModal.message}
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.75rem', color: '#0f172a' }}>{displayTitle}</h3>
+                        <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '0.95rem', marginBottom: '2rem' }}>
+                            {displayMessage}
                         </p>
-                        <button type="button" onClick={onClose} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer' }}>
+                        <button type="button" onClick={handleClose} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '0.95rem', transition: 'all 0.15s' }}>
                             Dismiss
                         </button>
                     </div>

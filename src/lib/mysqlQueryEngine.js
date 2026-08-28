@@ -39,13 +39,13 @@ export async function executeMysqlQuery(payload) {
                 isMaybeSingle
             });
         } else if (operation === 'insert') {
-            return await handleInsert({ table, data: mutationData, returnColumns, isSingle });
+            return await handleInsert({ table, data: mutationData, returnColumns, isSingle, isMaybeSingle });
         } else if (operation === 'update') {
-            return await handleUpdate({ table, data: mutationData, filters, returnColumns, isSingle });
+            return await handleUpdate({ table, data: mutationData, filters, returnColumns, isSingle, isMaybeSingle });
         } else if (operation === 'delete') {
             return await handleDelete({ table, filters, returnColumns });
         } else if (operation === 'upsert') {
-            return await handleUpsert({ table, data: mutationData, returnColumns, isSingle });
+            return await handleUpsert({ table, data: mutationData, returnColumns, isSingle, isMaybeSingle });
         }
 
         return { data: null, error: { message: `Unsupported operation: ${operation}` } };
@@ -148,10 +148,40 @@ function parseFilters(filters) {
                 params.push(formatValueForMySQL(val));
                 break;
             case 'is':
-                if (val === null) {
+                if (val === null || val === 'null') {
                     whereClauses.push(`\`${col}\` IS NULL`);
                 } else {
                     whereClauses.push(`\`${col}\` = ?`);
+                    params.push(formatValueForMySQL(val));
+                }
+                break;
+            case 'not':
+                const notOp = f.op || 'eq';
+                if (notOp === 'is') {
+                    if (val === null || val === 'null') {
+                        whereClauses.push(`\`${col}\` IS NOT NULL`);
+                    } else {
+                        whereClauses.push(`\`${col}\` != ?`);
+                        params.push(formatValueForMySQL(val));
+                    }
+                } else if (notOp === 'eq') {
+                    if (val === null || val === 'null') {
+                        whereClauses.push(`\`${col}\` IS NOT NULL`);
+                    } else {
+                        whereClauses.push(`\`${col}\` != ?`);
+                        params.push(formatValueForMySQL(val));
+                    }
+                } else if (notOp === 'in') {
+                    if (Array.isArray(val) && val.length > 0) {
+                        const placeholders = val.map(() => '?').join(', ');
+                        whereClauses.push(`\`${col}\` NOT IN (${placeholders})`);
+                        params.push(...val.map(formatValueForMySQL));
+                    }
+                } else if (notOp === 'like' || notOp === 'ilike') {
+                    whereClauses.push(`\`${col}\` NOT LIKE ?`);
+                    params.push(formatValueForMySQL(val));
+                } else {
+                    whereClauses.push(`\`${col}\` != ?`);
                     params.push(formatValueForMySQL(val));
                 }
                 break;
@@ -637,7 +667,7 @@ async function syncInvoicesFromOrders() {
     }
 }
 
-async function handleInsert({ table, data, returnColumns, isSingle }) {
+async function handleInsert({ table, data, returnColumns, isSingle, isMaybeSingle }) {
     if (!data) return { data: null, error: { message: 'Insert data is empty' } };
     const items = Array.isArray(data) ? data : [data];
     if (items.length === 0) return { data: [], error: null };
@@ -660,6 +690,14 @@ async function handleInsert({ table, data, returnColumns, isSingle }) {
             } catch (e) {}
         }
 
+        // Auto-populate timestamps if not provided
+        if (!rowToInsert.created_at && (table === 'products' || table === 'orders' || table === 'customers' || table === 'product_variants' || table === 'categories')) {
+            rowToInsert.created_at = new Date();
+        }
+        if (!rowToInsert.updated_at && (table === 'products' || table === 'orders' || table === 'customers' || table === 'categories')) {
+            rowToInsert.updated_at = new Date();
+        }
+
         // Stringify Objects / Arrays to JSON
         for (const key of Object.keys(rowToInsert)) {
             if (typeof rowToInsert[key] === 'object' && rowToInsert[key] !== null) {
@@ -667,12 +705,29 @@ async function handleInsert({ table, data, returnColumns, isSingle }) {
             }
         }
 
-        const keys = Object.keys(rowToInsert);
-        const colNames = keys.map(k => `\`${k}\``).join(', ');
-        const placeholders = keys.map(() => '?').join(', ');
-        const values = keys.map(k => formatValueForMySQL(rowToInsert[k]));
+        let result;
+        try {
+            const keys = Object.keys(rowToInsert);
+            const colNames = keys.map(k => `\`${k}\``).join(', ');
+            const placeholders = keys.map(() => '?').join(', ');
+            const values = keys.map(k => formatValueForMySQL(rowToInsert[k]));
 
-        const [result] = await pool.query(`INSERT INTO \`${table}\` (${colNames}) VALUES (${placeholders})`, values);
+            [result] = await pool.query(`INSERT INTO \`${table}\` (${colNames}) VALUES (${placeholders})`, values);
+        } catch (insertErr) {
+            if (insertErr.code === 'ER_BAD_FIELD_ERROR') {
+                // Discover actual valid table columns and retry with valid columns only
+                const [colRows] = await pool.query(`SHOW COLUMNS FROM \`${table}\``);
+                const validCols = new Set(colRows.map(c => c.Field));
+                const safeKeys = Object.keys(rowToInsert).filter(k => validCols.has(k));
+                const safeColNames = safeKeys.map(k => `\`${k}\``).join(', ');
+                const safePlaceholders = safeKeys.map(() => '?').join(', ');
+                const safeValues = safeKeys.map(k => formatValueForMySQL(rowToInsert[k]));
+
+                [result] = await pool.query(`INSERT INTO \`${table}\` (${safeColNames}) VALUES (${safePlaceholders})`, safeValues);
+            } else {
+                throw insertErr;
+            }
+        }
         
         if (rowToInsert.id) {
             insertedIds.push(rowToInsert.id);
@@ -690,13 +745,22 @@ async function handleInsert({ table, data, returnColumns, isSingle }) {
         const placeholders = insertedIds.map(() => '?').join(', ');
         const [rows] = await pool.query(`SELECT * FROM \`${table}\` WHERE \`id\` IN (${placeholders})`, insertedIds);
         const parsed = rows.map(parseJsonFields);
-        return { data: isSingle || !Array.isArray(data) ? (parsed[0] || null) : parsed, error: null };
+        if (isSingle) {
+            if (parsed.length === 0) {
+                return { data: null, error: { message: 'Row not found', code: 'PGRST116' } };
+            }
+            return { data: parsed[0], error: null };
+        }
+        if (isMaybeSingle) {
+            return { data: parsed.length > 0 ? parsed[0] : null, error: null };
+        }
+        return { data: parsed, error: null };
     }
 
     return { data: null, error: null };
 }
 
-async function handleUpdate({ table, data, filters, returnColumns, isSingle }) {
+async function handleUpdate({ table, data, filters, returnColumns, isSingle, isMaybeSingle }) {
     if (!data) return { data: null, error: { message: 'Update data is empty' } };
     const { whereSql, params: whereParams } = parseFilters(filters);
 
@@ -713,8 +777,29 @@ async function handleUpdate({ table, data, filters, returnColumns, isSingle }) {
         return { data: null, error: null };
     }
 
-    const sql = `UPDATE \`${table}\` SET ${setClauses.join(', ')} ${whereSql}`;
-    await pool.query(sql, [...setParams, ...whereParams]);
+    try {
+        const sql = `UPDATE \`${table}\` SET ${setClauses.join(', ')} ${whereSql}`;
+        await pool.query(sql, [...setParams, ...whereParams]);
+    } catch (updateErr) {
+        if (updateErr.code === 'ER_BAD_FIELD_ERROR') {
+            const [colRows] = await pool.query(`SHOW COLUMNS FROM \`${table}\``);
+            const validCols = new Set(colRows.map(c => c.Field));
+            const safeSetClauses = [];
+            const safeSetParams = [];
+            for (const [col, val] of Object.entries(updateObj)) {
+                if (validCols.has(col)) {
+                    safeSetClauses.push(`\`${col}\` = ?`);
+                    safeSetParams.push(formatValueForMySQL(val));
+                }
+            }
+            if (safeSetClauses.length > 0) {
+                const retrySql = `UPDATE \`${table}\` SET ${safeSetClauses.join(', ')} ${whereSql}`;
+                await pool.query(retrySql, [...safeSetParams, ...whereParams]);
+            }
+        } else {
+            throw updateErr;
+        }
+    }
 
     if (table === 'orders') {
         await syncInvoicesFromOrders();
@@ -724,7 +809,16 @@ async function handleUpdate({ table, data, filters, returnColumns, isSingle }) {
     const [updated] = await pool.query(`SELECT * FROM \`${table}\` ${whereSql}`, whereParams);
     const parsed = updated.map(parseJsonFields);
 
-    return { data: isSingle ? (parsed[0] || null) : parsed, error: null };
+    if (isSingle) {
+        if (parsed.length === 0) {
+            return { data: null, error: { message: 'Row not found', code: 'PGRST116' } };
+        }
+        return { data: parsed[0], error: null };
+    }
+    if (isMaybeSingle) {
+        return { data: parsed.length > 0 ? parsed[0] : null, error: null };
+    }
+    return { data: parsed, error: null };
 }
 
 async function handleDelete({ table, filters }) {
@@ -733,7 +827,7 @@ async function handleDelete({ table, filters }) {
     return { data: null, error: null };
 }
 
-async function handleUpsert({ table, data, returnColumns, isSingle }) {
+async function handleUpsert({ table, data, returnColumns, isSingle, isMaybeSingle }) {
     if (!data) return { data: null, error: { message: 'Upsert data is empty' } };
     const items = Array.isArray(data) ? data : [data];
     const upserted = [];
@@ -751,7 +845,16 @@ async function handleUpsert({ table, data, returnColumns, isSingle }) {
         upserted.push(parseJsonFields(row));
     }
 
-    return { data: isSingle || !Array.isArray(data) ? upserted[0] : upserted, error: null };
+    if (isSingle) {
+        if (upserted.length === 0) {
+            return { data: null, error: { message: 'Row not found', code: 'PGRST116' } };
+        }
+        return { data: upserted[0], error: null };
+    }
+    if (isMaybeSingle) {
+        return { data: upserted.length > 0 ? upserted[0] : null, error: null };
+    }
+    return { data: upserted, error: null };
 }
 
 /**

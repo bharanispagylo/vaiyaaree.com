@@ -391,16 +391,72 @@ export function ShopProvider({ children }) {
         showToast('Logged out successfully');
     }
 
-    //fetch shop products from mysql
+    //fetch shop products from mysql with their variants
     async function fetchProducts() {
         setLoading(true);
         try {
-            const { data } = await mysqlClient
-                .from('products')
-                .select('*')
-                .eq('is_active', true)
-                .order('created_at', { ascending: false });
-            if (data) setProducts(data);
+            const [productsRes, variantsRes] = await Promise.all([
+                mysqlClient
+                    .from('products')
+                    .select('*')
+                    .eq('is_active', true)
+                    .order('created_at', { ascending: false })
+                    .order('id', { ascending: false }),
+                mysqlClient
+                    .from('product_variants')
+                    .select('*')
+                    .order('created_at', { ascending: true })
+            ]);
+
+            const productsData = productsRes.data || [];
+            const variantsData = variantsRes.data || [];
+
+            // Group variants by product_id
+            const variantsMap = {};
+            variantsData.forEach(v => {
+                const pid = v.product_id;
+                if (!variantsMap[pid]) variantsMap[pid] = [];
+                variantsMap[pid].push(v);
+            });
+
+            const enrichedProducts = productsData.map(p => ({
+                ...p,
+                variants: variantsMap[p.id] || p.variants || []
+            }));
+
+            // Guaranteed Sort: Latest Date DESC, then Numeric Product_No / ID DESC
+            enrichedProducts.sort((a, b) => {
+                const getSortKey = (p) => {
+                    let time = 0;
+                    if (p.created_at) {
+                        const parsed = typeof p.created_at === 'number' ? p.created_at : new Date(p.created_at).getTime();
+                        if (!isNaN(parsed) && parsed > 0) time = parsed;
+                    }
+                    if (time === 0 && p.updated_at) {
+                        const parsed = typeof p.updated_at === 'number' ? p.updated_at : new Date(p.updated_at).getTime();
+                        if (!isNaN(parsed) && parsed > 0) time = parsed;
+                    }
+                    let num = 0;
+                    if (p.product_no !== undefined && p.product_no !== null && !isNaN(Number(p.product_no))) {
+                        num = Number(p.product_no);
+                    } else if (p.sku && !isNaN(Number(p.sku))) {
+                        num = Number(p.sku);
+                    } else if (p.id) {
+                        const digits = Number(String(p.id).replace(/\D/g, ''));
+                        if (!isNaN(digits) && digits > 0) num = digits;
+                    }
+                    return { time, num, id: String(p.id || '') };
+                };
+
+                const keyA = getSortKey(a);
+                const keyB = getSortKey(b);
+
+                if (keyB.time !== keyA.time) return keyB.time - keyA.time;
+                if (keyB.num !== keyA.num) return keyB.num - keyA.num;
+                return keyB.id.localeCompare(keyA.id);
+            });
+
+            setProducts(enrichedProducts);
         } catch (err) {
             console.error('Fetch Error:', err);
             showToast('Failed to load products', 'error');

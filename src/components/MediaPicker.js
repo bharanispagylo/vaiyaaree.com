@@ -25,9 +25,11 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
 
     const fileInputRef = useRef(null);
 
-    const toggleSelect = (url) => {
+    const [useExistingWatermark, setUseExistingWatermark] = useState(false);
+
+    const toggleSelect = (url, isWatermarked = false) => {
         if (!multiple) {
-            onSelect(url);
+            onSelect(url, useExistingWatermark || isWatermarked);
             return;
         }
         setSelectedUrls(prev => {
@@ -120,6 +122,11 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
             if (catalogId) {
                 formData.append('catalogId', catalogId);
             }
+            if (useExistingWatermark) {
+                formData.append('alreadyWatermarked', 'true');
+                formData.append('skipDetection', 'true');
+                formData.append('requireClean', 'false');
+            }
 
             const res = await fetch('/api/admin/upload', {
                 method: 'POST',
@@ -131,7 +138,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
             
             if (!res.ok) {
                 if (data.error === 'Watermark already present') {
-                    alert(' Watermark detected! This image already has a CAT code and cannot be processed again.');
+                    alert('Watermark detected! This image already has a CAT code and cannot be processed again.');
                 } else {
                     throw new Error(data.error || 'Upload failed');
                 }
@@ -143,7 +150,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
             if (multiple) {
                 setSelectedUrls(prev => [...prev, data.url]);
             } else {
-                onSelect(data.url);
+                onSelect(data.url, useExistingWatermark);
             }
         } catch (err) {
             alert('Upload failed: ' + err.message);
@@ -157,8 +164,9 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
         const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
         if (!matchesSearch) return false;
 
-        if (activeGroup === 'watermark') return f.folder === 'with-watermark';
-        if (activeGroup === 'no-watermark') return f.folder === 'without-watermark';
+        const isWm = f.folder === 'with-watermark' || watermarkImages.includes(f.url);
+        if (activeGroup === 'watermark') return isWm;
+        if (activeGroup === 'no-watermark') return !isWm;
         return true;
     });
 
@@ -225,28 +233,53 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                         </button>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {[
-                            { id: 'all', label: 'All Images', count: files.length },
-                            { id: 'watermark', label: 'With Watermark', count: files.filter(f => watermarkImages.includes(f.url)).length },
-                            { id: 'no-watermark', label: 'Without Watermark', count: files.filter(f => !watermarkImages.includes(f.url)).length }
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveGroup(tab.id)}
-                                style={{
-                                    padding: '0.5rem 1.25rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
-                                    fontSize: '0.85rem', fontWeight: activeGroup === tab.id ? 800 : 700,
-                                    background: activeGroup === tab.id ? 'hsl(var(--primary))' : 'transparent',
-                                    color: activeGroup === tab.id ? 'white' : '#64748b',
-                                    transition: 'all 0.2s',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.025em'
-                                }}
-                            >
-                                {tab.label} <span style={{ opacity: 0.6, fontSize: '0.75rem', marginLeft: '4px' }}>{tab.count}</span>
-                            </button>
-                        ))}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {[
+                                { id: 'all', label: 'All Images', count: files.length },
+                                { id: 'watermark', label: 'With Watermark', count: files.filter(f => f.folder === 'with-watermark' || watermarkImages.includes(f.url)).length },
+                                { id: 'no-watermark', label: 'Without Watermark', count: files.filter(f => f.folder !== 'with-watermark' && !watermarkImages.includes(f.url)).length }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveGroup(tab.id)}
+                                    style={{
+                                        padding: '0.5rem 1.25rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                                        fontSize: '0.85rem', fontWeight: activeGroup === tab.id ? 800 : 700,
+                                        background: activeGroup === tab.id ? 'hsl(var(--primary))' : 'transparent',
+                                        color: activeGroup === tab.id ? 'white' : '#64748b',
+                                        transition: 'all 0.2s',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.025em'
+                                    }}
+                                >
+                                    {tab.label} <span style={{ opacity: 0.6, fontSize: '0.75rem', marginLeft: '4px' }}>{tab.count}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Checkbox option for using existing watermark image */}
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: useExistingWatermark ? '#f0fdf4' : '#ffffff',
+                            border: useExistingWatermark ? '1px solid #86efac' : '1px solid #cbd5e1',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            color: useExistingWatermark ? '#15803d' : '#475569'
+                        }}>
+                            <input
+                                type="checkbox"
+                                checked={useExistingWatermark}
+                                onChange={(e) => setUseExistingWatermark(e.target.checked)}
+                                style={{ accentColor: '#16a34a', cursor: 'pointer' }}
+                            />
+                            <span>Use existing watermark image</span>
+                        </label>
                     </div>
                 </div>
 
@@ -266,6 +299,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '2rem' }}>
                             {filteredFiles.map((file, idx) => {
                                 const itemKey = file.id || file.url || (file.folder && file.name ? `${file.folder}-${file.name}` : `media-${idx}`);
+                                const isItemWatermarked = file.folder === 'with-watermark' || watermarkImages.includes(file.url);
                                 return (
                                     <div
                                         key={itemKey}
@@ -278,9 +312,22 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                                             boxShadow: isSelected(file.url) ? '0 12px 30px rgba(0,0,0,0.15)' : '0 4px 15px rgba(0,0,0,0.05)',
                                             transform: isSelected(file.url) ? 'scale(1.02)' : 'scale(1)'
                                         }}
-                                        onClick={() => toggleSelect(file.url)}
+                                        onClick={() => toggleSelect(file.url, isItemWatermarked)}
                                     >
                                         <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        {isItemWatermarked && (
+                                            <div style={{
+                                                position: 'absolute', top: '8px', left: '8px',
+                                                background: 'rgba(15, 23, 42, 0.85)', color: '#38bdf8',
+                                                borderRadius: '6px', padding: '3px 7px',
+                                                fontSize: '0.62rem', fontWeight: 800,
+                                                backdropFilter: 'blur(4px)',
+                                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                letterSpacing: '0.04em'
+                                            }}>
+                                                WATERMARKED
+                                            </div>
+                                        )}
                                         {file.catalogId && (
                                             <div style={{
                                                 position: 'absolute', bottom: '10px', left: '10px',

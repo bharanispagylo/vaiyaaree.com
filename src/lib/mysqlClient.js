@@ -101,6 +101,16 @@ class MySQLQueryBuilder {
         return this;
     }
 
+    not(col, op, val) {
+        this.filters.push({ type: 'not', col, op: op || 'eq', val: val !== undefined ? val : null });
+        return this;
+    }
+
+    notNull(col) {
+        this.filters.push({ type: 'not', col, op: 'is', val: null });
+        return this;
+    }
+
     in(col, vals) {
         this.filters.push({ type: 'in', col, val: Array.isArray(vals) ? vals : [vals] });
         return this;
@@ -157,7 +167,9 @@ class MySQLQueryBuilder {
                 limit: this.limitVal,
                 offset: this.offsetVal,
                 countType: this.countType,
-                count: this.countType
+                count: this.countType,
+                isSingle: this.isSingle,
+                isMaybeSingle: this.isMaybeSingle
             };
 
             let res;
@@ -184,12 +196,20 @@ class MySQLQueryBuilder {
 
             let resultData = res.data;
             if (this.isSingle) {
-                if (!Array.isArray(resultData) || resultData.length === 0) {
+                if (Array.isArray(resultData)) {
+                    if (resultData.length === 0) {
+                        return resolve({ data: null, error: { message: 'Row not found', code: 'PGRST116' }, count: null });
+                    }
+                    resultData = resultData[0];
+                } else if (resultData === null || resultData === undefined) {
                     return resolve({ data: null, error: { message: 'Row not found', code: 'PGRST116' }, count: null });
                 }
-                resultData = resultData[0];
             } else if (this.isMaybeSingle) {
-                resultData = (Array.isArray(resultData) && resultData.length > 0) ? resultData[0] : null;
+                if (Array.isArray(resultData)) {
+                    resultData = (resultData.length > 0) ? resultData[0] : null;
+                } else {
+                    resultData = resultData || null;
+                }
             }
 
             return resolve({ data: resultData, error: null, count: res.count ?? null });

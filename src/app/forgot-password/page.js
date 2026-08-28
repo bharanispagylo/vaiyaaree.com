@@ -1,16 +1,20 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
     MessageCircle, Lock, KeyRound, CheckCircle2, ArrowLeft, Eye, EyeOff, 
-    Loader2, Phone, ShieldCheck, RefreshCw 
+    Loader2, Phone, ShieldCheck, RefreshCw, UserCheck, Mail
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 
-export default function ResetPasswordPage() {
+function ForgotPasswordContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { showToast } = useShop();
+
+    const urlToken = searchParams.get('token') || '';
+    const urlIdentifier = searchParams.get('identifier') || searchParams.get('email') || searchParams.get('phone') || '';
 
     // 4-step flow: 1 = Phone/WhatsApp, 2 = Verify OTP, 3 = New Password, 4 = Success
     const [step, setStep] = useState(1);
@@ -22,11 +26,53 @@ export default function ResetPasswordPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
+    const [isLinkMode, setIsLinkMode] = useState(false);
+    const [linkCustomer, setLinkCustomer] = useState(null);
+
     const [loading, setLoading] = useState(false);
     const [resending, setResending] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+
+    // If reset token is in URL (from Admin / Email / WhatsApp link), verify it directly on load
+    useEffect(() => {
+        if (!urlToken) return;
+
+        const verifyDirectToken = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const res = await fetch('/api/auth/customer/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'verify-token',
+                        token: urlToken,
+                        identifier: urlIdentifier
+                    })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success && data.verified) {
+                    setIsLinkMode(true);
+                    setLinkCustomer(data.customer || null);
+                    setStep(3); // Jump straight to Step 3: Set New Password
+                    setSuccessMessage(`Reset link verified for ${data.customer?.name || 'Customer'}. Please choose your new password.`);
+                } else {
+                    setError(data.error || 'This password reset link is invalid or has expired. You can request a new one below.');
+                    setStep(1);
+                }
+            } catch (err) {
+                setError('Failed to verify reset link. Please try again.');
+                setStep(1);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        verifyDirectToken();
+    }, [urlToken, urlIdentifier]);
 
     // Timer effect for Resend OTP cooldown
     useEffect(() => {
@@ -149,7 +195,7 @@ export default function ResetPasswordPage() {
         }
     };
 
-    // Step 3: Update Password
+    // Step 3: Update Password (works for both OTP flow and direct Link token flow)
     const handleUpdatePassword = async (e) => {
         e.preventDefault();
         setError('');
@@ -166,16 +212,28 @@ export default function ResetPasswordPage() {
 
         setLoading(true);
         try {
-            const digits = phone.replace(/\D/g, '');
-            const res = await fetch('/api/auth/customer/reset-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            let payload = {};
+
+            if (isLinkMode && urlToken) {
+                payload = {
+                    action: 'reset-with-token',
+                    token: urlToken,
+                    newPassword
+                };
+            } else {
+                const digits = phone.replace(/\D/g, '');
+                payload = {
                     action: 'update-password',
                     phone: digits.slice(-10),
                     otp: otp.trim(),
                     newPassword
-                })
+                };
+            }
+
+            const res = await fetch('/api/auth/customer/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
 
             const data = await res.json();
@@ -260,12 +318,48 @@ export default function ResetPasswordPage() {
                         letterSpacing: '0.04em',
                         textTransform: 'uppercase'
                     }}>
-                        {step === 1 && <><MessageCircle size={14} color="#25D366" /> Step 1: WhatsApp Number</>}
-                        {step === 2 && <><KeyRound size={14} /> Step 2: WhatsApp OTP</>}
+                        {step === 1 && <><MessageCircle size={14} color="#25D366" /> Step 1: Mobile / WhatsApp</>}
+                        {step === 2 && <><KeyRound size={14} /> Step 2: Verification Code</>}
                         {step === 3 && <><Lock size={14} /> Step 3: New Password</>}
                         {step === 4 && <><CheckCircle2 size={14} color="#166534" /> Completed</>}
                     </div>
                 </div>
+
+                {/* Verified Customer Card in Link Mode */}
+                {isLinkMode && linkCustomer && step === 3 && (
+                    <div style={{
+                        background: '#f8f4ee',
+                        border: '1px solid #e7dcd3',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}>
+                        <div style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            background: '#5d0821',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800
+                        }}>
+                            {linkCustomer.name ? linkCustomer.name.charAt(0).toUpperCase() : 'C'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 800, color: '#1a1a1a', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {linkCustomer.name || 'Vaiyaaree Customer'}
+                            </div>
+                            <div style={{ color: '#666', fontSize: '0.78rem' }}>
+                                {linkCustomer.email || linkCustomer.phone}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Error & Success Messages */}
                 {error && (
@@ -349,7 +443,7 @@ export default function ResetPasswordPage() {
                                     <MessageCircle 
                                         size={18} 
                                         style={{ 
-                                            position: 'absolute', 
+                                             position: 'absolute', 
                                             left: '0.9rem', 
                                             top: '50%', 
                                             transform: 'translateY(-50%)', 
@@ -616,7 +710,7 @@ export default function ResetPasswordPage() {
                             Password Successfully Updated!
                         </h2>
                         <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1.75rem', lineHeight: '1.5' }}>
-                            Your password has been changed. A confirmation message was sent to your WhatsApp. Redirecting you to login...
+                            Your password has been changed. Redirecting you to login...
                         </p>
                         <Link 
                             href="/login" 
@@ -647,5 +741,13 @@ export default function ResetPasswordPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>}>
+            <ForgotPasswordContent />
+        </Suspense>
     );
 }

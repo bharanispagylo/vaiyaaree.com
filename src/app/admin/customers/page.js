@@ -318,6 +318,7 @@ export default function CustomersPage() {
                             selectedPhones={selectedPhones} 
                             setSelectedPhones={setSelectedPhones} 
                             onCustomerClick={(cust) => setSelectedCustomer(cust)} 
+                            onResetPasswordClick={(cust) => setPasswordModalCustomer(cust)}
                             onDeleteSingleClick={handleDeleteSingle} 
                             onDeleteBatchClick={handleDeleteBatch} 
                             onPageChange={(page) => setCustomersPage(page)} 
