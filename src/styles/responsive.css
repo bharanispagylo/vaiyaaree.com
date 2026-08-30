@@ -117,21 +117,72 @@ a.btn,
 }
 
 
-/* ── 3. HOME PAGE MOBILE RESPONSIVENESS ── */
+/* ── 3. HOME PAGE HERO BANNER & DESKTOP LAYOUT ── */
+.hero-banner-section {
+  position: relative;
+  min-height: 560px;
+  background: linear-gradient(135deg, #fbf7f4 0%, #f6eae1 50%, #f0dcd2 100%);
+  display: flex;
+  align-items: center;
+  padding: 3.5rem 2rem;
+  overflow: hidden;
+}
+
+.hero-banner-grid {
+  max-width: 1350px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 3.5rem;
+  align-items: center;
+  z-index: 5;
+}
+
+.hero-image-wrap {
+  width: 100%;
+  max-width: 560px;
+  height: 490px;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(93, 8, 33, 0.12);
+  border: 6px solid #ffffff;
+  background: #ffffff;
+}
+
 @media (max-width: 767px) {
-  /* Hero Section Stacking */
+  /* Hero Section Stacking & Dots Positioning Below Image */
   .heroSection, 
   .hero-banner-section {
     min-height: auto !important;
     height: auto !important;
-    padding: 2rem 1rem 3rem !important;
+    padding: 2rem 1rem 4.5rem !important;
     text-align: center !important;
+    position: relative !important;
   }
 
   .heroGrid, 
   .hero-banner-grid {
     grid-template-columns: 1fr !important;
     gap: 1.75rem !important;
+  }
+
+  .hero-image-wrap {
+    height: 340px !important;
+    max-width: 100% !important;
+    border-width: 4px !important;
+    border-radius: 16px !important;
+  }
+
+  /* Center Shop Now Button Container on Mobile */
+  .hero-btn-container {
+    justify-content: center !important;
+    margin-top: 0.5rem !important;
+  }
+
+  /* Position Carousel Dots Below Hero Image on Mobile */
+  .hero-slider-dots {
+    bottom: 1.25rem !important;
   }
 
   /* Explore Catalog Button Sleek Mobile Height */

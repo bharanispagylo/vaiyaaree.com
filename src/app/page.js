@@ -320,7 +320,7 @@ export default function HomePage() {
 
 
             {/* Light Luxury Hero Banner Section (Vaiyaaree Theme) */}
-            <div className="hero-banner-section" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="hero-banner-section">
                 <div className="hero-banner-grid">
 
                     {/* Hero Text Content */}
@@ -356,12 +356,11 @@ export default function HomePage() {
                             lineHeight: 1.6,
                             marginBottom: '2.5rem',
                             maxWidth: '520px',
-                            marginInline: 'auto',
                             fontFamily: 'var(--font-roboto), sans-serif'
                         }}>
                             {currentSlide.subtitle}
                         </p>
-                        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+                        <div className="hero-btn-container" style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
                             <Link href={currentSlide.link} style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -388,11 +387,9 @@ export default function HomePage() {
                     </div>
 
                     {/* Hero Feature Image */}
-                    <div style={{ position: 'relative', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <div style={{
+                    <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <div className="hero-image-wrap" style={{
                             width: '100%',
-                            maxWidth: '480px',
-                            height: '450px',
                             borderRadius: '24px',
                             overflow: 'hidden',
                             boxShadow: '0 20px 50px rgba(93, 8, 33, 0.12)',
@@ -409,14 +406,15 @@ export default function HomePage() {
                     </div>
                 </div>
 
-                {/* Slider Controls & Navigation Dots (Positioned Below Hero Image) */}
-                <div style={{
+                {/* Slider Controls & Navigation Dots */}
+                <div className="hero-slider-dots" style={{
+                    position: 'absolute',
+                    bottom: '2rem',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
                     gap: '0.75rem',
-                    marginTop: '1.75rem',
-                    marginBottom: '1rem',
                     zIndex: 10
                 }}>
                     {heroBannerSlides.map((_, idx) => (
