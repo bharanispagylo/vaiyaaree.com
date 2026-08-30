@@ -18,8 +18,8 @@ export default function ShopPage() {
     const [selectedCategory, setSelectedCategory] = useState(initialCategory);
     const [selectedBrand, setSelectedBrand] = useState('All');
     const [selectedType, setSelectedType] = useState('All');
-    const [priceRange, setPriceRange] = useState({ min: 0, max: 25000 });
-    const [tempPriceRange, setTempPriceRange] = useState({ min: 0, max: 25000 });
+    const [priceRange, setPriceRange] = useState({ min: 0, max: 1000000 });
+    const [tempPriceRange, setTempPriceRange] = useState({ min: 0, max: 1000000 });
     const [sortBy, setSortBy] = useState('newness');
     const [gridView, setGridView] = useState(true);
     const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
@@ -27,6 +27,18 @@ export default function ShopPage() {
     const [showInStockOnly, setShowInStockOnly] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 12;
+
+    // Sync URL search parameters dynamically on client-side navigation
+    useEffect(() => {
+        const q = searchParams.get('q');
+        const cat = searchParams.get('category');
+        if (q !== null) {
+            setSearchQuery(q);
+        }
+        if (cat !== null) {
+            setSelectedCategory(cat);
+        }
+    }, [searchParams]);
 
     // Reset pagination to page 1 whenever any filter changes
     useEffect(() => {
@@ -48,24 +60,51 @@ export default function ShopPage() {
     const filteredProducts = useMemo(() => {
         let filtered = [...products];
 
-        if (selectedCategory !== 'All') filtered = filtered.filter(p => p.category === selectedCategory);
-        if (selectedBrand !== 'All') filtered = filtered.filter(p => p.product_group === selectedBrand);
+        if (selectedCategory !== 'All') {
+            const catLower = selectedCategory.toLowerCase().trim();
+            filtered = filtered.filter(p => (p.category || '').toLowerCase().trim() === catLower);
+        }
+
+        if (selectedBrand !== 'All') {
+            const brandLower = selectedBrand.toLowerCase().trim();
+            filtered = filtered.filter(p => (p.product_group || '').toLowerCase().trim() === brandLower);
+        }
 
         if (selectedType !== 'All') {
-            const typeLower = selectedType.toLowerCase();
+            const typeLower = selectedType.toLowerCase().trim();
             filtered = filtered.filter(p =>
                 (p.name || '').toLowerCase().includes(typeLower) ||
                 (p.description || '').toLowerCase().includes(typeLower) ||
-                (p.category || '').toLowerCase().includes(typeLower)
+                (p.category || '').toLowerCase().includes(typeLower) ||
+                (p.product_group || '').toLowerCase().includes(typeLower) ||
+                (p.saree_type || '').toLowerCase().includes(typeLower) ||
+                (p.fabric || '').toLowerCase().includes(typeLower)
             );
         }
 
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            filtered = filtered.filter(p =>
-                (p.name || '').toLowerCase().includes(query) ||
-                (p.description || '').toLowerCase().includes(query)
-            );
+        if (searchQuery && searchQuery.trim()) {
+            const rawQuery = searchQuery.trim().toLowerCase();
+            const queryWords = rawQuery.split(/\s+/).filter(Boolean);
+
+            filtered = filtered.filter(p => {
+                const variantNames = Array.isArray(p.variants) ? p.variants.map(v => v.name || '').join(' ') : '';
+                const searchableText = [
+                    p.name,
+                    p.description,
+                    p.category,
+                    p.product_group,
+                    p.saree_type,
+                    p.fabric,
+                    p.color,
+                    p.sku,
+                    p.product_no,
+                    p.id,
+                    variantNames
+                ].filter(Boolean).join(' ').toLowerCase();
+
+                // Match if full rawQuery is present OR if all token words match
+                return searchableText.includes(rawQuery) || queryWords.every(word => searchableText.includes(word));
+            });
         }
 
         filtered = filtered.filter(p => (p.price || 0) >= priceRange.min && (p.price || 0) <= priceRange.max);
@@ -116,8 +155,8 @@ export default function ShopPage() {
         setSelectedBrand('All');
         setSelectedType('All');
         setSearchQuery('');
-        setPriceRange({ min: 0, max: 25000 });
-        setTempPriceRange({ min: 0, max: 25000 });
+        setPriceRange({ min: 0, max: 1000000 });
+        setTempPriceRange({ min: 0, max: 1000000 });
         setSortBy('newness');
         setShowInStockOnly(false);
         setIsFilterPanelOpen(false);
@@ -135,6 +174,12 @@ export default function ShopPage() {
 
             {/* Sidebar */}
             <aside className={`${styles.shopSidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+                <div className={styles.sidebarHeaderMobile}>
+                    <h3>FILTERS</h3>
+                    <button onClick={() => setIsSidebarOpen(false)} className={styles.sidebarCloseBtnMobile} aria-label="Close filters">
+                        <X size={20} />
+                    </button>
+                </div>
 
                 <div className={styles.sidebarSection}>
                     <h3 className={styles.sidebarTitle}>COLLECTIONS</h3>
@@ -190,11 +235,15 @@ export default function ShopPage() {
                     </label>
                 </div>
 
-                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || searchQuery || showInStockOnly || priceRange.min > 0 || priceRange.max < 25000) && (
+                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || searchQuery || showInStockOnly || priceRange.min > 0 || priceRange.max < 1000000) && (
                     <button onClick={clearAllFilters} className={styles.sidebarClearBtn}>
                         RESET ALL FILTERS
                     </button>
                 )}
+
+                <button onClick={() => setIsSidebarOpen(false)} className={styles.sidebarApplyBtnMobile}>
+                    APPLY FILTERS
+                </button>
             </aside>
 
             {/* Main Content Area */}
@@ -205,15 +254,9 @@ export default function ShopPage() {
 
                 <div className={styles.instrumentationBar}>
                     <div className={styles.instrumentLeft}>
-                        <div className={styles.toolbarSearch}>
-                            <Search size={16} />
-                            <input
-                                type="text"
-                                placeholder={`Showing ${Math.min(filteredProducts.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}–${Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of ${filteredProducts.length} results`}
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                            />
-                        </div>
+                        <span className={styles.resultCountText}>
+                            Showing {filteredProducts.length === 0 ? 0 : Math.min(filteredProducts.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} results
+                        </span>
                     </div>
 
                     <div className={styles.instrumentRight}>
@@ -244,17 +287,17 @@ export default function ShopPage() {
                             }}
                             className={`${styles.filterToggleBtn} ${isFilterPanelOpen ? styles.filterPanelOpen : ''}`}
                         >
-                            <Filter size={18} /> Filters
+                            <Filter size={16} /> Filters
                         </button>
 
                         <div className={styles.sortWrapper}>
-                            <ArrowUpDown size={16} className={styles.sortIcon} />
+                            <ArrowUpDown size={15} className={styles.sortIcon} />
                             <select
                                 value={sortBy}
                                 onChange={e => setSortBy(e.target.value)}
                                 className={styles.sortSelect}
                             >
-                                <option value="newness">Sort by latest (Default)</option>
+                                <option value="newness">Sort by latest</option>
                                 <option value="price-asc">Price: Low to High</option>
                                 <option value="price-desc">Price: High to Low</option>
                             </select>
@@ -356,7 +399,7 @@ export default function ShopPage() {
                 )}
 
                 {/* Active Filter Badges */}
-                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || (priceRange.min > 0 || priceRange.max < 25000)) && (
+                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || (priceRange.min > 0 || priceRange.max < 1000000)) && (
                     <div className={styles.activeFiltersRow}>
                         {selectedCategory !== 'All' && (
                             <span className={styles.activeFilterTag}>

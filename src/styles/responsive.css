@@ -1,223 +1,543 @@
-/* ════════════════════════════════════════════════════════════════
-   VAIYAAREE GLOBAL RESPONSIVE UTILITIES & BREAKPOINT SYSTEM
-   Breakpoints:
-   - Mobile:  320px - 767px (Includes 320px, 375px, 390px, 412px, 414px, 430px)
-   - Tablet:  768px - 1023px
-   - Desktop: 1024px+
-   ════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════════════════
+   VAIYAAREE GLOBAL MOBILE RESPONSIVE DESIGN SYSTEM (SINGLE MASTER STYLESHEET)
+   Centralized responsive breakpoints & mobile UI design system for the entire site.
 
-/* ── 1. Global Viewport & Body Overflow Reset ── */
+   Breakpoints:
+   - Desktop Wide: ≥ 1200px
+   - Laptop:       1024px – 1199px
+   - Tablet:       768px – 1023px
+   - Mobile:       320px – 767px (Small: < 480px)
+   ════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. GLOBAL VIEWPORT, TYPOGRAPHY & TOUCH RESETS ── */
 html, body {
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: hidden !important;
+  margin: 0;
+  padding: 0;
+  -webkit-text-size-adjust: 100%;
 }
 
-/* ── 2. Utility Containers & Grids ── */
-.responsive-container {
-  width: 100%;
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
+* {
+  box-sizing: border-box;
 }
 
-.responsive-grid,
-.admin-grid-4 {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.25rem;
-  width: 100%;
-}
-
-.admin-grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
-  width: 100%;
-}
-
-.admin-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem;
-  width: 100%;
-}
-
-.responsive-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem;
-  width: 100%;
-}
-
-.responsive-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-/* ── 3. Table & Horizontal Scroll Handling ── */
-.table-responsive,
-.mobile-scroll {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  margin-bottom: 1rem;
-}
-
-.mobile-scroll::-webkit-scrollbar,
-.table-responsive::-webkit-scrollbar {
-  height: 6px;
-}
-
-.mobile-scroll::-webkit-scrollbar-thumb,
-.table-responsive::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
-}
-
-/* ── 4. Responsive Modal Standard ── */
-.responsive-modal {
-  width: calc(100vw - 24px) !important;
-  max-width: 800px;
-  max-height: calc(100vh - 24px) !important;
-  overflow-y: auto;
-  margin: auto;
-  border-radius: 16px;
-}
-
-/* ── 5. Responsive Images ── */
-img {
+img, video, canvas, svg {
   max-width: 100%;
   height: auto;
 }
 
-/* ── 6. Home Hero Banner Component Rules ── */
-.hero-banner-section {
-  position: relative;
-  min-height: 520px;
-  height: 75vh;
-  max-height: 700px;
-  background: linear-gradient(135deg, #fbf7f4 0%, #f6eae1 50%, #f0dcd2 100%);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
+/* Form Controls Touch Optimization & iOS Auto-Zoom Prevention */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="search"],
+select,
+textarea {
+  max-width: 100%;
+  font-size: 16px !important; /* Prevents auto-zoom on mobile safari */
 }
 
-.hero-banner-grid {
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-  padding: 0 2rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3rem;
-  align-items: center;
-  z-index: 5;
+/* Touch Target Minimum Sizing for Buttons */
+button, 
+a.btn, 
+.action-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.login-card-container {
-  max-width: 480px;
-  width: 100%;
-  margin: 0 auto;
-  background: #ffffff;
-  padding: 2.5rem 2rem;
-  border-radius: 20px;
-  border: 1px solid #f0e6df;
-  box-shadow: 0 15px 45px rgba(93, 8, 33, 0.08);
-}
 
-/* ── 7. Mobile & Small Screen Adaptations (max-width: 767px) ── */
+/* ── 2. SHOP HEADER & NAVIGATION MOBILE RESPONSIVENESS ── */
 @media (max-width: 767px) {
+  /* Header Inner Layout: Row 1 (LeftSection & HeaderActions), Row 2 (SearchForm) */
+  header, 
+  .headerContainer {
+    padding: 0.65rem 0.85rem !important;
+  }
+
+  .headerInner {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.75rem 0.5rem !important;
+  }
+
+  /* Row 1 Left: Hamburger + Logo */
+  .leftSection {
+    order: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.65rem !important;
+  }
+
+  /* Row 1 Right: Cart & Profile Actions */
+  .headerActions {
+    order: 2 !important;
+    margin-left: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Row 2 Full Width: Search Form */
+  .searchForm {
+    order: 3 !important;
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    margin-top: 0.25rem !important;
+  }
+
+  .searchInput {
+    width: 100% !important;
+    height: 42px !important;
+    font-size: 0.88rem !important;
+    padding: 0.5rem 1rem 0.5rem 2.4rem !important;
+    border-radius: 25px !important;
+  }
+
+  /* Mobile Navigation Slide-Over Drawer */
+  .mobileNavDrawer {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 85vw !important;
+    max-width: 320px !important;
+    height: 100vh !important;
+    background: #ffffff !important;
+    z-index: 1200 !important;
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15) !important;
+    overflow-y: auto !important;
+    padding: 1.5rem 1.25rem !important;
+  }
+}
+
+
+/* ── 3. HOME PAGE MOBILE RESPONSIVENESS ── */
+@media (max-width: 767px) {
+  /* Hero Section Stacking */
+  .heroSection, 
   .hero-banner-section {
     min-height: auto !important;
     height: auto !important;
-    padding: 2rem 0 3rem !important;
-  }
-
-  .hero-banner-grid {
-    grid-template-columns: 1fr !important;
-    padding: 0 1rem !important;
-    gap: 1.75rem !important;
+    padding: 2rem 1rem 3rem !important;
     text-align: center !important;
   }
 
-  .hero-banner-grid > div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .login-card-container {
-    padding: 1.5rem 1.15rem !important;
-    border-radius: 16px !important;
-  }
-
-  .responsive-container {
-    padding-left: 0.85rem;
-    padding-right: 0.85rem;
-  }
-
-  .responsive-grid,
-  .admin-grid-4,
-  .admin-grid-3,
-  .admin-grid-2 {
+  .heroGrid, 
+  .hero-banner-grid {
     grid-template-columns: 1fr !important;
-    gap: 1rem;
+    gap: 1.75rem !important;
   }
 
-  .responsive-form {
+  /* Explore Catalog Button Sleek Mobile Height */
+  .exploreCatalogBtn, 
+  a[href="/shop"].catalog-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+    padding: 0.6rem 1.4rem !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+    width: auto !important;
+    margin: 1.25rem auto 0 !important;
+  }
+
+  /* Category Grid: 2 Columns on Mobile */
+  .categoryGrid, 
+  .categories-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.85rem !important;
+    padding: 0 0.85rem !important;
+  }
+
+  /* WhatsApp CTA Section Stack */
+  .whatsappCtaGrid {
     grid-template-columns: 1fr !important;
-    gap: 1rem;
+    gap: 1.5rem !important;
+    padding: 2.5rem 1.25rem !important;
+  }
+}
+
+
+/* ── 4. SHOP PAGE & PRODUCT LISTING RESPONSIVENESS ── */
+@media (max-width: 768px) {
+  .shopLayout {
+    flex-direction: column !important;
   }
 
-  .responsive-actions {
-    flex-direction: column;
-    width: 100%;
+  /* Toolbar Row 1: Result Count + View Toggles */
+  /* Toolbar Row 2: Equal Width Filters + Sort Buttons */
+  .instrumentationBar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    padding: 0.85rem 1rem !important;
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    margin-bottom: 1.25rem !important;
   }
 
-  .responsive-actions > button,
-  .responsive-actions > a,
-  .responsive-actions > div {
+  .instrumentLeft {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .instrumentRight {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+  }
+
+  .filterToggleBtn {
+    flex: 1 !important;
+    justify-content: center !important;
+    padding: 0.6rem 0.5rem !important;
+    font-size: 0.82rem !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+  }
+
+  .sortWrapper {
+    flex: 1 !important;
     width: 100% !important;
   }
 
-  .responsive-modal {
-    width: calc(100vw - 16px) !important;
-    max-height: calc(100vh - 16px) !important;
-    padding: 1rem !important;
+  .sortSelect {
+    width: 100% !important;
+    padding: 0.6rem 0.5rem 0.6rem 2rem !important;
+    font-size: 0.82rem !important;
+    border-radius: 8px !important;
+  }
+
+  /* Slide-Over Filter Sidebar Drawer */
+  .shopSidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 85vw !important;
+    max-width: 320px !important;
+    height: 100vh !important;
+    background: #ffffff !important;
+    z-index: 1100 !important;
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15) !important;
+    overflow-y: auto !important;
+    padding: 1.25rem 1rem 5rem !important;
+    display: block !important;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .shopSidebarOpen {
+    transform: translateX(0) !important;
+  }
+
+  /* 2-Column Product Cards Grid on Mobile */
+  .productGridContainer {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+    padding: 0 !important;
+  }
+
+  .productCard {
     border-radius: 12px !important;
   }
 
-  /* Form Controls Full Width on Mobile */
-  input[type="text"],
-  input[type="number"],
-  input[type="email"],
-  input[type="password"],
-  input[type="tel"],
-  input[type="search"],
-  select,
-  textarea {
-    max-width: 100% !important;
-    font-size: 16px !important; /* Prevents iOS auto-zoom */
-  }
-
-  /* Stacked Flex Containers */
-  .mobile-stack {
-    flex-direction: column !important;
-    align-items: stretch !important;
+  .productImageWrap {
+    aspect-ratio: 3 / 4 !important;
     width: 100% !important;
   }
 
-  /* Hide element on small mobile screen if needed */
+  .productName {
+    font-size: 0.82rem !important;
+    line-height: 1.3 !important;
+    height: 2.6em !important;
+    margin-bottom: 0.35rem !important;
+  }
+
+  .productPrice {
+    font-size: 0.95rem !important;
+  }
+
+  .hoverAddToCart {
+    position: relative !important;
+    bottom: 0 !important;
+    padding: 0.5rem 0.6rem !important;
+    font-size: 0.7rem !important;
+    width: 100% !important;
+    margin-top: 0.35rem !important;
+    border-radius: 8px !important;
+  }
+}
+
+
+/* ── 5. PRODUCT DETAIL PAGE MOBILE RESPONSIVENESS ── */
+@media (max-width: 767px) {
+  .productDetailGrid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .galleryContainer {
+    width: 100% !important;
+  }
+
+  .mainProductImage {
+    aspect-ratio: 3 / 4 !important;
+    border-radius: 14px !important;
+  }
+
+  .productTitle {
+    font-size: 1.35rem !important;
+  }
+
+  .productPriceLarge {
+    font-size: 1.5rem !important;
+  }
+
+  .addToCartActionGroup {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+  }
+
+  .btnAddToCartLarge, 
+  .btnBuyNowLarge {
+    width: 100% !important;
+    padding: 0.85rem 1rem !important;
+    font-size: 0.92rem !important;
+    border-radius: 12px !important;
+  }
+}
+
+
+/* ── 6. CART & CHECKOUT PAGE RESPONSIVENESS ── */
+@media (max-width: 767px) {
+  .cartLayout, 
+  .checkoutLayout {
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+  }
+
+  .cartItemRow {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    padding: 1rem !important;
+  }
+
+  .cartItemDetails {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  .orderSummaryCard {
+    width: 100% !important;
+    padding: 1.25rem !important;
+    border-radius: 16px !important;
+  }
+
+  .checkoutFormGrid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+}
+
+
+/* ── 7. CUSTOMER PROFILE & ORDERS MOBILE RESPONSIVENESS ── */
+@media (max-width: 768px) {
+  /* Touch Scrollable Profile Tabs Bar */
+  .tabsContainer {
+    padding: 0.4rem !important;
+    gap: 0.4rem !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+
+  .tabsContainer::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .tabBtn {
+    padding: 0.65rem 0.85rem !important;
+    font-size: 0.82rem !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  /* Desktop Table Hidden on Mobile */
+  .desktopTableView {
+    display: none !important;
+  }
+
+  /* Mobile Order Cards View (< 769px) */
+  .mobileOrderCardsList {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.85rem !important;
+    padding: 0.85rem !important;
+  }
+
+  .mobileOrderCard {
+    background: #ffffff !important;
+    border: 1px solid hsl(var(--text-main) / 0.08) !important;
+    border-radius: 12px !important;
+    padding: 0.9rem !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+  }
+
+  .mobileCardHeader {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+    padding-bottom: 0.65rem !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+  }
+
+  .mobileInvNo {
+    font-weight: 800 !important;
+    font-size: 0.85rem !important;
+    color: hsl(var(--text-main)) !important;
+    font-family: monospace, sans-serif !important;
+  }
+
+  .mobileOrderDate {
+    font-size: 0.75rem !important;
+    color: hsl(var(--text-muted)) !important;
+    margin-top: 2px !important;
+  }
+
+  .mobileCardBody {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    padding: 0.75rem 0 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+  }
+
+  .mobileItemSummary {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .mobileItemCount {
+    font-weight: 700 !important;
+    font-size: 0.82rem !important;
+    color: hsl(var(--text-main)) !important;
+  }
+
+  .mobileItemName {
+    font-size: 0.75rem !important;
+    color: hsl(var(--text-muted)) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 170px !important;
+  }
+
+  .mobilePriceSource {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 4px !important;
+  }
+
+  .mobilePrice {
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    color: hsl(var(--text-main)) !important;
+  }
+
+  .mobileCardActions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    justify-content: flex-end !important;
+    padding-top: 0.65rem !important;
+  }
+
+  .mobileCancelBtn {
+    flex: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    padding: 0.5rem 0.65rem !important;
+    border-radius: 8px !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    border: 1px solid #fca5a5 !important;
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+  }
+
+  .mobileTrackBtn {
+    flex: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    padding: 0.5rem 0.65rem !important;
+    border-radius: 8px !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    border: 1px solid hsl(var(--text-main) / 0.15) !important;
+    background: transparent !important;
+    color: hsl(var(--text-main)) !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Desktop View Defaults for Table/Cards Switch */
+@media (min-width: 769px) {
+  .desktopTableView {
+    display: block !important;
+  }
+
+  .mobileOrderCardsList {
+    display: none !important;
+  }
+}
+
+
+/* ── 8. UNIVERSAL MOBILE MODALS, OVERLAYS & UTILITIES ── */
+.responsive-modal, 
+.mobileModal {
+  width: calc(100vw - 24px) !important;
+  max-width: 600px !important;
+  max-height: calc(100vh - 24px) !important;
+  overflow-y: auto !important;
+  margin: auto !important;
+  border-radius: 16px !important;
+}
+
+@media (max-width: 767px) {
   .mobile-hide {
     display: none !important;
   }
 
-  /* Show element on small mobile screen */
   .mobile-show {
     display: block !important;
   }
@@ -226,37 +546,9 @@ img {
     display: flex !important;
   }
 
-  /* Admin Header & Title Adaptations */
-  .admin-table-card .table-search .search-wrapper {
-    max-width: 100% !important;
-  }
-}
-
-/* ── 8. Tablet Adaptations (768px - 1023px) ── */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .responsive-grid,
-  .admin-grid-4,
-  .admin-grid-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .responsive-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .responsive-modal {
-    max-width: 680px;
-  }
-
-  .hero-banner-grid {
-    gap: 1.5rem;
-    padding: 0 1.5rem;
-  }
-}
-
-/* ── 9. Desktop Adaptations (1024px+) ── */
-@media (min-width: 1024px) {
-  .mobile-show {
-    display: none !important;
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
   }
 }

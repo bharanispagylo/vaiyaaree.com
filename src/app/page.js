@@ -320,7 +320,7 @@ export default function HomePage() {
 
 
             {/* Light Luxury Hero Banner Section (Vaiyaaree Theme) */}
-            <div className="hero-banner-section">
+            <div className="hero-banner-section" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div className="hero-banner-grid">
 
                     {/* Hero Text Content */}
@@ -356,11 +356,12 @@ export default function HomePage() {
                             lineHeight: 1.6,
                             marginBottom: '2.5rem',
                             maxWidth: '520px',
+                            marginInline: 'auto',
                             fontFamily: 'var(--font-roboto), sans-serif'
                         }}>
                             {currentSlide.subtitle}
                         </p>
-                        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
                             <Link href={currentSlide.link} style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -408,15 +409,14 @@ export default function HomePage() {
                     </div>
                 </div>
 
-                {/* Slider Controls & Navigation Dots */}
+                {/* Slider Controls & Navigation Dots (Positioned Below Hero Image) */}
                 <div style={{
-                    position: 'absolute',
-                    bottom: '2rem',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: '0.75rem',
+                    marginTop: '1.75rem',
+                    marginBottom: '1rem',
                     zIndex: 10
                 }}>
                     {heroBannerSlides.map((_, idx) => (
@@ -712,15 +712,19 @@ export default function HomePage() {
                         Vaiyaaree brings you authentic handloom weaves straight from master artisans in South India. Discover rich silk sarees, soft cotton prints, and designer festive drapes tailored for every occasion.
                     </p>
                     <Link href="/shop" style={{
-                        marginTop: '2rem',
+                        marginTop: '1.5rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
                         color: '#ffffff',
                         background: '#5d0821',
-                        padding: '0.85rem 2rem',
-                        borderRadius: '4px',
+                        padding: '0.6rem 1.4rem',
+                        borderRadius: '6px',
                         textDecoration: 'none',
                         fontWeight: 700,
-                        fontSize: '0.85rem',
-                        letterSpacing: '0.1em',
+                        fontSize: '0.82rem',
+                        letterSpacing: '0.08em',
+                        whiteSpace: 'nowrap',
                         width: 'fit-content',
                         boxShadow: '0 4px 15px rgba(93, 8, 33, 0.2)',
                         transition: 'all 0.3s ease',
@@ -729,7 +733,8 @@ export default function HomePage() {
                         onMouseEnter={(e) => e.currentTarget.style.background = '#7a0c2e'}
                         onMouseLeave={(e) => e.currentTarget.style.background = '#5d0821'}
                     >
-                        EXPLORE CATALOG &rarr;
+                        <span>EXPLORE CATALOG</span>
+                        <span style={{ fontSize: '1rem', lineHeight: 1 }}>&rarr;</span>
                     </Link>
                 </div>
                 <div style={{ background: 'url(https://images.unsplash.com/photo-1610030469983-98e550d6153c?q=80&w=1200&auto=format&fit=crop) center/cover no-repeat', minHeight: '350px' }}></div>

@@ -610,11 +610,25 @@
     }
 }
 
+.resultCountText {
+    font-size: 0.88rem;
+    color: hsl(var(--text-muted));
+    font-weight: 600;
+}
+
+.sidebarHeaderMobile {
+    display: none;
+}
+
+.sidebarApplyBtnMobile {
+    display: none;
+}
+
 /* ── MOBILE ── */
 .sidebarOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(4px);
     z-index: 1000;
 }
@@ -635,18 +649,71 @@
         width: 300px;
         border-radius: 0;
         z-index: 1001;
+        background: #ffffff;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+        padding: 1.25rem;
     }
 
     .sidebarOpen {
         left: 0;
     }
+
+    .sidebarHeaderMobile {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        margin-bottom: 1rem;
+    }
+
+    .sidebarHeaderMobile h3 {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #1a1a1a;
+        margin: 0;
+        letter-spacing: 0.05em;
+    }
+
+    .sidebarCloseBtnMobile {
+        background: none;
+        border: none;
+        color: #666;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .sidebarApplyBtnMobile {
+        display: block;
+        width: 100%;
+        margin-top: auto;
+        padding: 0.85rem;
+        background: #5d0821;
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+        box-shadow: 0 4px 12px rgba(93, 8, 33, 0.25);
+    }
 }
 
 @media (max-width: 768px) {
+    .shopContainer {
+        padding: 1rem 0.75rem;
+    }
+
     .shopGridHeader {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+        margin-bottom: 0.75rem;
+    }
+
+    .pageMainTitle {
+        font-size: 1.65rem;
     }
 
     .filterGrid {
@@ -658,21 +725,74 @@
         flex-direction: column;
         gap: 0.75rem;
         align-items: stretch;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
 
-    .instrumentLeft, .instrumentRight {
+    .instrumentLeft {
         width: 100%;
+        display: flex;
+        align-items: center;
         justify-content: space-between;
     }
 
-    .toolbarSearch {
+    .resultCountText {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #666666;
+    }
+
+    .viewToggles {
+        gap: 4px;
+    }
+
+    .viewBtn {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+    }
+
+    .instrumentRight {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .filterToggleBtn {
+        flex: 1;
+        justify-content: center;
+        padding: 0.6rem 0.5rem;
+        font-size: 0.82rem;
+        border-radius: 8px;
+        background: #f5f4f0;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        color: #1a1a1a;
+        white-space: nowrap;
+    }
+
+    .sortWrapper {
+        flex: 1;
         width: 100%;
     }
-}
 
-@media (max-width: 640px) {
-    .shopContainer {
-        padding: 1rem 0.75rem;
+    .sortSelect {
+        width: 100%;
+        padding: 0.6rem 0.5rem 0.6rem 2.1rem;
+        font-size: 0.82rem;
+        border-radius: 8px;
+        background: #f5f4f0;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        color: #1a1a1a;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .sortIcon {
+        left: 0.6rem;
     }
 
     .productsGrid {
@@ -681,10 +801,18 @@
     }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 480px) {
+    .shopContainer {
+        padding: 0.75rem 0.5rem;
+    }
+
     .productsGrid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.5rem;
+        gap: 0.6rem;
+    }
+
+    .filterExpandedPanel {
+        padding: 1.25rem;
     }
 }
 

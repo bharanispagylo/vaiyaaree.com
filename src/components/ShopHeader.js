@@ -80,7 +80,7 @@ export default function ShopHeader() {
             <header className={styles.header}>
                 <div className={styles.headerInner}>
                     <div className={styles.leftSection}>
-                        <button className={styles.hamburgerBtn} onClick={toggleMobileMenu}>
+                        <button className={styles.hamburgerBtn} onClick={toggleMobileMenu} aria-label="Toggle navigation menu">
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
                         <Link href="/" className={styles.logoLink}>
@@ -89,81 +89,78 @@ export default function ShopHeader() {
                         </Link>
                     </div>
 
-                    <div className={styles.rightSection}>
-                        <nav className={`${styles.navbar} ${isMobileMenuOpen ? styles.navbarOpen : ''}`}>
-                            <Link href="/" className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
-                            <Link href="/shop" className={`${styles.navLink} ${pathname === '/shop' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Shop</Link>
-                            <Link href="/about-us" className={`${styles.navLink} ${pathname === '/about-us' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>About Us</Link>
-                            <Link href="/contact" className={`${styles.navLink} ${pathname === '/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact Us</Link>
-                        </nav>
+                    <nav className={`${styles.navbar} ${isMobileMenuOpen ? styles.navbarOpen : ''}`}>
+                        <Link href="/" className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
+                        <Link href="/shop" className={`${styles.navLink} ${pathname === '/shop' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Shop</Link>
+                        <Link href="/about-us" className={`${styles.navLink} ${pathname === '/about-us' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>About Us</Link>
+                        <Link href="/contact" className={`${styles.navLink} ${pathname === '/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact Us</Link>
+                    </nav>
 
-                        <form
-                            className={styles.searchForm}
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                const q = e.target.search.value;
-                                if (q) window.location.href = `/shop?q=${encodeURIComponent(q)}`;
-                            }}
+                    <form
+                        className={styles.searchForm}
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const q = e.target.search.value;
+                            if (q) window.location.href = `/shop?q=${encodeURIComponent(q)}`;
+                        }}
+                    >
+                        <input 
+                            type="text" 
+                            name="search" 
+                            placeholder="Search products..." 
+                            className={styles.searchInput} 
+                        />
+                        <button type="submit" className={styles.searchBtn} aria-label="Search" title="Search">
+                            <Search size={16} />
+                        </button>
+                    </form>
+
+                    <div className={styles.headerActions}>
+                        <button
+                            type="button"
+                            onClick={handleOpenCart}
+                            className={styles.cartIconBtn}
+                            title="View Cart"
+                            aria-label="Open Cart Drawer"
                         >
-                            <input 
-                                type="text" 
-                                name="search" 
-                                placeholder="Search products..." 
-                                className={styles.searchInput} 
-                            />
-                            <button type="submit" className={styles.searchBtn} aria-label="Search" title="Search">
-                                <Search size={16} />
-                            </button>
-                        </form>
-
-                        <div className={styles.headerActions}>
-                            <button
-                                type="button"
-                                onClick={handleOpenCart}
-                                className={styles.cartIconBtn}
-                                title="View Cart"
-                                aria-label="Open Cart Drawer"
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                            >
-                                <div className={styles.cartIconWrapper}>
-                                    <ShoppingCart size={22} strokeWidth={1.5} />
-                                    {cartCount > 0 && (
-                                        <span className={`${styles.cartCountBadge} ${isCartAlerting ? styles.cartAlertPing : ''}`}>
-                                            {cartCount}
-                                        </span>
-                                    )}
-                                </div>
-                            </button>
-
-                            <div className={styles.profileContainer} ref={profileRef}>
-                                {user ? (
-                                    <>
-                                        <div className={styles.profileAvatar} onClick={() => setIsProfileOpen(!isProfileOpen)}>
-                                            {user.name ? user.name.charAt(0).toUpperCase() : <User size={18} />}
-                                        </div>
-                                        {isProfileOpen && (
-                                            <div className={styles.profileDropdown}>
-                                                <div className={styles.dropdownHeader}>
-                                                    <p className={styles.dropdownName}>{user.name || 'Customer'}</p>
-                                                    <p className={styles.dropdownPhone}>{formatPhoneDisplay(user.phone)}</p>
-                                                </div>
-                                                <div className={styles.divider}></div>
-                                                <Link href="/profile?tab=orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>
-                                                <Link href="/profile?tab=history" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Order History</Link>
-                                                <Link href="/profile?tab=account" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account & Addresses</Link>
-                                                <Link href="/profile?tab=refund" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Refund Requests</Link>
-                                                <Link href="/profile?tab=return" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Return Requests</Link>
-                                                <div className={styles.divider}></div>
-                                                <div className={`${styles.dropdownItem} ${styles.logout}`} onClick={handleLogout}>Logout</div>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <Link href="/login" className={styles.loginLink}>
-                                        <User size={22} strokeWidth={1.5} />
-                                    </Link>
+                            <div className={styles.cartIconWrapper}>
+                                <ShoppingCart size={22} strokeWidth={1.5} />
+                                {cartCount > 0 && (
+                                    <span className={`${styles.cartCountBadge} ${isCartAlerting ? styles.cartAlertPing : ''}`}>
+                                        {cartCount}
+                                    </span>
                                 )}
                             </div>
+                        </button>
+
+                        <div className={styles.profileContainer} ref={profileRef}>
+                            {user ? (
+                                <>
+                                    <div className={styles.profileAvatar} onClick={() => setIsProfileOpen(!isProfileOpen)}>
+                                        {user.name ? user.name.charAt(0).toUpperCase() : <User size={18} />}
+                                    </div>
+                                    {isProfileOpen && (
+                                        <div className={styles.profileDropdown}>
+                                            <div className={styles.dropdownHeader}>
+                                                <p className={styles.dropdownName}>{user.name || 'Customer'}</p>
+                                                <p className={styles.dropdownPhone}>{formatPhoneDisplay(user.phone)}</p>
+                                            </div>
+                                            <div className={styles.divider}></div>
+                                            <Link href="/profile?tab=orders" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>My Orders</Link>
+                                            <Link href="/profile?tab=history" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Order History</Link>
+                                            <Link href="/profile?tab=account" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Account & Addresses</Link>
+                                            <Link href="/profile?tab=refund" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Refund Requests</Link>
+                                            <Link href="/profile?tab=return" className={styles.dropdownItem} onClick={() => setIsProfileOpen(false)}>Return Requests</Link>
+                                            <div className={styles.divider}></div>
+                                            <div className={`${styles.dropdownItem} ${styles.logout}`} onClick={handleLogout}>Logout</div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <Link href="/login" className={styles.loginLink} title="Login / Register">
+                                    <User size={22} strokeWidth={1.5} />
+                                </Link>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -49,17 +49,12 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 1rem;
+    gap: 1.5rem;
 }
 
 .leftSection {
     display: flex;
     align-items: center;
-}
-
-.rightSection {
-    display: flex;
-    align-items: center;
-    gap: 3rem;
 }
 
 .logoLink {
@@ -396,12 +391,16 @@
 
     .headerInner {
         height: auto;
-        padding: 0.6rem 0.75rem;
+        padding: 0.65rem 0.85rem;
+        display: flex;
         flex-wrap: wrap;
         align-items: center;
+        justify-content: space-between;
+        gap: 0;
     }
 
     .leftSection {
+        order: 1;
         gap: 0.4rem;
         align-items: center;
     }
@@ -422,34 +421,46 @@
         white-space: nowrap;
     }
 
-    .rightSection {
-        gap: 0.5rem;
-        flex-wrap: wrap;
-        width: 100%;
+    .headerActions {
+        order: 2;
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+
+    .cartIconWrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .profileAvatar {
+        width: 34px;
+        height: 34px;
+        font-size: 0.85rem;
     }
 
     .searchForm {
-        order: 2;
+        order: 3;
         width: 100%;
-        margin-top: 0.35rem;
+        margin-top: 0.5rem;
     }
 
     .searchInput {
         width: 100% !important;
         font-size: 0.85rem;
-        padding: 0.5rem 2.25rem 0.5rem 1rem;
+        padding: 0.55rem 2.25rem 0.55rem 1rem;
         background: #f4efea;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 20px;
     }
 
     .searchInput:focus {
         width: 100% !important;
         background: #ffffff;
-    }
-
-    .headerActions {
-        order: 1;
-        margin-left: auto;
-        gap: 0.85rem;
+        border-color: #5d0821;
+        box-shadow: 0 2px 8px rgba(93, 8, 33, 0.12);
     }
 
     .hamburgerBtn {

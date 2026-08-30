@@ -1054,89 +1054,157 @@ export default function ProfilePage() {
                                 </div>
                             ) : (
                                 <div className={styles.tableContainer}>
-                                    <table className={styles.dataTable}>
-                                        <thead>
-                                            <tr>
-                                                <th>INVOICE NO</th>
-                                                <th>DATE</th>
-                                                <th>ITEMS</th>
-                                                <th>TOTAL</th>
-                                                <th>SOURCE</th>
-                                                <th>STATUS</th>
-                                                <th style={{ textAlign: 'right' }}>ACTION</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {paginatedActiveOrders.map(order => {
-                                                const displayInv = order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
-                                                const itemsList = order.order_items || [];
-                                                const firstItemName = itemsList[0]?.product_name || 'Item';
-                                                const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                                    {/* Desktop Table View */}
+                                    <div className={styles.desktopTableView}>
+                                        <table className={styles.dataTable}>
+                                            <thead>
+                                                <tr>
+                                                    <th>INVOICE NO</th>
+                                                    <th>DATE</th>
+                                                    <th>ITEMS</th>
+                                                    <th>TOTAL</th>
+                                                    <th>SOURCE</th>
+                                                    <th>STATUS</th>
+                                                    <th style={{ textAlign: 'right' }}>ACTION</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {paginatedActiveOrders.map(order => {
+                                                    const displayInv = order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
+                                                    const itemsList = order.order_items || [];
+                                                    const firstItemName = itemsList[0]?.product_name || 'Item';
+                                                    const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-                                                return (
-                                                    <tr key={order.id}>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                                            <div style={{ fontWeight: 800, fontSize: '0.82rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
-                                                        </td>
-                                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-                                                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                        </td>
-                                                        <td>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                                                <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{totalItems} item(s)</span>
-                                                                <span style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={firstItemName}>
-                                                                    {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
+                                                    return (
+                                                        <tr key={order.id}>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>
+                                                                <div style={{ fontWeight: 800, fontSize: '0.82rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
+                                                            </td>
+                                                            <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                                                                {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                            </td>
+                                                            <td>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                                                    <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{totalItems} item(s)</span>
+                                                                    <span style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={firstItemName}>
+                                                                        {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ fontWeight: 800, fontSize: '0.85rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
+                                                                ₹{(order.total_amount || 0).toLocaleString('en-IN')}
+                                                            </td>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>
+                                                                {getOrderSourceBadge(order)}
+                                                            </td>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>
+                                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.5rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                                    {order.status}
                                                                 </span>
-                                                            </div>
-                                                        </td>
-                                                        <td style={{ fontWeight: 800, fontSize: '0.85rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
-                                                            ₹{(order.total_amount || 0).toLocaleString('en-IN')}
-                                                        </td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                                            {getOrderSourceBadge(order)}
-                                                        </td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                                            <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.5rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                                                {order.status}
-                                                            </span>
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
-                                                                {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
-                                                                    <button
-                                                                        type="button"
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
+                                                                    {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setCancelModalOrder(order);
+                                                                                setCancelReason('Changed my mind');
+                                                                            }}
+                                                                            style={{
+                                                                                padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700,
+                                                                                whiteSpace: 'nowrap', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626',
+                                                                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px'
+                                                                            }}
+                                                                        >
+                                                                            <XCircle size={12} /> Cancel
+                                                                        </button>
+                                                                    )}
+                                                                    <button 
                                                                         onClick={() => {
-                                                                            setCancelModalOrder(order);
-                                                                            setCancelReason('Changed my mind');
+                                                                            const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
+                                                                            setTrackSearchId(inv);
+                                                                            handleTabChange('track');
+                                                                            handleTrackSearch(order.id);
                                                                         }}
-                                                                        style={{
-                                                                            padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700,
-                                                                            whiteSpace: 'nowrap', border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626',
-                                                                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px'
-                                                                        }}
+                                                                        className={styles.actionBtnOutline}
+                                                                        style={{ padding: '0.25rem 0.55rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}
                                                                     >
-                                                                        <XCircle size={12} /> Cancel
+                                                                        Track Order <ArrowRight size={12} />
                                                                     </button>
-                                                                )}
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
-                                                                        setTrackSearchId(inv);
-                                                                        handleTabChange('track');
-                                                                        handleTrackSearch(order.id);
-                                                                    }}
-                                                                    className={styles.actionBtnOutline}
-                                                                    style={{ padding: '0.25rem 0.55rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}
-                                                                >
-                                                                    Track Order <ArrowRight size={12} />
-                                                                </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Mobile Cards View */}
+                                    <div className={styles.mobileOrderCardsList}>
+                                        {paginatedActiveOrders.map(order => {
+                                            const displayInv = order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
+                                            const itemsList = order.order_items || [];
+                                            const firstItemName = itemsList[0]?.product_name || 'Item';
+                                            const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
+                                            return (
+                                                <div key={order.id} className={styles.mobileOrderCard}>
+                                                    <div className={styles.mobileCardHeader}>
+                                                        <div>
+                                                            <div className={styles.mobileInvNo}>{displayInv}</div>
+                                                            <div className={styles.mobileOrderDate}>
+                                                                {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                             </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                        </div>
+                                                        <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                            {order.status}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className={styles.mobileCardBody}>
+                                                        <div className={styles.mobileItemSummary}>
+                                                            <span className={styles.mobileItemCount}>{totalItems} item(s)</span>
+                                                            <span className={styles.mobileItemName} title={firstItemName}>
+                                                                {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
+                                                            </span>
+                                                        </div>
+                                                        <div className={styles.mobilePriceSource}>
+                                                            <div className={styles.mobilePrice}>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                            {getOrderSourceBadge(order)}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={styles.mobileCardActions}>
+                                                        {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setCancelModalOrder(order);
+                                                                    setCancelReason('Changed my mind');
+                                                                }}
+                                                                className={styles.mobileCancelBtn}
+                                                            >
+                                                                <XCircle size={13} /> Cancel Order
+                                                            </button>
+                                                        )}
+                                                        <button 
+                                                            onClick={() => {
+                                                                const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
+                                                                setTrackSearchId(inv);
+                                                                handleTabChange('track');
+                                                                handleTrackSearch(order.id);
+                                                            }}
+                                                            className={styles.mobileTrackBtn}
+                                                        >
+                                                            Track Order <ArrowRight size={13} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
 
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle, #e2e8f0))', flexWrap: 'wrap', gap: '0.75rem', background: '#fafafa' }}>
                                         <div style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
@@ -1348,71 +1416,127 @@ export default function ProfilePage() {
                                 </div>
                             ) : (
                                 <div className={styles.tableContainer}>
-                                    <table className={styles.dataTable}>
-                                        <thead>
-                                            <tr>
-                                                <th>INVOICE NO</th>
-                                                <th>DATE</th>
-                                                <th>ITEMS</th>
-                                                <th>TOTAL</th>
-                                                <th>SOURCE</th>
-                                                <th>STATUS</th>
-                                                <th style={{ textAlign: 'right' }}>ACTION</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {paginatedHistoryOrders.map(order => {
-                                                const displayInv = order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
-                                                const itemsList = order.order_items || [];
-                                                const firstItemName = itemsList[0]?.product_name || 'Item';
-                                                const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                                    {/* Desktop Table View */}
+                                    <div className={styles.desktopTableView}>
+                                        <table className={styles.dataTable}>
+                                            <thead>
+                                                <tr>
+                                                    <th>INVOICE NO</th>
+                                                    <th>DATE</th>
+                                                    <th>ITEMS</th>
+                                                    <th>TOTAL</th>
+                                                    <th>SOURCE</th>
+                                                    <th>STATUS</th>
+                                                    <th style={{ textAlign: 'right' }}>ACTION</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {paginatedHistoryOrders.map(order => {
+                                                    const displayInv = order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
+                                                    const itemsList = order.order_items || [];
+                                                    const firstItemName = itemsList[0]?.product_name || 'Item';
+                                                    const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-                                                return (
-                                                    <tr key={order.id}>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
-                                                        </td>
-                                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-                                                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                        </td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                                                <span style={{ fontWeight: 700, fontSize: '0.84rem' }}>{totalItems} item(s)</span>
-                                                                <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={firstItemName}>
-                                                                    {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
+                                                    return (
+                                                        <tr key={order.id}>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>
+                                                                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
+                                                            </td>
+                                                            <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                                                {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                            </td>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                                                    <span style={{ fontWeight: 700, fontSize: '0.84rem' }}>{totalItems} item(s)</span>
+                                                                    <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={firstItemName}>
+                                                                        {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
+                                                                ₹{(order.total_amount || 0).toLocaleString('en-IN')}
+                                                            </td>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>
+                                                                {getOrderSourceBadge(order)}
+                                                            </td>
+                                                            <td style={{ whiteSpace: 'nowrap' }}>
+                                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                                    {order.status}
                                                                 </span>
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
+                                                                        setTrackSearchId(inv);
+                                                                        handleTabChange('track');
+                                                                        handleTrackSearch(order.id);
+                                                                    }}
+                                                                    className={styles.actionBtnOutline}
+                                                                    style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                                                >
+                                                                    Track Order <ArrowRight size={13} />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Mobile Cards View */}
+                                    <div className={styles.mobileOrderCardsList}>
+                                        {paginatedHistoryOrders.map(order => {
+                                            const displayInv = order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
+                                            const itemsList = order.order_items || [];
+                                            const firstItemName = itemsList[0]?.product_name || 'Item';
+                                            const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
+                                            return (
+                                                <div key={order.id} className={styles.mobileOrderCard}>
+                                                    <div className={styles.mobileCardHeader}>
+                                                        <div>
+                                                            <div className={styles.mobileInvNo}>{displayInv}</div>
+                                                            <div className={styles.mobileOrderDate}>
+                                                                {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                             </div>
-                                                        </td>
-                                                        <td style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
-                                                            ₹{(order.total_amount || 0).toLocaleString('en-IN')}
-                                                        </td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                                            {getOrderSourceBadge(order)}
-                                                        </td>
-                                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                                            <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                                                {order.status}
+                                                        </div>
+                                                        <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                            {order.status}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className={styles.mobileCardBody}>
+                                                        <div className={styles.mobileItemSummary}>
+                                                            <span className={styles.mobileItemCount}>{totalItems} item(s)</span>
+                                                            <span className={styles.mobileItemName} title={firstItemName}>
+                                                                {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
                                                             </span>
-                                                        </td>
-                                                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                            <button 
-                                                                onClick={() => {
-                                                                    const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
-                                                                    setTrackSearchId(inv);
-                                                                    handleTabChange('track');
-                                                                    handleTrackSearch(order.id);
-                                                                }}
-                                                                className={styles.actionBtnOutline}
-                                                                style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
-                                                            >
-                                                                Track Order <ArrowRight size={13} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                        </div>
+                                                        <div className={styles.mobilePriceSource}>
+                                                            <div className={styles.mobilePrice}>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                            {getOrderSourceBadge(order)}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className={styles.mobileCardActions}>
+                                                        <button 
+                                                            onClick={() => {
+                                                                const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
+                                                                setTrackSearchId(inv);
+                                                                handleTabChange('track');
+                                                                handleTrackSearch(order.id);
+                                                            }}
+                                                            className={styles.mobileTrackBtn}
+                                                        >
+                                                            Track Order <ArrowRight size={13} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
 
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1.25rem', borderTop: '1px solid hsl(var(--border-subtle, #e2e8f0))', flexWrap: 'wrap', gap: '0.75rem', background: '#fafafa' }}>
                                         <div style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted))', fontWeight: 600 }}>
