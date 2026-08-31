@@ -1,8 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
     Loader2, Eye, Share2, Package as PackageIcon, Trash2,
-    ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown
+    ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown,
+    MoreVertical, Edit3, ExternalLink, Copy, Check
 } from 'lucide-react';
 import { getProductUrl } from '@/lib/productUrl';
 
@@ -26,6 +28,39 @@ export default function ProductTable({
     sortBy = 'product_no_desc',
     setSortBy
 }) {
+    const [activeDropdownId, setActiveDropdownId] = useState(null);
+    const [copiedId, setCopiedId] = useState(null);
+
+    // Close dropdown on outside click or escape key
+    useEffect(() => {
+        const handleOutsideClick = (e) => {
+            if (!e.target.closest('.action-dropdown-container')) {
+                setActiveDropdownId(null);
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setActiveDropdownId(null);
+            }
+        };
+        document.addEventListener('click', handleOutsideClick);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('click', handleOutsideClick);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
+    const handleCopyUrl = (e, product) => {
+        e.stopPropagation();
+        const url = getProductUrl(product);
+        if (typeof window !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(url);
+            setCopiedId(product.id);
+            setTimeout(() => setCopiedId(null), 2000);
+        }
+        setActiveDropdownId(null);
+    };
     const handleHeaderSort = (columnKey) => {
         if (!setSortBy) return;
 
@@ -63,7 +98,7 @@ export default function ProductTable({
     };
 
     return (
-        <div className="card shadow-sm" style={{ padding: 0, overflow: 'hidden', borderRadius: '16px', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))' }}>
+        <div className="card shadow-sm" style={{ padding: 0, overflow: 'visible', borderRadius: '16px', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))' }}>
             {/* Table Control Bar */}
             <div style={{
                 display: 'flex',
@@ -199,7 +234,7 @@ export default function ProductTable({
                                 </th>
 
                                 {/* 9. Actions */}
-                                <th style={{ width: '140px', textAlign: 'right', padding: '0.9rem 1.25rem', color: 'hsl(var(--text-muted))', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                <th style={{ width: '80px', textAlign: 'center', padding: '0.9rem 0.75rem', color: 'hsl(var(--text-muted))', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                     Actions
                                 </th>
                             </tr>
@@ -405,45 +440,265 @@ export default function ProductTable({
                                                 )}
                                             </td>
 
-                                            {/* 9. Quick Actions */}
-                                            <td style={{ textAlign: 'right', padding: '0.75rem 1.25rem' }}>
-                                                <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                            {/* 9. Actions (3-Dot Dropdown) */}
+                                            <td
+                                                style={{ textAlign: 'center', padding: '0.75rem 0.75rem', position: 'relative' }}
+                                                onClick={e => e.stopPropagation()}
+                                            >
+                                                <div className="action-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
                                                     <button
                                                         type="button"
-                                                        onClick={e => { e.stopPropagation(); window.open(getProductUrl(product), '_blank'); }}
-                                                        title="View Live Storefront Page"
-                                                        className="btn btn-secondary"
-                                                        style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveDropdownId(prev => prev === product.id ? null : product.id);
+                                                        }}
+                                                        title="Product Actions"
+                                                        style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            padding: 0,
+                                                            borderRadius: '8px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            background: activeDropdownId === product.id ? 'hsl(var(--primary) / 0.12)' : '#f8fafc',
+                                                            color: activeDropdownId === product.id ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))',
+                                                            border: activeDropdownId === product.id ? '1px solid hsl(var(--primary) / 0.35)' : '1px solid hsl(var(--border-subtle))',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                        onMouseEnter={e => {
+                                                            if (activeDropdownId !== product.id) {
+                                                                e.currentTarget.style.background = '#f1f5f9';
+                                                                e.currentTarget.style.color = 'hsl(var(--text-main))';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={e => {
+                                                            if (activeDropdownId !== product.id) {
+                                                                e.currentTarget.style.background = '#f8fafc';
+                                                                e.currentTarget.style.color = 'hsl(var(--text-muted))';
+                                                            }
+                                                        }}
                                                     >
-                                                        <Eye size={14} />
+                                                        <MoreVertical size={16} />
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={e => { e.stopPropagation(); shareToStatus(product); }}
-                                                        title="Share to WhatsApp Status"
-                                                        className="btn btn-secondary"
-                                                        style={{ padding: '0.4rem', color: '#16a34a' }}
-                                                    >
-                                                        <Share2 size={14} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={e => { e.stopPropagation(); fetchHistory(product); }}
-                                                        title="View Stock History Log"
-                                                        className="btn btn-secondary"
-                                                        style={{ padding: '0.4rem', color: '#475569' }}
-                                                    >
-                                                        <PackageIcon size={14} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={e => { e.stopPropagation(); handleDelete(product.id); }}
-                                                        title="Delete Product"
-                                                        className="btn btn-secondary"
-                                                        style={{ padding: '0.4rem', color: 'hsl(var(--danger))', borderColor: 'hsl(var(--danger) / 0.3)' }}
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+
+                                                    {activeDropdownId === product.id && (
+                                                        <div
+                                                            style={{
+                                                                position: 'absolute',
+                                                                right: 0,
+                                                                ...(idx >= products.length - 2 && products.length > 2
+                                                                    ? { bottom: 'calc(100% + 6px)' }
+                                                                    : { top: 'calc(100% + 6px)' }),
+                                                                background: '#ffffff',
+                                                                borderRadius: '12px',
+                                                                border: '1px solid hsl(var(--border-subtle))',
+                                                                boxShadow: '0 12px 30px rgba(0, 0, 0, 0.14), 0 4px 10px rgba(0, 0, 0, 0.05)',
+                                                                width: '210px',
+                                                                zIndex: 100,
+                                                                padding: '6px',
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                gap: '2px',
+                                                                textAlign: 'left'
+                                                            }}
+                                                        >
+                                                            {/* 1. Edit Product */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    openEditModal(product);
+                                                                }}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '10px',
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '0.82rem',
+                                                                    fontWeight: 600,
+                                                                    color: 'hsl(var(--text-main))',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.12s',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <Edit3 size={15} style={{ color: 'hsl(var(--primary))' }} />
+                                                                <span>Edit Product</span>
+                                                            </button>
+
+                                                            {/* 2. View on Storefront */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    window.open(getProductUrl(product), '_blank');
+                                                                }}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '10px',
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '0.82rem',
+                                                                    fontWeight: 600,
+                                                                    color: 'hsl(var(--text-main))',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.12s',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <ExternalLink size={15} style={{ color: '#3b82f6' }} />
+                                                                <span>View on Website</span>
+                                                            </button>
+
+                                                            {/* 3. Share to WhatsApp Status */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    shareToStatus(product);
+                                                                }}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '10px',
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '0.82rem',
+                                                                    fontWeight: 600,
+                                                                    color: 'hsl(var(--text-main))',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.12s',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <Share2 size={15} style={{ color: '#16a34a' }} />
+                                                                <span>Share to WhatsApp</span>
+                                                            </button>
+
+                                                            {/* 4. Stock History Log */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    fetchHistory(product);
+                                                                }}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '10px',
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '0.82rem',
+                                                                    fontWeight: 600,
+                                                                    color: 'hsl(var(--text-main))',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.12s',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <PackageIcon size={15} style={{ color: '#6366f1' }} />
+                                                                <span>Stock History Log</span>
+                                                            </button>
+
+                                                            {/* 5. Copy Store Link */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => handleCopyUrl(e, product)}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '10px',
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '0.82rem',
+                                                                    fontWeight: 600,
+                                                                    color: 'hsl(var(--text-main))',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.12s',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                {copiedId === product.id ? (
+                                                                    <>
+                                                                        <Check size={15} style={{ color: '#16a34a' }} />
+                                                                        <span style={{ color: '#16a34a', fontWeight: 700 }}>Link Copied!</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Copy size={15} style={{ color: '#64748b' }} />
+                                                                        <span>Copy Product Link</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+
+                                                            {/* Divider */}
+                                                            <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '4px 0' }} />
+
+                                                            {/* 6. Delete Product */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    handleDelete(product.id);
+                                                                }}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '10px',
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '0.82rem',
+                                                                    fontWeight: 700,
+                                                                    color: '#dc2626',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.12s',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <Trash2 size={15} style={{ color: '#dc2626' }} />
+                                                                <span>Delete Product</span>
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

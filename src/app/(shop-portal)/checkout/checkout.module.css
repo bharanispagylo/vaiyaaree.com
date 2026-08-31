@@ -152,7 +152,6 @@
     position: sticky;
     top: 80px;
     z-index: 10;
-    max-height: calc(100vh - 90px);
     overflow-y: auto;
     box-shadow: var(--shadow-sm);
 }
@@ -641,7 +640,7 @@
     border-color: hsl(var(--primary) / 0.5);
 }
 
-.sameAsBillingCheckbox input:checked ~ .checkmark {
+.sameAsBillingCheckbox input:checked~.checkmark {
     background: hsl(var(--primary));
     border-color: hsl(var(--primary));
 }
@@ -656,7 +655,7 @@
     transform: rotate(45deg);
 }
 
-.sameAsBillingCheckbox input:checked ~ .checkmark::after {
+.sameAsBillingCheckbox input:checked~.checkmark::after {
     display: block;
 }
 
@@ -675,6 +674,7 @@
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -759,52 +759,174 @@
         opacity: 0;
         transform: translateY(15px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
 
-/* Order Confirmed Pop-up Modal Styles */
+/* Order Modal (Loading & Confirmed) Pop-up Styles */
 .modalOverlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 23, 42, 0.7);
-    backdrop-filter: blur(6px);
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 99999;
+    z-index: 999999;
     padding: 1.5rem;
-    animation: modalOverlayFadeIn 0.3s ease-out;
+    animation: modalOverlayFadeIn 0.25s ease-out;
 }
 
 @keyframes modalOverlayFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .modalContent {
     background: #ffffff;
     border-radius: 24px;
     padding: 2.5rem 2rem;
-    max-width: 500px;
+    max-width: 480px;
     width: 100%;
     text-align: center;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
-    animation: modalPop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(226, 232, 240, 0.9);
+    animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    overflow: hidden;
 }
 
 @keyframes modalPop {
-    from { transform: scale(0.85); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    from {
+        transform: scale(0.9) translateY(10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
 }
 
+.modalCloseBtn {
+    position: absolute;
+    top: 1.1rem;
+    right: 1.1rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 10;
+}
+
+.modalCloseBtn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fecaca;
+    transform: scale(1.08);
+}
+
+/* Loading State Specific Styles */
+.modalLoadingBadge {
+    width: 84px;
+    height: 84px;
+    background: #fdf2f8;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0.5rem auto 1.5rem;
+    border: 3px solid #fbcfe8;
+    box-shadow: 0 12px 28px rgba(93, 8, 33, 0.12);
+    position: relative;
+}
+
+.spinnerRing {
+    animation: spin 1s linear infinite;
+    color: hsl(var(--primary));
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loadingPulseBar {
+    width: 100%;
+    height: 6px;
+    background: #f1f5f9;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 1.75rem 0 1.25rem;
+    position: relative;
+}
+
+.loadingPulseBar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 45%;
+    background: linear-gradient(90deg, hsl(var(--primary)), #d97706, hsl(var(--primary)));
+    border-radius: 999px;
+    animation: indeterminateBar 1.4s ease-in-out infinite;
+}
+
+@keyframes indeterminateBar {
+    0% {
+        left: -45%;
+        width: 35%;
+    }
+
+    50% {
+        left: 35%;
+        width: 55%;
+    }
+
+    100% {
+        left: 100%;
+        width: 35%;
+    }
+}
+
+.modalSecurityNotice {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+    background: #f8fafc;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+}
+
+/* Success / Confirmed State Specific Styles */
 .modalHeaderBadge {
     width: 80px;
     height: 80px;
@@ -813,16 +935,27 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 1.25rem;
+    margin: 0.5rem auto 1.25rem;
     border: 3px solid #bbf7d0;
-    box-shadow: 0 10px 20px rgba(22, 163, 74, 0.15);
+    box-shadow: 0 10px 24px rgba(22, 163, 74, 0.16);
+    animation: badgePulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes badgePulse {
+    0% {
+        transform: scale(1);
+    }
+
+    100% {
+        transform: scale(1.05);
+    }
 }
 
 .modalTitle {
-    font-size: 1.65rem;
+    font-size: 1.55rem;
     font-weight: 800;
     color: #0f172a;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
     letter-spacing: -0.02em;
 }
 
@@ -838,7 +971,7 @@
     border: 1px solid #e2e8f0;
     border-radius: 16px;
     padding: 1.25rem;
-    margin-bottom: 1.75rem;
+    margin-bottom: 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -873,10 +1006,14 @@
     border-radius: 14px;
     font-weight: 800;
     font-size: 0.95rem;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
     cursor: pointer;
     transition: all 0.25s ease;
     box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .modalPrimaryBtn:hover {
@@ -914,13 +1051,14 @@
     border: 1px solid #cbd5e1;
     padding: 0.85rem;
     border-radius: 14px;
-    font-weight: 600;
-    font-size: 0.88rem;
+    font-weight: 700;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     text-decoration: none;
+    cursor: pointer;
     transition: all 0.2s ease;
 }
 

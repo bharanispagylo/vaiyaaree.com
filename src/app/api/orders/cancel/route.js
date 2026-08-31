@@ -1,5 +1,6 @@
 import pool, { withTransaction } from '@/lib/mysql.js';
 import { generateRefundId } from '@/services/refundService.js';
+import { getGatewaySettings } from '@/lib/settings.js';
 import crypto, { randomUUID } from 'crypto';
 
 export async function POST(request) {
@@ -21,9 +22,13 @@ export async function POST(request) {
             }
             const order = orderRows[0];
 
-            const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED'];
-            if (!cancellableStatuses.includes((order.status || '').toUpperCase())) {
-                throw new Error('This order cannot be cancelled as it is already being processed or shipped.');
+            // STRICT CANCELLATION CHECK:
+            // Customer can ONLY cancel before warehouse packing and fulfillment starts.
+            // If status is PACKING, SHIPPED, DISPATCHED, OUT_FOR_DELIVERY, or DELIVERED, cancellation is strictly BLOCKED.
+            const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
+            const currentStatus = (order.status || '').toUpperCase();
+            if (!cancellableStatuses.includes(currentStatus)) {
+                throw new Error('This order cannot be cancelled because it is already being packed or has been dispatched/shipped. Please contact support or request a return upon delivery.');
             }
 
             // 2. Authentication Verification: OTP or Logged-in Customer ID
@@ -95,7 +100,7 @@ export async function POST(request) {
                 } else if (item.product_id) {
                     // Simple product: increase stock and decrement total_sold
                     await conn.query(
-                        "UPDATE `products` SET `stock` = `stock` + ?, `total_sold` = GREATEST(0, COALESCE(\`total_sold\` - ?, 0)) WHERE `id` = ?",
+                        "UPDATE `products` SET `stock` = `stock` + ?, `total_sold` = GREATEST(0, COALESCE(`total_sold` - ?, 0)) WHERE `id` = ?",
                         [quantity, quantity, item.product_id]
                     );
 
@@ -111,30 +116,92 @@ export async function POST(request) {
                 }
             }
 
-            // 5. Update Order Status
+            // 5. Razorpay Online Refund Integration (if order was paid via Razorpay)
+            let razorpayRefund = null;
+            const isPaidOnline = currentStatus === 'PAID' && (order.razorpay_payment_id || order.payment_method === 'Razorpay');
+
+            if (isPaidOnline && order.razorpay_payment_id) {
+                try {
+                    const settings = await getGatewaySettings();
+                    const keyId = settings.razorpay_key_id;
+                    const keySecret = settings.razorpay_key_secret;
+
+                    if (keyId && keySecret && !keyId.includes('placeholder')) {
+                        const refundAmountPaise = Math.round(Number(order.total_amount) * 100);
+                        const authHeader = 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+
+                        const rzpRes = await fetch(`https://api.razorpay.com/v1/payments/${order.razorpay_payment_id}/refund`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': authHeader
+                            },
+                            body: JSON.stringify({
+                                amount: refundAmountPaise,
+                                speed: 'optimum', // Instant UPI/IMPS refund if supported
+                                notes: {
+                                    order_id: orderId,
+                                    reason: cancelReasonNote
+                                }
+                            })
+                        });
+
+                        const refundData = await rzpRes.json();
+                        if (rzpRes.ok && refundData.id) {
+                            razorpayRefund = refundData;
+                            console.log(`[RAZORPAY-REFUND-SUCCESS] Order #${orderId} refunded: ${refundData.id}`);
+                        } else {
+                            console.error('[RAZORPAY-REFUND-ERROR]', refundData);
+                        }
+                    }
+                } catch (rzpErr) {
+                    console.error('[RAZORPAY-REFUND-EXCEPTION]', rzpErr);
+                }
+            }
+
+            // 6. Update Order Status in database
+            const refundStatusToSet = razorpayRefund ? 'REFUNDED' : (isPaidOnline ? 'REFUND_REQUESTED' : 'NOT_APPLICABLE');
+            const razorpayRefundId = razorpayRefund?.id || null;
+
+            const adminNoteText = razorpayRefund 
+                ? `Order cancelled by customer. ${cancelReasonNote}. Razorpay Refund ID: ${razorpayRefund.id}`
+                : `Order cancelled by customer. ${cancelReasonNote}`;
+
             await conn.query(
-                `UPDATE \`orders\` SET \`status\` = 'CANCELLED', \`admin_notes\` = ?, \`updated_at\` = NOW() WHERE \`id\` = ?`,
-                [`Order cancelled by customer via website on ${new Date().toLocaleString()}. ${cancelReasonNote}`, orderId]
+                `UPDATE \`orders\` 
+                 SET \`status\` = 'CANCELLED', 
+                     \`refund_status\` = ?, 
+                     \`razorpay_refund_id\` = ?,
+                     \`admin_notes\` = ?, 
+                     \`updated_at\` = NOW() 
+                 WHERE \`id\` = ?`,
+                [refundStatusToSet, razorpayRefundId, adminNoteText, orderId]
             );
 
-            // 6. Insert Order Status Log
+            // 7. Insert Order Status Log (Timeline Entry)
             const logId = crypto.randomUUID ? crypto.randomUUID() : `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            const logNote = razorpayRefund
+                ? `Order cancelled by customer. Refund of ₹${Number(order.total_amount).toLocaleString('en-IN')} initiated via Razorpay (Refund ID: ${razorpayRefund.id})`
+                : `Order cancelled by customer. ${cancelReasonNote}`;
+
             await conn.query(
                 "INSERT INTO `order_status_logs` (`id`, `order_id`, `status`, `notes`, `created_at`) VALUES (?, ?, 'CANCELLED', ?, NOW())",
-                [logId, orderId, `Order cancelled by customer. ${cancelReasonNote}`]
+                [logId, orderId, logNote]
             );
 
-            // 7. Create Refund Entry in refund_requests if order was paid
-            if (['PAID', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase())) {
+            // 8. Create Refund Entry in refund_requests if order was paid
+            if (isPaidOnline || ['PAID', 'AWAITING_PAYMENT'].includes(currentStatus)) {
                 const refundUuid = randomUUID();
                 const refundCode = await generateRefundId();
                 const now = new Date().toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
 
                 await conn.query(`
                     INSERT INTO \`refund_requests\` (
-                        \`id\`, \`refund_id\`, \`order_id\`, \`customer_id\`, \`reason\`, \`customer_note\`, \`requested_amount\`, \`approved_amount\`, \`return_status\`, \`refund_status\`, \`requested_at\`, \`created_at\`, \`updated_at\`
+                        \`id\`, \`refund_id\`, \`order_id\`, \`customer_id\`, \`reason\`, \`customer_note\`, 
+                        \`requested_amount\`, \`approved_amount\`, \`return_status\`, \`refund_status\`, 
+                        \`razorpay_payment_id\`, \`razorpay_refund_id\`, \`requested_at\`, \`created_at\`, \`updated_at\`
                     ) VALUES (
-                        ?, ?, ?, ?, 'Order Cancelled', ?, ?, ?, 'NOT_REQUIRED', 'REFUND_REQUESTED', ?, NOW(), NOW()
+                        ?, ?, ?, ?, 'Order Cancelled', ?, ?, ?, 'NOT_REQUIRED', ?, ?, ?, ?, NOW(), NOW()
                     )
                 `, [
                     refundUuid,
@@ -144,19 +211,36 @@ export async function POST(request) {
                     cancelReasonNote,
                     order.total_amount || 0,
                     order.total_amount || 0,
+                    refundStatusToSet,
+                    order.razorpay_payment_id || null,
+                    razorpayRefundId,
                     now
                 ]);
             }
 
-            // 8. Delete the used OTP
+            // 9. Delete the used OTP
             if (cleanPhone) {
                 await conn.query("DELETE FROM `otps` WHERE `phone` = ?", [cleanPhone]);
             }
 
-            return order;
+            return {
+                order,
+                refundId: razorpayRefundId,
+                refundStatus: refundStatusToSet,
+                refundAmount: order.total_amount
+            };
         });
 
-        return new Response(JSON.stringify({ success: true, message: 'Order cancelled successfully and stock restored.' }), { status: 200 });
+        const successMessage = result.refundId 
+            ? `Order cancelled successfully. Refund of ₹${Number(result.refundAmount).toLocaleString('en-IN')} has been initiated via Razorpay (Refund ID: ${result.refundId}).`
+            : 'Order cancelled successfully and stock restored.';
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            message: successMessage,
+            refundId: result.refundId,
+            refundStatus: result.refundStatus
+        }), { status: 200 });
 
     } catch (err) {
         console.error('[CANCEL-API-ERROR]', err);

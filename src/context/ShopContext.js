@@ -17,7 +17,8 @@ const defaultContextValue = {
     cartTotal: 0, cartCount: 0, taxDetails: { cgst: 0, sgst: 0, igst: 0, shipping: 0, totalOrder: 0 },
     mysqlClient: null, placeOrder: () => { },
     isCartOpen: false, setIsCartOpen: () => { }, openCart: () => { }, closeCart: () => { }, toggleCart: () => { },
-    comingSoonSettings: null, setComingSoonSettings: () => { }, fetchComingSoon: () => { }
+    comingSoonSettings: null, setComingSoonSettings: () => { }, fetchComingSoon: () => { },
+    activeDiscountRules: [], getEffectiveProductPrice: () => ({ originalPrice: 0, discountedPrice: 0, discountPercent: 0, discountAmount: 0, activeRule: null, hasDiscount: false })
 };
 
 const ShopContext = createContext(defaultContextValue);
@@ -84,6 +85,19 @@ export function ShopProvider({ children }) {
     });
 
     const [dbCategories, setDbCategories] = useState([]);
+    const [activeDiscountRules, setActiveDiscountRules] = useState([]);
+
+    const fetchActiveDiscountRules = async () => {
+        try {
+            const res = await fetch('/api/discounts/active');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.rules)) {
+                setActiveDiscountRules(data.rules);
+            }
+        } catch (err) {
+            console.error('[SHOP CONTEXT] Fetch active discount rules error:', err);
+        }
+    };
 
     const fetchDbCategories = async () => {
         try {
@@ -97,6 +111,111 @@ export function ShopProvider({ children }) {
         }
     };
 
+    // Helper: calculate effective price & active discount rules for any product/variant
+    const getEffectiveProductPrice = (product, selectedVariant = null) => {
+        if (!product) {
+            return { originalPrice: 0, comparePrice: 0, discountedPrice: 0, discountPercent: 0, discountAmount: 0, activeRule: null, hasDiscount: false };
+        }
+
+        const basePrice = selectedVariant?.price !== undefined && selectedVariant?.price !== null
+            ? Number(selectedVariant.price)
+            : Number(product.price || 0);
+
+        if (basePrice <= 0) {
+            return { originalPrice: basePrice, comparePrice: basePrice, discountedPrice: basePrice, discountPercent: 0, discountAmount: 0, activeRule: null, hasDiscount: false };
+        }
+
+        // Tag MRP or compare price
+        const tagList = Array.isArray(product.tags)
+            ? product.tags
+            : (typeof product.tags === 'string' ? product.tags.split(',') : []);
+        const mrpTag = tagList.map(t => String(t).trim()).find(t => t.toLowerCase().startsWith('mrp:'));
+        const comparePrice = selectedVariant?.compare_price || selectedVariant?.original_price || (mrpTag ? Number(mrpTag.split(':')[1]) : (product.compare_price || product.original_price || product.mrp));
+        const mrpPrice = comparePrice && !isNaN(comparePrice) && Number(comparePrice) > basePrice ? Number(comparePrice) : null;
+
+        // Check active automatic discount rules
+        const prodCategory = (product.category || '').trim().toLowerCase();
+        const prodId = String(product.id || '');
+
+        let matchedRule = null;
+        let calculatedDiscount = 0;
+
+        // Filter active product-basis rules with no coupon code required
+        const eligibleRules = (activeDiscountRules || []).filter(r => {
+            if (r.calculation_basis && r.calculation_basis !== 'PRODUCT') return false;
+            if (r.coupon_code && r.coupon_code.trim()) return false;
+            
+            // Check scope
+            const targetType = r.target_type || 'ALL_PRODUCTS';
+            if (targetType === 'ALL_PRODUCTS') return true;
+            if (targetType === 'SPECIFIC_CATEGORIES') {
+                const cats = (r.categories || []).map(c => String(c).trim().toLowerCase());
+                return cats.includes(prodCategory);
+            }
+            if (targetType === 'SPECIFIC_PRODUCTS') {
+                const pids = (r.product_ids || []).map(id => String(id));
+                return pids.includes(prodId);
+            }
+            return false;
+        });
+
+        // Pick the best discount rule
+        for (const rule of eligibleRules) {
+            if (rule.minimum_cart_products_enabled) continue;
+
+            let discount = 0;
+            if (rule.discount_type === 'PERCENTAGE') {
+                discount = (basePrice * Number(rule.discount_value || 0)) / 100;
+            } else if (rule.discount_type === 'FIXED_AMOUNT' || rule.discount_type === 'FIXED') {
+                discount = Math.min(basePrice, Number(rule.discount_value || 0));
+            }
+
+            if (discount > calculatedDiscount) {
+                calculatedDiscount = discount;
+                matchedRule = rule;
+            }
+        }
+
+        if (calculatedDiscount > 0 && matchedRule) {
+            const finalPrice = Math.max(0, Math.round(basePrice - calculatedDiscount));
+            const percent = Math.round((calculatedDiscount / basePrice) * 100);
+            return {
+                originalPrice: basePrice,
+                comparePrice: mrpPrice || basePrice,
+                discountedPrice: finalPrice,
+                discountPercent: percent,
+                discountAmount: calculatedDiscount,
+                activeRule: matchedRule,
+                hasDiscount: true
+            };
+        }
+
+        // If no automatic promotion matched, fallback to MRP comparison if available
+        if (mrpPrice && mrpPrice > basePrice) {
+            const mrpDiscount = mrpPrice - basePrice;
+            const mrpPercent = Math.round((mrpDiscount / mrpPrice) * 100);
+            return {
+                originalPrice: mrpPrice,
+                comparePrice: mrpPrice,
+                discountedPrice: basePrice,
+                discountPercent: mrpPercent,
+                discountAmount: mrpDiscount,
+                activeRule: null,
+                hasDiscount: true
+            };
+        }
+
+        return {
+            originalPrice: basePrice,
+            comparePrice: basePrice,
+            discountedPrice: basePrice,
+            discountPercent: 0,
+            discountAmount: 0,
+            activeRule: null,
+            hasDiscount: false
+        };
+    };
+
     //  EFFECTS 
     useEffect(() => {
         setHasMounted(true);
@@ -107,7 +226,8 @@ export function ShopProvider({ children }) {
             fetchShippingRates(),
             checkSession(),
             fetchComingSoon(),
-            fetchDbCategories()
+            fetchDbCategories(),
+            fetchActiveDiscountRules()
         ]).catch(err => console.error('[APP INIT] Startup fetch error:', err));
     }, []);
 
@@ -773,43 +893,50 @@ export function ShopProvider({ children }) {
             let currentCustomer = isUserValidCustomer ? user : null;
 
             if (!customerId) {
-                // Check if customer exists by phone
-                const { data: existingCustomer } = await mysqlClient
+                // Check if customer exists by phone (checking clean 10-digit, 91 prefix, and +91 prefix)
+                const phoneVariations = [cleanDigits, `91${cleanDigits}`, `+91${cleanDigits}`];
+                const { data: existingCustomers } = await mysqlClient
                     .from('customers')
                     .select('*')
-                    .eq('phone', fullPhone)
-                    .single();
+                    .in('phone', phoneVariations)
+                    .order('created_at', { ascending: true });
+
+                const existingCustomer = Array.isArray(existingCustomers) && existingCustomers.length > 0 ? existingCustomers[0] : null;
 
                 if (existingCustomer) {
-                    if (checkoutForm.billingName && existingCustomer.name !== checkoutForm.billingName) {
-                        const { data: updatedExisting } = await mysqlClient
-                            .from('customers')
-                            .update({
-                                name: checkoutForm.billingName,
-                                email: checkoutForm.billingEmail || existingCustomer.email,
-                                address: fullBillingAddress,
-                                city: checkoutForm.billingCity,
-                                state: checkoutForm.billingState
-                            })
-                            .eq('id', existingCustomer.id)
-                            .select()
-                            .single();
-                        currentCustomer = updatedExisting || existingCustomer;
-                    } else {
-                        currentCustomer = existingCustomer;
-                    }
+                    const updatePayload = {
+                        name: checkoutForm.billingName || existingCustomer.name,
+                        email: checkoutForm.billingEmail || existingCustomer.email,
+                        address: checkoutForm.billingAddress || existingCustomer.address,
+                        city: checkoutForm.billingCity || existingCustomer.city,
+                        state: checkoutForm.billingState || existingCustomer.state,
+                        pincode: checkoutForm.billingPincode || existingCustomer.pincode,
+                        phone: cleanDigits,
+                        country_code: existingCustomer.country_code || billingCountryCode
+                    };
+
+                    const { data: updatedExisting } = await mysqlClient
+                        .from('customers')
+                        .update(updatePayload)
+                        .eq('id', existingCustomer.id)
+                        .select()
+                        .single();
+
+                    currentCustomer = updatedExisting || { ...existingCustomer, ...updatePayload };
                     customerId = currentCustomer.id;
                 } else {
                     // Create new customer
                     const { data: newCustomer, error: createError } = await mysqlClient
                         .from('customers')
                         .insert({
-                            phone: fullPhone,
+                            phone: cleanDigits,
+                            country_code: billingCountryCode,
                             name: checkoutForm.billingName,
                             email: checkoutForm.billingEmail || null,
-                            address: fullBillingAddress,
+                            address: checkoutForm.billingAddress,
                             city: checkoutForm.billingCity,
                             state: checkoutForm.billingState,
+                            pincode: checkoutForm.billingPincode,
                             role: 'user',
                             is_verified: false
                         })
@@ -817,11 +944,11 @@ export function ShopProvider({ children }) {
                         .single();
 
                     if (createError) throw createError;
-                    customerId = newCustomer.id;
-                    currentCustomer = newCustomer;
+                    customerId = newCustomer?.id || `cust_${cleanDigits}`;
+                    currentCustomer = newCustomer || { id: customerId, phone: cleanDigits, name: checkoutForm.billingName };
                 }
 
-                // Log the guest / newly created customer in locally so they see their correct profile immediately
+                // Log the customer in locally so they see their correct profile immediately
                 setUser(currentCustomer);
                 localStorage.setItem('cast_prince_user', JSON.stringify(currentCustomer));
             } else {
@@ -993,7 +1120,8 @@ export function ShopProvider({ children }) {
             isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart,
             comingSoonSettings, setComingSoonSettings, fetchComingSoon,
             appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon,
-            dbCategories, fetchDbCategories
+            dbCategories, fetchDbCategories,
+            activeDiscountRules, fetchActiveDiscountRules, getEffectiveProductPrice
         }}>
             {children}
         </ShopContext.Provider>

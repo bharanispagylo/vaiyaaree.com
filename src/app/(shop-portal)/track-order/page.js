@@ -269,8 +269,12 @@ function TrackContent() {
 
 
     const getStatusIndex = (status) => {
-        const stages = ['PLACED', 'CONFIRMED', 'SHIPPED', 'DELIVERED'];
-        return stages.indexOf(status);
+        const s = (status || '').toUpperCase();
+        if (['PLACED', 'PENDING', 'AWAITING_PAYMENT'].includes(s)) return 0;
+        if (['PAID', 'CONFIRMED', 'PROCESSING'].includes(s)) return 1;
+        if (['PACKING', 'SHIPPED', 'DISPATCHED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'].includes(s)) return 2;
+        if (['DELIVERED'].includes(s)) return 3;
+        return 0;
     };
 
     const statusIndex = order ? getStatusIndex(order.status) : -1;
@@ -504,7 +508,15 @@ function TrackContent() {
                         </div>
                         <div className={styles.modalBody}>
                             <p>Verify identity to cancel order <strong>{order.invoice_no ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`) : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`}</strong></p>
-                            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>
+                            
+                            {/* Online Payment Refund Notice */}
+                            {(order.status === 'PAID' || order.payment_method === 'Razorpay') && (
+                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.8rem', color: '#166534', textAlign: 'left' }}>
+                                    💳 <strong>Razorpay Refund:</strong> ₹{Number(order.total_amount || 0).toLocaleString('en-IN')} will be refunded to your original payment method upon cancellation.
+                                </div>
+                            )}
+
+                            <p style={{ fontSize: '0.82rem', color: '#666', marginBottom: '1.25rem' }}>
                                 A verification code will be sent to <strong>{order.customer_phone?.replace(/(\d{2})(\d{6})(\d{4})/, '$1******$3') || 'your phone'}</strong>
                             </p>
                             {!otpSent ? (
