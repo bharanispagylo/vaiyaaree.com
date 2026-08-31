@@ -346,16 +346,6 @@ export default function ShopSettingsPage() {
                                 {testingEmail ? 'Sending Test...' : 'Send Test Email'}
                             </button>
                         </div>
-                        <Link
-                            href="/admin/emails"
-                            style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                                padding: '0.65rem 1.25rem', backgroundColor: '#5d0821', color: '#ffffff',
-                                borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '0.88rem'
-                            }}
-                        >
-                            <Mail size={16} /> Open Email Simulator (9 Statuses) &rarr;
-                        </Link>
                     </div>
                 </section>
 

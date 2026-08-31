@@ -1,8 +1,6 @@
 import { mysqlClient } from '../lib/mysqlClient.js';
 import { sendEmail, sendOrderStatusEmail } from '../lib/emailService.js';
 import { sendWhatsAppText, sendWhatsAppTemplate } from '../lib/whatsapp.js';
-import { buildOrderStatusEmailHtml, getOrderEmailSubject } from '../lib/orderEmailTemplates.js';
-import { generateOrderPDFBuffer } from '../lib/invoiceGenerator.js';
 
 /**
  * Central Notification Engine for Customer & Admin Notifications
@@ -101,25 +99,6 @@ export async function dispatchNotification({
 
     // 3. Dispatch Customer Email
     if (customerEmail && content.customerEmail) {
-        let attachments = [];
-        if (order) {
-            try {
-                const pdfBuffer = await generateOrderPDFBuffer(order);
-                if (pdfBuffer) {
-                    const cleanInv = order.invoice_no 
-                        ? order.invoice_no.replace(/^#/, '') 
-                        : String(order.id || 'ORDER').replace(/^[A-Z]+-/, 'INV-');
-                    attachments.push({
-                        filename: `Invoice_${cleanInv}.pdf`,
-                        content: pdfBuffer,
-                        contentType: 'application/pdf'
-                    });
-                }
-            } catch (pdfErr) {
-                console.error('[NOTIF ENGINE] Failed to attach PDF invoice:', pdfErr);
-            }
-        }
-
         const emailRes = await sendWithDuplicateCheck({
             orderId,
             returnId,
@@ -129,12 +108,7 @@ export async function dispatchNotification({
             recipient: customerEmail,
             recipientType: 'CUSTOMER',
             forceRetry,
-            sendFn: async () => await sendEmail({
-                to: customerEmail,
-                subject: content.customerEmail.subject,
-                html: content.customerEmail.html,
-                attachments
-            })
+            sendFn: async () => await sendEmail({ to: customerEmail, subject: content.customerEmail.subject, html: content.customerEmail.html })
         });
         results.push(emailRes);
     }
@@ -481,17 +455,10 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
         case EVENT_TYPES.ORDER_PLACED:
         case EVENT_TYPES.ORDER_CONFIRMED:
             customerWhatsApp = `🌸 *Order Confirmed!* 🌸\n\nDear ${customerName},\nYour order *${displayInv}* has been placed successfully!\nTotal Amount: *${totalAmount}*\n\nWe are preparing your saree collection for dispatch. Thank you for shopping with ${brand}! ✨`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'PLACED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'PLACED', baseUrl: appUrl })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Order Confirmed - ${displayInv} | ${brand}`,
-                    html: `<div style="font-family: Arial, sans-serif; padding: 20px;"><h2>Order Confirmed!</h2><p>Dear ${customerName},</p><p>Thank you for your order <strong>${displayInv}</strong> for <strong>${totalAmount}</strong>.</p></div>`
-                };
-            }
+            customerEmail = {
+                subject: `Order Confirmed - ${displayInv} | ${brand}`,
+                html: `<div style="font-family: Arial, sans-serif; padding: 20px;"><h2>Order Confirmed!</h2><p>Dear ${customerName},</p><p>Thank you for your order <strong>${displayInv}</strong> for <strong>${totalAmount}</strong>.</p><p>We are processing your items.</p></div>`
+            };
             isAdminEvent = true;
             adminWhatsApp = `🔔 *NEW ORDER ALERT* 🔔\n\nOrder: *${displayInv}*\nCustomer: ${customerName} (${order?.customer_phone || ''})\nTotal: *${totalAmount}*\nPayment Method: ${order?.payment_method || 'COD'}`;
             adminEmail = {
@@ -514,17 +481,10 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
 
         case EVENT_TYPES.PAYMENT_SUCCESS:
             customerWhatsApp = `✅ *Payment Successful!* ✅\n\nDear ${customerName},\nPayment of *${totalAmount}* for order *${displayInv}* was received successfully via ${order?.payment_method || 'UPI/Online'}.\n\nYour order is now being processed! 🎁`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'PAID', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'PAID', baseUrl: appUrl })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Payment Successful - Order ${displayInv}`,
-                    html: `<p>Dear ${customerName}, payment of <strong>${totalAmount}</strong> for order ${displayInv} was received successfully.</p>`
-                };
-            }
+            customerEmail = {
+                subject: `Payment Successful - Order ${displayInv}`,
+                html: `<p>Dear ${customerName}, payment of <strong>${totalAmount}</strong> for order ${displayInv} was received successfully.</p>`
+            };
             isAdminEvent = true;
             adminWhatsApp = `💰 *PAYMENT RECEIVED* 💰\n\nOrder: *${displayInv}*\nCustomer: ${customerName}\nAmount Paid: *${totalAmount}*`;
             adminEmail = {
@@ -547,17 +507,10 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
 
         case EVENT_TYPES.PAYMENT_FAILED:
             customerWhatsApp = `⚠️ *Payment Failed* ⚠️\n\nDear ${customerName},\nPayment attempt of *${totalAmount}* for order *${displayInv}* failed or was cancelled.\n\nPlease retry payment or select COD to confirm your order: ${appUrl}/checkout`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'AWAITING_PAYMENT', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'AWAITING_PAYMENT', baseUrl: appUrl })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Payment Action Required - Order ${displayInv}`,
-                    html: `<p>Dear ${customerName}, your payment attempt for order ${displayInv} failed. Please retry payment to complete your order.</p>`
-                };
-            }
+            customerEmail = {
+                subject: `Payment Action Required - Order ${displayInv}`,
+                html: `<p>Dear ${customerName}, your payment attempt for order ${displayInv} failed. Please retry payment to complete your order.</p>`
+            };
             isAdminEvent = true;
             adminWhatsApp = `🚨 *PAYMENT FAILED ALERT* 🚨\n\nOrder: *${displayInv}*\nCustomer: ${customerName}\nAttempted Amount: ${totalAmount}`;
             adminEmail = {
@@ -579,38 +532,31 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             break;
 
         case EVENT_TYPES.ORDER_PROCESSING:
+            customerWhatsApp = `⚙️ *Order Processing* ⚙️\n\nHi ${customerName}, order *${displayInv}* is being processed by our packaging team.`;
+            customerEmail = {
+                subject: `Order Processing - ${displayInv}`,
+                html: `<p>Order ${displayInv} is currently being processed.</p>`
+            };
+            break;
+
         case EVENT_TYPES.ORDER_PACKED:
-            customerWhatsApp = `📦 *Order Packed & Inspected!* 📦\n\nHi ${customerName}, your order *${displayInv}* has been inspected, steam-pressed, and packed for dispatch!`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'PACKING', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'PACKING', baseUrl: appUrl })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Order Packing - ${displayInv}`,
-                    html: `<p>Order ${displayInv} has been packed.</p>`
-                };
-            }
+            customerWhatsApp = `📦 *Order Packed!* 📦\n\nHi ${customerName}, your order *${displayInv}* has been packed carefully and is ready for courier pickup!`;
+            customerEmail = {
+                subject: `Order Packed - ${displayInv}`,
+                html: `<p>Order ${displayInv} has been packed.</p>`
+            };
             break;
 
         case EVENT_TYPES.ORDER_SHIPPED:
         case EVENT_TYPES.COURIER_DETAILS_ADDED:
-            const courier = order?.courier_name || extraData.courierName || 'BlueDart / Delhivery';
+            const courier = order?.courier_name || extraData.courierName || 'Courier';
             const trackNo = order?.tracking_number || extraData.trackingNumber || 'N/A';
             const trackUrl = order?.tracking_url || extraData.trackingUrl || appUrl;
             customerWhatsApp = `🚚 *Order Shipped!* 🚚\n\nGreat news ${customerName}!\nOrder *${displayInv}* has been shipped.\n\n*Carrier:* ${courier}\n*Tracking No:* ${trackNo}\n*Track Here:* ${trackUrl}`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'SHIPPED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'SHIPPED', baseUrl: appUrl })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Order Shipped - ${displayInv} (${courier})`,
-                    html: `<p>Order ${displayInv} has been shipped via ${courier}. Tracking No: ${trackNo}. <a href="${trackUrl}">Track Package</a></p>`
-                };
-            }
+            customerEmail = {
+                subject: `Order Shipped - ${displayInv} (${courier})`,
+                html: `<p>Order ${displayInv} has been shipped via ${courier}. Tracking No: ${trackNo}. <a href="${trackUrl}">Track Package</a></p>`
+            };
             isAdminEvent = true;
             adminWhatsApp = `🚚 *SHIPMENT DISPATCHED*\n\nOrder: *${displayInv}*\nCourier: ${courier}\nTracking: ${trackNo}`;
             adminEmail = {
@@ -621,32 +567,18 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
 
         case EVENT_TYPES.OUT_FOR_DELIVERY:
             customerWhatsApp = `🛵 *Out For Delivery!* 🛵\n\nHi ${customerName}, order *${displayInv}* is out for delivery today. Please keep *${totalAmount}* ready if COD.`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'SHIPPED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'SHIPPED', baseUrl: appUrl, customNotes: 'Your package is out for delivery today!' })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Out for Delivery - ${displayInv}`,
-                    html: `<p>Order ${displayInv} is out for delivery today!</p>`
-                };
-            }
+            customerEmail = {
+                subject: `Out for Delivery - ${displayInv}`,
+                html: `<p>Order ${displayInv} is out for delivery today!</p>`
+            };
             break;
 
         case EVENT_TYPES.ORDER_DELIVERED:
             customerWhatsApp = `🎉 *Delivered Successfully!* 🎉\n\nOrder *${displayInv}* has been delivered!\nThank you for choosing ${brand}. We hope you love your saree! 💖`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'DELIVERED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'DELIVERED', baseUrl: appUrl })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Delivered - ${displayInv}`,
-                    html: `<p>Order ${displayInv} has been delivered. Thank you!</p>`
-                };
-            }
+            customerEmail = {
+                subject: `Delivered - ${displayInv}`,
+                html: `<p>Order ${displayInv} has been delivered. Thank you!</p>`
+            };
             isAdminEvent = true;
             adminWhatsApp = `✅ *DELIVERY COMPLETED*\n\nOrder *${displayInv}* delivered to ${customerName}.`;
             adminEmail = {
@@ -696,17 +628,10 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
         case EVENT_TYPES.ORDER_CANCELLED_CUSTOMER:
         case EVENT_TYPES.ORDER_CANCELLED_ADMIN:
             customerWhatsApp = `❌ *Order Cancelled* ❌\n\nDear ${customerName}, order *${displayInv}* has been cancelled.\nIf payment was deducted, refund processing has been initiated.`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'CANCELLED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'CANCELLED', baseUrl: appUrl })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Order Cancelled - ${displayInv}`,
-                    html: `<p>Order ${displayInv} has been cancelled.</p>`
-                };
-            }
+            customerEmail = {
+                subject: `Order Cancelled - ${displayInv}`,
+                html: `<p>Order ${displayInv} has been cancelled.</p>`
+            };
             isAdminEvent = true;
             adminWhatsApp = `❌ *ORDER CANCELLED*\n\nOrder: *${displayInv}*\nCustomer: ${customerName}`;
             adminEmail = {
@@ -728,27 +653,19 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             break;
 
         case EVENT_TYPES.RETURN_REQUESTED:
-        case EVENT_TYPES.RETURN_APPROVED:
-            customerWhatsApp = `🔄 *Return / Exchange Update* 🔄\n\nHi ${customerName}, regarding order *${displayInv}*, your return request is being processed.`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'RETURN', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'RETURN', baseUrl: appUrl, customNotes: returnReq?.reason ? `Return Reason: ${returnReq.reason}` : '' })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Return Request - ${displayInv}`,
-                    html: `<p>Return request for ${displayInv}.</p>`
-                };
-            }
+            customerWhatsApp = `🔄 *Return Request Received* 🔄\n\nHi ${customerName}, your return request for order *${displayInv}* has been received. Our team will review it within 24 hours.`;
+            customerEmail = {
+                subject: `Return Request Received - ${displayInv}`,
+                html: `<p>Return request received for ${displayInv}.</p>`
+            };
             isAdminEvent = true;
-            adminWhatsApp = `📩 *RETURN UPDATE*\n\nOrder: *${displayInv}*\nReason: ${returnReq?.reason || 'Customer Return'}`;
+            adminWhatsApp = `📩 *NEW RETURN REQUEST*\n\nOrder: *${displayInv}*\nReason: ${returnReq?.reason || 'Customer Return'}`;
             adminEmail = {
-                subject: `[ADMIN ALERT] Return Update - ${displayInv}`,
+                subject: `[ADMIN ALERT] New Return Request - ${displayInv}`,
                 html: renderAdminAlertHtml({
                     badgeText: 'RETURN REQUEST',
                     badgeBg: '#7c3aed',
-                    title: 'Return Request Update',
+                    title: 'New Return Request Received',
                     displayInv,
                     customerName,
                     customerPhone: customerPhoneVal,
@@ -765,41 +682,11 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             };
             break;
 
-        case EVENT_TYPES.REFUND_INITIATED:
-        case EVENT_TYPES.REFUND_COMPLETED:
-            customerWhatsApp = `💰 *Refund Processed!* 💰\n\nHi ${customerName}, your refund of *${totalAmount}* for order *${displayInv}* has been executed successfully via Razorpay / Bank Transfer.`;
-            if (order) {
-                customerEmail = {
-                    subject: getOrderEmailSubject({ order, status: 'REFUND', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'REFUND', baseUrl: appUrl, customNotes: extraData.refundId ? `Razorpay Refund ID: ${extraData.refundId}` : '' })
-                };
-            } else {
-                customerEmail = {
-                    subject: `Refund Processed - ${displayInv}`,
-                    html: `<p>Refund of ${totalAmount} for ${displayInv} has been processed.</p>`
-                };
-            }
-            isAdminEvent = true;
-            adminWhatsApp = `💰 *REFUND PROCESSED*\n\nOrder: *${displayInv}*\nAmount: *${totalAmount}*`;
-            adminEmail = {
-                subject: `[ADMIN INFO] Refund Processed - ${displayInv}`,
-                html: renderAdminAlertHtml({
-                    badgeText: 'REFUND COMPLETED',
-                    badgeBg: '#0d9488',
-                    title: 'Refund Processed',
-                    displayInv,
-                    customerName,
-                    customerPhone: customerPhoneVal,
-                    customerEmail: customerEmailVal,
-                    totalAmount,
-                    paymentMethod: paymentMethodVal,
-                    items: orderItemsVal,
-                    extraDetails: [
-                        { label: 'Refund Amount', value: totalAmount },
-                        { label: 'Refund ID', value: extraData.refundId || 'N/A' }
-                    ],
-                    actionUrl: `${appUrl}/admin/refunds`
-                })
+        case EVENT_TYPES.RETURN_APPROVED:
+            customerWhatsApp = `✅ *Return Approved!* ✅\n\nHi ${customerName}, return for order *${displayInv}* is approved. Please ship the product back and update tracking details.`;
+            customerEmail = {
+                subject: `Return Approved - ${displayInv}`,
+                html: `<p>Return approved for ${displayInv}.</p>`
             };
             break;
 

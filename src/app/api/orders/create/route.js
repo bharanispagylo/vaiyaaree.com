@@ -72,47 +72,26 @@ export async function POST(request) {
                 let actualName = item.name;
                 let actualCategory = item.category || '';
                 let actualVariantName = item.variantName || null;
-                let verifiedVariantId = null;
 
                 if (item.variantId) {
-                    // Try locking variant row for update
+                    // Lock variant row for update
                     const [vRows] = await conn.query(
                         "SELECT `id`, `name`, `price`, `stock` FROM `product_variants` WHERE `id` = ? FOR UPDATE",
                         [item.variantId]
                     );
 
-                    if (vRows.length > 0) {
-                        const variant = vRows[0];
-                        const currentStock = parseInt(variant.stock, 10) || 0;
-                        if (currentStock < item.qty) {
-                            throw new Error(`Insufficient stock for "${item.name}" (${variant.name}). Only ${currentStock} left in stock.`);
-                        }
-
-                        actualPrice = parseFloat(variant.price || 0);
-                        actualVariantName = variant.name;
-                        verifiedVariantId = variant.id;
-                    } else {
-                        // Fallback: Check if item.id exists in products table if variant ID is not found
-                        const [pRows] = await conn.query(
-                            "SELECT `id`, `name`, `price`, `stock`, `category` FROM `products` WHERE `id` = ? FOR UPDATE",
-                            [item.id]
-                        );
-
-                        if (pRows.length === 0) {
-                            throw new Error(`Product not found: ${item.name || item.id}`);
-                        }
-
-                        const product = pRows[0];
-                        const currentStock = parseInt(product.stock, 10) || 0;
-                        if (currentStock < item.qty) {
-                            throw new Error(`Insufficient stock for "${item.name}". Only ${currentStock} left in stock.`);
-                        }
-
-                        actualPrice = parseFloat(product.price || item.price || 0);
-                        if (product.name) actualName = product.name;
-                        if (product.category) actualCategory = product.category;
-                        verifiedVariantId = null;
+                    if (vRows.length === 0) {
+                        throw new Error(`Product variant not found: ${item.name || item.variantId}`);
                     }
+
+                    const variant = vRows[0];
+                    const currentStock = parseInt(variant.stock, 10) || 0;
+                    if (currentStock < item.qty) {
+                        throw new Error(`Insufficient stock for "${item.name}" (${variant.name}). Only ${currentStock} left in stock.`);
+                    }
+
+                    actualPrice = parseFloat(variant.price || 0);
+                    actualVariantName = variant.name;
                 } else {
                     // Lock product row for update
                     const [pRows] = await conn.query(
@@ -130,7 +109,7 @@ export async function POST(request) {
                         throw new Error(`Insufficient stock for "${item.name}". Only ${currentStock} left in stock.`);
                     }
 
-                    actualPrice = parseFloat(product.price || item.price || 0);
+                    actualPrice = parseFloat(product.price || 0);
                     if (product.name) actualName = product.name;
                     if (product.category) actualCategory = product.category;
                 }
@@ -142,7 +121,7 @@ export async function POST(request) {
                     category: actualCategory,
                     price: actualPrice,
                     qty: item.qty,
-                    variantId: verifiedVariantId,
+                    variantId: item.variantId || null,
                     variantName: actualVariantName
                 });
             }

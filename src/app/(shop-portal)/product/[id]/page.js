@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ShoppingCart, CheckCircle, X, ZoomIn, ChevronLeft, ChevronRight, Tag, ShieldCheck } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
@@ -19,7 +19,7 @@ export default function ProductDetailsPage() {
     const { id } = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { products, addToCart, loading: productsLoading, mysqlClient, getEffectiveProductPrice } = useShop();
+    const { products, addToCart, loading: productsLoading, mysqlClient } = useShop();
 
     const [product, setProduct] = useState(null);
     const [variants, setVariants] = useState([]);
@@ -29,20 +29,65 @@ export default function ProductDetailsPage() {
     const [isZoomed, setIsZoomed] = useState(false);
     const [currentImageIdx, setCurrentImageIdx] = useState(0);
     const [swiperInstance, setSwiperInstance] = useState(null);
-    const loadedProductIdRef = useRef(null);
 
-    // Load Product and Variants once per id without triggering reload loops
+    // Sync selected variant with URL query parameter (Shopify Style)
+    const syncVariantToUrl = useCallback((variantId) => {
+        if (typeof window === 'undefined' || !variantId) return;
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('variant') !== String(variantId)) {
+            url.searchParams.set('variant', String(variantId));
+            window.history.replaceState(null, '', url.toString());
+        }
+    }, []);
+
+    const fetchVariants = useCallback(async (productId, initialVariantParam = null) => {
+        if (!mysqlClient || !productId) return;
+        try {
+            const { data } = await mysqlClient
+                .from('product_variants')
+                .select('*')
+                .eq('product_id', productId)
+                .order('created_at', { ascending: true });
+
+            if (data && data.length > 0) {
+                setVariants(data);
+
+                // Priority 1: Match variant from URL search params
+                let target = null;
+                const paramToMatch = initialVariantParam || searchParams?.get('variant') || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('variant') : null);
+                if (paramToMatch) {
+                    const cleanParam = decodeURIComponent(paramToMatch).trim().toLowerCase();
+                    target = data.find(v => 
+                        String(v.id).toLowerCase() === cleanParam ||
+                        String(v.sku || '').toLowerCase() === cleanParam ||
+                        String(v.name || '').trim().toLowerCase() === cleanParam
+                    );
+                }
+
+                // Priority 2: Fallback to first in-stock variant, or first variant
+                if (!target) {
+                    target = data.find(v => Number(v.stock || 0) > 0) || data[0];
+                }
+
+                setSelectedVariant(target);
+                if (target?.id) {
+                    syncVariantToUrl(target.id);
+                }
+            } else {
+                setVariants([]);
+                setSelectedVariant(null);
+            }
+        } catch (err) {
+            console.error('Error loading variants:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [mysqlClient, searchParams, syncVariantToUrl]);
+
     useEffect(() => {
-        let isMounted = true;
-
         async function loadProductDetails() {
             if (!id) return;
-
-            // Only show full loading skeleton on fresh ID navigation
-            const isFreshNavigation = loadedProductIdRef.current !== id;
-            if (isFreshNavigation) {
-                setLoading(true);
-            }
+            setLoading(true);
 
             // 1. Try finding in loaded products list
             let found = findProductBySlugOrId(id, products);
@@ -52,12 +97,12 @@ export default function ProductDetailsPage() {
                 const rawParam = decodeURIComponent(String(id)).trim().replace(/\/$/, '');
 
                 // A. Direct Slug match
-                const { data: directSlug } = await mysqlClient.from('products').select('*').eq('slug', rawParam).maybeSingle();
+                let { data: directSlug } = await mysqlClient.from('products').select('*').eq('slug', rawParam).maybeSingle();
                 if (directSlug) found = directSlug;
 
                 // B. Direct ID / UUID query
                 if (!found) {
-                    const { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
+                    let { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
                     if (directData) found = directData;
                 }
 
@@ -85,81 +130,27 @@ export default function ProductDetailsPage() {
                 }
             }
 
-            if (!isMounted) return;
-
             if (found) {
                 setProduct(found);
-                loadedProductIdRef.current = id;
-
-                // Fetch variants if applicable
-                if (found.type === 'variant' && mysqlClient) {
-                    try {
-                        const { data: variantData } = await mysqlClient
-                            .from('product_variants')
-                            .select('*')
-                            .eq('product_id', found.id)
-                            .order('created_at', { ascending: true });
-
-                        if (isMounted) {
-                            if (variantData && variantData.length > 0) {
-                                setVariants(variantData);
-
-                                // Select matching variant from searchParams or URL query
-                                const currentParam = searchParams?.get('variant') || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('variant') : null);
-                                let target = null;
-                                if (currentParam) {
-                                    const cleanParam = decodeURIComponent(currentParam).trim().toLowerCase();
-                                    target = variantData.find(v =>
-                                        String(v.id).toLowerCase() === cleanParam ||
-                                        String(v.sku || '').toLowerCase() === cleanParam ||
-                                        String(v.name || '').trim().toLowerCase() === cleanParam
-                                    );
-                                }
-                                if (!target) {
-                                    target = variantData.find(v => Number(v.stock || 0) > 0) || variantData[0];
-                                }
-                                setSelectedVariant(target);
-                            } else {
-                                setVariants([]);
-                                setSelectedVariant(null);
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error loading variants:', err);
-                    }
-                }
-
-                if (isMounted) {
+                if (found.type === 'variant') {
+                    fetchVariants(found.id);
+                } else {
                     setLoading(false);
                 }
             } else if (!productsLoading) {
-                if (isMounted) {
-                    setLoading(false);
-                }
+                setLoading(false);
             }
         }
 
         loadProductDetails();
+    }, [id, products, productsLoading, mysqlClient, fetchVariants]);
 
-        return () => {
-            isMounted = false;
-        };
-    }, [id, products, productsLoading, mysqlClient]);
-
-    // Instant, flicker-free variant selection
-    const handleSelectVariant = useCallback((v) => {
-        if (!v) return;
+    const handleSelectVariant = (v) => {
         setSelectedVariant(v);
-
-        // Quietly sync URL without re-triggering router or page unmount
-        if (typeof window !== 'undefined' && v.id) {
-            const url = new URL(window.location.href);
-            if (url.searchParams.get('variant') !== String(v.id)) {
-                url.searchParams.set('variant', String(v.id));
-                window.history.replaceState(null, '', url.toString());
-            }
+        if (v?.id) {
+            syncVariantToUrl(v.id);
         }
-    }, []);
+    };
 
     // Multi-Option detection for Storefront (e.g. Size: S, M; Color: Red, Green)
     const parsedOptionGroups = useMemo(() => {
@@ -246,7 +237,6 @@ export default function ProductDetailsPage() {
         addToCart(product, selectedVariant, qty);
     };
 
-    // Gallery images stable list
     const galleryImages = useMemo(() => {
         if (!product) return [];
         const mainImg = selectedVariant?.image_url || product.image_url || '';
@@ -263,44 +253,16 @@ export default function ProductDetailsPage() {
         const combined = [...mainList, ...galleryList].map(url => (url || '').trim()).filter(Boolean);
         const unique = Array.from(new Set(combined));
         return unique.length > 0 ? unique : [fallbackImg];
-    }, [product, selectedVariant?.image_url]);
+    }, [product, selectedVariant]);
 
-    // Smoothly slide to variant image when variant changes
     useEffect(() => {
-        if (!selectedVariant || !swiperInstance || swiperInstance.destroyed) return;
-        const variantImg = selectedVariant.image_url ? selectedVariant.image_url.split(',')[0].trim() : null;
-        if (variantImg) {
-            const foundIdx = galleryImages.findIndex(img => img === variantImg);
-            if (foundIdx !== -1 && foundIdx !== currentImageIdx) {
-                setCurrentImageIdx(foundIdx);
-                swiperInstance.slideTo(foundIdx, 300);
-            }
+        setCurrentImageIdx(0);
+        if (swiperInstance && !swiperInstance.destroyed) {
+            swiperInstance.slideTo(0);
         }
-    }, [selectedVariant, galleryImages, swiperInstance, currentImageIdx]);
+    }, [selectedVariant, product]);
 
-    if (loading && !product) {
-        return (
-            <div className={styles.productContainer}>
-                <div className={styles.mainSection}>
-                    <div className={styles.imageGallerySkeleton}>
-                        <div className={styles.imageSkeleton} />
-                        <div className={styles.thumbStripSkeleton}>
-                            {[1, 2, 3, 4].map(n => <div key={n} className={styles.thumbSkeleton} />)}
-                        </div>
-                    </div>
-                    <div className={styles.detailsSkeleton}>
-                        <div className={styles.pillSkeleton} />
-                        <div className={styles.titleSkeleton} />
-                        <div className={styles.priceSkeleton} />
-                        <div className={styles.descSkeleton} />
-                        <div className={styles.variantsSkeleton} />
-                        <div className={styles.btnSkeleton} />
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
+    if (loading) return <div className={styles.loading}>Loading product details...</div>;
     if (!product) return (
         <div className={styles.notFound}>
             Product not found.
@@ -427,61 +389,37 @@ export default function ProductDetailsPage() {
                     {/* Name */}
                     <h1 className={styles.productName}>{product.name}</h1>
 
-                    {/* Price + Stock + Discount Rules */}
+                    {/* Price + Stock */}
                     {(() => {
-                        const pricing = typeof getEffectiveProductPrice === 'function'
-                            ? getEffectiveProductPrice(product, selectedVariant)
-                            : { originalPrice: displayPrice, comparePrice: displayPrice, discountedPrice: displayPrice, discountPercent: 0, discountAmount: 0, activeRule: null, hasDiscount: false };
+                        const tagList = Array.isArray(product.tags)
+                            ? product.tags
+                            : (typeof product.tags === 'string' ? product.tags.split(',') : []);
 
-                        const finalPrice = pricing.discountedPrice || displayPrice;
-                        const originalPrice = pricing.comparePrice || pricing.originalPrice;
-                        const hasDiscount = pricing.hasDiscount;
-                        const discountPercent = pricing.discountPercent;
-                        const savings = pricing.discountAmount;
-                        const activeRule = pricing.activeRule;
+                        const mrpTag = tagList.map(t => String(t).trim()).find(t => t.toLowerCase().startsWith('mrp:'));
+                        const mrpVal = mrpTag ? Number(mrpTag.split(':')[1]) : (selectedVariant?.compare_price || product.compare_price || product.original_price || product.mrp);
+
+                        const hasDiscount = mrpVal && !isNaN(mrpVal) && mrpVal > (displayPrice || 0);
+                        const discountPercent = hasDiscount ? Math.round(((mrpVal - displayPrice) / mrpVal) * 100) : 0;
 
                         return (
-                            <div>
-                                <div className={styles.priceRow}>
-                                    <span className={styles.priceTag}>
-                                        ₹{finalPrice?.toLocaleString()}
-                                    </span>
-                                    {hasDiscount && (
-                                        <>
-                                            <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '1.2rem', fontWeight: 600 }}>
-                                                ₹{Number(originalPrice).toLocaleString()}
-                                            </span>
-                                            <span style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', fontSize: '0.85rem', fontWeight: 800, padding: '0.25rem 0.65rem', borderRadius: '6px' }}>
-                                                {discountPercent}% OFF
-                                            </span>
-                                        </>
-                                    )}
-                                    {!isOutOfStock
-                                        ? <span className={styles.inStock}><CheckCircle size={13} /> {currentStock} sarees in stock</span>
-                                        : <span className={styles.outOfStock}><X size={13} /> Out of Stock</span>
-                                    }
-                                </div>
-
-                                {hasDiscount && savings > 0 && (
-                                    <div style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        background: activeRule ? '#eff6ff' : '#f0fdf4',
-                                        border: activeRule ? '1px solid #bfdbfe' : '1px solid #bbf7d0',
-                                        color: activeRule ? '#1d4ed8' : '#15803d',
-                                        padding: '5px 12px',
-                                        borderRadius: '8px',
-                                        fontSize: '0.82rem',
-                                        fontWeight: 700,
-                                        marginTop: '0.65rem'
-                                    }}>
-                                        <Tag size={14} />
-                                        <span>
-                                            {activeRule ? `${activeRule.name}: You Save ₹${savings.toLocaleString()}` : `Special Offer: You Save ₹${savings.toLocaleString()}`}
+                            <div className={styles.priceRow}>
+                                <span className={styles.priceTag}>
+                                    ₹{displayPrice?.toLocaleString()}
+                                </span>
+                                {hasDiscount && (
+                                    <>
+                                        <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '1.2rem', fontWeight: 600 }}>
+                                            ₹{Number(mrpVal).toLocaleString()}
                                         </span>
-                                    </div>
+                                        <span style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', fontSize: '0.85rem', fontWeight: 800, padding: '0.25rem 0.65rem', borderRadius: '6px' }}>
+                                            {discountPercent}% OFF
+                                        </span>
+                                    </>
                                 )}
+                                {!isOutOfStock
+                                    ? <span className={styles.inStock}><CheckCircle size={13} /> {currentStock} sarees in stock</span>
+                                    : <span className={styles.outOfStock}><X size={13} /> Out of Stock</span>
+                                }
                             </div>
                         );
                     })()}

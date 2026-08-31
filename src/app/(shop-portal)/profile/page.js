@@ -211,7 +211,6 @@ export default function ProfilePage() {
     const [loadingOrders, setLoadingOrders] = useState(true);
     const [activeOrdersPage, setActiveOrdersPage] = useState(1);
     const [historyOrdersPage, setHistoryOrdersPage] = useState(1);
-    const [selectedDetailOrder, setSelectedDetailOrder] = useState(null);
     const ORDERS_PER_PAGE = 5;
 
     // Refund state
@@ -275,11 +274,10 @@ export default function ProfilePage() {
     };
 
     const getStatusIndex = (status) => {
-        const s = (status || '').toUpperCase();
-        switch (s) {
+        switch (status) {
             case 'PLACED': case 'PENDING': case 'AWAITING_PAYMENT': return 0;
-            case 'PAID': case 'CONFIRMED': case 'PROCESSING': return 1;
-            case 'PACKING': case 'SHIPPED': case 'DISPATCHED': case 'IN_TRANSIT': case 'OUT_FOR_DELIVERY': return 2;
+            case 'CONFIRMED': case 'PACKING': case 'PAID': return 1;
+            case 'SHIPPED': return 2;
             case 'DELIVERED': return 3;
             default: return 0;
         }
@@ -1080,13 +1078,7 @@ export default function ProfilePage() {
                                                     return (
                                                         <tr key={order.id}>
                                                             <td style={{ whiteSpace: 'nowrap' }}>
-                                                                <Link
-                                                                    href={`/profile/orders/${order.id}`}
-                                                                    style={{ textDecoration: 'none' }}
-                                                                    title="View full order details"
-                                                                >
-                                                                    <div style={{ fontWeight: 800, fontSize: '0.82rem', color: 'hsl(var(--primary))', fontFamily: 'monospace, sans-serif', textDecoration: 'underline' }}>{displayInv}</div>
-                                                                </Link>
+                                                                <div style={{ fontWeight: 800, fontSize: '0.82rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
                                                             </td>
                                                             <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
                                                                 {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -1112,13 +1104,6 @@ export default function ProfilePage() {
                                                             </td>
                                                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
-                                                                    <Link
-                                                                        href={`/profile/orders/${order.id}`}
-                                                                        className={styles.actionBtnOutline}
-                                                                        style={{ padding: '0.25rem 0.55rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap', background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce', textDecoration: 'none' }}
-                                                                    >
-                                                                        <Eye size={12} /> Details
-                                                                    </Link>
                                                                     {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
                                                                         <button
                                                                             type="button"
@@ -1168,9 +1153,7 @@ export default function ProfilePage() {
                                                 <div key={order.id} className={styles.mobileOrderCard}>
                                                     <div className={styles.mobileCardHeader}>
                                                         <div>
-                                                            <Link href={`/profile/orders/${order.id}`} className={styles.mobileInvNo} style={{ color: 'hsl(var(--primary))', textDecoration: 'underline' }}>
-                                                                {displayInv}
-                                                            </Link>
+                                                            <div className={styles.mobileInvNo}>{displayInv}</div>
                                                             <div className={styles.mobileOrderDate}>
                                                                 {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                             </div>
@@ -1194,13 +1177,6 @@ export default function ProfilePage() {
                                                     </div>
 
                                                     <div className={styles.mobileCardActions}>
-                                                        <Link 
-                                                            href={`/profile/orders/${order.id}`}
-                                                            className={styles.mobileTrackBtn}
-                                                            style={{ background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                                                        >
-                                                            <Eye size={13} /> Details
-                                                        </Link>
                                                         {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
                                                             <button
                                                                 type="button"
@@ -1464,13 +1440,7 @@ export default function ProfilePage() {
                                                     return (
                                                         <tr key={order.id}>
                                                             <td style={{ whiteSpace: 'nowrap' }}>
-                                                                <Link
-                                                                    href={`/profile/orders/${order.id}`}
-                                                                    style={{ textDecoration: 'none' }}
-                                                                    title="View full order details"
-                                                                >
-                                                                    <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--primary))', fontFamily: 'monospace, sans-serif', textDecoration: 'underline' }}>{displayInv}</div>
-                                                                </Link>
+                                                                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', fontFamily: 'monospace, sans-serif' }}>{displayInv}</div>
                                                             </td>
                                                             <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
                                                                 {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -1495,27 +1465,18 @@ export default function ProfilePage() {
                                                                 </span>
                                                             </td>
                                                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
-                                                                    <Link 
-                                                                        href={`/profile/orders/${order.id}`}
-                                                                        className={styles.actionBtnOutline}
-                                                                        style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap', background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce', textDecoration: 'none' }}
-                                                                    >
-                                                                        <Eye size={12} /> Details
-                                                                    </Link>
-                                                                    <button 
-                                                                        onClick={() => {
-                                                                            const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
-                                                                            setTrackSearchId(inv);
-                                                                            handleTabChange('track');
-                                                                            handleTrackSearch(order.id);
-                                                                        }}
-                                                                        className={styles.actionBtnOutline}
-                                                                        style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
-                                                                    >
-                                                                        Track Order <ArrowRight size={13} />
-                                                                    </button>
-                                                                </div>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
+                                                                        setTrackSearchId(inv);
+                                                                        handleTabChange('track');
+                                                                        handleTrackSearch(order.id);
+                                                                    }}
+                                                                    className={styles.actionBtnOutline}
+                                                                    style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                                                >
+                                                                    Track Order <ArrowRight size={13} />
+                                                                </button>
                                                             </td>
                                                         </tr>
                                                     );
@@ -1536,9 +1497,7 @@ export default function ProfilePage() {
                                                 <div key={order.id} className={styles.mobileOrderCard}>
                                                     <div className={styles.mobileCardHeader}>
                                                         <div>
-                                                            <Link href={`/profile/orders/${order.id}`} className={styles.mobileInvNo} style={{ color: 'hsl(var(--primary))', textDecoration: 'underline' }}>
-                                                                {displayInv}
-                                                            </Link>
+                                                            <div className={styles.mobileInvNo}>{displayInv}</div>
                                                             <div className={styles.mobileOrderDate}>
                                                                 {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                             </div>
@@ -1562,13 +1521,6 @@ export default function ProfilePage() {
                                                     </div>
 
                                                     <div className={styles.mobileCardActions}>
-                                                        <Link 
-                                                            href={`/profile/orders/${order.id}`}
-                                                            className={styles.mobileTrackBtn}
-                                                            style={{ background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                                                        >
-                                                            <Eye size={13} /> Details
-                                                        </Link>
                                                         <button 
                                                             onClick={() => {
                                                                 const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
@@ -2321,22 +2273,8 @@ export default function ProfilePage() {
                                 </select>
                             </div>
 
-                            {/* Razorpay Refund Notice for Paid Orders */}
-                            {(cancelModalOrder.status === 'PAID' || cancelModalOrder.payment_method === 'Razorpay') ? (
-                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#166534', lineHeight: 1.45 }}>
-                                    <div style={{ fontWeight: 800, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        💳 Instant Razorpay Refund
-                                    </div>
-                                    A full refund of <strong>₹{Number(cancelModalOrder.total_amount || 0).toLocaleString('en-IN')}</strong> will be automatically credited back to your original payment method (UPI / Bank Account / Card) via Razorpay.
-                                </div>
-                            ) : (
-                                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#64748b' }}>
-                                    ℹ️ Cash on Delivery / Unpaid Order. No payment deduction was made.
-                                </div>
-                            )}
-
-                            <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.45 }}>
-                                🔒 <strong>Dispatch Protection:</strong> Orders can only be cancelled while in pre-dispatch status. Once packed or handed over to our courier partners, cancellation is locked.
+                            <p style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.4 }}>
+                                Are you sure you want to cancel this order? Once cancelled, stock will be restored automatically. If you already paid, refund processing will be initiated.
                             </p>
 
                             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>

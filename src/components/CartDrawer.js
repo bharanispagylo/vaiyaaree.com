@@ -8,7 +8,7 @@ import { useShop } from '@/context/ShopContext';
 import styles from './CartDrawer.module.css';
 
 export default function CartDrawer() {
-    const { isCartOpen, closeCart, cart, cartCount, cartTotal, updateQty, removeFromCart, discountData, appliedCoupon } = useShop();
+    const { isCartOpen, closeCart, cart, cartCount, cartTotal, updateQty, removeFromCart } = useShop();
     const router = useRouter();
 
     const hasUnavailableItems = cart.some(i => i.stock !== undefined && i.stock !== null && (i.stock <= 0 || i.qty > i.stock));
@@ -171,31 +171,6 @@ export default function CartDrawer() {
                             <span>Subtotal</span>
                             <span className={styles.totalAmount}>₹{cartTotal.toLocaleString()}</span>
                         </div>
-
-                        {discountData?.totalDiscount > 0 && (
-                            <>
-                                <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.9rem' }}>
-                                    <span>Promotions & Savings</span>
-                                    <span>-₹{discountData.totalDiscount.toLocaleString()}</span>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: '4px 0 8px' }}>
-                                    {(discountData.appliedRules || []).map((r, idx) => (
-                                        <div key={idx} style={{ fontSize: '0.75rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <span>✨ {r.ruleName}</span>
-                                            {r.discountAmount > 0 && <span>(-₹{r.discountAmount.toLocaleString()})</span>}
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-
-                        <div className={styles.summaryRow} style={{ borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '8px', marginTop: '4px' }}>
-                            <span style={{ fontWeight: 800 }}>Estimated Total</span>
-                            <span className={styles.totalAmount} style={{ color: 'hsl(var(--primary))', fontSize: '1.25rem' }}>
-                                ₹{Math.max(0, cartTotal - (discountData?.totalDiscount || 0)).toLocaleString()}
-                            </span>
-                        </div>
-
                         <p className={styles.taxNotice}>Taxes and shipping calculated at checkout.</p>
 
                         <div className={styles.footerBtnGroup}>

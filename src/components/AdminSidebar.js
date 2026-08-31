@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw, ChevronDown, CornerDownLeft, BellRing, Tag, Layers, Mail } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, FileText, Settings, MessageSquare, LogOut, Megaphone, Facebook, Clock, Truck, TrendingUp, Trophy, Image as ImageIcon, Layout, CreditCard, RefreshCcw, ChevronDown, CornerDownLeft, BellRing, Tag, Layers } from 'lucide-react';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { useState, useEffect } from 'react';
 
@@ -59,15 +59,8 @@ const menuItems = [
     },
     { name: 'CMS', href: '/admin/cms', icon: Layout },
     { name: 'User Management', href: '/admin/users', icon: Users },
-    { 
-        name: 'Settings', 
-        icon: Settings,
-        children: [
-            { name: 'Shop Settings', href: '/admin/shop-settings' },
-            { name: 'Email Settings', href: '/admin/emails' },
-            { name: 'Razorpay Setting', href: '/admin/payment-settings' }
-        ]
-    },
+    { name: 'Settings', href: '/admin/shop-settings', icon: Settings },
+    { name: 'Razorpay Setting', href: '/admin/payment-settings', icon: CreditCard },
 ];
 
 export default function AdminSidebar({ isOpen, onClose }) {
