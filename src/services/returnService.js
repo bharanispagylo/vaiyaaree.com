@@ -246,7 +246,7 @@ export async function processReturnRequest({
 
             // Check how much has already been returned/exchanged for this item
             const [alreadyRows] = await pool.query(
-                `SELECT COALESCE(SUM(COALESCE(approved_quantity, requested_quantity, 1)), 0) AS already_qty
+                `SELECT COALESCE(SUM(CAST(COALESCE(quantity, '1') AS UNSIGNED)), 0) AS already_qty
                  FROM return_requests
                  WHERE order_id = ? AND order_item_id = ?
                    AND status NOT IN ('CANCELLED', 'RETURN_REJECTED', 'REJECTED', 'INSPECTION_REJECTED', 'RETURN_CLOSED')`,
@@ -331,7 +331,8 @@ export async function processReturnRequest({
             policy_accepted: policyAccepted ? 1 : 0,
             status: 'RETURN_REQUESTED',
             return_id: returnId,
-            requested_quantity: Number(requestedQuantity) || 1,
+            quantity: String(requestedQuantity || 1),
+            requested_from: requestedFrom || 'WEB',
             notes: null,
         };
 
