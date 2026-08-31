@@ -295,6 +295,16 @@ p {
   }
 }
 
+.admin-main-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
 .main-content {
   padding: 1.25rem 2rem;
   width: 100%;

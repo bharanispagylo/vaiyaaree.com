@@ -450,21 +450,21 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.4rem 0.85rem;
-    border-radius: 20px;
+    padding: 0;
     font-weight: 700;
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    background: transparent !important;
 }
 
-.statusDELIVERED { background: #dcfce7; color: #166534; }
-.statusPLACED { background: #e0f2fe; color: #0369a1; }
-.statusPAID { background: #dbeafe; color: #1e40af; }
-.statusPROCESSING { background: #fef3c7; color: #92400e; }
-.statusSHIPPED { background: #e0e7ff; color: #3730a3; }
-.statusCANCELLED { background: #fee2e2; color: #991b1b; }
-.statusREFUNDED { background: #f3e8ff; color: #6b21a8; }
+.statusDELIVERED { background: transparent !important; color: #166534; }
+.statusPLACED { background: transparent !important; color: #0284c7; }
+.statusPAID { background: transparent !important; color: #1e40af; }
+.statusPROCESSING { background: transparent !important; color: #d97706; }
+.statusSHIPPED { background: transparent !important; color: #3730a3; }
+.statusCANCELLED { background: transparent !important; color: #dc2626; }
+.statusREFUNDED { background: transparent !important; color: #6b21a8; }
 
 .orderBody {
     padding: 1.5rem;
