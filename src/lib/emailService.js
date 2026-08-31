@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs';
 import { mysqlClient } from './mysqlClient.js';
 import { generateInvoicePDF, generateOrderPDFBuffer } from './invoiceGenerator.js';
-import { getDiscountDetails } from './discountHelper.js';
 
 export function getCleanBaseUrl() {
     let url = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim();
