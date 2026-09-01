@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import ProductDetailsClient from '@/components/ProductDetailsClient';
-import { getProductSlug } from '@/lib/productUrl';
+import { getProductSlug, extractProductGalleryImages, normalizeImageUrl } from '@/lib/productUrl';
 import { getProductServer, getProductVariantsServer } from '@/lib/productServer';
 
 export const dynamic = 'force-dynamic';
@@ -45,11 +45,11 @@ export async function generateMetadata({ params }) {
     const slug = getProductSlug(product);
     const productUrl = `${baseUrl}/product/${slug}/`;
 
-    // Extract primary image
-    let imageUrl = 'https://vaiyaaree.com/images/vaiyaaree-logo.png';
-    if (product.image_url) {
-        const firstImg = product.image_url.split(',')[0].trim();
-        imageUrl = firstImg.startsWith('http') ? firstImg : `${baseUrl}${firstImg}`;
+    // Extract primary image using robust gallery extractor
+    const galleryImages = extractProductGalleryImages(product);
+    let imageUrl = galleryImages[0] || `${baseUrl}/images/vaiyaaree-logo.png`;
+    if (!imageUrl.startsWith('http')) {
+        imageUrl = `${baseUrl}${imageUrl}`;
     }
 
     return {
@@ -115,25 +115,9 @@ export default async function ProductPage({ params }) {
     const slug = getProductSlug(product);
     const productUrl = `${baseUrl}/product/${slug}/`;
 
-    // Extract all image URLs for Product Schema
-    let allImages = [];
-    if (product.image_url) {
-        product.image_url.split(',').map(u => u.trim()).filter(Boolean).forEach(img => {
-            allImages.push(img.startsWith('http') ? img : `${baseUrl}${img}`);
-        });
-    }
-    if (product.gallery_image) {
-        const galleryList = Array.isArray(product.gallery_image) 
-            ? product.gallery_image 
-            : String(product.gallery_image).split(',');
-        galleryList.map(u => (u || '').trim()).filter(Boolean).forEach(img => {
-            allImages.push(img.startsWith('http') ? img : `${baseUrl}${img}`);
-        });
-    }
-    if (allImages.length === 0) {
-        allImages = [`${baseUrl}/images/vaiyaaree-logo.png`];
-    }
-    allImages = Array.from(new Set(allImages));
+    // Extract all image URLs for Product Schema using robust gallery extractor
+    const rawGallery = extractProductGalleryImages(product);
+    const allImages = rawGallery.map(img => img.startsWith('http') ? img : `${baseUrl}${img}`);
 
     const isAvailable = Number(product.stock || 0) > 0;
     const priceNumber = Number(product.price || 0);

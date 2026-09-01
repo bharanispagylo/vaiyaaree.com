@@ -1,5 +1,45 @@
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { processOcr } from '@/lib/ocrProcessor';
+import path from 'path';
+import fs from 'fs';
+
+let fontRegistered = false;
+
+/**
+ * Registers bundled font for Linux / Vercel Serverless environment
+ */
+function ensureFontRegistered() {
+    if (fontRegistered) return;
+    try {
+        const candidatePaths = [
+            path.join(process.cwd(), 'src', 'lib', 'fonts', 'watermark-font.ttf'),
+            path.join(process.cwd(), 'public', 'fonts', 'watermark-font.ttf'),
+            path.join(process.cwd(), 'src', 'lib', 'fonts', 'arial.ttf'),
+            path.join(process.cwd(), 'public', 'fonts', 'arial.ttf'),
+            'C:\\Windows\\Fonts\\arialbd.ttf',
+            'C:\\Windows\\Fonts\\arial.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
+        ];
+
+        for (const fontPath of candidatePaths) {
+            try {
+                if (fs.existsSync(fontPath)) {
+                    const fontBuffer = fs.readFileSync(fontPath);
+                    if (fontBuffer && fontBuffer.length > 0) {
+                        GlobalFonts.register(fontBuffer, 'WatermarkFont');
+                        GlobalFonts.register(fontBuffer, 'Arial');
+                        fontRegistered = true;
+                        console.log(`[SERVICE] Successfully registered watermark font from ${fontPath}`);
+                        break;
+                    }
+                }
+            } catch (_) {}
+        }
+    } catch (e) {
+        console.warn('[SERVICE] Font registration fallback warning:', e?.message);
+    }
+}
 
 /**
  * Robust Watermark Detection using Canvas + OCR.space
@@ -63,6 +103,8 @@ export async function applyWatermark(buffer, code) {
     }
 
     try {
+        ensureFontRegistered();
+
         const text = (code || 'CAT-CODE').toUpperCase();
         console.log(`[SERVICE] Applying watermark "${text}" using Canvas...`);
 
@@ -79,9 +121,9 @@ export async function applyWatermark(buffer, code) {
         // 1. Draw original image
         ctx.drawImage(img, 0, 0);
 
-        // 2. Setup font
+        // 2. Setup font using registered WatermarkFont
         const fontSize = Math.max(22, Math.round(width * 0.045));
-        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+        ctx.font = `bold ${fontSize}px "WatermarkFont", Arial, sans-serif`;
 
         // 3. Measure pill
         const paddingX = Math.round(fontSize * 0.8);

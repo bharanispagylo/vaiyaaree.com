@@ -61,7 +61,6 @@ export function findProductBySlugOrId(param, productsList = []) {
     // 4. Extract trailing identifier after last hyphen
     const lastHyphenIdx = rawParam.lastIndexOf('-');
     if (lastHyphenIdx !== -1) {
-        const identifier = rawParam.substring(lastHyphenIdx + 1);
         found = productsList.find(p =>
             String(p.id).toLowerCase() === identifier ||
             String(p.product_no).toLowerCase() === identifier ||
@@ -75,4 +74,121 @@ export function findProductBySlugOrId(param, productsList = []) {
     found = productsList.find(p => getProductSlug(p).toLowerCase().startsWith(namePart));
     return found || null;
 }
+
+/**
+ * Normalizes an image URL to the canonical with-watermark format:
+ * - Strips extra JSON quotes/brackets
+ * - Rewrites /without-watermark/ to /with-watermark/
+ * - Normalizes paths like "uploads/media/..." to "/uploads/media/..."
+ */
+export function normalizeImageUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    let clean = url.trim().replace(/^[\[\]"']+|[\[\]"']+$/g, '').trim();
+    if (!clean) return '';
+
+    // If it's a full http(s) URL pointing to localhost/current domain, extract path
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+        try {
+            const parsed = new URL(clean);
+            if (parsed.hostname.includes('vaiyaaree') || parsed.hostname.includes('localhost') || parsed.hostname.includes('127.0.0.1')) {
+                clean = parsed.pathname;
+            } else {
+                return clean; // Remote CDN / external link
+            }
+        } catch (_) {}
+    }
+
+    // Ensure leading slash for relative URLs
+    if (!clean.startsWith('/')) {
+        clean = `/${clean}`;
+    }
+
+    // Rewrite without-watermark to with-watermark for storefront display
+    if (clean.includes('/without-watermark/')) {
+        clean = clean.replace('/without-watermark/', '/with-watermark/');
+    }
+
+    // Ensure full /uploads/media/ prefix if shorthand like /with-watermark/...
+    if (clean.startsWith('/with-watermark/')) {
+        clean = `/uploads/media${clean}`;
+    } else if (clean.startsWith('/without-watermark/')) {
+        clean = `/uploads/media${clean}`;
+    }
+
+    return clean;
+}
+
+/**
+ * Extracts and normalizes all gallery and product images into a clean array:
+ * Handles:
+ * - JSON array strings: '["/uploads/media/with-watermark/img1.jpg", "/uploads/..."]'
+ * - Comma-separated strings: "/uploads/img1.jpg, /uploads/img2.jpg"
+ * - JavaScript arrays: ['/uploads/...', '/uploads/...']
+ * - product.image_url, product.gallery_image, product.gallery_images, product.images
+ */
+export function extractProductGalleryImages(product, selectedVariant = null) {
+    if (!product) return [];
+
+    const rawList = [];
+
+    // 1. Variant image first if selected
+    if (selectedVariant?.image_url) {
+        rawList.push(selectedVariant.image_url);
+    }
+
+    // 2. Main product image
+    if (product.image_url) {
+        rawList.push(product.image_url);
+    }
+
+    // 3. Gallery image(s) from product.gallery_image
+    if (product.gallery_image) {
+        rawList.push(product.gallery_image);
+    }
+
+    // 4. Gallery image(s) from product.gallery_images
+    if (product.gallery_images) {
+        rawList.push(product.gallery_images);
+    }
+
+    // 5. Images array from product.images
+    if (product.images) {
+        rawList.push(product.images);
+    }
+
+    // Helper to recursively parse inputs
+    const parsedUrls = [];
+    const parseItem = (item) => {
+        if (!item) return;
+        if (Array.isArray(item)) {
+            item.forEach(sub => parseItem(sub));
+            return;
+        }
+        if (typeof item === 'string') {
+            const trimmed = item.trim();
+            if (!trimmed) return;
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed)) {
+                        parsed.forEach(sub => parseItem(sub));
+                        return;
+                    }
+                } catch (_) {}
+            }
+            trimmed.split(',').forEach(part => {
+                const normalized = normalizeImageUrl(part);
+                if (normalized) parsedUrls.push(normalized);
+            });
+        }
+    };
+
+    rawList.forEach(item => parseItem(item));
+
+    const uniqueUrls = Array.from(new Set(parsedUrls));
+    const fallbackImg = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
+
+    return uniqueUrls.length > 0 ? uniqueUrls : [fallbackImg];
+}
+
 

@@ -1,14 +1,27 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search, Grid, List, Filter, ArrowUpDown, X, Check, ShoppingCart, SlidersHorizontal, ChevronDown, Package, Clock, Tag, MessageCircle, Truck, User, LogOut, MapPin } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
 import styles from '@/app/(shop-portal)/shop/shop.module.css';
 
-export default function ShopPageClient() {
-    const { products, loading, addToCart } = useShop();
+export default function ShopPageClient({ initialProducts = [], initialCategories = [] }) {
+    const { products: contextProducts, loading: contextLoading, addToCart } = useShop();
+
+    // Prefer context products once loaded; otherwise use SSR pre-rendered initialProducts
+    const products = useMemo(() => {
+        if (contextProducts && contextProducts.length > 0) {
+            return contextProducts;
+        }
+        if (initialProducts && initialProducts.length > 0) {
+            return initialProducts;
+        }
+        return contextProducts || [];
+    }, [contextProducts, initialProducts]);
+
+    const loading = contextLoading && products.length === 0;
 
     //  LOCAL UI STATE 
     const searchParams = useSearchParams();
@@ -28,31 +41,44 @@ export default function ShopPageClient() {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 12;
 
+    const isInitialMount = useRef(true);
+
     // Sync URL search parameters dynamically on client-side navigation
     useEffect(() => {
         const q = searchParams.get('q');
         const cat = searchParams.get('category');
-        if (q !== null) {
+        if (q !== null && q !== searchQuery) {
             setSearchQuery(q);
         }
-        if (cat !== null) {
+        if (cat !== null && cat !== selectedCategory) {
             setSelectedCategory(cat);
         }
     }, [searchParams]);
 
     // Reset pagination to page 1 whenever any filter changes
     useEffect(() => {
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
         setCurrentPage(1);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [selectedCategory, selectedBrand, selectedType, searchQuery, priceRange, showInStockOnly, sortBy]);
+    }, [selectedCategory, selectedBrand, selectedType, searchQuery, priceRange.min, priceRange.max, showInStockOnly, sortBy]);
 
-    // Scroll to top when page changes
-    useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [currentPage]);
+    // Scroll to top when page changes (only on user pagination click)
+    const handlePageChange = (newPage) => {
+        setCurrentPage(newPage);
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
 
     //  OPTIONS 
-    const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category).filter(Boolean))], [products]);
+    const categories = useMemo(() => {
+        const productCategories = products.map(p => p.category).filter(Boolean);
+        const serverCategories = initialCategories.map(c => c.name).filter(Boolean);
+        return ['All', ...new Set([...productCategories, ...serverCategories])];
+    }, [products, initialCategories]);
+
     const availableBrands = useMemo(() => ['All', ...new Set(products.map(p => p.product_group).filter(Boolean))], [products]);
     const availableSareeTypes = ['All', 'Pure Silk', 'Soft Silk', 'Cotton', 'Georgette', 'Banarasi', 'Handloom', 'Chiffon', 'Net'];
 
@@ -440,7 +466,7 @@ export default function ShopPageClient() {
                         {filteredProducts.length > ITEMS_PER_PAGE && (
                             <div className={styles.paginationWrapper} style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '3rem', borderTop: '1px solid #e2e8f0', paddingTop: '2rem' }}>
                                 <button 
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                                     disabled={currentPage === 1}
                                     style={{ padding: '0.5rem 1rem', background: currentPage === 1 ? '#f1f5f9' : '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#475569' }}
                                 >
@@ -450,7 +476,7 @@ export default function ShopPageClient() {
                                 {Array.from({ length: Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) }).map((_, i) => (
                                     <button
                                         key={i}
-                                        onClick={() => setCurrentPage(i + 1)}
+                                        onClick={() => handlePageChange(i + 1)}
                                         style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: currentPage === i + 1 ? '#0f172a' : '#fff', color: currentPage === i + 1 ? '#fff' : '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
                                     >
                                         {i + 1}
@@ -458,7 +484,7 @@ export default function ShopPageClient() {
                                 ))}
 
                                 <button 
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredProducts.length / ITEMS_PER_PAGE), prev + 1))}
+                                    onClick={() => handlePageChange(Math.min(Math.ceil(filteredProducts.length / ITEMS_PER_PAGE), currentPage + 1))}
                                     disabled={currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)}
                                     style={{ padding: '0.5rem 1rem', background: currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) ? '#f1f5f9' : '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#475569' }}
                                 >

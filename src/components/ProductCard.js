@@ -5,7 +5,7 @@ import { ShoppingCart, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
 import { useCompare } from '@/context/CompareContext';
-import { getProductUrl } from '@/lib/productUrl';
+import { getProductUrl, normalizeImageUrl } from '@/lib/productUrl';
 import styles from './ProductCard.module.css';
 
 const COLOR_MAP = {
@@ -120,9 +120,10 @@ export default function ProductCard({ product, gridView = true }) {
     // Active image computation
     const activeImage = useMemo(() => {
         if (selectedVariant?.image_url) {
-            return selectedVariant.image_url.split(',')[0];
+            return normalizeImageUrl(selectedVariant.image_url.split(',')[0]);
         }
-        return product.image_url?.split(',')[0] || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
+        const prodImg = product.image_url ? product.image_url.split(',')[0] : '';
+        return normalizeImageUrl(prodImg) || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
     }, [selectedVariant, product.image_url]);
 
     // Dynamic Price & Discount computation via Central Discount Engine

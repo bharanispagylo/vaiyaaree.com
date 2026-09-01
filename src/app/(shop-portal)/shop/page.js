@@ -51,18 +51,37 @@ export const metadata = {
 export default async function ShopPage() {
     const baseUrl = getBaseUrl();
 
-    // Query active categories & top products for ItemList schema
     let categoriesList = [];
-    let topProducts = [];
+    let initialProducts = [];
 
     try {
-        const [catRows] = await pool.query('SELECT `name`, `slug` FROM `categories` WHERE `status` = "active" LIMIT 12');
+        const [catRows] = await pool.query('SELECT `id`, `name`, `slug` FROM `categories` WHERE `status` = "active" ORDER BY `name` ASC');
         if (catRows) categoriesList = catRows;
 
-        const [prodRows] = await pool.query('SELECT `id`, `name`, `slug`, `sku`, `price`, `image_url` FROM `products` WHERE `is_active` = 1 ORDER BY `created_at` DESC LIMIT 12');
-        if (prodRows) topProducts = prodRows;
+        const [prodRows] = await pool.query(
+            'SELECT * FROM `products` WHERE `is_active` = 1 ORDER BY `created_at` DESC, `id` DESC'
+        );
+        const [variantRows] = await pool.query(
+            'SELECT * FROM `product_variants` ORDER BY `created_at` ASC'
+        );
+
+        const variantsMap = {};
+        (variantRows || []).forEach(v => {
+            const pid = v.product_id;
+            if (!variantsMap[pid]) variantsMap[pid] = [];
+            variantsMap[pid].push(v);
+        });
+
+        initialProducts = (prodRows || []).map(p => {
+            const isVar = (p.type === 'variant' || p.type === 'variable');
+            return {
+                ...p,
+                type: p.type || 'simple',
+                variants: isVar ? (variantsMap[p.id] || p.variants || []) : []
+            };
+        });
     } catch (e) {
-        // Fallback gracefully
+        console.error('[ShopPage SSR Error]:', e);
     }
 
     // ── SCHEMA.ORG STRUCTURED DATA ───────────────────────────────────────────
@@ -93,7 +112,7 @@ export default async function ShopPage() {
         'url': `${baseUrl}/shop`,
         'mainEntity': {
             '@type': 'ItemList',
-            'itemListElement': topProducts.map((p, idx) => ({
+            'itemListElement': initialProducts.slice(0, 12).map((p, idx) => ({
                 '@type': 'ListItem',
                 'position': idx + 1,
                 'url': `${baseUrl}/product/${p.slug || p.id}/`,
@@ -101,6 +120,10 @@ export default async function ShopPage() {
             }))
         }
     };
+
+    // Serialize to plain JSON objects for Client Component hydration
+    const safeInitialProducts = JSON.parse(JSON.stringify(initialProducts));
+    const safeInitialCategories = JSON.parse(JSON.stringify(categoriesList));
 
     return (
         <>
@@ -115,7 +138,10 @@ export default async function ShopPage() {
             />
 
             <Suspense fallback={null}>
-                <ShopPageClient />
+                <ShopPageClient 
+                    initialProducts={safeInitialProducts} 
+                    initialCategories={safeInitialCategories} 
+                />
             </Suspense>
         </>
     );

@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ShoppingCart, CheckCircle, X, ZoomIn, ChevronLeft, ChevronRight, Tag, ShieldCheck } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
-import { findProductBySlugOrId, getProductSlug } from '@/lib/productUrl';
+import { findProductBySlugOrId, getProductSlug, extractProductGalleryImages, normalizeImageUrl } from '@/lib/productUrl';
 import styles from '@/app/(shop-portal)/product/[id]/product.module.css';
 
 // Import Swiper React components & modules
@@ -292,31 +292,19 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
         addToCart(product, selectedVariant, qty);
     };
 
-    // Gallery images stable list
+    // Gallery images stable list (auto-normalizes JSON brackets, commas, with-watermark paths)
     const galleryImages = useMemo(() => {
-        if (!product) return [];
-        const mainImg = selectedVariant?.image_url || product.image_url || '';
-        const mainList = typeof mainImg === 'string' ? mainImg.split(',') : [];
-
-        let galleryList = [];
-        if (Array.isArray(product.gallery_image)) {
-            galleryList = product.gallery_image;
-        } else if (typeof product.gallery_image === 'string' && product.gallery_image) {
-            galleryList = product.gallery_image.split(',');
-        }
-
-        const fallbackImg = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
-        const combined = [...mainList, ...galleryList].map(url => (url || '').trim()).filter(Boolean);
-        const unique = Array.from(new Set(combined));
-        return unique.length > 0 ? unique : [fallbackImg];
-    }, [product, selectedVariant?.image_url]);
+        return extractProductGalleryImages(product, selectedVariant);
+    }, [product, selectedVariant]);
 
     // Smoothly slide to variant image when variant changes
     useEffect(() => {
         if (!selectedVariant || !swiperInstance || swiperInstance.destroyed) return;
-        const variantImg = selectedVariant.image_url ? selectedVariant.image_url.split(',')[0].trim() : null;
+        const rawVarImg = selectedVariant.image_url ? selectedVariant.image_url.split(',')[0].trim() : null;
+        const variantImg = normalizeImageUrl(rawVarImg);
         if (variantImg) {
-            const foundIdx = galleryImages.findIndex(img => img === variantImg);
+            const varBasename = variantImg.split('/').pop();
+            const foundIdx = galleryImages.findIndex(img => img === variantImg || (varBasename && img.endsWith(varBasename)));
             if (foundIdx !== -1 && foundIdx !== currentImageIdx) {
                 setCurrentImageIdx(foundIdx);
                 swiperInstance.slideTo(foundIdx, 300);
