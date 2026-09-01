@@ -236,19 +236,26 @@ export async function POST(request) {
 
         // Update settings list asynchronously
         try {
-            const key = isNowWatermarked ? 'watermark_images' : 'no_watermark_images';
-            const [rows] = await pool.query('SELECT `value` FROM `app_settings` WHERE `key` = ? LIMIT 1', [key]);
-            let list = [];
-            if (rows && rows.length > 0 && rows[0]?.value) {
-                try { list = JSON.parse(rows[0].value); } catch(e) {}
+            const mode = formData.get('mode');
+            const targetKeys = [isNowWatermarked ? 'watermark_images' : 'no_watermark_images'];
+            if (mode === 'gallery') {
+                targetKeys.push('gallery_images');
             }
-            if (!Array.isArray(list)) list = [];
-            if (!list.includes(finalRelativeUrl)) {
-                list.push(finalRelativeUrl);
-                await pool.query(
-                    'INSERT INTO `app_settings` (`key`, `value`, `updated_at`) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()',
-                    [key, JSON.stringify(list)]
-                );
+
+            for (const key of targetKeys) {
+                const [rows] = await pool.query('SELECT `value` FROM `app_settings` WHERE `key` = ? LIMIT 1', [key]);
+                let list = [];
+                if (rows && rows.length > 0 && rows[0]?.value) {
+                    try { list = JSON.parse(rows[0].value); } catch(e) {}
+                }
+                if (!Array.isArray(list)) list = [];
+                if (!list.includes(finalRelativeUrl)) {
+                    list.push(finalRelativeUrl);
+                    await pool.query(
+                        'INSERT INTO `app_settings` (`key`, `value`, `updated_at`) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()',
+                        [key, JSON.stringify(list)]
+                    );
+                }
             }
         } catch (setErr) {
             console.warn('[UPLOAD Settings Update Warning]:', setErr);
