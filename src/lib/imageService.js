@@ -1,84 +1,77 @@
-import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
-import sharp from 'sharp';
-import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { processOcr } from '@/lib/ocrProcessor';
-import path from 'path';
-
-// Load a fallback font to ensure text renders even in environments without system fonts
-try {
-    const fontPath = path.join(process.cwd(), 'node_modules', 'next', 'dist', 'compiled', '@vercel', 'og', 'noto-sans-v27-latin-regular.ttf');
-    GlobalFonts.registerFromPath(fontPath, 'FallbackSans');
-} catch (e) {
-    console.log('[SERVICE] Could not load fallback font:', e.message);
-}
 
 /**
- * Robust Watermark Detection using OCR + High Contrast Pre-processing
+ * Robust Watermark Detection using Canvas + OCR.space
  */
 export async function detectWatermark(buffer, fileName = '') {
+    if (!buffer || buffer.length === 0) {
+        return { hasWatermark: false };
+    }
+
     try {
-        console.log(`[SERVICE] Optimized Analysis for ${fileName}...`);
+        console.log(`[SERVICE] Analyzing watermark for ${fileName || 'image'}...`);
         
-        const image = sharp(buffer);
-        const metadata = await image.metadata();
-        const { width, height } = metadata;
-
-        // 1. FAST PATH: Scan the bottom 45% where watermarks usually live
-        // We crop and resize to 1000px width for optimal speed/accuracy trade-off
-        const cropHeight = Math.floor(height * 0.45);
-        const cropTop = height - cropHeight;
-        
-        const bottomBuffer = await sharp(buffer)
-            .extract({ left: 0, top: cropTop, width, height: cropHeight })
-            .resize(1000, null, { withoutEnlargement: true }) // Faster processing
-            .grayscale()
-            .normalize()
-            .sharpen()
-            .toBuffer();
-
-        const base64Bottom = `data:image/jpeg;base64,${bottomBuffer.toString('base64')}`;
-        const bottomOcr = await processOcr(base64Bottom, null, '2'); // Try Engine 2 first
-        
-        if (bottomOcr.hasWatermark) {
-            console.log(`[SERVICE] Found watermark in bottom region: ${bottomOcr.catalogId} (Engine ${bottomOcr.engineUsed})`);
-            return bottomOcr;
+        let img;
+        try {
+            img = await loadImage(buffer);
+        } catch (imgErr) {
+            console.warn('[SERVICE] loadImage failed during detection:', imgErr?.message);
+            const base64Raw = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+            const directOcr = await processOcr(base64Raw, null, '2');
+            return directOcr || { hasWatermark: false };
         }
 
-        // 2. FALLBACK PATH: If bottom scan failed, try Engine 1 on a fast full-image scan
-        // Engine 1 is faster for simple text detection on larger areas
-        console.log(`[SERVICE] Bottom scan failed, trying fast full scan...`);
-        const fullFastBuffer = await sharp(buffer)
-            .resize(1000, null, { withoutEnlargement: true })
-            .grayscale()
-            .toBuffer();
+        const { width, height } = img;
+        if (!width || !height) {
+            return { hasWatermark: false };
+        }
 
-        const base64Full = `data:image/jpeg;base64,${fullFastBuffer.toString('base64')}`;
-        const mainOcr = await processOcr(base64Full, null, '1'); // Use Engine 1 for speed
-        
-        if (mainOcr.hasWatermark) {
-            console.log(`[SERVICE] Found watermark on full scan: ${mainOcr.catalogId}`);
-            return mainOcr;
+        // 1. Scan the bottom 45% where watermarks usually reside
+        const cropHeight = Math.max(20, Math.floor(height * 0.45));
+        const cropTop = height - cropHeight;
+        const targetWidth = Math.min(width, 1000);
+        const targetHeight = Math.max(20, Math.round(cropHeight * (targetWidth / width)));
+
+        const canvas = createCanvas(targetWidth, targetHeight);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, cropTop, width, cropHeight, 0, 0, targetWidth, targetHeight);
+
+        const bottomBuffer = canvas.toBuffer('image/jpeg', 85);
+        const base64Bottom = `data:image/jpeg;base64,${bottomBuffer.toString('base64')}`;
+        const bottomOcr = await processOcr(base64Bottom, null, '2');
+
+        if (bottomOcr?.hasWatermark) {
+            console.log(`[SERVICE] Found watermark: ${bottomOcr.catalogId}`);
+            return bottomOcr;
         }
 
         return { hasWatermark: false };
 
     } catch (err) {
-        console.error('[SERVICE] Detection error:', err);
+        console.error('[SERVICE] Detection error:', err?.message);
         return { hasWatermark: false };
     }
 }
 
 /**
- * Apply Watermark to Image (Highly Robust Version)
- * USES CANVAS (@napi-rs/canvas) FOR TEXT RENDERING - More reliable than Sharp's SVG.
+ * Apply Watermark to Image using Canvas
  */
 export async function applyWatermark(buffer, code) {
+    if (!buffer || buffer.length === 0) {
+        return buffer;
+    }
+
     try {
         const text = (code || 'CAT-CODE').toUpperCase();
         console.log(`[SERVICE] Applying watermark "${text}" using Canvas...`);
 
         const img = await loadImage(buffer);
         const { width, height } = img;
+
+        if (!width || !height) {
+            return buffer;
+        }
 
         const canvas = createCanvas(width, height);
         const ctx = canvas.getContext('2d');
@@ -88,7 +81,7 @@ export async function applyWatermark(buffer, code) {
 
         // 2. Setup font
         const fontSize = Math.max(22, Math.round(width * 0.045));
-        ctx.font = `bold ${fontSize}px "FallbackSans", Arial, sans-serif`;
+        ctx.font = `bold ${fontSize}px Arial, sans-serif`;
 
         // 3. Measure pill
         const paddingX = Math.round(fontSize * 0.8);
@@ -96,7 +89,7 @@ export async function applyWatermark(buffer, code) {
         const margin = Math.round(width * 0.03);
 
         const textMetrics = ctx.measureText(text);
-        const textWidth = textMetrics.width || (fontSize * 0.6 * text.length); // Fallback if font still fails to measure
+        const textWidth = textMetrics.width || (fontSize * 0.6 * text.length);
         const badgeW = textWidth + (paddingX * 2);
         const badgeH = fontSize + (paddingY * 2);
 
@@ -104,12 +97,10 @@ export async function applyWatermark(buffer, code) {
         const y = height - badgeH - margin;
 
         // 4. Draw White Rectangular Background (Optimized for OCR)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'; // Almost solid white
-        
-        // Simple sharp rectangle avoids OCR confusing curved borders with letters like 'C' or 'O'
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.fillRect(x, y, badgeW, badgeH);
 
-        // Subtle dark border to ensure contrast on white sarees
+        // Subtle dark border to ensure contrast on white fabrics
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, badgeW, badgeH);
@@ -123,8 +114,7 @@ export async function applyWatermark(buffer, code) {
         return canvas.toBuffer('image/jpeg', 90);
 
     } catch (err) {
-        console.error('[SERVICE] Watermark application (Canvas) failed:', err);
-        // Fallback to Sharp if Canvas fails for any reason
+        console.error('[SERVICE] Watermark application failed:', err?.message);
         return buffer;
     }
 }
