@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { generateBackupData } from '../orders/backup/route';
+import { generateBackupData } from '@/app/api/admin/orders/backup/route';
 import { sendEmail } from '@/lib/emailService';
 
 export const dynamic = 'force-dynamic';
