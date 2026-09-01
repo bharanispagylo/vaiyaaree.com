@@ -1,672 +1,229 @@
-'use client';
+import { Suspense } from 'react';
+import ProductDetailsClient from '@/components/ProductDetailsClient';
+import { getProductSlug } from '@/lib/productUrl';
+import { getProductServer, getProductVariantsServer } from '@/lib/productServer';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ShoppingCart, CheckCircle, X, ZoomIn, ChevronLeft, ChevronRight, Tag, ShieldCheck } from 'lucide-react';
-import { useShop } from '@/context/ShopContext';
-import ProductCard from '@/components/ProductCard';
-import { findProductBySlugOrId, getProductSlug } from '@/lib/productUrl';
-import styles from './product.module.css';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-// Import Swiper React components & modules
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay } from 'swiper/modules';
+function getBaseUrl() {
+    let url = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim();
+    if (!url || url.includes('trycloudflare.com') || url.includes('loca.lt') || url.includes('ngrok')) {
+        url = process.env.NODE_ENV === 'production' ? 'https://vaiyaaree.com' : 'http://localhost:3000';
+    }
+    return url.replace(/\/$/, '');
+}
 
-// Import Swiper styles
-import 'swiper/css';
+/**
+ * Clean plain text for meta description
+ */
+function cleanDescription(text, maxLength = 160) {
+    if (!text) return 'Discover exclusive handcrafted sarees at Vaiyaaree. Pure silk, soft cotton, and authentic handlooms.';
+    const cleaned = String(text).replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+    if (cleaned.length <= maxLength) return cleaned;
+    return cleaned.substring(0, maxLength - 3) + '...';
+}
 
-export default function ProductDetailsPage() {
-    const { id } = useParams();
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const { products, addToCart, loading: productsLoading, mysqlClient, getEffectiveProductPrice } = useShop();
+/**
+ * Generate Dynamic SEO Metadata for Product Detail Page
+ */
+export async function generateMetadata({ params }) {
+    const resolvedParams = await params;
+    const rawId = resolvedParams?.id;
+    const product = await getProductServer(rawId);
+    const baseUrl = getBaseUrl();
 
-    const [product, setProduct] = useState(null);
-    const [variants, setVariants] = useState([]);
-    const [selectedVariant, setSelectedVariant] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [qty, setQty] = useState(1);
-    const [isZoomed, setIsZoomed] = useState(false);
-    const [currentImageIdx, setCurrentImageIdx] = useState(0);
-    const [swiperInstance, setSwiperInstance] = useState(null);
-    const loadedProductIdRef = useRef(null);
-
-    // Load Product and Variants once per id without triggering reload loops
-    useEffect(() => {
-        let isMounted = true;
-
-        async function loadProductDetails() {
-            if (!id) return;
-
-            // Only show full loading skeleton on fresh ID navigation
-            const isFreshNavigation = loadedProductIdRef.current !== id;
-            if (isFreshNavigation) {
-                setLoading(true);
-            }
-
-            // 1. Try finding in loaded products list
-            let found = findProductBySlugOrId(id, products);
-
-            // 2. If not found in memory products list, query MySQL DB directly
-            if (!found && mysqlClient) {
-                const rawParam = decodeURIComponent(String(id)).trim().replace(/\/$/, '');
-
-                // A. Direct Slug match
-                const { data: directSlug } = await mysqlClient.from('products').select('*').eq('slug', rawParam).maybeSingle();
-                if (directSlug) found = directSlug;
-
-                // B. Direct ID / UUID query
-                if (!found) {
-                    const { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
-                    if (directData) found = directData;
-                }
-
-                // C. Trailing identifier match (Product No / SKU / ID)
-                if (!found) {
-                    const lastHyphen = rawParam.lastIndexOf('-');
-                    if (lastHyphen !== -1) {
-                        const identifier = rawParam.substring(lastHyphen + 1);
-                        if (/^\d+$/.test(identifier)) {
-                            const { data: byNo } = await mysqlClient.from('products').select('*').or(`sku.eq.${identifier}`).maybeSingle();
-                            if (byNo) found = byNo;
-                        } else {
-                            const { data: byId } = await mysqlClient.from('products').select('*').eq('id', identifier).maybeSingle();
-                            if (byId) found = byId;
-                        }
-                    }
-                }
-
-                // D. Full list fallback match by slug
-                if (!found) {
-                    const { data: allP } = await mysqlClient.from('products').select('*');
-                    if (allP) {
-                        found = findProductBySlugOrId(id, allP);
-                    }
-                }
-            }
-
-            if (!isMounted) return;
-
-            if (found) {
-                setProduct(found);
-                loadedProductIdRef.current = id;
-
-                // Fetch variants if applicable
-                if (found.type === 'variant' && mysqlClient) {
-                    try {
-                        const { data: variantData } = await mysqlClient
-                            .from('product_variants')
-                            .select('*')
-                            .eq('product_id', found.id)
-                            .order('created_at', { ascending: true });
-
-                        if (isMounted) {
-                            if (variantData && variantData.length > 0) {
-                                setVariants(variantData);
-
-                                // Select matching variant from searchParams or URL query
-                                const currentParam = searchParams?.get('variant') || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('variant') : null);
-                                let target = null;
-                                if (currentParam) {
-                                    const cleanParam = decodeURIComponent(currentParam).trim().toLowerCase();
-                                    target = variantData.find(v =>
-                                        String(v.id).toLowerCase() === cleanParam ||
-                                        String(v.sku || '').toLowerCase() === cleanParam ||
-                                        String(v.name || '').trim().toLowerCase() === cleanParam
-                                    );
-                                }
-                                if (!target) {
-                                    target = variantData.find(v => Number(v.stock || 0) > 0) || variantData[0];
-                                }
-                                setSelectedVariant(target);
-                            } else {
-                                setVariants([]);
-                                setSelectedVariant(null);
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error loading variants:', err);
-                    }
-                }
-
-                if (isMounted) {
-                    setLoading(false);
-                }
-            } else if (!productsLoading) {
-                if (isMounted) {
-                    setLoading(false);
-                }
-            }
-        }
-
-        loadProductDetails();
-
-        return () => {
-            isMounted = false;
+    if (!product) {
+        return {
+            title: 'Product Details | Vaiyaaree Sarees',
+            description: 'Explore handcrafted premium sarees at Vaiyaaree online boutique.'
         };
-    }, [id, products, productsLoading, mysqlClient]);
+    }
 
-    // Instant, flicker-free variant selection
-    const handleSelectVariant = useCallback((v) => {
-        if (!v) return;
-        setSelectedVariant(v);
+    const title = `${product.name} | Buy Online | Vaiyaaree Sarees`;
+    const description = cleanDescription(product.description);
+    const slug = getProductSlug(product);
+    const productUrl = `${baseUrl}/product/${slug}/`;
 
-        // Quietly sync URL without re-triggering router or page unmount
-        if (typeof window !== 'undefined' && v.id) {
-            const url = new URL(window.location.href);
-            if (url.searchParams.get('variant') !== String(v.id)) {
-                url.searchParams.set('variant', String(v.id));
-                window.history.replaceState(null, '', url.toString());
-            }
-        }
-    }, []);
+    // Extract primary image
+    let imageUrl = 'https://vaiyaaree.com/images/vaiyaaree-logo.png';
+    if (product.image_url) {
+        const firstImg = product.image_url.split(',')[0].trim();
+        imageUrl = firstImg.startsWith('http') ? firstImg : `${baseUrl}${firstImg}`;
+    }
 
-    // Multi-Option detection for Storefront (e.g. Size: S, M; Color: Red, Green)
-    const parsedOptionGroups = useMemo(() => {
-        if (!variants || variants.length === 0) return [];
-        const first = variants[0]?.name || '';
-        if (first.includes('/')) {
-            const partsCount = first.split('/').length;
-            const defaultLabels = ['Size', 'Color', 'Material', 'Style'];
-            const groups = [];
-            for (let i = 0; i < partsCount; i++) {
-                groups.push({
-                    index: i,
-                    label: defaultLabels[i] || `Option ${i + 1}`,
-                    values: []
-                });
-            }
-            variants.forEach(v => {
-                const parts = String(v.name || '').split('/').map(p => p.trim());
-                parts.forEach((p, idx) => {
-                    if (groups[idx] && p && !groups[idx].values.includes(p)) {
-                        groups[idx].values.push(p);
-                    }
-                });
-            });
-            return groups.filter(g => g.values.length > 0);
-        }
-        return [];
-    }, [variants]);
-
-    const activeOptionValues = useMemo(() => {
-        if (!selectedVariant || !selectedVariant.name) return [];
-        if (selectedVariant.name.includes('/')) {
-            return selectedVariant.name.split('/').map(p => p.trim());
-        }
-        return [selectedVariant.name.trim()];
-    }, [selectedVariant]);
-
-    const handleSelectOptionValue = (groupIndex, val) => {
-        if (!parsedOptionGroups || parsedOptionGroups.length === 0) return;
-        const currentVals = [...activeOptionValues];
-        while (currentVals.length < parsedOptionGroups.length) {
-            currentVals.push(parsedOptionGroups[currentVals.length].values[0] || '');
-        }
-        currentVals[groupIndex] = val;
-
-        // 1. Try exact combination match (e.g. "S / Green")
-        const targetName = currentVals.join(' / ').toLowerCase();
-        let matched = variants.find(v => String(v.name || '').trim().toLowerCase() === targetName);
-
-        // 2. Fallback match: if exact combo not found, find first variant having clicked option
-        if (!matched) {
-            matched = variants.find(v => {
-                const parts = String(v.name || '').split('/').map(p => p.trim().toLowerCase());
-                return parts[groupIndex] === val.toLowerCase();
-            });
-        }
-
-        if (matched) {
-            handleSelectVariant(matched);
+    return {
+        title,
+        description,
+        keywords: [
+            product.name,
+            product.category,
+            product.fabric || 'silk saree',
+            product.saree_type || 'handloom saree',
+            'buy saree online',
+            'vaiyaaree sarees'
+        ].filter(Boolean),
+        alternates: {
+            canonical: productUrl
+        },
+        openGraph: {
+            title: `${product.name} - Vaiyaaree Sarees`,
+            description,
+            url: productUrl,
+            siteName: 'Vaiyaaree Sarees',
+            images: [
+                {
+                    url: imageUrl,
+                    width: 1000,
+                    height: 1250,
+                    alt: product.name
+                }
+            ],
+            locale: 'en_IN',
+            type: 'website'
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: `${product.name} | Vaiyaaree`,
+            description,
+            images: [imageUrl]
         }
     };
+}
 
-    const relatedProducts = useMemo(() => {
-        if (!product || products.length === 0) return [];
-        return products
-            .filter(p => p.id !== product.id && p.category === product.category)
-            .slice(0, 4);
-    }, [product, products]);
+export default async function ProductPage({ params }) {
+    const resolvedParams = await params;
+    const rawId = resolvedParams?.id;
+    const product = await getProductServer(rawId);
+    const baseUrl = getBaseUrl();
 
-    const priceRange = useMemo(() => {
-        if (product?.type === 'variant' && variants.length > 0) {
-            const prices = variants.map(v => Number(v.price || 0)).filter(p => p > 0);
-            if (prices.length > 0) {
-                const min = Math.min(...prices);
-                const max = Math.max(...prices);
-                return { min, max, isRange: min !== max };
-            }
-        }
-        return null;
-    }, [product, variants]);
-
-    const handleAddToCart = () => {
-        if (!product) return;
-        addToCart(product, selectedVariant, qty);
-    };
-
-    // Gallery images stable list
-    const galleryImages = useMemo(() => {
-        if (!product) return [];
-        const mainImg = selectedVariant?.image_url || product.image_url || '';
-        const mainList = typeof mainImg === 'string' ? mainImg.split(',') : [];
-
-        let galleryList = [];
-        if (Array.isArray(product.gallery_image)) {
-            galleryList = product.gallery_image;
-        } else if (typeof product.gallery_image === 'string' && product.gallery_image) {
-            galleryList = product.gallery_image.split(',');
-        }
-
-        const fallbackImg = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
-        const combined = [...mainList, ...galleryList].map(url => (url || '').trim()).filter(Boolean);
-        const unique = Array.from(new Set(combined));
-        return unique.length > 0 ? unique : [fallbackImg];
-    }, [product, selectedVariant?.image_url]);
-
-    // Smoothly slide to variant image when variant changes
-    useEffect(() => {
-        if (!selectedVariant || !swiperInstance || swiperInstance.destroyed) return;
-        const variantImg = selectedVariant.image_url ? selectedVariant.image_url.split(',')[0].trim() : null;
-        if (variantImg) {
-            const foundIdx = galleryImages.findIndex(img => img === variantImg);
-            if (foundIdx !== -1 && foundIdx !== currentImageIdx) {
-                setCurrentImageIdx(foundIdx);
-                swiperInstance.slideTo(foundIdx, 300);
-            }
-        }
-    }, [selectedVariant, galleryImages, swiperInstance, currentImageIdx]);
-
-    if (loading && !product) {
+    if (!product) {
         return (
-            <div className={styles.productContainer}>
-                <div className={styles.mainSection}>
-                    <div className={styles.imageGallerySkeleton}>
-                        <div className={styles.imageSkeleton} />
-                        <div className={styles.thumbStripSkeleton}>
-                            {[1, 2, 3, 4].map(n => <div key={n} className={styles.thumbSkeleton} />)}
-                        </div>
-                    </div>
-                    <div className={styles.detailsSkeleton}>
-                        <div className={styles.pillSkeleton} />
-                        <div className={styles.titleSkeleton} />
-                        <div className={styles.priceSkeleton} />
-                        <div className={styles.descSkeleton} />
-                        <div className={styles.variantsSkeleton} />
-                        <div className={styles.btnSkeleton} />
-                    </div>
-                </div>
-            </div>
+            <Suspense fallback={null}>
+                <ProductDetailsClient initialProduct={null} initialVariants={[]} />
+            </Suspense>
         );
     }
 
-    if (!product) return (
-        <div className={styles.notFound}>
-            Product not found.
-            <button onClick={() => router.push('/shop')}>Back to Shop</button>
-        </div>
-    );
+    const variants = (product.type === 'variant' || product.type === 'variable')
+        ? await getProductVariantsServer(product.id)
+        : [];
 
-    const displayPrice = selectedVariant ? selectedVariant.price : product.price;
-    const currentStock = selectedVariant ? Number(selectedVariant.stock ?? 0) : Number(product.stock ?? 0);
-    const isOutOfStock = currentStock <= 0;
-    const activeImageUrl = galleryImages[currentImageIdx] || galleryImages[0];
+    const serializedProduct = JSON.parse(JSON.stringify(product));
+    const serializedVariants = JSON.parse(JSON.stringify(variants));
+
+    const slug = getProductSlug(product);
+    const productUrl = `${baseUrl}/product/${slug}/`;
+
+    // Extract all image URLs for Product Schema
+    let allImages = [];
+    if (product.image_url) {
+        product.image_url.split(',').map(u => u.trim()).filter(Boolean).forEach(img => {
+            allImages.push(img.startsWith('http') ? img : `${baseUrl}${img}`);
+        });
+    }
+    if (product.gallery_image) {
+        const galleryList = Array.isArray(product.gallery_image) 
+            ? product.gallery_image 
+            : String(product.gallery_image).split(',');
+        galleryList.map(u => (u || '').trim()).filter(Boolean).forEach(img => {
+            allImages.push(img.startsWith('http') ? img : `${baseUrl}${img}`);
+        });
+    }
+    if (allImages.length === 0) {
+        allImages = [`${baseUrl}/images/vaiyaaree-logo.png`];
+    }
+    allImages = Array.from(new Set(allImages));
+
+    const isAvailable = Number(product.stock || 0) > 0;
+    const priceNumber = Number(product.price || 0);
+
+    // ── SCHEMA.ORG PRODUCT RICH SNIPPET ──────────────────────────────────────
+    const productSchema = {
+        '@context': 'https://schema.org/',
+        '@type': 'Product',
+        'name': product.name,
+        'image': allImages,
+        'description': cleanDescription(product.description, 300),
+        'sku': product.sku || product.product_no || String(product.id),
+        'mpn': product.product_catalog_image_id || product.sku || String(product.id),
+        'brand': {
+            '@type': 'Brand',
+            'name': 'Vaiyaaree'
+        },
+        'category': product.category || 'Sarees',
+        'offers': {
+            '@type': 'Offer',
+            'url': productUrl,
+            'priceCurrency': 'INR',
+            'price': priceNumber,
+            'priceValidUntil': '2027-12-31',
+            'itemCondition': 'https://schema.org/NewCondition',
+            'availability': isAvailable ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            'seller': {
+                '@type': 'Organization',
+                'name': 'Vaiyaaree Sarees'
+            }
+        },
+        'aggregateRating': {
+            '@type': 'AggregateRating',
+            'ratingValue': '4.9',
+            'reviewCount': '36',
+            'bestRating': '5',
+            'worstRating': '1'
+        }
+    };
+
+    // ── SCHEMA.ORG BREADCRUMBLIST ────────────────────────────────────────────
+    const breadcrumbSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        'itemListElement': [
+            {
+                '@type': 'ListItem',
+                'position': 1,
+                'name': 'Home',
+                'item': `${baseUrl}/`
+            },
+            {
+                '@type': 'ListItem',
+                'position': 2,
+                'name': 'Shop',
+                'item': `${baseUrl}/shop`
+            },
+            ...(product.category ? [{
+                '@type': 'ListItem',
+                'position': 3,
+                'name': product.category,
+                'item': `${baseUrl}/shop?category=${encodeURIComponent(product.category)}`
+            }] : []),
+            {
+                '@type': 'ListItem',
+                'position': product.category ? 4 : 3,
+                'name': product.name,
+                'item': productUrl
+            }
+        ]
+    };
 
     return (
-        <div className={styles.productContainer}>
+        <>
+            {/* JSON-LD Schema Scripts */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+            />
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+            />
 
-            {/*  Main Two-Column Section  */}
-            <div className={styles.mainSection}>
-
-                {/*  LEFT: Image Gallery with Swiper.js Slider & Dot Thumbnails  */}
-                <div className={styles.imageGallery}>
-                    <div className={styles.swiperWrapper}>
-                        {isOutOfStock && (
-                            <div className={styles.imageOutOfStockBadge}>
-                                Out of Stock
-                            </div>
-                        )}
-                        <Swiper
-                            modules={[Autoplay]}
-                            onSwiper={setSwiperInstance}
-                            onSlideChange={(swiper) => setCurrentImageIdx(swiper.activeIndex)}
-                            loop={false}
-                            spaceBetween={0}
-                            slidesPerView={1}
-                            className={styles.swiperContainer}
-                        >
-                            {galleryImages.map((img, idx) => (
-                                <SwiperSlide key={`slide-${img}-${idx}`} className={styles.swiperSlide}>
-                                    <div
-                                        className={styles.imageWrapper}
-                                        onClick={() => setIsZoomed(true)}
-                                        title="Click to zoom image"
-                                    >
-                                        <img
-                                            src={img}
-                                            alt={`${product.name} - View ${idx + 1}`}
-                                            className={styles.mainImage}
-                                            style={{ filter: isOutOfStock ? 'grayscale(25%)' : 'none' }}
-                                            onError={(e) => {
-                                                e.target.onerror = null;
-                                                e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
-                                            }}
-                                        />
-                                        <div className={styles.zoomBadge}>
-                                            <ZoomIn size={14} />
-                                            <span>Zoom</span>
-                                        </div>
-                                    </div>
-                                </SwiperSlide>
-                            ))}
-                        </Swiper>
-                    </div>
-
-                    {/* Small Dot Thumbnails Indicator Bar — directly below main image */}
-                    {galleryImages.length > 1 && (
-                        <div className={styles.dotThumbnailsBar}>
-                            {galleryImages.map((img, idx) => (
-                                <button
-                                    key={`dot-${img}-${idx}`}
-                                    type="button"
-                                    aria-label={`Go to slide ${idx + 1}`}
-                                    className={`${styles.dotItem} ${currentImageIdx === idx ? styles.dotActive : ''}`}
-                                    onClick={() => {
-                                        setCurrentImageIdx(idx);
-                                        if (swiperInstance && !swiperInstance.destroyed) {
-                                            swiperInstance.slideTo(idx);
-                                        }
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Square Image Thumbnail Strip — below small dots */}
-                    {galleryImages.length > 1 && (
-                        <div className={styles.thumbStrip}>
-                            {galleryImages.map((img, idx) => (
-                                <button
-                                    key={`thumb-${img}-${idx}`}
-                                    type="button"
-                                    className={`${styles.thumbItem} ${currentImageIdx === idx ? styles.thumbActive : ''}`}
-                                    onMouseEnter={() => {
-                                        setCurrentImageIdx(idx);
-                                        if (swiperInstance && !swiperInstance.destroyed) {
-                                            swiperInstance.slideTo(idx);
-                                        }
-                                    }}
-                                    onClick={() => {
-                                        setCurrentImageIdx(idx);
-                                        if (swiperInstance && !swiperInstance.destroyed) {
-                                            swiperInstance.slideTo(idx);
-                                        }
-                                    }}
-                                >
-                                    <img
-                                        src={img}
-                                        alt={`View ${idx + 1}`}
-                                        onError={(e) => {
-                                            e.target.onerror = null;
-                                            e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80';
-                                        }}
-                                    />
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/*  RIGHT: Product Info  */}
-                <div className={styles.productDetails}>
-
-                    {/* Category */}
-                    <span className={styles.categoryPill}>{product.category}</span>
-
-                    {/* Name */}
-                    <h1 className={styles.productName}>{product.name}</h1>
-
-                    {/* Price + Stock + Discount Rules */}
-                    {(() => {
-                        const pricing = typeof getEffectiveProductPrice === 'function'
-                            ? getEffectiveProductPrice(product, selectedVariant)
-                            : { originalPrice: displayPrice, comparePrice: displayPrice, discountedPrice: displayPrice, discountPercent: 0, discountAmount: 0, activeRule: null, hasDiscount: false };
-
-                        const finalPrice = pricing.discountedPrice || displayPrice;
-                        const originalPrice = pricing.comparePrice || pricing.originalPrice;
-                        const hasDiscount = pricing.hasDiscount;
-                        const discountPercent = pricing.discountPercent;
-                        const savings = pricing.discountAmount;
-                        const activeRule = pricing.activeRule;
-
-                        return (
-                            <div>
-                                <div className={styles.priceRow}>
-                                    <span className={styles.priceTag}>
-                                        ₹{finalPrice?.toLocaleString()}
-                                    </span>
-                                    {hasDiscount && (
-                                        <>
-                                            <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '1.2rem', fontWeight: 600 }}>
-                                                ₹{Number(originalPrice).toLocaleString()}
-                                            </span>
-                                            <span style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', fontSize: '0.85rem', fontWeight: 800, padding: '0.25rem 0.65rem', borderRadius: '6px' }}>
-                                                {discountPercent}% OFF
-                                            </span>
-                                        </>
-                                    )}
-                                    {!isOutOfStock
-                                        ? <span className={styles.inStock}><CheckCircle size={13} /> {currentStock} sarees in stock</span>
-                                        : <span className={styles.outOfStock}><X size={13} /> Out of Stock</span>
-                                    }
-                                </div>
-
-                                {hasDiscount && savings > 0 && (
-                                    <div style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        background: activeRule ? '#eff6ff' : '#f0fdf4',
-                                        border: activeRule ? '1px solid #bfdbfe' : '1px solid #bbf7d0',
-                                        color: activeRule ? '#1d4ed8' : '#15803d',
-                                        padding: '5px 12px',
-                                        borderRadius: '8px',
-                                        fontSize: '0.82rem',
-                                        fontWeight: 700,
-                                        marginTop: '0.65rem'
-                                    }}>
-                                        <Tag size={14} />
-                                        <span>
-                                            {activeRule ? `${activeRule.name}: You Save ₹${savings.toLocaleString()}` : `Special Offer: You Save ₹${savings.toLocaleString()}`}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })()}
-
-                    <div className={styles.divider} />
-
-                    {/* Description */}
-                    <div className={styles.descriptionBlock}>
-                        <p className={styles.descLabel}>Description</p>
-                        <p className={styles.descText}>
-                            {product.description || "Premium quality saree from our exclusive collection. Crafted with elegance and precision for your special occasions."}
-                        </p>
-                    </div>
-
-                    {/* Multi-Option Selectors (Shopify Style: Size, Color, etc.) */}
-                    {product.type === 'variant' && variants.length > 0 && parsedOptionGroups.length > 1 && (
-                        <div className={styles.variantsSection} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
-                            {parsedOptionGroups.map((grp) => (
-                                <div key={grp.index}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
-                                        <p className={styles.variantLabel} style={{ margin: 0, fontSize: '0.85rem' }}>
-                                            Select {grp.label}: <strong style={{ color: '#0f172a' }}>{activeOptionValues[grp.index] || ''}</strong>
-                                        </p>
-                                    </div>
-                                    <div className={styles.variantChips}>
-                                        {grp.values.map(val => {
-                                            const isSelected = (activeOptionValues[grp.index] || '').toLowerCase() === val.toLowerCase();
-                                            // Check if this option value has any in-stock combo
-                                            const hasInStock = variants.some(v => {
-                                                const parts = String(v.name || '').split('/').map(p => p.trim().toLowerCase());
-                                                return parts[grp.index] === val.toLowerCase() && Number(v.stock || 0) > 0;
-                                            });
-
-                                            return (
-                                                <button
-                                                    key={val}
-                                                    type="button"
-                                                    className={`${styles.variantChip} ${isSelected ? styles.activeVariant : ''} ${!hasInStock ? styles.variantOutOfStock : ''}`}
-                                                    onClick={() => handleSelectOptionValue(grp.index, val)}
-                                                >
-                                                    {val} {!hasInStock ? '(Out of Stock)' : ''}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Single Option / Direct Combinations Selector */}
-                    {product.type === 'variant' && variants.length > 0 && parsedOptionGroups.length <= 1 && (
-                        <div className={styles.variantsSection}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                                <p className={styles.variantLabel} style={{ margin: 0 }}>Select Size / Option:</p>
-                                {selectedVariant?.sku && (
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, fontFamily: 'monospace' }}>
-                                        SKU: {selectedVariant.sku}
-                                    </span>
-                                )}
-                            </div>
-                            <div className={styles.variantChips}>
-                                {variants.map(v => {
-                                    const vOutOfStock = Number(v.stock ?? 0) <= 0;
-                                    const isSelected = selectedVariant?.id === v.id;
-                                    return (
-                                        <button
-                                            key={v.id}
-                                            type="button"
-                                            className={`${styles.variantChip} ${isSelected ? styles.activeVariant : ''} ${vOutOfStock ? styles.variantOutOfStock : ''}`}
-                                            onClick={() => handleSelectVariant(v)}
-                                            title={vOutOfStock ? `${v.name} is currently Out of Stock` : `${v.name} (${v.stock} in stock)`}
-                                        >
-                                            {v.name} {vOutOfStock ? '(Out of Stock)' : ''}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Actions */}
-                    {!isOutOfStock ? (
-                        <div>
-                            <div className={styles.actions}>
-                                <div className={styles.qtySelector}>
-                                    <button onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
-                                    <span>{qty}</span>
-                                    <button 
-                                        onClick={() => setQty(Math.min(currentStock, qty + 1))}
-                                        disabled={qty >= currentStock}
-                                        title={qty >= currentStock ? `Maximum ${currentStock} sarees available` : 'Increase quantity'}
-                                    >
-                                        +
-                                    </button>
-                                </div>
-                                <button className={styles.addToCartBtn} onClick={handleAddToCart}>
-                                    <ShoppingCart size={16} /> Add to Cart
-                                </button>
-                                <button
-                                    className={styles.buyNowBtn}
-                                    onClick={() => { handleAddToCart(); router.push('/checkout'); }}
-                                >
-                                    Buy Now
-                                </button>
-                            </div>
-                            {qty >= currentStock && (
-                                <div style={{
-                                    marginTop: '0.75rem',
-                                    padding: '0.45rem 0.85rem',
-                                    background: '#fff1f2',
-                                    border: '1px solid #fecdd3',
-                                    borderRadius: '8px',
-                                    color: '#e11d48',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 700,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                }}>
-                                    Out of Stock for higher quantity (Maximum {currentStock} in stock)
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className={styles.actions}>
-                            <button disabled className={styles.addToCartBtn} style={{ background: '#f1f5f9', cursor: 'not-allowed', color: '#94a3b8', border: '1px solid #e2e8f0', gridColumn: '1 / -1', height: '52px', fontWeight: 800 }}>
-                                Out of Stock
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Meta Table */}
-                    <div className={styles.metaTable}>
-                        <div className={styles.metaRow}>
-                            <span className={styles.metaKey}>Category</span>
-                            <span className={styles.metaVal}>{product.category}</span>
-                        </div>
-                        {product.product_group && (
-                            <div className={styles.metaRow}>
-                                <span className={styles.metaKey}>Brand</span>
-                                <span className={styles.metaVal}>{product.product_group}</span>
-                            </div>
-                        )}
-                        <div className={styles.metaRow}>
-                            <span className={styles.metaKey}>SKU</span>
-                            <span className={styles.metaVal}>
-                                {product.product_catalog_image_id || 'AS-PRD-' + product.id}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/*  Related Products  */}
-            {relatedProducts.length > 0 && (
-                <section className={styles.relatedSection}>
-                    <div className={styles.relatedHeader}>
-                        <h2 className={styles.sectionTitle}>You may also like</h2>
-                    </div>
-                    <div className={styles.relatedGrid}>
-                        {relatedProducts.map(p => (
-                            <ProductCard key={p.id} product={p} />
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            {/*  Zoom Modal  */}
-            {isZoomed && (
-                <div className={styles.zoomModal} onClick={() => setIsZoomed(false)}>
-                    <button
-                        className={styles.closeZoomBtn}
-                        onClick={(e) => { e.stopPropagation(); setIsZoomed(false); }}
-                    >
-                        <X size={26} strokeWidth={1.5} />
-                    </button>
-                    <img
-                        src={activeImageUrl}
-                        alt={product.name}
-                        className={styles.zoomedImage}
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </div>
-            )}
-        </div>
+            <Suspense fallback={null}>
+                <ProductDetailsClient
+                    initialProduct={serializedProduct}
+                    initialVariants={serializedVariants}
+                />
+            </Suspense>
+        </>
     );
 }

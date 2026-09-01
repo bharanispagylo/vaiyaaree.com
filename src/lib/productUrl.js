@@ -75,3 +75,4 @@ export function findProductBySlugOrId(param, productsList = []) {
     found = productsList.find(p => getProductSlug(p).toLowerCase().startsWith(namePart));
     return found || null;
 }
+

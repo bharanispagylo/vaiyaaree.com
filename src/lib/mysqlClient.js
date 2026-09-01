@@ -172,21 +172,41 @@ class MySQLQueryBuilder {
                 isMaybeSingle: this.isMaybeSingle
             };
 
-            let res;
+            let res = { data: null, error: null };
             if (typeof window === 'undefined') {
-                const { executeMysqlQuery } = await import('./mysqlQueryEngine.js');
-                res = await executeMysqlQuery(payload);
+                try {
+                    const { executeMysqlQuery } = await import('./mysqlQueryEngine.js');
+                    res = await executeMysqlQuery(payload);
+                } catch (serverErr) {
+                    console.error('[MySQL Server Query Error]:', serverErr);
+                    res = { data: null, error: { message: serverErr?.message || 'Server database query failed' } };
+                }
             } else {
-                const response = await fetch('/api/db', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) {
-                    const text = await response.text();
-                    res = { data: null, error: { message: text } };
-                } else {
-                    res = await response.json();
+                try {
+                    const response = await fetch('/api/db', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const text = await response.text();
+                        let errMsg = text;
+                        try {
+                            const parsed = JSON.parse(text);
+                            errMsg = parsed.error?.message || parsed.message || text;
+                        } catch (_) {}
+                        res = { data: null, error: { message: errMsg } };
+                    } else {
+                        try {
+                            res = await response.json();
+                        } catch (parseErr) {
+                            console.error('[MySQL JSON Parse Error]:', parseErr);
+                            res = { data: null, error: { message: 'Invalid JSON response from server' } };
+                        }
+                    }
+                } catch (fetchErr) {
+                    console.warn('[MySQL Fetch Warning]:', fetchErr?.message);
+                    res = { data: null, error: { message: fetchErr?.message || 'Network request failed' } };
                 }
             }
 
@@ -215,7 +235,7 @@ class MySQLQueryBuilder {
             return resolve({ data: resultData, error: null, count: res.count ?? null });
         } catch (err) {
             console.error('[MySQL Client Builder Error]:', err);
-            return resolve({ data: null, error: { message: err.message }, count: null });
+            return resolve({ data: null, error: { message: err?.message || 'Unknown database error' }, count: null });
         }
     }
 }
