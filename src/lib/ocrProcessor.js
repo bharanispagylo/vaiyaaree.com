@@ -24,14 +24,23 @@ export async function processOcr(base64Image, imageUrl, preferredEngine = '2') {
             throw new Error('No image source provided for OCR');
         }
 
-        const res = await fetch('https://api.ocr.space/parse/image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        if (!res.ok) throw new Error(`OCR.space returned ${res.status}`);
-        return res.json();
+        try {
+            const res = await fetch('https://api.ocr.space/parse/image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString(),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (!res.ok) throw new Error(`OCR.space returned ${res.status}`);
+            return await res.json();
+        } catch (fetchErr) {
+            clearTimeout(timeoutId);
+            throw fetchErr;
+        }
     };
 
     try {

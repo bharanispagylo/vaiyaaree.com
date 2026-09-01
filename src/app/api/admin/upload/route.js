@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { mysqlAdmin } from '@/lib/mysqlClient';
+import pool from '@/lib/mysql';
 import { detectWatermark, applyWatermark } from '@/lib/imageService';
 import { Buffer } from 'buffer';
 import { verifyAdmin } from '@/lib/auth';
@@ -13,8 +13,15 @@ export const revalidate = 0;
 const uploadBaseDir = path.join(process.cwd(), 'public', 'uploads', 'media');
 
 async function ensureDirs() {
-    await fs.mkdir(path.join(uploadBaseDir, 'with-watermark'), { recursive: true });
-    await fs.mkdir(path.join(uploadBaseDir, 'without-watermark'), { recursive: true });
+    try {
+        await fs.mkdir(path.join(process.cwd(), 'public', 'uploads'), { recursive: true });
+        await fs.mkdir(uploadBaseDir, { recursive: true });
+        await fs.mkdir(path.join(uploadBaseDir, 'with-watermark'), { recursive: true });
+        await fs.mkdir(path.join(uploadBaseDir, 'without-watermark'), { recursive: true });
+        await fs.mkdir(path.join(process.cwd(), 'public', 'uploads', 'products'), { recursive: true });
+    } catch (dirErr) {
+        console.error('[UPLOAD ensureDirs error]:', dirErr);
+    }
 }
 
 // GET - List all local media files
@@ -33,14 +40,16 @@ export async function GET(request) {
         if (existsSync(wmPath)) {
             const files = await fs.readdir(wmPath);
             for (const f of files) {
-                const stat = await fs.stat(path.join(wmPath, f));
-                allFiles.push({
-                    id: `wm-${f}`,
-                    name: f,
-                    url: `/uploads/media/with-watermark/${f}`,
-                    folder: 'with-watermark',
-                    created_at: stat.birthtime || stat.mtime
-                });
+                try {
+                    const stat = await fs.stat(path.join(wmPath, f));
+                    allFiles.push({
+                        id: `wm-${f}`,
+                        name: f,
+                        url: `/uploads/media/with-watermark/${f}`,
+                        folder: 'with-watermark',
+                        created_at: stat.birthtime || stat.mtime
+                    });
+                } catch (_) {}
             }
         }
 
@@ -49,14 +58,16 @@ export async function GET(request) {
         if (existsSync(noWmPath)) {
             const files = await fs.readdir(noWmPath);
             for (const f of files) {
-                const stat = await fs.stat(path.join(noWmPath, f));
-                allFiles.push({
-                    id: `nowm-${f}`,
-                    name: f,
-                    url: `/uploads/media/without-watermark/${f}`,
-                    folder: 'without-watermark',
-                    created_at: stat.birthtime || stat.mtime
-                });
+                try {
+                    const stat = await fs.stat(path.join(noWmPath, f));
+                    allFiles.push({
+                        id: `nowm-${f}`,
+                        name: f,
+                        url: `/uploads/media/without-watermark/${f}`,
+                        folder: 'without-watermark',
+                        created_at: stat.birthtime || stat.mtime
+                    });
+                } catch (_) {}
             }
         }
 
@@ -166,9 +177,14 @@ export async function POST(request) {
         if (skipDetection || alreadyWatermarked) {
             hasWatermark = alreadyWatermarked;
         } else {
-            const detection = await detectWatermark(buffer, fileNameHint);
-            hasWatermark = detection.hasWatermark;
-            detectedCatalogId = detection.catalogId;
+            try {
+                const detection = await detectWatermark(buffer, fileNameHint);
+                hasWatermark = !!detection?.hasWatermark;
+                detectedCatalogId = detection?.catalogId || null;
+            } catch (detErr) {
+                console.warn('[UPLOAD Watermark Detection Warning]:', detErr);
+                hasWatermark = false;
+            }
         }
 
         if (checkOnly) {
@@ -181,15 +197,29 @@ export async function POST(request) {
         let finalRelativeUrl = '';
         let isNowWatermarked = hasWatermark;
         let finalId = catalogId || detectedCatalogId || Math.random().toString(36).substring(2, 7).toUpperCase();
-        const fileName = `${finalId}_${Date.now()}.${fileExt}`;
+        
+        const safeId = String(finalId).replace(/[^a-zA-Z0-9_-]/g, '') || 'CAT-' + Date.now();
+        const safeExt = String(fileExt).replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'jpg';
+        const fileName = `${safeId}_${Date.now()}.${safeExt}`;
 
         if (!hasWatermark && catalogId && requireClean) {
             if (saveClean) {
-                const cleanFilePath = path.join(uploadBaseDir, 'without-watermark', fileName);
-                await fs.writeFile(cleanFilePath, buffer);
+                try {
+                    const cleanFilePath = path.join(uploadBaseDir, 'without-watermark', fileName);
+                    await fs.writeFile(cleanFilePath, buffer);
+                } catch (saveErr) {
+                    console.warn('[UPLOAD Clean Save Warning]:', saveErr);
+                }
             }
 
-            const watermarkedBuffer = await applyWatermark(buffer, finalId);
+            let watermarkedBuffer = buffer;
+            try {
+                watermarkedBuffer = await applyWatermark(buffer, finalId);
+            } catch (wmErr) {
+                console.warn('[UPLOAD applyWatermark fallback]:', wmErr);
+                watermarkedBuffer = buffer;
+            }
+
             const wmFilePath = path.join(uploadBaseDir, 'with-watermark', fileName);
             await fs.writeFile(wmFilePath, watermarkedBuffer);
 
@@ -204,18 +234,25 @@ export async function POST(request) {
             finalRelativeUrl = `/uploads/media/${folder}/${fileName}`;
         }
 
-        // Update settings list
+        // Update settings list asynchronously
         try {
             const key = isNowWatermarked ? 'watermark_images' : 'no_watermark_images';
-            const { data: settingData } = await mysqlAdmin.from('app_settings').select('value').eq('key', key).single();
+            const [rows] = await pool.query('SELECT `value` FROM `app_settings` WHERE `key` = ? LIMIT 1', [key]);
             let list = [];
-            if (settingData?.value) try { list = JSON.parse(settingData.value); } catch(e) {}
+            if (rows && rows.length > 0 && rows[0]?.value) {
+                try { list = JSON.parse(rows[0].value); } catch(e) {}
+            }
             if (!Array.isArray(list)) list = [];
             if (!list.includes(finalRelativeUrl)) {
                 list.push(finalRelativeUrl);
-                await mysqlAdmin.from('app_settings').upsert({ key, value: JSON.stringify(list), updated_at: new Date() });
+                await pool.query(
+                    'INSERT INTO `app_settings` (`key`, `value`, `updated_at`) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()',
+                    [key, JSON.stringify(list)]
+                );
             }
-        } catch (e) {}
+        } catch (setErr) {
+            console.warn('[UPLOAD Settings Update Warning]:', setErr);
+        }
 
         return NextResponse.json({
             url: finalRelativeUrl,
@@ -227,7 +264,7 @@ export async function POST(request) {
 
     } catch (err) {
         console.error('[UPLOAD] Error:', err);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        return NextResponse.json({ error: err.message || 'Upload failed' }, { status: 500 });
     }
 }
 
@@ -322,14 +359,17 @@ export async function DELETE(request) {
         try {
             const keys = ['watermark_images', 'no_watermark_images', 'hero_slider_images', 'gallery_images'];
             for (const key of keys) {
-                const { data: sData } = await mysqlAdmin.from('app_settings').select('value').eq('key', key).single();
-                if (sData?.value) {
+                const [rows] = await pool.query('SELECT `value` FROM `app_settings` WHERE `key` = ? LIMIT 1', [key]);
+                if (rows && rows.length > 0 && rows[0]?.value) {
                     let list = [];
-                    try { list = JSON.parse(sData.value); } catch(e) {}
+                    try { list = JSON.parse(rows[0].value); } catch(e) {}
                     if (Array.isArray(list)) {
                         const filtered = list.filter(u => !deletedUrls.some(del => u === del || u.endsWith(path.basename(del))));
                         if (filtered.length !== list.length) {
-                            await mysqlAdmin.from('app_settings').upsert({ key, value: JSON.stringify(filtered), updated_at: new Date() });
+                            await pool.query(
+                                'INSERT INTO `app_settings` (`key`, `value`, `updated_at`) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()',
+                                [key, JSON.stringify(filtered)]
+                            );
                         }
                     }
                 }
