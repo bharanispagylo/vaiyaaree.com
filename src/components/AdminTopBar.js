@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LogOut, Menu, User, ShieldCheck, ChevronDown, Mail, Settings, Users } from 'lucide-react';
+import { LogOut, Menu, User, ShieldCheck, ChevronDown, Mail, Settings, Users, Sparkles, Check } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 
 // Map path → page title
@@ -48,7 +48,35 @@ export default function AdminTopBar({ onMenuClick }) {
         email: ''
     });
     const [showDropdown, setShowDropdown] = useState(false);
+    const [isFlushingCache, setIsFlushingCache] = useState(false);
+    const [cacheMessage, setCacheMessage] = useState(null);
     const dropdownRef = useRef(null);
+
+    const handleFlushCache = async () => {
+        setIsFlushingCache(true);
+        try {
+            const token = localStorage.getItem('cast_prince_admin') || '';
+            const res = await fetch('/api/admin/flush-cache', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setCacheMessage('Storefront cache flushed successfully!');
+            } else {
+                setCacheMessage(data.error || 'Failed to flush cache.');
+            }
+        } catch (err) {
+            console.error('Cache flush error:', err);
+            setCacheMessage('Error connecting to cache service.');
+        } finally {
+            setIsFlushingCache(false);
+            setTimeout(() => {
+                setCacheMessage(null);
+                setShowDropdown(false);
+            }, 2500);
+        }
+    };
 
     useEffect(() => {
         // 1. Read stored admin profile from localStorage
@@ -324,6 +352,24 @@ export default function AdminTopBar({ onMenuClick }) {
 
                             {/* Quick Navigation Links */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', margin: '0.4rem 0 0.8rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.6rem' }}>
+                                <button
+                                    onClick={handleFlushCache}
+                                    disabled={isFlushingCache}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.65rem',
+                                        padding: '0.5rem 0.65rem', borderRadius: '8px',
+                                        background: 'rgba(212, 122, 6, 0.12)', border: '1px solid rgba(212, 122, 6, 0.3)',
+                                        color: '#dfaa5b', fontSize: '0.8rem', fontWeight: 700,
+                                        cursor: isFlushingCache ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 0.15s'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(212, 122, 6, 0.22)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(212, 122, 6, 0.12)'}
+                                    title="Purge Next.js SSR cache and publish latest changes instantly to all users"
+                                >
+                                    <Sparkles size={15} style={{ color: '#dfaa5b' }} className={isFlushingCache ? 'animate-spin' : ''} /> 
+                                    {isFlushingCache ? 'Flushing Storefront...' : 'Flush Store Cache'}
+                                </button>
+
                                 <button
                                     onClick={() => { setShowDropdown(false); router.push('/admin/users'); }}
                                     style={{

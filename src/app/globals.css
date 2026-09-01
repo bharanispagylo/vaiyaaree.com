@@ -9,25 +9,32 @@
   --font-roboto: 'Plus Jakarta Sans', sans-serif;
 
   /* ── 5-Tone Indian Cultural Color Schema (Matches Logo & User Palette) ── */
-  --clr-sage: #86a397;            /* 1. Muted Teal Sage */
+  --clr-sage: #86a397;
+  /* 1. Muted Teal Sage */
   --clr-sage-dark: #627e72;
   --clr-sage-light: #f0f5f2;
-  --clr-slate: #3e4742;           /* 2. Deep Forest Slate Charcoal */
+  --clr-slate: #3e4742;
+  /* 2. Deep Forest Slate Charcoal */
   --clr-slate-dark: #27302b;
   --clr-slate-light: #4e5852;
-  --clr-terracotta: #a06650;      /* 3. Warm Terracotta Clay / Logo Arch Outline */
+  --clr-terracotta: #a06650;
+  /* 3. Warm Terracotta Clay / Logo Arch Outline */
   --clr-terracotta-dark: #844c38;
   --clr-terracotta-light: #faeee9;
-  --clr-olive: #7c8675;           /* 4. Heritage Olive Khaki */
+  --clr-olive: #7c8675;
+  /* 4. Heritage Olive Khaki */
   --clr-olive-light: #f2f5f0;
-  --clr-gold-ochre: #d47a06;      /* 5. Royal Marigold / Ochre Turmeric Gold */
+  --clr-gold-ochre: #d47a06;
+  /* 5. Royal Marigold / Ochre Turmeric Gold */
   --clr-gold-dark: #b86503;
   --clr-gold-light: #fdf6e7;
   --clr-gold-zari: #e69d35;
 
   /* ── Background Silk Canvas ── */
-  --clr-bg-cream: #fdfbf7;        /* Authentic Handloom Warm Silk Canvas */
-  --clr-bg-linen: #f7f2ea;        /* Subtle Textured Linen */
+  --clr-bg-cream: #fdfbf7;
+  /* Authentic Handloom Warm Silk Canvas */
+  --clr-bg-linen: #f7f2ea;
+  /* Subtle Textured Linen */
   --clr-bg-white: #ffffff;
   --clr-border-subtle: #ebdcd0;
   --clr-border-gold: rgba(212, 122, 6, 0.28);

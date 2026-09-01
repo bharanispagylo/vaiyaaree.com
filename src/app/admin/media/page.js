@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import {
     Upload, Trash2, Search, Loader2, Image as ImageIcon,
     X, Check, Copy, Grid, List as ListIcon, RefreshCw, Plus,
-    Star, Layout, Droplets, Sparkles, ZoomIn
+    Star, Layout, Droplets, Sparkles, ZoomIn, CheckSquare, Square,
+    AlertTriangle
 } from 'lucide-react';
 import { mysqlClient } from '@/lib/mysqlClient';
 
@@ -12,9 +13,11 @@ export default function MediaLibraryPage() {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
     const [selectedFile, setSelectedFile] = useState(null);
+    const [selectedUrls, setSelectedUrls] = useState([]); // Array of selected image URLs for multi-select
     const [notification, setNotification] = useState(null);
     const [heroImages, setHeroImages] = useState([]);
     const [galleryImages, setGalleryImages] = useState([]);
@@ -23,10 +26,8 @@ export default function MediaLibraryPage() {
     const [activeGroup, setActiveGroup] = useState('all'); // 'all' | 'watermark' | 'no-watermark'
     const [analyzing, setAnalyzing] = useState(false);
     const [zoomedImage, setZoomedImage] = useState(null);
-    const [confirmAction, setConfirmAction] = useState(null); // { type, payload, title, message, onConfirm }
+    const [confirmAction, setConfirmAction] = useState(null); // { type, title, message, onConfirm, isDanger }
     const fileInputRef = useRef(null);
-
-    const BUCKET_NAME = 'media';
 
     const formatFileSize = (bytes) => {
         if (bytes == null || !Number.isFinite(Number(bytes)) || Number(bytes) <= 0) {
@@ -57,6 +58,8 @@ export default function MediaLibraryPage() {
                 metadata: f.metadata || { size: f.size ?? 0 }
             }));
             setFiles(normalized);
+            // Prune selectedUrls that no longer exist
+            setSelectedUrls(prev => prev.filter(u => normalized.some(file => file.url === u)));
         } catch (err) {
             console.error('Error fetching media:', err);
             setNotification({ message: 'Failed to load media library: ' + err.message, type: 'error' });
@@ -145,326 +148,83 @@ export default function MediaLibraryPage() {
         });
     };
 
-    const toggleWatermark = async (url) => {
-        const newWatermark = watermarkImages.includes(url)
-            ? watermarkImages.filter(u => u !== url)
-            : [...watermarkImages, url];
-        setWatermarkImages(newWatermark);
-        await updateSetting('watermark_images', newWatermark);
-        setNotification({
-            message: watermarkImages.includes(url) ? 'Removed from Watermark' : 'Added to Watermark',
-            type: 'success'
-        });
+    // Multi-Select Handlers
+    const toggleSelectUrl = (url, e) => {
+        if (e) e.stopPropagation();
+        setSelectedUrls(prev => 
+            prev.includes(url) ? prev.filter(u => u !== url) : [...prev, url]
+        );
     };
 
-    const toggleNoWatermark = async (url) => {
-        const newNoWatermark = noWatermarkImages.includes(url)
-            ? noWatermarkImages.filter(u => u !== url)
-            : [...noWatermarkImages, url];
-        setNoWatermarkImages(newNoWatermark);
-        await updateSetting('no_watermark_images', newNoWatermark);
-        setNotification({
-            message: noWatermarkImages.includes(url) ? 'Removed from No Watermark' : 'Added to No Watermark',
-            type: 'success'
-        });
-    };
-
-    const reanalyzeAllImages = async () => {
-        setConfirmAction({
-            type: 'reanalyze',
-            title: 'Re-analyze Library?',
-            message: 'Re-analyze all images for watermarks? This will re-categorize all images.',
-            onConfirm: async () => {
-                setConfirmAction(null);
-                setAnalyzing(true);
-                setNotification({ message: 'Analyzing all images for watermarks...', type: 'success' });
-
-                const newWatermarkList = [];
-                const newNoWatermarkList = [];
-                let analyzed = 0;
-
-                for (const file of files) {
-                    try {
-                        const token = localStorage.getItem('cast_prince_admin') || '';
-                        const res = await fetch('/api/admin/watermark-detect', {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ imageUrl: file.url })
-                        });
-
-                        const data = await res.json();
-
-                        if (data.hasWatermark) {
-                            newWatermarkList.push(file.url);
-                        } else {
-                            newNoWatermarkList.push(file.url);
-                        }
-
-                        analyzed++;
-                    } catch (err) {
-                        console.error('Failed to analyze:', file.name, err);
-                        newNoWatermarkList.push(file.url);
-                    }
-                }
-
-                setWatermarkImages(newWatermarkList);
-                setNoWatermarkImages(newNoWatermarkList);
-
-                await updateSetting('watermark_images', newWatermarkList);
-                await updateSetting('no_watermark_images', newNoWatermarkList);
-
-                setAnalyzing(false);
-                setNotification({
-                    message: `Re-analyzed ${analyzed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
-                    type: 'success'
-                });
-            }
-        });
-    };
-
-    const categorizeAllImages = async () => {
-        setConfirmAction({
-            type: 'categorize',
-            title: 'Analyze Watermarks?',
-            message: `Categorize all ${files.length} images for watermarks?`,
-            onConfirm: async () => {
-                setConfirmAction(null);
-                setAnalyzing(true);
-                setNotification({ message: `Analyzing ${files.length} images...`, type: 'success' });
-
-                const newWatermarkList = [];
-                const newNoWatermarkList = [];
-                let processed = 0;
-
-                for (const file of files) {
-                    try {
-                        const token = localStorage.getItem('cast_prince_admin') || '';
-                        const res = await fetch('/api/admin/watermark-detect', {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ imageUrl: file.url })
-                        });
-
-                        const data = await res.json();
-
-                        if (data.hasWatermark) {
-                            newWatermarkList.push(file.url);
-                        } else {
-                            newNoWatermarkList.push(file.url);
-                        }
-
-                        processed++;
-                    } catch (err) {
-                        console.error('Failed to analyze:', file.name, err);
-                        newNoWatermarkList.push(file.url);
-                    }
-                }
-
-                // Update state
-                setWatermarkImages(newWatermarkList);
-                setNoWatermarkImages(newNoWatermarkList);
-
-                // Save to database
-                await updateSetting('watermark_images', newWatermarkList);
-                await updateSetting('no_watermark_images', newNoWatermarkList);
-
-                setAnalyzing(false);
-                setNotification({
-                    message: `Categorized ${processed} images: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
-                    type: 'success'
-                });
-            }
-        });
-    };
-
-    // Auto-categorize all images on page load (run once when files loaded)
-    // Auto-categorize is now only performed on upload to improve performance.
-    /*
-    const hasCategorizedRef = useRef(false);
-    useEffect(() => {
-        if (files.length > 0 && !hasCategorizedRef.current && !loading) {
-            hasCategorizedRef.current = true;
-            autoCategorizeImages();
+    const handleSelectAll = () => {
+        const visibleUrls = filteredFiles.map(f => f.url);
+        const allSelected = visibleUrls.every(u => selectedUrls.includes(u));
+        if (allSelected) {
+            // Deselect visible
+            setSelectedUrls(prev => prev.filter(u => !visibleUrls.includes(u)));
+        } else {
+            // Select all visible
+            setSelectedUrls(prev => [...new Set([...prev, ...visibleUrls])]);
         }
-    }, [files, loading]);
-    */
+    };
 
-    const autoCategorizeImages = async () => {
-        if (files.length === 0) return;
-
-        setAnalyzing(true);
-        setNotification({ message: `Auto-categorizing ${files.length} images...`, type: 'success' });
-
-        const newWatermarkList = [];
-        const newNoWatermarkList = [];
-        let processed = 0;
-
-        for (const file of files) {
-            try {
-                const token = localStorage.getItem('cast_prince_admin') || '';
-                const res = await fetch('/api/admin/watermark-detect', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ imageUrl: file.url })
-                });
-
-                const data = await res.json();
-
-                if (data.hasWatermark) {
-                    newWatermarkList.push(file.url);
-                } else {
-                    newNoWatermarkList.push(file.url);
-                }
-
-                processed++;
-            } catch (err) {
-                console.error('Failed to analyze:', file.name, err);
-                newNoWatermarkList.push(file.url);
-            }
-        }
-
-        // Update state
-        setWatermarkImages(newWatermarkList);
-        setNoWatermarkImages(newNoWatermarkList);
-
-        // Save to database
-        await updateSetting('watermark_images', newWatermarkList);
-        await updateSetting('no_watermark_images', newNoWatermarkList);
-
-        setAnalyzing(false);
-        setNotification({
-            message: `Auto-categorized: ${newWatermarkList.length} with watermark, ${newNoWatermarkList.length} without`,
-            type: 'success'
-        });
+    const clearSelection = () => {
+        setSelectedUrls([]);
     };
 
     const handleUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const uploadedFiles = Array.from(e.target.files || []);
+        if (uploadedFiles.length === 0) return;
 
         setUploading(true);
+        let successCount = 0;
+        const token = localStorage.getItem('cast_prince_admin') || '';
+
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('mode', 'gallery');
+            for (const file of uploadedFiles) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('mode', 'gallery');
 
-            const token = localStorage.getItem('cast_prince_admin') || '';
-            const res = await fetch('/api/admin/upload', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData,
-            });
+                const res = await fetch('/api/admin/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData,
+                });
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Upload failed');
-
-            // Use watermark detection result from upload API
-            const hasWatermark = data.hasWatermark || false;
-            const folder = data.folder || 'without_watermark';
-
-            if (hasWatermark && folder === 'with_watermark') {
-                // Image has watermark - store in watermark collection
-                const newWatermark = [...watermarkImages, data.url];
-                setWatermarkImages(newWatermark);
-                await updateSetting('watermark_images', newWatermark);
-                setNotification({ message: 'Watermark detected: Image stored in "With Watermark" collection', type: 'success' });
-            } else {
-                // Image has no watermark - store in no-watermark collection
-                const newNoWatermark = [...noWatermarkImages, data.url];
-                setNoWatermarkImages(newNoWatermark);
-                await updateSetting('no_watermark_images', newNoWatermark);
-                setNotification({ message: 'No watermark detected: Image stored in "Without Watermark" collection', type: 'success' });
+                const data = await res.json();
+                if (res.ok) {
+                    successCount++;
+                }
             }
 
-            // Refresh the file list
+            setNotification({ 
+                message: `Successfully uploaded ${successCount} image(s).`, 
+                type: 'success' 
+            });
             fetchFiles();
-
+            fetchSettings();
         } catch (err) {
             console.error('Upload error:', err);
-            setNotification({ message: 'Upload failed: ' + err.message, type: 'error' });
+            setNotification({ message: 'Upload error: ' + err.message, type: 'error' });
         } finally {
             setUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
-    const handleDelete = async (fullPath) => {
+    // Single Image Delete
+    const handleDeleteSingle = (file) => {
+        const fileNameToDisplay = file.name || file.url.split('/').pop();
         setConfirmAction({
             type: 'delete',
+            isDanger: true,
             title: 'Delete Image?',
-            message: 'Are you sure you want to permanently delete this image from the library?',
+            message: `Are you sure you want to permanently delete "${fileNameToDisplay}" from the server? This action cannot be undone.`,
             onConfirm: async () => {
                 setConfirmAction(null);
+                setDeleting(true);
                 try {
-                    // Check if image is used by products or variants
-                    const fileToDelete = files.find(f => {
-                        const filePath = f.folder && f.folder !== 'root'
-                            ? `${f.folder}/${f.name}`
-                            : f.name;
-                        return filePath === fullPath;
-                    });
-
-                    if (fileToDelete) {
-                        const { data: usedByProduct } = await mysqlClient
-                            .from('products')
-                            .select('id, name')
-                            .eq('image_url', fileToDelete.url)
-                            .maybeSingle();
-
-                        if (usedByProduct) {
-                            setNotification({
-                                message: `Cannot delete: Image is used by product "${usedByProduct.name}"`,
-                                type: 'error'
-                            });
-                            return;
-                        }
-
-                        try {
-                            const { data: usedInGallery } = await mysqlClient
-                                .from('products')
-                                .select('name')
-                                .contains('gallery_image', [fileToDelete.url])
-                                .maybeSingle();
-
-                            if (usedInGallery) {
-                                setNotification({
-                                    message: `Cannot delete: Image is used in gallery of product "${usedInGallery.name}"`,
-                                    type: 'error'
-                                });
-                                return;
-                            }
-                        } catch (galErr) {
-                            console.warn('[MEDIA] Gallery usage check skipped:', galErr);
-                        }
-
-                        try {
-                            const { data: usedByVariant } = await mysqlClient
-                                .from('product_variants')
-                                .select('id, name')
-                                .eq('image_url', fileToDelete.url)
-                                .maybeSingle();
-
-                            if (usedByVariant) {
-                                setNotification({
-                                    message: `Cannot delete: Image is used by variant "${usedByVariant.name}"`,
-                                    type: 'error'
-                                });
-                                return;
-                            }
-                        } catch (varErr) {
-                            console.warn('[MEDIA] Variant usage check skipped:', varErr);
-                        }
-                    }
-
                     const token = localStorage.getItem('cast_prince_admin') || '';
                     const res = await fetch('/api/admin/upload', {
                         method: 'DELETE',
@@ -472,48 +232,113 @@ export default function MediaLibraryPage() {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({ fileName: fullPath }),
+                        body: JSON.stringify({ 
+                            url: file.url,
+                            fileName: file.name,
+                            fileNames: [file.name, file.url]
+                        }),
                     });
 
                     const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || 'Delete failed');
+                    if (!res.ok) throw new Error(data.error || 'Failed to delete image');
 
-                    if (fileToDelete) {
-                        const fileUrl = fileToDelete.url;
+                    // Clean local state
+                    setFiles(prev => prev.filter(f => f.url !== file.url));
+                    setSelectedUrls(prev => prev.filter(u => u !== file.url));
+                    if (selectedFile?.url === file.url) setSelectedFile(null);
 
-                        if (heroImages.includes(fileUrl)) {
-                            const newHero = heroImages.filter(u => u !== fileUrl);
-                            setHeroImages(newHero);
-                            await updateSetting('hero_slider_images', newHero);
-                        }
-                        if (galleryImages.includes(fileUrl)) {
-                            const newGallery = galleryImages.filter(u => u !== fileUrl);
-                            setGalleryImages(newGallery);
-                            await updateSetting('gallery_images', newGallery);
-                        }
-                        if (watermarkImages.includes(fileUrl)) {
-                            const newWm = watermarkImages.filter(u => u !== fileUrl);
-                            setWatermarkImages(newWm);
-                            await updateSetting('watermark_images', newWm);
-                        }
-                        if (noWatermarkImages.includes(fileUrl)) {
-                            const newNoWm = noWatermarkImages.filter(u => u !== fileUrl);
-                            setNoWatermarkImages(newNoWm);
-                            await updateSetting('no_watermark_images', newNoWm);
-                        }
-                    }
+                    // Update collections
+                    setHeroImages(prev => prev.filter(u => u !== file.url));
+                    setGalleryImages(prev => prev.filter(u => u !== file.url));
+                    setWatermarkImages(prev => prev.filter(u => u !== file.url));
+                    setNoWatermarkImages(prev => prev.filter(u => u !== file.url));
 
-                    setNotification({ message: 'Image deleted', type: 'success' });
-                    if (selectedFile?.name === fullPath.split('/').pop()) setSelectedFile(null);
+                    setNotification({ message: 'Image deleted successfully', type: 'success' });
                     fetchFiles();
                 } catch (err) {
                     console.error('Delete error:', err);
                     setNotification({ message: 'Delete failed: ' + err.message, type: 'error' });
+                } finally {
+                    setDeleting(false);
                 }
             }
         });
     };
 
+    // Bulk Delete Multiple Images
+    const handleDeleteSelected = () => {
+        if (selectedUrls.length === 0) return;
+
+        setConfirmAction({
+            type: 'delete-multiple',
+            isDanger: true,
+            title: `Delete ${selectedUrls.length} Image(s)?`,
+            message: `Are you sure you want to permanently delete all ${selectedUrls.length} selected images from the server? This action cannot be undone.`,
+            onConfirm: async () => {
+                setConfirmAction(null);
+                setDeleting(true);
+                try {
+                    const token = localStorage.getItem('cast_prince_admin') || '';
+                    const res = await fetch('/api/admin/upload', {
+                        method: 'DELETE',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ 
+                            urls: selectedUrls,
+                            fileNames: selectedUrls
+                        }),
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to delete selected images');
+
+                    const deletedCount = data.deletedCount ?? selectedUrls.length;
+
+                    // Clean local state
+                    const deletedSet = new Set(selectedUrls);
+                    setFiles(prev => prev.filter(f => !deletedSet.has(f.url)));
+                    setSelectedUrls([]);
+                    if (selectedFile && deletedSet.has(selectedFile.url)) setSelectedFile(null);
+
+                    // Update collections
+                    setHeroImages(prev => prev.filter(u => !deletedSet.has(u)));
+                    setGalleryImages(prev => prev.filter(u => !deletedSet.has(u)));
+                    setWatermarkImages(prev => prev.filter(u => !deletedSet.has(u)));
+                    setNoWatermarkImages(prev => prev.filter(u => !deletedSet.has(u)));
+
+                    setNotification({ 
+                        message: `Successfully deleted ${deletedCount} image(s).`, 
+                        type: 'success' 
+                    });
+                    fetchFiles();
+                } catch (err) {
+                    console.error('Bulk delete error:', err);
+                    setNotification({ message: 'Delete failed: ' + err.message, type: 'error' });
+                } finally {
+                    setDeleting(false);
+                }
+            }
+        });
+    };
+
+    // Bulk Assign to Hero / Gallery
+    const handleBulkAssignHero = async () => {
+        if (selectedUrls.length === 0) return;
+        const newHero = [...new Set([...heroImages, ...selectedUrls])];
+        setHeroImages(newHero);
+        await updateSetting('hero_slider_images', newHero);
+        setNotification({ message: `Added ${selectedUrls.length} image(s) to Hero Slider`, type: 'success' });
+    };
+
+    const handleBulkAssignGallery = async () => {
+        if (selectedUrls.length === 0) return;
+        const newGallery = [...new Set([...galleryImages, ...selectedUrls])];
+        setGalleryImages(newGallery);
+        await updateSetting('gallery_images', newGallery);
+        setNotification({ message: `Added ${selectedUrls.length} image(s) to Gallery`, type: 'success' });
+    };
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
@@ -533,16 +358,18 @@ export default function MediaLibraryPage() {
         } else if (activeGroup === 'no-watermark') {
             return !isWm;
         }
-        return true; // 'all' group
+        return true;
     });
 
-    // Calculate actual counts based on database records and settings
     const actualWatermarkCount = files.filter(f => Boolean(f.hasWatermark || f.has_watermark || watermarkImages.includes(f.url) || (f.folder && f.folder.includes('with-watermark')))).length;
     const actualNoWatermarkCount = files.filter(f => !Boolean(f.hasWatermark || f.has_watermark || watermarkImages.includes(f.url) || (f.folder && f.folder.includes('with-watermark')))).length;
+    
+    const isAllVisibleSelected = filteredFiles.length > 0 && filteredFiles.every(f => selectedUrls.includes(f.url));
+    const isSomeVisibleSelected = filteredFiles.some(f => selectedUrls.includes(f.url));
 
     useEffect(() => {
         if (notification) {
-            const timer = setTimeout(() => setNotification(null), 3000);
+            const timer = setTimeout(() => setNotification(null), 3500);
             return () => clearTimeout(timer);
         }
     }, [notification]);
@@ -551,22 +378,25 @@ export default function MediaLibraryPage() {
         <>
             <div className="animate-enter" style={{ padding: '0.5rem' }}>
                 {/* Header */}
-                <div className="admin-header-row" style={{ marginBottom: '2rem' }}>
+                <div className="admin-header-row" style={{ marginBottom: '1.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                     <div>
-                        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <ImageIcon size={28} className="text-primary" />
+                        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
+                            <ImageIcon size={28} style={{ color: 'hsl(var(--primary))' }} />
                             Media Library
                         </h1>
-                        <p style={{ marginTop: '0.25rem' }}>Manage and upload your product images</p>
+                        <p style={{ margin: '0.35rem 0 0', color: 'hsl(var(--text-muted))', fontSize: '0.9rem' }}>
+                            Manage, multi-select, and upload your product & boutique visuals
+                        </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             className="btn btn-primary"
                             disabled={uploading}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.7rem 1.4rem', borderRadius: '10px' }}
                         >
                             {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                            {uploading ? 'Uploading...' : 'Upload Image'}
+                            {uploading ? 'Uploading...' : 'Upload Images'}
                         </button>
                         <input
                             type="file"
@@ -574,17 +404,110 @@ export default function MediaLibraryPage() {
                             onChange={handleUpload}
                             style={{ display: 'none' }}
                             accept="image/*"
+                            multiple
                         />
                     </div>
                 </div>
+
+                {/* Floating Multi-Select Action Bar (when images are selected) */}
+                {selectedUrls.length > 0 && (
+                    <div style={{
+                        background: 'linear-gradient(135deg, #27302b 0%, #1a221e 100%)',
+                        color: '#ffffff',
+                        padding: '0.85rem 1.5rem',
+                        borderRadius: '16px',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+                        border: '1px solid rgba(212, 122, 6, 0.4)',
+                        animation: 'slideInDown 0.25s ease-out'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ 
+                                width: '32px', height: '32px', borderRadius: '50%', 
+                                background: '#d47a06', color: '#ffffff', 
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 800, fontSize: '0.85rem'
+                            }}>
+                                {selectedUrls.length}
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+                                {selectedUrls.length} image{selectedUrls.length > 1 ? 's' : ''} selected
+                            </span>
+                            <span style={{ color: 'rgba(255,255,255,0.4)' }}>•</span>
+                            <button
+                                onClick={handleSelectAll}
+                                style={{
+                                    background: 'none', border: 'none', color: '#dfaa5b',
+                                    cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
+                                    textDecoration: 'underline'
+                                }}
+                            >
+                                {isAllVisibleSelected ? 'Deselect All' : `Select All (${filteredFiles.length})`}
+                            </button>
+                            <button
+                                onClick={clearSelection}
+                                style={{
+                                    background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)',
+                                    cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem'
+                                }}
+                            >
+                                Clear Selection
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                            <button
+                                onClick={handleBulkAssignHero}
+                                className="btn btn-secondary"
+                                style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                            >
+                                <Star size={14} /> Add to Hero ({selectedUrls.length})
+                            </button>
+                            <button
+                                onClick={handleBulkAssignGallery}
+                                className="btn btn-secondary"
+                                style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                            >
+                                <Layout size={14} /> Add to Gallery ({selectedUrls.length})
+                            </button>
+                            <button
+                                onClick={handleDeleteSelected}
+                                disabled={deleting}
+                                style={{
+                                    background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '0.55rem 1.25rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 800,
+                                    fontSize: '0.84rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 4px 15px rgba(225, 29, 72, 0.4)',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                <span>Delete Selected ({selectedUrls.length})</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Notification */}
                 {notification && (
                     <div style={{
                         position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9999,
                         padding: '1rem 1.5rem', borderRadius: '12px',
-                        background: notification.type === 'success' ? 'hsl(var(--success))' : 'hsl(var(--danger))',
-                        color: 'white', fontWeight: 600, boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                        background: notification.type === 'success' ? '#10b981' : '#e11d48',
+                        color: 'white', fontWeight: 600, boxShadow: '0 10px 25px rgba(0,0,0,0.25)',
                         display: 'flex', alignItems: 'center', gap: '0.75rem',
                         animation: 'slideInRight 0.3s ease-out'
                     }}>
@@ -593,50 +516,76 @@ export default function MediaLibraryPage() {
                     </div>
                 )}
 
-                {/* Toolbar with Group Tabs */}
-                <div className="card" style={{ padding: '1rem', marginBottom: '2rem' }}>
+                {/* Toolbar with Group Tabs & Multi-Select master toggle */}
+                <div className="card" style={{ padding: '1rem', marginBottom: '1.75rem' }}>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                        <div style={{ position: 'relative', flex: 1, minWidth: '300px' }}>
+                        <div style={{ position: 'relative', flex: 1, minWidth: '280px' }}>
                             <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                             <input
                                 type="text"
-                                placeholder="Search images by name..."
+                                placeholder="Search images by name or catalog ID..."
                                 className="admin-input"
-                                style={{ paddingLeft: '3rem' }}
+                                style={{ paddingLeft: '3rem', width: '100%' }}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '0.4rem', borderRadius: '10px' }}>
+
+                        {/* Select All Toggle Button */}
+                        <button
+                            onClick={handleSelectAll}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '0.55rem 1rem',
+                                borderRadius: '10px',
+                                border: '1px solid hsl(var(--border-subtle))',
+                                background: isAllVisibleSelected ? '#27302b' : '#ffffff',
+                                color: isAllVisibleSelected ? '#ffffff' : '#27302b',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                fontSize: '0.82rem',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            {isAllVisibleSelected ? <CheckSquare size={16} color="#d47a06" /> : isSomeVisibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                            <span>{isAllVisibleSelected ? 'Deselect All' : 'Select All'}</span>
+                        </button>
+
+                        {/* View Mode Switcher */}
+                        <div style={{ display: 'flex', gap: '0.4rem', background: '#f1f5f9', padding: '0.35rem', borderRadius: '10px' }}>
                             <button
                                 onClick={() => setViewMode('grid')}
                                 style={{
-                                    padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                    background: viewMode === 'grid' ? 'hsl(var(--primary))' : 'transparent',
-                                    color: viewMode === 'grid' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
+                                    padding: '0.45rem 0.65rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    background: viewMode === 'grid' ? '#27302b' : 'transparent',
+                                    color: viewMode === 'grid' ? '#ffffff' : 'hsl(var(--text-muted))'
                                 }}
+                                title="Grid View"
                             >
-                                <Grid size={18} />
+                                <Grid size={17} />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
                                 style={{
-                                    padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                    background: viewMode === 'list' ? 'hsl(var(--primary))' : 'transparent',
-                                    color: viewMode === 'list' ? 'hsl(var(--bg-app))' : 'hsl(var(--text-muted))'
+                                    padding: '0.45rem 0.65rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    background: viewMode === 'list' ? '#27302b' : 'transparent',
+                                    color: viewMode === 'list' ? '#ffffff' : 'hsl(var(--text-muted))'
                                 }}
+                                title="List View"
                             >
-                                <ListIcon size={18} />
+                                <ListIcon size={17} />
                             </button>
                             <button
-                                onClick={fetchFiles}
+                                onClick={() => { fetchFiles(); fetchSettings(); }}
                                 style={{
-                                    padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    padding: '0.45rem 0.65rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
                                     background: 'transparent', color: 'hsl(var(--text-muted))'
                                 }}
                                 title="Refresh"
                             >
-                                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+                                <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
                             </button>
                         </div>
                     </div>
@@ -646,11 +595,11 @@ export default function MediaLibraryPage() {
                         <button
                             onClick={() => setActiveGroup('all')}
                             style={{
-                                padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                background: activeGroup === 'all' ? 'hsl(var(--primary))' : 'transparent',
+                                padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: activeGroup === 'all' ? '#27302b' : 'transparent',
                                 color: activeGroup === 'all' ? 'white' : 'hsl(var(--text-muted))',
-                                fontWeight: activeGroup === 'all' ? 600 : 400,
-                                transition: 'all 0.2s'
+                                fontWeight: activeGroup === 'all' ? 700 : 500,
+                                transition: 'all 0.2s', fontSize: '0.82rem'
                             }}
                         >
                             All Images ({files.length})
@@ -658,12 +607,12 @@ export default function MediaLibraryPage() {
                         <button
                             onClick={() => setActiveGroup('watermark')}
                             style={{
-                                padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                background: activeGroup === 'watermark' ? 'hsl(var(--info))' : 'transparent',
+                                padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: activeGroup === 'watermark' ? '#0284c7' : 'transparent',
                                 color: activeGroup === 'watermark' ? 'white' : 'hsl(var(--text-muted))',
-                                fontWeight: activeGroup === 'watermark' ? 600 : 400,
+                                fontWeight: activeGroup === 'watermark' ? 700 : 500,
                                 transition: 'all 0.2s',
-                                display: 'flex', alignItems: 'center', gap: '0.4rem'
+                                display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem'
                             }}
                         >
                             <Droplets size={14} /> With Watermark ({actualWatermarkCount})
@@ -671,28 +620,23 @@ export default function MediaLibraryPage() {
                         <button
                             onClick={() => setActiveGroup('no-watermark')}
                             style={{
-                                padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                                background: activeGroup === 'no-watermark' ? 'hsl(var(--success))' : 'transparent',
+                                padding: '0.45rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                background: activeGroup === 'no-watermark' ? '#059669' : 'transparent',
                                 color: activeGroup === 'no-watermark' ? 'white' : 'hsl(var(--text-muted))',
-                                fontWeight: activeGroup === 'no-watermark' ? 600 : 400,
-                                transition: 'all 0.2s'
+                                fontWeight: activeGroup === 'no-watermark' ? 700 : 500,
+                                transition: 'all 0.2s', fontSize: '0.82rem'
                             }}
                         >
                             Without Watermark ({actualNoWatermarkCount})
                         </button>
-                        {analyzing && (
-                            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--text-muted))' }}>
-                                <Loader2 size={14} className="animate-spin" /> Analyzing...
-                            </span>
-                        )}
                     </div>
                 </div>
 
                 {/* Content */}
                 {loading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem', gap: '1rem' }}>
-                        <Loader2 className="animate-spin text-primary" size={40} />
-                        <p className="text-muted">Loading your media library...</p>
+                        <Loader2 className="animate-spin" size={40} style={{ color: '#a06650' }} />
+                        <p className="text-muted">Loading media library...</p>
                     </div>
                 ) : filteredFiles.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '5rem', background: '#ffffff', borderRadius: '20px', border: '2px dashed hsl(var(--border-subtle))' }}>
@@ -704,108 +648,152 @@ export default function MediaLibraryPage() {
                         </button>
                     </div>
                 ) : viewMode === 'grid' ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                        {filteredFiles.map((file) => (
-                            <div
-                                key={file.id}
-                                className="card"
-                                style={{
-                                    padding: '0.75rem', borderRadius: '16px', position: 'relative', overflow: 'hidden',
-                                    border: selectedFile?.name === file.name ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
-                                    cursor: 'pointer'
-                                }}
-                                onClick={() => setSelectedFile(file)}
-                            >
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
+                        {filteredFiles.map((file) => {
+                            const isSelected = selectedUrls.includes(file.url);
+                            return (
                                 <div
-                                    onClick={(e) => { e.stopPropagation(); setZoomedImage(file); }}
+                                    key={file.id || file.url}
+                                    className="card"
                                     style={{
-                                        aspectRatio: '1/1', background: '#f5f5f5', borderRadius: '12px', overflow: 'hidden',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem',
-                                        cursor: 'zoom-in', position: 'relative'
+                                        padding: '0.75rem', borderRadius: '16px', position: 'relative', overflow: 'hidden',
+                                        border: isSelected 
+                                            ? '2px solid #a06650' 
+                                            : selectedFile?.url === file.url 
+                                            ? '2px solid #27302b' 
+                                            : '1px solid hsl(var(--border-subtle))',
+                                        background: isSelected ? 'rgba(160, 102, 80, 0.04)' : '#ffffff',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        boxShadow: isSelected ? '0 8px 25px rgba(160, 102, 80, 0.18)' : '0 2px 8px rgba(0,0,0,0.04)'
                                     }}
-                                    title="Click to zoom"
+                                    onClick={() => setSelectedFile(file)}
                                 >
-                                    <img
-                                        src={file.url}
-                                        alt={file.name}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    />
+                                    {/* Multi-Select Checkbox Top-Left */}
+                                    <div
+                                        onClick={(e) => toggleSelectUrl(file.url, e)}
+                                        style={{
+                                            position: 'absolute', top: '0.75rem', left: '0.75rem',
+                                            zIndex: 12, cursor: 'pointer',
+                                            background: isSelected ? '#a06650' : 'rgba(255, 255, 255, 0.95)',
+                                            color: isSelected ? '#ffffff' : '#27302b',
+                                            width: '28px', height: '28px', borderRadius: '8px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+                                            border: isSelected ? 'none' : '1.5px solid #cbd5e1',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                        title={isSelected ? "Deselect" : "Select"}
+                                    >
+                                        {isSelected ? <Check size={16} strokeWidth={3} /> : <Square size={14} color="#64748b" />}
+                                    </div>
+
+                                    {/* Thumbnail */}
+                                    <div
+                                        onClick={(e) => { e.stopPropagation(); setZoomedImage(file); }}
+                                        style={{
+                                            aspectRatio: '1/1', background: '#f8fafc', borderRadius: '12px', overflow: 'hidden',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem',
+                                            cursor: 'zoom-in', position: 'relative'
+                                        }}
+                                        title="Click to zoom"
+                                    >
+                                        <img
+                                            src={file.url}
+                                            alt={file.name}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        />
+                                        <div style={{
+                                            position: 'absolute', bottom: '0.5rem', right: '0.5rem',
+                                            background: 'rgba(255,255,255,0.85)', borderRadius: '50%',
+                                            padding: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}>
+                                            <ZoomIn size={15} color="#333" />
+                                        </div>
+                                    </div>
+
+                                    {/* File info */}
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#27302b' }}>
+                                        {file.name ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'image.jpg'}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', marginTop: '0.2rem' }}>
+                                        {formatFileSize(file.size ?? file.metadata?.size)} • {file.created_at ? new Date(file.created_at).toLocaleDateString() : 'Recent'}
+                                    </div>
+
+                                    {/* Action Buttons Top-Right */}
                                     <div style={{
-                                        position: 'absolute', bottom: '0.5rem', right: '0.5rem',
-                                        background: 'rgba(255,255,255,0.8)', borderRadius: '50%',
-                                        padding: '0.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        position: 'absolute', top: '0.75rem', right: '0.75rem', display: 'flex', gap: '0.35rem',
+                                        zIndex: 10
                                     }}>
-                                        <ZoomIn size={16} color="#333" />
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }}
+                                            style={{ 
+                                                padding: '0.4rem', borderRadius: '6px', border: 'none', 
+                                                background: heroImages.includes(file.url) ? '#d47a06' : 'rgba(255,255,255,0.92)', 
+                                                color: heroImages.includes(file.url) ? 'white' : '#64748b', 
+                                                cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.12)'
+                                            }}
+                                            title={heroImages.includes(file.url) ? "Remove from Hero" : "Add to Hero"}
+                                        >
+                                            <Star size={13} fill={heroImages.includes(file.url) ? "white" : "none"} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }}
+                                            style={{ 
+                                                padding: '0.4rem', borderRadius: '6px', border: 'none', 
+                                                background: galleryImages.includes(file.url) ? '#a06650' : 'rgba(255,255,255,0.92)', 
+                                                color: galleryImages.includes(file.url) ? 'white' : '#64748b', 
+                                                cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.12)'
+                                            }}
+                                            title={galleryImages.includes(file.url) ? "Remove from Gallery" : "Add to Gallery"}
+                                        >
+                                            <Layout size={13} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }}
+                                            style={{ 
+                                                padding: '0.4rem', borderRadius: '6px', border: 'none', 
+                                                background: 'rgba(255,255,255,0.92)', color: '#27302b', cursor: 'pointer',
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.12)' 
+                                            }}
+                                            title="Copy Link"
+                                        >
+                                            <Copy size={13} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteSingle(file);
+                                            }}
+                                            style={{ 
+                                                padding: '0.4rem', borderRadius: '6px', border: 'none', 
+                                                background: 'rgba(255,255,255,0.92)', color: '#e11d48', cursor: 'pointer',
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.12)'
+                                            }}
+                                            title="Delete Image"
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '0.75rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}
-                                </div>
-                                <div style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))', marginTop: '0.25rem' }}>
-                                    {formatFileSize(file.size ?? file.metadata?.size)} • {file.created_at ? new Date(file.created_at).toLocaleDateString() : 'Recent'}
-                                </div>
-
-                                {/* Actions Overlay */}
-                                <div style={{
-                                    position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', gap: '0.4rem',
-                                    zIndex: 10
-                                }}>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }}
-                                        style={{ 
-                                            padding: '0.4rem', borderRadius: '6px', border: 'none', 
-                                            background: heroImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)', 
-                                            color: heroImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))', 
-                                            cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-                                        }}
-                                        title={heroImages.includes(file.url) ? "Remove from Hero" : "Add to Hero"}
-                                    >
-                                        <Star size={14} fill={heroImages.includes(file.url) ? "white" : "none"} />
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }}
-                                        style={{ 
-                                            padding: '0.4rem', borderRadius: '6px', border: 'none', 
-                                            background: galleryImages.includes(file.url) ? 'hsl(var(--primary))' : 'rgba(255,255,255,0.9)', 
-                                            color: galleryImages.includes(file.url) ? 'white' : 'hsl(var(--text-muted))', 
-                                            cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-                                        }}
-                                        title={galleryImages.includes(file.url) ? "Remove from Gallery" : "Add to Gallery"}
-                                    >
-                                        <Layout size={14} />
-                                    </button>
-                                    <div style={{ width: '1px', height: '20px', background: 'rgba(0,0,0,0.1)', margin: '0 2px' }}></div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }}
-                                        style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--primary))', cursor: 'pointer' }}
-                                        title="Copy Link"
-                                    >
-                                        <Copy size={14} />
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Use full path for files in folders, or just name for root files
-                                            const fullPath = file.folder && file.folder !== 'root'
-                                                ? `${file.folder}/${file.name}`
-                                                : file.name;
-                                            handleDelete(fullPath);
-                                        }}
-                                        style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.9)', color: 'hsl(var(--danger))', cursor: 'pointer' }}
-                                        title="Delete"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 ) : (
+                    /* List View with Checkbox Column */
                     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                         <table className="admin-table">
                             <thead>
                                 <tr>
-                                    <th>Preview</th>
+                                    <th style={{ width: '40px', padding: '0.75rem 1rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isAllVisibleSelected}
+                                            onChange={handleSelectAll}
+                                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                        />
+                                    </th>
+                                    <th style={{ width: '60px' }}>Preview</th>
                                     <th>Name</th>
                                     <th>Size</th>
                                     <th>Usage</th>
@@ -813,129 +801,168 @@ export default function MediaLibraryPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredFiles.map((file) => (
-                                    <tr key={file.id} onClick={() => setZoomedImage(file)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                                        <td>
-                                            <div
-                                                style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in' }}
-                                                title="Click to zoom"
-                                            >
-                                                <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            </div>
-                                        </td>
-                                        <td style={{ fontWeight: 600, fontSize: '0.85rem' }}>{file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</td>
-                                        <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>{formatFileSize(file.size ?? file.metadata?.size)}</td>
-                                        <td style={{ minWidth: '180px' }}>
-                                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                                <button onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }} className={`btn ${heroImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Star size={12} /> {heroImages.includes(file.url) ? 'In Hero' : 'To Hero'}
-                                                </button>
-                                                <button onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }} className={`btn ${galleryImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Layout size={12} /> {galleryImages.includes(file.url) ? 'In Gallery' : 'To Gallery'}
-                                                </button>
-                                            </div>
-                                        </td>
-                                        <td style={{ textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                <button onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }} className="btn btn-secondary" style={{ padding: '0.4rem' }}>
-                                                    <Copy size={14} />
-                                                </button>
-                                                <button onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const fullPath = file.folder && file.folder !== 'root'
-                                                        ? `${file.folder}/${file.name}`
-                                                        : file.name;
-                                                    handleDelete(fullPath);
-                                                }} className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--danger))' }}>
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {filteredFiles.map((file) => {
+                                    const isSelected = selectedUrls.includes(file.url);
+                                    return (
+                                        <tr 
+                                            key={file.id || file.url} 
+                                            onClick={() => setSelectedFile(file)} 
+                                            style={{ 
+                                                cursor: 'pointer', 
+                                                background: isSelected ? 'rgba(160, 102, 80, 0.05)' : 'transparent',
+                                                transition: 'background 0.2s' 
+                                            }}
+                                        >
+                                            <td style={{ padding: '0.75rem 1rem' }} onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={(e) => toggleSelectUrl(file.url, e)}
+                                                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                                />
+                                            </td>
+                                            <td>
+                                                <div
+                                                    onClick={(e) => { e.stopPropagation(); setZoomedImage(file); }}
+                                                    style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in' }}
+                                                    title="Click to zoom"
+                                                >
+                                                    <img src={file.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            </td>
+                                            <td style={{ fontWeight: 700, fontSize: '0.85rem', color: '#27302b' }}>
+                                                {file.name ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'image.jpg'}
+                                            </td>
+                                            <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>
+                                                {formatFileSize(file.size ?? file.metadata?.size)}
+                                            </td>
+                                            <td style={{ minWidth: '180px' }}>
+                                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                                    <button onClick={(e) => { e.stopPropagation(); toggleHero(file.url); }} className={`btn ${heroImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Star size={12} /> {heroImages.includes(file.url) ? 'In Hero' : 'To Hero'}
+                                                    </button>
+                                                    <button onClick={(e) => { e.stopPropagation(); toggleGallery(file.url); }} className={`btn ${galleryImages.includes(file.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Layout size={12} /> {galleryImages.includes(file.url) ? 'In Gallery' : 'To Gallery'}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td style={{ textAlign: 'right' }}>
+                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                    <button onClick={(e) => { e.stopPropagation(); copyToClipboard(file.url); }} className="btn btn-secondary" style={{ padding: '0.45rem' }} title="Copy URL">
+                                                        <Copy size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteSingle(file);
+                                                        }} 
+                                                        className="btn btn-secondary" 
+                                                        style={{ padding: '0.45rem', color: '#e11d48' }}
+                                                        title="Delete Image"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 )}
 
-                {/* Selection Info Footer (Optional) */}
-                {selectedFile && (
+                {/* Selected File Details Footer (Single selection inspect) */}
+                {selectedFile && selectedUrls.length === 0 && (
                     <div style={{
                         position: 'fixed', bottom: 0, left: 0, right: 0,
-                        background: 'white', borderTop: '1px solid hsl(var(--border-subtle))',
+                        background: '#ffffff', borderTop: '2px solid #ebdcd0',
                         padding: '1rem 2rem', zIndex: 100, display: 'flex', justifyContent: 'space-between',
-                        alignItems: 'center', boxShadow: '0 -10px 30px rgba(0,0,0,0.05)'
+                        alignItems: 'center', boxShadow: '0 -10px 30px rgba(0,0,0,0.08)',
+                        animation: 'slideInUp 0.2s ease-out'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <img src={selectedFile.url} style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
+                            <img src={selectedFile.url} style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #ebdcd0' }} />
                             <div>
-                                <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}</div>
+                                <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#27302b' }}>{selectedFile.name ? selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'Image'}</div>
                                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{selectedFile.url}</div>
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', marginRight: '0.5rem', textTransform: 'uppercase' }}>Assign To:</div>
                             <button onClick={() => toggleHero(selectedFile.url)} className={`btn ${heroImages.includes(selectedFile.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem' }}>
                                 {heroImages.includes(selectedFile.url) ? 'Remove Hero' : 'Hero Slider'}
                             </button>
                             <button onClick={() => toggleGallery(selectedFile.url)} className={`btn ${galleryImages.includes(selectedFile.url) ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem' }}>
                                 {galleryImages.includes(selectedFile.url) ? 'Remove Gallery' : 'Gallery'}
                             </button>
+                            <button onClick={() => handleDeleteSingle(selectedFile)} className="btn btn-secondary" style={{ padding: '0.5rem 0.85rem', color: '#e11d48' }}>
+                                <Trash2 size={14} /> Delete
+                            </button>
                             <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))', margin: '0 0.5rem' }}></div>
-                            <button onClick={() => setSelectedFile(null)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>Deselect</button>
+                            <button onClick={() => setSelectedFile(null)} className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>Close</button>
                             <button onClick={() => copyToClipboard(selectedFile.url)} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>Copy URL</button>
                         </div>
                     </div>
                 )}
-
             </div>
 
             {/* Confirm Action Modal */}
             {confirmAction && (
                 <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
                     zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
                 }} onClick={() => setConfirmAction(null)}>
                     <div className="card shadow-premium animate-enter" style={{
-                        width: '100%', maxWidth: '420px', padding: '2.5rem', textAlign: 'center',
-                        borderRadius: '24px', background: 'hsl(var(--bg-card))',
-                        border: `1px solid ${confirmAction.type === 'delete' ? 'hsl(var(--danger) / 0.3)' : 'hsl(var(--primary) / 0.3)'}`
+                        width: '100%', maxWidth: '440px', padding: '2.5rem', textAlign: 'center',
+                        borderRadius: '24px', background: '#ffffff',
+                        border: `1px solid ${confirmAction.isDanger ? 'rgba(225, 29, 72, 0.3)' : 'rgba(160, 102, 80, 0.3)'}`
                     }} onClick={e => e.stopPropagation()}>
                         <div style={{
-                            width: '80px', height: '80px', borderRadius: '50%',
-                            background: confirmAction.type === 'delete' ? 'hsl(var(--danger) / 0.1)' : 'hsl(var(--primary) / 0.1)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem',
-                            color: confirmAction.type === 'delete' ? 'hsl(var(--danger))' : 'hsl(var(--primary))'
+                            width: '76px', height: '76px', borderRadius: '50%',
+                            background: confirmAction.isDanger ? 'rgba(225, 29, 72, 0.1)' : 'rgba(160, 102, 80, 0.1)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem',
+                            color: confirmAction.isDanger ? '#e11d48' : '#a06650'
                         }}>
-                            {confirmAction.type === 'delete' ? <Trash2 size={40} /> : <Droplets size={40} />}
+                            {confirmAction.isDanger ? <Trash2 size={38} /> : <AlertTriangle size={38} />}
                         </div>
-                        <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.4rem', fontWeight: 900 }}>{confirmAction.title}</h3>
-                        <p style={{ margin: '0 0 2rem', color: 'hsl(var(--text-muted))', lineHeight: 1.6 }}>{confirmAction.message}</p>
+                        <h3 style={{ margin: '0 0 0.75rem', fontSize: '1.35rem', fontWeight: 800, color: '#27302b' }}>
+                            {confirmAction.title}
+                        </h3>
+                        <p style={{ margin: '0 0 2rem', color: '#64748b', lineHeight: 1.6, fontSize: '0.92rem' }}>
+                            {confirmAction.message}
+                        </p>
                         <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button onClick={() => setConfirmAction(null)} className="btn btn-secondary" style={{ flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 700 }}>Cancel</button>
+                            <button 
+                                onClick={() => setConfirmAction(null)} 
+                                className="btn btn-secondary" 
+                                style={{ flex: 1, padding: '0.85rem', borderRadius: '12px', fontWeight: 700 }}
+                            >
+                                Cancel
+                            </button>
                             <button
                                 onClick={confirmAction.onConfirm}
                                 className="btn btn-primary"
                                 style={{
-                                    flex: 1, padding: '1rem', borderRadius: '14px', fontWeight: 800,
-                                    background: confirmAction.type === 'delete' ? 'hsl(var(--danger))' : 'hsl(var(--primary))',
-                                    border: 'none', color: 'white'
+                                    flex: 1, padding: '0.85rem', borderRadius: '12px', fontWeight: 800,
+                                    background: confirmAction.isDanger ? '#e11d48' : '#a06650',
+                                    border: 'none', color: '#ffffff',
+                                    boxShadow: confirmAction.isDanger ? '0 4px 15px rgba(225, 29, 72, 0.35)' : 'none'
                                 }}
                             >
-                                Confirm
+                                Confirm Delete
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Premium Image Zoom Modal */}
+            {/* Image Zoom Modal */}
             {zoomedImage && (
                 <div
                     onClick={() => setZoomedImage(null)}
                     style={{
                         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)',
+                        background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)',
                         zIndex: 9999, display: 'flex', flexDirection: 'column',
                         alignItems: 'center', justifyContent: 'center', padding: '2rem',
                         cursor: 'zoom-out'
@@ -956,7 +983,7 @@ export default function MediaLibraryPage() {
                         <button
                             onClick={(e) => { e.stopPropagation(); copyToClipboard(zoomedImage.url); }}
                             className="btn btn-secondary"
-                            style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)' }}
+                            style={{ padding: '0.6rem 1.25rem', borderRadius: '12px', background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)' }}
                         >
                             <Copy size={16} /> Copy URL
                         </button>
@@ -976,9 +1003,15 @@ export default function MediaLibraryPage() {
                     from { transform: translateX(100%); opacity: 0; }
                     to { transform: translateX(0); opacity: 1; }
                 }
+                @keyframes slideInDown {
+                    from { transform: translateY(-20px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                @keyframes slideInUp {
+                    from { transform: translateY(20px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
             `}</style>
         </>
     );
 }
-
-

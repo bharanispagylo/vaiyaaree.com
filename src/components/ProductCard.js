@@ -62,19 +62,23 @@ export default function ProductCard({ product, gridView = true }) {
     const { addToCart, mysqlClient, getEffectiveProductPrice } = useShop();
     const { compareItems, toggleCompare } = useCompare();
 
-    // Local variants list (from props or lazy fallback)
-    const [localVariants, setLocalVariants] = useState(() => product.variants || []);
+    const isVariantProduct = (product.type === 'variant' || product.type === 'variable');
 
-    // Sync if product.variants changes
+    // Local variants list (from props or lazy fallback)
+    const [localVariants, setLocalVariants] = useState(() => isVariantProduct ? (product.variants || []) : []);
+
+    // Sync if product.variants or product.type changes
     useEffect(() => {
-        if (product.variants && product.variants.length > 0) {
+        if (isVariantProduct && product.variants && product.variants.length > 0) {
             setLocalVariants(product.variants);
+        } else {
+            setLocalVariants([]);
         }
-    }, [product.variants]);
+    }, [isVariantProduct, product.variants]);
 
     // Lazy fallback fetch if product is variant type but variants array is missing
     useEffect(() => {
-        if (product.type === 'variant' && (!localVariants || localVariants.length === 0) && mysqlClient && product.id) {
+        if (isVariantProduct && (!localVariants || localVariants.length === 0) && mysqlClient && product.id) {
             let isMounted = true;
             mysqlClient
                 .from('product_variants')
@@ -89,9 +93,9 @@ export default function ProductCard({ product, gridView = true }) {
                 .catch(() => {});
             return () => { isMounted = false; };
         }
-    }, [product.id, product.type, localVariants, mysqlClient]);
+    }, [isVariantProduct, product.id, localVariants, mysqlClient]);
 
-    const hasVariants = localVariants && localVariants.length > 0;
+    const hasVariants = isVariantProduct && localVariants && localVariants.length > 0;
 
     // Selected variant state
     const [selectedVariant, setSelectedVariant] = useState(() => {

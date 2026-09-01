@@ -91,9 +91,8 @@ export default function ProductMediaCard({
                             <Upload size={14} /> Upload
                             <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={async (e) => {
                                 const files = Array.from(e.target.files || []);
-                                if (!files.length) return;
-                                try {
-                                    setLoadingOverlayText("Processing..."); setOcrLoading(true);
+                                if (!files.length) return;                                 try {
+                                    setLoadingOverlayText("Analyzing Fabric Image & Watermark..."); setOcrLoading(true);
                                     for (const file of files) {
                                         const reader = new FileReader();
                                         const filePromptPromise = new Promise((resolve) => {
@@ -112,7 +111,7 @@ export default function ProductMediaCard({
                                                     const detData = await detRes.json();
 
                                                     const onProceedWithUpload = async (catId) => {
-                                                        setLoadingOverlayText("Watermarking & Uploading..."); setOcrLoading(true);
+                                                        setLoadingOverlayText("Generating High-Res Watermark & Catalog ID..."); setOcrLoading(true);
                                                         const uploadData = new FormData();
                                                         uploadData.append('file', file);
                                                         uploadData.append('catalogId', catId);
@@ -126,16 +125,20 @@ export default function ProductMediaCard({
                                                         });
                                                         const data = await res.json();
                                                         const finalUrl = data.watermarkedUrl || data.url;
+                                                        setLoadingOverlayText("Attaching Watermarked Image to Product...");
                                                         setProductImageUrl(prev => {
                                                             const existingArray = prev ? prev.split(',').filter(Boolean) : [];
                                                             return [...existingArray, finalUrl].join(',');
                                                         });
                                                         setWatermarkModal(null);
-                                                        resolve();
+                                                        setTimeout(() => {
+                                                            setOcrLoading(false);
+                                                            resolve();
+                                                        }, 350);
                                                     };
 
                                                     const onProceedWithExisting = async (catId) => {
-                                                        setLoadingOverlayText("Uploading Watermarked Image..."); setOcrLoading(true);
+                                                        setLoadingOverlayText("Attaching Watermarked Image to Product..."); setOcrLoading(true);
                                                         const uploadData = new FormData();
                                                         uploadData.append('file', file);
                                                         uploadData.append('catalogId', catId || currentProduct?.product_catalog_image_id || '');
@@ -155,7 +158,10 @@ export default function ProductMediaCard({
                                                             return [...existingArray, finalUrl].join(',');
                                                         });
                                                         setWatermarkModal(null);
-                                                        resolve();
+                                                        setTimeout(() => {
+                                                            setOcrLoading(false);
+                                                            resolve();
+                                                        }, 350);
                                                     };
 
                                                     if (detData.hasWatermark) {
@@ -163,6 +169,7 @@ export default function ProductMediaCard({
                                                         if (useExistingWatermark) {
                                                             await onProceedWithExisting(existingCatId);
                                                         } else {
+                                                            setOcrLoading(false);
                                                             setWatermarkModal({
                                                                 type: 'existing',
                                                                 detectedCode: existingCatId,
@@ -174,6 +181,7 @@ export default function ProductMediaCard({
                                                             });
                                                         }
                                                     } else {
+                                                        setOcrLoading(false);
                                                         const newCatId = currentProduct?.product_catalog_image_id || `CAT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
                                                         setWatermarkModal({
                                                             type: 'new',
@@ -184,9 +192,8 @@ export default function ProductMediaCard({
                                                     }
                                                 } catch (err) {
                                                     setErrorModal({ title: 'Error', message: err.message });
-                                                    resolve();
-                                                } finally {
                                                     setOcrLoading(false);
+                                                    resolve();
                                                 }
                                             };
                                             reader.readAsDataURL(file);

@@ -573,23 +573,148 @@ export function ResultModal({ resultModal, onClose }) {
 }
 
 /**
- * Fullscreen Loading Overlay
+ * Fullscreen Loading Overlay for Watermark & Image Processing
  */
-export function OcrLoadingOverlay({ isLoading, text = 'Searching for WaterMark...' }) {
-    if (!isLoading) return null;
+export function OcrLoadingOverlay({ isLoading, ocrLoading, text, loadingOverlayText }) {
+    const active = isLoading !== undefined ? isLoading : ocrLoading;
+    const displayText = text || loadingOverlayText || 'Processing Image...';
+
+    if (!active) return null;
 
     return (
         <ModalPortal>
-            <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.8)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
-                    <div style={{ position: 'relative', width: '80px', height: '80px' }}>
-                        <div style={{ position: 'absolute', inset: 0, border: '4px solid rgba(255,255,255,0.1)', borderRadius: '50%' }}></div>
-                        <div style={{ position: 'absolute', inset: 0, border: '4px solid #fff', borderRadius: '50%', borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }}></div>
-                        <Search size={32} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', color: 'white' }} />
+            <div className="modal-overlay" style={{
+                background: 'rgba(15, 23, 42, 0.75)',
+                backdropFilter: 'blur(10px)',
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1.5rem',
+                animation: 'fadeIn 0.2s ease-out'
+            }}>
+                <div style={{
+                    background: '#ffffff',
+                    borderRadius: '24px',
+                    padding: '2.5rem 2.25rem',
+                    maxWidth: '440px',
+                    width: '100%',
+                    textAlign: 'center',
+                    boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '1.25rem',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    {/* Top Shimmer Accent */}
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '4px',
+                        background: 'linear-gradient(90deg, #5d0821, #d47a06, #5d0821)',
+                        backgroundSize: '200% 100%',
+                        animation: 'shimmer 2s infinite linear'
+                    }} />
+
+                    {/* Animated Pulsing Icon & Spinner */}
+                    <div style={{ position: 'relative', width: '84px', height: '84px' }}>
+                        {/* Outer Glow Ring */}
+                        <div style={{
+                            position: 'absolute', inset: -6,
+                            borderRadius: '50%',
+                            background: 'radial-gradient(circle, rgba(212, 122, 6, 0.2) 0%, rgba(93, 8, 33, 0.05) 70%, transparent 100%)',
+                            animation: 'pulse 2s infinite ease-in-out'
+                        }} />
+
+                        {/* Spinning Track */}
+                        <div style={{
+                            position: 'absolute', inset: 0,
+                            borderRadius: '50%',
+                            border: '3px solid #f1f5f9'
+                        }} />
+
+                        {/* Spinning Ring */}
+                        <div style={{
+                            position: 'absolute', inset: 0,
+                            borderRadius: '50%',
+                            border: '3px solid transparent',
+                            borderTopColor: '#5d0821',
+                            borderRightColor: '#d47a06',
+                            animation: 'spin 0.9s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite'
+                        }} />
+
+                        {/* Center Icon */}
+                        <div style={{
+                            position: 'absolute', inset: '10px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, rgba(93, 8, 33, 0.08), rgba(212, 122, 6, 0.12))',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#5d0821'
+                        }}>
+                            <Loader2 size={30} className="animate-spin" style={{ color: '#5d0821' }} />
+                        </div>
                     </div>
-                    <div style={{ color: 'white', fontWeight: 900, fontSize: '1.5rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                        {text}
+
+                    {/* Text Heading */}
+                    <div>
+                        <h3 style={{
+                            margin: '0 0 0.4rem',
+                            fontSize: '1.2rem',
+                            fontWeight: 800,
+                            color: '#0f172a',
+                            letterSpacing: '-0.01em'
+                        }}>
+                            {displayText}
+                        </h3>
+                        <p style={{
+                            margin: 0,
+                            fontSize: '0.84rem',
+                            color: '#64748b',
+                            lineHeight: 1.5
+                        }}>
+                            Generating branded watermark and selecting image for your product catalog...
+                        </p>
                     </div>
+
+                    {/* Progress Track Bar */}
+                    <div style={{
+                        width: '100%',
+                        height: '6px',
+                        background: '#f1f5f9',
+                        borderRadius: '9999px',
+                        overflow: 'hidden',
+                        position: 'relative',
+                        marginTop: '0.25rem'
+                    }}>
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            bottom: 0,
+                            width: '45%',
+                            borderRadius: '9999px',
+                            background: 'linear-gradient(90deg, #5d0821, #d47a06)',
+                            animation: 'indeterminateProgress 1.4s ease-in-out infinite'
+                        }} />
+                    </div>
+
+                    {/* Status Pill */}
+                    <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        color: '#d47a06',
+                        background: '#fffbeb',
+                        border: '1px solid #fef3c7',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '9999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em'
+                    }}>
+                        Please wait a moment
+                    </span>
                 </div>
             </div>
         </ModalPortal>

@@ -231,24 +231,121 @@ export async function POST(request) {
     }
 }
 
-// DELETE - Remove local file
+// DELETE - Remove local file(s) (Single or Multiple)
 export async function DELETE(request) {
     try {
         const auth = await verifyAdmin(request);
         if (!auth.authorized) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
-        const { fileName } = await request.json();
-        if (!fileName) return NextResponse.json({ error: 'No filename' }, { status: 400 });
 
-        const relPath = fileName.startsWith('/') ? fileName.substring(1) : fileName;
-        const fullPath = path.join(process.cwd(), 'public', relPath);
+        const body = await request.json();
+        const { fileName, fileNames, url, urls } = body;
 
-        if (existsSync(fullPath)) {
-            await fs.unlink(fullPath);
+        const rawList = [];
+        if (Array.isArray(fileNames)) rawList.push(...fileNames);
+        if (Array.isArray(urls)) rawList.push(...urls);
+        if (fileName) rawList.push(fileName);
+        if (url) rawList.push(url);
+
+        const targets = [...new Set(rawList.filter(Boolean))];
+        if (targets.length === 0) {
+            return NextResponse.json({ error: 'No files specified for deletion' }, { status: 400 });
         }
 
-        return NextResponse.json({ success: true });
+        function resolveDiskPath(input) {
+            if (!input || typeof input !== 'string') return null;
+            let clean = input.trim().replace(/\\/g, '/');
+            if (clean.startsWith('/')) clean = clean.substring(1);
+
+            // 1. If it starts with uploads/media/
+            if (clean.startsWith('uploads/media/')) {
+                return path.join(process.cwd(), 'public', clean);
+            }
+            // 2. If it starts with uploads/
+            if (clean.startsWith('uploads/')) {
+                return path.join(process.cwd(), 'public', clean);
+            }
+            // 3. If it starts with with-watermark/ or without-watermark/
+            if (clean.startsWith('with-watermark/') || clean.startsWith('without-watermark/')) {
+                return path.join(uploadBaseDir, clean);
+            }
+            // 4. Try directly inside with-watermark and without-watermark
+            const p1 = path.join(uploadBaseDir, 'with-watermark', clean);
+            if (existsSync(p1)) return p1;
+            const p2 = path.join(uploadBaseDir, 'without-watermark', clean);
+            if (existsSync(p2)) return p2;
+
+            return path.join(process.cwd(), 'public', clean);
+        }
+
+        let deletedCount = 0;
+        const deletedUrls = [];
+        const errors = [];
+
+        for (const item of targets) {
+            try {
+                const diskPath = resolveDiskPath(item);
+                if (diskPath && existsSync(diskPath)) {
+                    await fs.unlink(diskPath);
+                    deletedCount++;
+                } else {
+                    // Try alternative normalized variants
+                    const basename = path.basename(item);
+                    const p1 = path.join(uploadBaseDir, 'with-watermark', basename);
+                    const p2 = path.join(uploadBaseDir, 'without-watermark', basename);
+                    if (existsSync(p1)) {
+                        await fs.unlink(p1);
+                        deletedCount++;
+                    } else if (existsSync(p2)) {
+                        await fs.unlink(p2);
+                        deletedCount++;
+                    }
+                }
+
+                // Standardize url for app_settings cleanup
+                let urlStr = item.startsWith('/') ? item : `/${item}`;
+                if (!urlStr.startsWith('/uploads/')) {
+                    if (urlStr.startsWith('/with-watermark/') || urlStr.startsWith('/without-watermark/')) {
+                        urlStr = `/uploads/media${urlStr}`;
+                    }
+                }
+                deletedUrls.push(urlStr);
+                deletedUrls.push(item);
+            } catch (err) {
+                console.error(`[DELETE ERROR] ${item}:`, err);
+                errors.push({ file: item, error: err.message });
+            }
+        }
+
+        // Clean up from app_settings lists
+        try {
+            const keys = ['watermark_images', 'no_watermark_images', 'hero_slider_images', 'gallery_images'];
+            for (const key of keys) {
+                const { data: sData } = await mysqlAdmin.from('app_settings').select('value').eq('key', key).single();
+                if (sData?.value) {
+                    let list = [];
+                    try { list = JSON.parse(sData.value); } catch(e) {}
+                    if (Array.isArray(list)) {
+                        const filtered = list.filter(u => !deletedUrls.some(del => u === del || u.endsWith(path.basename(del))));
+                        if (filtered.length !== list.length) {
+                            await mysqlAdmin.from('app_settings').upsert({ key, value: JSON.stringify(filtered), updated_at: new Date() });
+                        }
+                    }
+                }
+            }
+        } catch (setErr) {
+            console.warn('[DELETE] app_settings cleanup warning:', setErr);
+        }
+
+        return NextResponse.json({
+            success: true,
+            deletedCount,
+            totalRequested: targets.length,
+            errors: errors.length > 0 ? errors : undefined,
+            message: `Successfully deleted ${deletedCount} image(s).`
+        });
+
     } catch (err) {
         console.error('Delete error:', err);
         return NextResponse.json({ error: err.message }, { status: 500 });

@@ -539,10 +539,14 @@ export function ShopProvider({ children }) {
                 variantsMap[pid].push(v);
             });
 
-            const enrichedProducts = productsData.map(p => ({
-                ...p,
-                variants: variantsMap[p.id] || p.variants || []
-            }));
+            const enrichedProducts = productsData.map(p => {
+                const isVar = (p.type === 'variant' || p.type === 'variable');
+                return {
+                    ...p,
+                    type: p.type || 'simple',
+                    variants: isVar ? (variantsMap[p.id] || p.variants || []) : []
+                };
+            });
 
             // Guaranteed Sort: Latest Date DESC, then Numeric Product_No / ID DESC
             enrichedProducts.sort((a, b) => {

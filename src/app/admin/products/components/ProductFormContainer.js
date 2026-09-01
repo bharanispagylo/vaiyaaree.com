@@ -104,19 +104,23 @@ export default function ProductFormContainer({ productId = null, isNew = false }
             }
             setGalleryImageUrl(Array.isArray(gallery) ? gallery : []);
 
-            // Fetch variants
-            const { data: varsData } = await mysqlClient
-                .from('product_variants')
-                .select('*')
-                .eq('product_id', productId)
-                .order('created_at', { ascending: true });
+            // Fetch variants ONLY if product type is 'variant'
+            if (prod.type === 'variant') {
+                const { data: varsData } = await mysqlClient
+                    .from('product_variants')
+                    .select('*')
+                    .eq('product_id', productId)
+                    .order('created_at', { ascending: true });
 
-            const mappedVars = (varsData || []).map(v => ({
-                ...v,
-                compare_price: v.original_price || v.compare_price || v.price || '',
-                stock: Number(v.stock) || 0
-            }));
-            setVariants(mappedVars);
+                const mappedVars = (varsData || []).map(v => ({
+                    ...v,
+                    compare_price: v.original_price || v.compare_price || v.price || '',
+                    stock: Number(v.stock) || 0
+                }));
+                setVariants(mappedVars);
+            } else {
+                setVariants([]);
+            }
         } catch (err) {
             console.error('Error loading product data:', err);
             setErrorModal({
@@ -161,6 +165,13 @@ export default function ProductFormContainer({ productId = null, isNew = false }
 
     const removeVariant = (index) => {
         setVariants(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleProductTypeChange = (newType) => {
+        setProductType(newType);
+        if (newType === 'simple') {
+            setVariants([]);
+        }
     };
 
     // Save Product (Insert or Update)
@@ -396,8 +407,10 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                 });
             }
 
-            // Save Variants
-            if (productType === 'variant' && savedProduct) {
+            // Save or Delete Variants based on productType
+            if (productType === 'simple' && savedProduct) {
+                await mysqlClient.from('product_variants').delete().eq('product_id', savedProduct.id);
+            } else if (productType === 'variant' && savedProduct) {
                 await mysqlClient.from('product_variants').delete().eq('product_id', savedProduct.id);
                 if (variants.length > 0) {
                     const variantsToInsert = variants.map((v, idx) => {
@@ -495,7 +508,7 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                 copiedProductUrl={copiedProductUrl}
                 setCopiedProductUrl={setCopiedProductUrl}
                 productType={productType}
-                setProductType={setProductType}
+                setProductType={handleProductTypeChange}
                 dbActiveCategories={dbActiveCategories}
                 productImageUrl={productImageUrl}
                 setProductImageUrl={setProductImageUrl}
@@ -544,6 +557,7 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                             setShowMediaPicker(false);
 
                             const onConfirmSelection = async (finalUrl, catId) => {
+                                setLoadingOverlayText('Attaching Image to Product...');
                                 if (activeImageField?.type === 'product') {
                                     setProductImageUrl(prev => {
                                         const existingArray = prev ? prev.split(',').filter(Boolean) : [];
@@ -559,11 +573,13 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                                     }
                                 }
                                 setWatermarkModal(null);
+                                setTimeout(() => {
+                                    setOcrLoading(false);
+                                }, 350);
                             };
 
                             if (isExistingWatermarked) {
                                 onConfirmSelection(url, currentProduct?.product_catalog_image_id);
-                                setOcrLoading(false);
                                 return;
                             }
 
@@ -595,7 +611,8 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                                     url: url,
                                     onProceed: async () => {
                                         try {
-                                            setLoadingOverlayText("Watermarking Image..."); setOcrLoading(true);
+                                            setLoadingOverlayText("Generating Branded Watermark & Catalog ID..."); 
+                                            setOcrLoading(true);
                                             setWatermarkModal(null);
 
                                             const formData = new FormData();
@@ -614,18 +631,17 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                                             const uploadData = await uploadRes.json();
 
                                             if (!uploadRes.ok) throw new Error(uploadData.error || 'Watermarking failed');
-                                            onConfirmSelection(uploadData.watermarkedUrl || uploadData.url, newCatId);
+                                            await onConfirmSelection(uploadData.watermarkedUrl || uploadData.url, newCatId);
                                         } catch (err) {
                                             setErrorModal({ title: 'Watermark Error', message: err.message });
-                                        } finally {
                                             setOcrLoading(false);
                                         }
                                     }
                                 });
+                                setOcrLoading(false);
                             }
                         } catch (err) {
                             setErrorModal({ title: 'Detection Error', message: err.message });
-                        } finally {
                             setOcrLoading(false);
                         }
                     }}
