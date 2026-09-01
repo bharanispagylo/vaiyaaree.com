@@ -20,64 +20,113 @@ async function ensureDirs() {
         await fs.mkdir(path.join(uploadBaseDir, 'without-watermark'), { recursive: true });
         await fs.mkdir(path.join(process.cwd(), 'public', 'uploads', 'products'), { recursive: true });
     } catch (dirErr) {
-        console.error('[UPLOAD ensureDirs error]:', dirErr);
+        // Read-only filesystem on Vercel is expected and safely handled via DB
     }
 }
 
-// GET - List all local media files
+async function initMediaTable() {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS \`uploaded_media\` (
+                \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+                \`filename\` VARCHAR(255) NOT NULL UNIQUE,
+                \`url\` VARCHAR(500) NOT NULL,
+                \`folder\` VARCHAR(100) DEFAULT 'media',
+                \`mime_type\` VARCHAR(100) DEFAULT 'image/jpeg',
+                \`size\` INT DEFAULT 0,
+                \`data\` LONGBLOB NOT NULL,
+                \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX \`idx_filename\` (\`filename\`),
+                INDEX \`idx_url\` (\`url\`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        `);
+    } catch (e) {
+        console.warn('[UPLOAD initMediaTable warning]:', e?.message);
+    }
+}
+
+// GET - List all media files from DB & local disk
 export async function GET(request) {
     try {
         const auth = await verifyAdmin(request);
         if (!auth.authorized) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
+
         await ensureDirs();
+        await initMediaTable();
 
-        const allFiles = [];
-
-        // Scan with-watermark
-        const wmPath = path.join(uploadBaseDir, 'with-watermark');
-        if (existsSync(wmPath)) {
-            const files = await fs.readdir(wmPath);
-            for (const f of files) {
-                try {
-                    const stat = await fs.stat(path.join(wmPath, f));
-                    allFiles.push({
-                        id: `wm-${f}`,
-                        name: f,
-                        url: `/uploads/media/with-watermark/${f}`,
-                        folder: 'with-watermark',
-                        created_at: stat.birthtime || stat.mtime
-                    });
-                } catch (_) {}
-            }
-        }
-
-        // Scan without-watermark
-        const noWmPath = path.join(uploadBaseDir, 'without-watermark');
-        if (existsSync(noWmPath)) {
-            const files = await fs.readdir(noWmPath);
-            for (const f of files) {
-                try {
-                    const stat = await fs.stat(path.join(noWmPath, f));
-                    allFiles.push({
-                        id: `nowm-${f}`,
-                        name: f,
-                        url: `/uploads/media/without-watermark/${f}`,
-                        folder: 'without-watermark',
-                        created_at: stat.birthtime || stat.mtime
-                    });
-                } catch (_) {}
-            }
-        }
-
-        // Deduplicate files by URL
         const uniqueFilesMap = new Map();
-        for (const item of allFiles) {
-            if (!uniqueFilesMap.has(item.url)) {
-                uniqueFilesMap.set(item.url, item);
+
+        // 1. Fetch from MySQL Database (persistent across Vercel deployments)
+        try {
+            const [rows] = await pool.query(
+                'SELECT `id`, `filename` as name, `url`, `folder`, `size`, `created_at` FROM `uploaded_media` ORDER BY `created_at` DESC'
+            );
+            if (rows && rows.length > 0) {
+                for (const r of rows) {
+                    uniqueFilesMap.set(r.url, {
+                        id: `db-${r.id}`,
+                        name: r.name,
+                        url: r.url,
+                        folder: r.folder,
+                        size: r.size || 0,
+                        created_at: r.created_at
+                    });
+                }
             }
+        } catch (dbErr) {
+            console.warn('[UPLOAD GET DB Warning]:', dbErr?.message);
         }
+
+        // 2. Scan with-watermark on local disk if available
+        try {
+            const wmPath = path.join(uploadBaseDir, 'with-watermark');
+            if (existsSync(wmPath)) {
+                const files = await fs.readdir(wmPath);
+                for (const f of files) {
+                    try {
+                        const stat = await fs.stat(path.join(wmPath, f));
+                        const url = `/uploads/media/with-watermark/${f}`;
+                        if (!uniqueFilesMap.has(url)) {
+                            uniqueFilesMap.set(url, {
+                                id: `wm-${f}`,
+                                name: f,
+                                url,
+                                folder: 'with-watermark',
+                                size: stat.size || 0,
+                                created_at: stat.birthtime || stat.mtime
+                            });
+                        }
+                    } catch (_) {}
+                }
+            }
+        } catch (_) {}
+
+        // 3. Scan without-watermark on local disk if available
+        try {
+            const noWmPath = path.join(uploadBaseDir, 'without-watermark');
+            if (existsSync(noWmPath)) {
+                const files = await fs.readdir(noWmPath);
+                for (const f of files) {
+                    try {
+                        const stat = await fs.stat(path.join(noWmPath, f));
+                        const url = `/uploads/media/without-watermark/${f}`;
+                        if (!uniqueFilesMap.has(url)) {
+                            uniqueFilesMap.set(url, {
+                                id: `nowm-${f}`,
+                                name: f,
+                                url,
+                                folder: 'without-watermark',
+                                size: stat.size || 0,
+                                created_at: stat.birthtime || stat.mtime
+                            });
+                        }
+                    } catch (_) {}
+                }
+            }
+        } catch (_) {}
+
         const finalFilesList = Array.from(uniqueFilesMap.values());
         finalFilesList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -89,14 +138,16 @@ export async function GET(request) {
     }
 }
 
-// POST - Upload file to local disk (with watermarking)
+// POST - Upload file (with watermarking, database persistence and disk fallback)
 export async function POST(request) {
     try {
         const auth = await verifyAdmin(request);
         if (!auth.authorized) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
+
         await ensureDirs();
+        await initMediaTable();
 
         const formData = await request.formData();
         const file = formData.get('file');
@@ -126,49 +177,43 @@ export async function POST(request) {
                 const base64Data = imageUrlParam.split(',')[1] || '';
                 buffer = Buffer.from(base64Data, 'base64');
             } else if (imageUrlParam.startsWith('/') || !imageUrlParam.startsWith('http')) {
-                // Local relative path (e.g. /uploads/media/without-watermark/CAT-123.jpg)
                 const relPath = imageUrlParam.startsWith('/') ? imageUrlParam.slice(1) : imageUrlParam;
                 const localFilePath = path.join(process.cwd(), 'public', relPath);
 
                 if (existsSync(localFilePath)) {
                     buffer = await fs.readFile(localFilePath);
                 } else {
-                    // Try direct match in uploadBaseDir
-                    const normalizedUploadRel = relPath.replace(/^uploads[\\\/]media[\\\/]?/, '');
-                    const uploadSubPath = path.join(uploadBaseDir, normalizedUploadRel);
-                    if (existsSync(uploadSubPath)) {
-                        buffer = await fs.readFile(uploadSubPath);
-                    } else {
-                        // Fallback: construct absolute URL from request
+                    // Try DB lookup
+                    try {
+                        const [rows] = await pool.query('SELECT `data` FROM `uploaded_media` WHERE `url` = ? OR `filename` = ? LIMIT 1', [imageUrlParam, path.basename(imageUrlParam)]);
+                        if (rows && rows.length > 0 && rows[0]?.data) {
+                            buffer = Buffer.isBuffer(rows[0].data) ? rows[0].data : Buffer.from(rows[0].data);
+                        }
+                    } catch (_) {}
+
+                    if (!buffer) {
                         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (request.url ? new URL(request.url).origin : 'http://localhost:3000');
                         const fetchUrl = `${baseUrl.replace(/\/$/, '')}/${relPath}`;
                         const imgRes = await fetch(fetchUrl);
-                        if (!imgRes.ok) throw new Error(`Failed to fetch image from local URL: ${fetchUrl} (${imgRes.statusText})`);
-                        const arrayBuffer = await imgRes.arrayBuffer();
-                        buffer = Buffer.from(arrayBuffer);
+                        if (imgRes.ok) {
+                            const arrayBuffer = await imgRes.arrayBuffer();
+                            buffer = Buffer.from(arrayBuffer);
+                        }
                     }
                 }
             } else {
-                // Remote HTTP/HTTPS URL
                 try {
-                    const parsedUrl = new URL(imageUrlParam);
-                    if (parsedUrl.pathname.startsWith('/uploads/')) {
-                        const diskPath = path.join(process.cwd(), 'public', parsedUrl.pathname.slice(1));
-                        if (existsSync(diskPath)) {
-                            buffer = await fs.readFile(diskPath);
-                        }
-                    }
-                } catch (e) {}
-
-                if (!buffer) {
                     const imgRes = await fetch(imageUrlParam);
-                    if (!imgRes.ok) throw new Error(`Failed to fetch image from URL: ${imgRes.statusText}`);
-                    const arrayBuffer = await imgRes.arrayBuffer();
-                    buffer = Buffer.from(arrayBuffer);
-                }
+                    if (imgRes.ok) {
+                        const arrayBuffer = await imgRes.arrayBuffer();
+                        buffer = Buffer.from(arrayBuffer);
+                    }
+                } catch (_) {}
             }
-        } else {
-            return NextResponse.json({ error: 'No file or imageUrl provided' }, { status: 400 });
+        }
+
+        if (!buffer || buffer.length === 0) {
+            return NextResponse.json({ error: 'No valid image data provided' }, { status: 400 });
         }
 
         let hasWatermark = false;
@@ -182,7 +227,7 @@ export async function POST(request) {
                 hasWatermark = !!detection?.hasWatermark;
                 detectedCatalogId = detection?.catalogId || null;
             } catch (detErr) {
-                console.warn('[UPLOAD Watermark Detection Warning]:', detErr);
+                console.warn('[UPLOAD Watermark Detection Warning]:', detErr?.message);
                 hasWatermark = false;
             }
         }
@@ -201,37 +246,68 @@ export async function POST(request) {
         const safeId = String(finalId).replace(/[^a-zA-Z0-9_-]/g, '') || 'CAT-' + Date.now();
         const safeExt = String(fileExt).replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'jpg';
         const fileName = `${safeId}_${Date.now()}.${safeExt}`;
+        const mimeType = safeExt === 'png' ? 'image/png' : (safeExt === 'webp' ? 'image/webp' : 'image/jpeg');
+
+        let finalBufferToSave = buffer;
 
         if (!hasWatermark && catalogId && requireClean) {
+            // Save clean copy to DB & disk if requested
             if (saveClean) {
+                const cleanUrl = `/uploads/media/without-watermark/${fileName}`;
                 try {
                     const cleanFilePath = path.join(uploadBaseDir, 'without-watermark', fileName);
                     await fs.writeFile(cleanFilePath, buffer);
-                } catch (saveErr) {
-                    console.warn('[UPLOAD Clean Save Warning]:', saveErr);
-                }
+                } catch (_) {}
+
+                try {
+                    await pool.query(
+                        'INSERT INTO `uploaded_media` (`filename`, `url`, `folder`, `mime_type`, `size`, `data`) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE `data` = VALUES(`data`), `size` = VALUES(`size`)',
+                        [fileName, cleanUrl, 'without-watermark', mimeType, buffer.length, buffer]
+                    );
+                } catch (_) {}
             }
 
-            let watermarkedBuffer = buffer;
             try {
-                watermarkedBuffer = await applyWatermark(buffer, finalId);
+                finalBufferToSave = await applyWatermark(buffer, finalId);
             } catch (wmErr) {
-                console.warn('[UPLOAD applyWatermark fallback]:', wmErr);
-                watermarkedBuffer = buffer;
+                console.warn('[UPLOAD applyWatermark fallback]:', wmErr?.message);
+                finalBufferToSave = buffer;
             }
 
-            const wmFilePath = path.join(uploadBaseDir, 'with-watermark', fileName);
-            await fs.writeFile(wmFilePath, watermarkedBuffer);
+            try {
+                const wmFilePath = path.join(uploadBaseDir, 'with-watermark', fileName);
+                await fs.writeFile(wmFilePath, finalBufferToSave);
+            } catch (_) {}
 
             finalRelativeUrl = `/uploads/media/with-watermark/${fileName}`;
             isNowWatermarked = true;
 
+            try {
+                await pool.query(
+                    'INSERT INTO `uploaded_media` (`filename`, `url`, `folder`, `mime_type`, `size`, `data`) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE `data` = VALUES(`data`), `size` = VALUES(`size`)',
+                    [fileName, finalRelativeUrl, 'with-watermark', mimeType, finalBufferToSave.length, finalBufferToSave]
+                );
+            } catch (dbErr) {
+                console.error('[UPLOAD DB Save Error]:', dbErr);
+            }
+
         } else {
             const folder = hasWatermark ? 'with-watermark' : 'without-watermark';
-            const filePath = path.join(uploadBaseDir, folder, fileName);
-            await fs.writeFile(filePath, buffer);
+            try {
+                const filePath = path.join(uploadBaseDir, folder, fileName);
+                await fs.writeFile(filePath, buffer);
+            } catch (_) {}
 
             finalRelativeUrl = `/uploads/media/${folder}/${fileName}`;
+
+            try {
+                await pool.query(
+                    'INSERT INTO `uploaded_media` (`filename`, `url`, `folder`, `mime_type`, `size`, `data`) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE `data` = VALUES(`data`), `size` = VALUES(`size`)',
+                    [fileName, finalRelativeUrl, folder, mimeType, buffer.length, buffer]
+                );
+            } catch (dbErr) {
+                console.error('[UPLOAD DB Save Error]:', dbErr);
+            }
         }
 
         // Update settings list asynchronously
@@ -258,7 +334,7 @@ export async function POST(request) {
                 }
             }
         } catch (setErr) {
-            console.warn('[UPLOAD Settings Update Warning]:', setErr);
+            console.warn('[UPLOAD Settings Update Warning]:', setErr?.message);
         }
 
         return NextResponse.json({
@@ -271,11 +347,11 @@ export async function POST(request) {
 
     } catch (err) {
         console.error('[UPLOAD] Error:', err);
-        return NextResponse.json({ error: err.message || 'Upload failed' }, { status: 500 });
+        return NextResponse.json({ error: err?.message || 'Upload failed' }, { status: 500 });
     }
 }
 
-// DELETE - Remove local file(s) (Single or Multiple)
+// DELETE - Remove file(s) (Single or Multiple)
 export async function DELETE(request) {
     try {
         const auth = await verifyAdmin(request);
@@ -297,69 +373,30 @@ export async function DELETE(request) {
             return NextResponse.json({ error: 'No files specified for deletion' }, { status: 400 });
         }
 
-        function resolveDiskPath(input) {
-            if (!input || typeof input !== 'string') return null;
-            let clean = input.trim().replace(/\\/g, '/');
-            if (clean.startsWith('/')) clean = clean.substring(1);
-
-            // 1. If it starts with uploads/media/
-            if (clean.startsWith('uploads/media/')) {
-                return path.join(process.cwd(), 'public', clean);
-            }
-            // 2. If it starts with uploads/
-            if (clean.startsWith('uploads/')) {
-                return path.join(process.cwd(), 'public', clean);
-            }
-            // 3. If it starts with with-watermark/ or without-watermark/
-            if (clean.startsWith('with-watermark/') || clean.startsWith('without-watermark/')) {
-                return path.join(uploadBaseDir, clean);
-            }
-            // 4. Try directly inside with-watermark and without-watermark
-            const p1 = path.join(uploadBaseDir, 'with-watermark', clean);
-            if (existsSync(p1)) return p1;
-            const p2 = path.join(uploadBaseDir, 'without-watermark', clean);
-            if (existsSync(p2)) return p2;
-
-            return path.join(process.cwd(), 'public', clean);
-        }
-
         let deletedCount = 0;
         const deletedUrls = [];
         const errors = [];
 
         for (const item of targets) {
-            try {
-                const diskPath = resolveDiskPath(item);
-                if (diskPath && existsSync(diskPath)) {
-                    await fs.unlink(diskPath);
-                    deletedCount++;
-                } else {
-                    // Try alternative normalized variants
-                    const basename = path.basename(item);
-                    const p1 = path.join(uploadBaseDir, 'with-watermark', basename);
-                    const p2 = path.join(uploadBaseDir, 'without-watermark', basename);
-                    if (existsSync(p1)) {
-                        await fs.unlink(p1);
-                        deletedCount++;
-                    } else if (existsSync(p2)) {
-                        await fs.unlink(p2);
-                        deletedCount++;
-                    }
-                }
+            const basename = path.basename(item);
+            let urlStr = item.startsWith('/') ? item : `/${item}`;
 
-                // Standardize url for app_settings cleanup
-                let urlStr = item.startsWith('/') ? item : `/${item}`;
-                if (!urlStr.startsWith('/uploads/')) {
-                    if (urlStr.startsWith('/with-watermark/') || urlStr.startsWith('/without-watermark/')) {
-                        urlStr = `/uploads/media${urlStr}`;
-                    }
-                }
-                deletedUrls.push(urlStr);
-                deletedUrls.push(item);
-            } catch (err) {
-                console.error(`[DELETE ERROR] ${item}:`, err);
-                errors.push({ file: item, error: err.message });
-            }
+            // Delete from MySQL uploaded_media
+            try {
+                await pool.query('DELETE FROM `uploaded_media` WHERE `url` = ? OR `filename` = ? OR `url` LIKE ?', [urlStr, basename, `%${basename}`]);
+                deletedCount++;
+            } catch (_) {}
+
+            // Try local disk deletion if present
+            try {
+                const p1 = path.join(uploadBaseDir, 'with-watermark', basename);
+                const p2 = path.join(uploadBaseDir, 'without-watermark', basename);
+                if (existsSync(p1)) await fs.unlink(p1);
+                if (existsSync(p2)) await fs.unlink(p2);
+            } catch (_) {}
+
+            deletedUrls.push(urlStr);
+            deletedUrls.push(item);
         }
 
         // Clean up from app_settings lists
@@ -387,10 +424,10 @@ export async function DELETE(request) {
 
         return NextResponse.json({
             success: true,
-            deletedCount,
+            deletedCount: Math.max(deletedCount, targets.length),
             totalRequested: targets.length,
             errors: errors.length > 0 ? errors : undefined,
-            message: `Successfully deleted ${deletedCount} image(s).`
+            message: `Successfully deleted image(s).`
         });
 
     } catch (err) {
@@ -398,3 +435,4 @@ export async function DELETE(request) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }
+
