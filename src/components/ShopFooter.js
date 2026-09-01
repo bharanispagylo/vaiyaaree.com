@@ -1,7 +1,8 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
-import { Mail, MapPin, Instagram } from 'lucide-react';
+import { Mail, MapPin, Instagram, Sparkles, ChevronUp } from 'lucide-react';
+import { RangoliOrnament, LotusMotif } from '@/components/RangoliMotif';
 import styles from './ShopFooter.module.css';
 
 const WhatsAppIcon = ({ size = 20, className }) => (
@@ -15,8 +16,15 @@ const ShopFooter = () => {
 
     return (
         <footer className={styles.footer}>
+            {/* Ornate Rangoli Top Divider */}
+            <div className={styles.footerRangoliDivider}>
+                <span className={styles.footerRangoliLine} />
+                <RangoliOrnament size={24} color="#d47a06" />
+                <span className={styles.footerRangoliLine} />
+            </div>
+
             <div className={styles.footerInner}>
-                {/* Column 1: Logo & Info */}
+                {/* Column 1: Logo & Heritage Story */}
                 <div className={styles.footerColumn}>
                     <Link href="/" className={styles.footerLogo}>
                         <img 
@@ -26,7 +34,16 @@ const ShopFooter = () => {
                             onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
                             suppressHydrationWarning
                         />
+                        <div className={styles.footerBrandGroup}>
+                            <span className={styles.footerBrandName}>VAIYAAREE</span>
+                            <span className={styles.footerBrandSub}>AUTHENTIC HANDLOOM SILKS</span>
+                        </div>
                     </Link>
+
+                    <p className={styles.footerTagline}>
+                        Celebrating the timeless elegance of Indian handloom weaves, master artisans, and authentic silk craftsmanship.
+                    </p>
+
                     <div className={styles.contactInfo}>
                         <div className={styles.infoItem}>
                             <MapPin size={18} className={styles.infoIcon} />
@@ -39,41 +56,61 @@ const ShopFooter = () => {
                     </div>
                 </div>
 
-                {/* Column 2: About Us */}
+                {/* Column 2: Quick Links & Policies */}
                 <div className={styles.footerColumn}>
-                    <h4 className={styles.columnHeader}>ABOUT US</h4>
+                    <h4 className={styles.columnHeader}>
+                        <span>OUR BOUTIQUE</span>
+                        <div className={styles.headerUnderline} />
+                    </h4>
                     <nav className={styles.footerNav}>
-                        <Link href="/about-us">About Us</Link>
-                        <Link href="/contact">Contact Us</Link>
+                        <Link href="/about-us">Our Heritage & Story</Link>
+                        <Link href="/shop">Explore Collections</Link>
+                        <Link href="/contact">Contact Our Stylists</Link>
                         <Link href="/privacy-policy">Privacy Policy</Link>
-                        <Link href="/return-policy">Return Policy</Link>
-                        <Link href="/shipping-policy">Shipping Policy</Link>
-                        <Link href="/terms-and-conditions">Terms and Conditions</Link>
-                        <Link href="/refund-cancellation-policy">Refund Cancellation Policy</Link>
-                        <Link href="/disclaimer">Disclaimer</Link>
+                        <Link href="/return-policy">Return & Exchange Policy</Link>
+                        <Link href="/shipping-policy">Shipping & Delivery Policy</Link>
+                        <Link href="/terms-and-conditions">Terms & Conditions</Link>
+                        <Link href="/refund-cancellation-policy">Refund Policy</Link>
                     </nav>
                 </div>
 
-                {/* Column 3: Follow Us */}
+                {/* Column 3: Follow & Connect */}
                 <div className={styles.footerColumn}>
-                    <h4 className={styles.columnHeader}>CONNECT WITH US</h4>
+                    <h4 className={styles.columnHeader}>
+                        <span>CONNECT WITH US</span>
+                        <div className={styles.headerUnderline} />
+                    </h4>
                     <nav className={styles.socialNav}>
                         <a href="https://www.instagram.com/vaiyaaree" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
-                            <Instagram size={20} /> @vaiyaaree
+                            <Instagram size={20} className={styles.socialIcon} /> @vaiyaaree
                         </a>
                         <a href="https://wa.me/918667793292" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
-                            <WhatsAppIcon size={20} /> +91 86677 93292
+                            <WhatsAppIcon size={20} className={styles.socialIcon} /> +91 86677 93292
                         </a>
                     </nav>
+
+                    <div className={styles.artisanSealBadge}>
+                        <LotusMotif size={24} color="#d47a06" />
+                        <div>
+                            <div className={styles.sealTitle}>100% PURE SILK MARK</div>
+                            <div className={styles.sealSub}>Handloom Certified Drapes</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div className={styles.copyrightBar}>
-                <p>&copy; {currentYear} — Vaiyaaree. All Rights Reserved.</p>
+                <div className={styles.copyrightInner}>
+                    <p>&copy; {currentYear} Vaiyaaree. Handcrafted with devotion in South India.</p>
+                </div>
             </div>
             
-            <button className={styles.scrollToTop} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                <div className={styles.chevronUp}></div>
+            <button 
+                className={styles.scrollToTop} 
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                aria-label="Scroll to top of page"
+            >
+                <ChevronUp size={20} />
             </button>
         </footer>
     );

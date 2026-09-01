@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/mysql';
 import { hashPassword } from '@/lib/hash';
 import { sendEmail } from '@/lib/emailService';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -10,6 +11,10 @@ export async function POST(req) {
     try {
         const body = await req.json();
         const { action, email, phone, identifier: rawIdentifier, token, otp, newPassword } = body;
+
+        // Rate limiting for password reset attempts: max 5 requests per 1-minute window
+        const rateLimitError = enforceRateLimit(req, 'customer_reset_password', email || phone || rawIdentifier || token || 'guest', 5, 60000);
+        if (rateLimitError) return rateLimitError;
 
         // ─────────────────────────────────────────────────────────────────────────────
         // ACTION A: VERIFY RESET TOKEN (FROM LINK)
@@ -38,12 +43,16 @@ export async function POST(req) {
             let customer = null;
 
             if (storedIdentifier.includes('@')) {
-                const [cust] = await pool.query('SELECT `id`, `name`, `email`, `phone` FROM `customers` WHERE LOWER(TRIM(`email`)) = LOWER(TRIM(?)) LIMIT 1', [storedIdentifier]);
+                const [cust] = await pool.query('SELECT `id`, `name`, `email`, `phone`, `is_locked` FROM `customers` WHERE LOWER(TRIM(`email`)) = LOWER(TRIM(?)) LIMIT 1', [storedIdentifier]);
                 if (cust.length > 0) customer = cust[0];
             } else {
                 const cleanPhone = storedIdentifier.replace(/\D/g, '').slice(-10);
-                const [cust] = await pool.query('SELECT `id`, `name`, `email`, `phone` FROM `customers` WHERE `phone` IN (?, ?) LIMIT 1', [cleanPhone, `91${cleanPhone}`]);
+                const [cust] = await pool.query('SELECT `id`, `name`, `email`, `phone`, `is_locked` FROM `customers` WHERE `phone` IN (?, ?) LIMIT 1', [cleanPhone, `91${cleanPhone}`]);
                 if (cust.length > 0) customer = cust[0];
+            }
+
+            if (customer && Boolean(customer.is_locked)) {
+                return NextResponse.json({ error: 'This account has been locked by administration. Password reset is disabled.' }, { status: 403 });
             }
 
             return NextResponse.json({
@@ -88,16 +97,20 @@ export async function POST(req) {
             let customer = null;
 
             if (storedIdentifier.includes('@')) {
-                const [cust] = await pool.query('SELECT `id`, `name`, `email`, `phone` FROM `customers` WHERE LOWER(TRIM(`email`)) = LOWER(TRIM(?)) LIMIT 1', [storedIdentifier]);
+                const [cust] = await pool.query('SELECT `id`, `name`, `email`, `phone`, `is_locked` FROM `customers` WHERE LOWER(TRIM(`email`)) = LOWER(TRIM(?)) LIMIT 1', [storedIdentifier]);
                 if (cust.length > 0) customer = cust[0];
             } else {
                 const cleanPhone = storedIdentifier.replace(/\D/g, '').slice(-10);
-                const [cust] = await pool.query('SELECT `id`, `name`, `email`, `phone` FROM `customers` WHERE `phone` IN (?, ?) LIMIT 1', [cleanPhone, `91${cleanPhone}`]);
+                const [cust] = await pool.query('SELECT `id`, `name`, `email`, `phone`, `is_locked` FROM `customers` WHERE `phone` IN (?, ?) LIMIT 1', [cleanPhone, `91${cleanPhone}`]);
                 if (cust.length > 0) customer = cust[0];
             }
 
             if (!customer) {
                 return NextResponse.json({ error: 'Customer account not found.' }, { status: 404 });
+            }
+
+            if (Boolean(customer.is_locked)) {
+                return NextResponse.json({ error: 'This account has been locked by administration. Password reset is disabled.' }, { status: 403 });
             }
 
             const hashedPassword = hashPassword(newPassword.trim());
@@ -132,7 +145,7 @@ export async function POST(req) {
         if (isEmailInput) {
             lookupKey = searchInput.toLowerCase();
             const [customerRows] = await pool.query(
-                'SELECT `id`, `name`, `email`, `phone` FROM `customers` WHERE LOWER(TRIM(`email`)) = LOWER(TRIM(?)) LIMIT 1',
+                'SELECT `id`, `name`, `email`, `phone`, `is_locked` FROM `customers` WHERE LOWER(TRIM(`email`)) = LOWER(TRIM(?)) LIMIT 1',
                 [lookupKey]
             );
             if (customerRows.length > 0) customer = customerRows[0];
@@ -141,7 +154,7 @@ export async function POST(req) {
             const phone10 = rawDigits.slice(-10);
             lookupKey = phone10;
             const [customerRows] = await pool.query(
-                'SELECT `id`, `name`, `email`, `phone` FROM `customers` WHERE `phone` IN (?, ?) LIMIT 1',
+                'SELECT `id`, `name`, `email`, `phone`, `is_locked` FROM `customers` WHERE `phone` IN (?, ?) LIMIT 1',
                 [phone10, `91${phone10}`]
             );
             if (customerRows.length > 0) customer = customerRows[0];
@@ -149,6 +162,10 @@ export async function POST(req) {
 
         if (!customer) {
             return NextResponse.json({ error: 'No account found with this Email or Mobile Number. Please check and try again.' }, { status: 404 });
+        }
+
+        if (Boolean(customer.is_locked)) {
+            return NextResponse.json({ error: 'This account has been locked by administration. Please contact customer support.' }, { status: 403 });
         }
 
         // ── STEP 1: SEND OTP ──────────────────────────────────────────────────

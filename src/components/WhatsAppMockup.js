@@ -11,7 +11,7 @@ export default function WhatsAppMockup() {
         { sender: 'user', text: 'Hi', time: '10:00 AM' },
         { 
             sender: 'bot', 
-            text: " *Welcome to Vaiyaaree!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n *Shop Online:*\nhttps://vaiyaaree.vercel.app/shop", 
+            text: " *Welcome to Vaiyaaree!*\n\nDiscover our premium collection of silk & cotton sarees.\n\n *Shop Online:*\nhttps://vaiyaaree.com/shop", 
             time: '10:01 AM' 
         },
         { 

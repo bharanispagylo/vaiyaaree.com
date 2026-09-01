@@ -64,8 +64,10 @@ const menuItems = [
         icon: Settings,
         children: [
             { name: 'Shop Settings', href: '/admin/shop-settings' },
+            { name: 'Home Page Builder', href: '/admin/settings/homepage-builder' },
             { name: 'Email Settings', href: '/admin/emails' },
-            { name: 'Razorpay Setting', href: '/admin/payment-settings' }
+            { name: 'Razorpay Setting', href: '/admin/payment-settings' },
+            { name: 'Order Backup', href: '/admin/settings/order-backup' }
         ]
     },
 ];

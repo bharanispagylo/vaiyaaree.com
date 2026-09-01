@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { mysqlClient } from './mysqlClient.js';
 import { generateInvoicePDF, generateOrderPDFBuffer } from './invoiceGenerator.js';
+import { getDiscountDetails } from './discountHelper.js';
 
 export function getCleanBaseUrl() {
     let url = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '').trim();
@@ -350,6 +351,103 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
         });
     } catch (error) {
         console.error('[ADMIN-OTP-ERROR] Failed to send email:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function sendAdminLoginOTP(toEmail, otp, username = 'Administrator') {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.log(`[ADMIN-LOGIN-OTP-DEV] SMTP not configured. Login Verification OTP for ${toEmail} (${username}) is: ${otp}`);
+        return { success: true, message: 'SMTP not configured. OTP logged to server logs.' };
+    }
+
+    let { data: logoSetting } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
+    let shopLogo = logoSetting?.value || '';
+    const assetBaseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vaiyaaree.com');
+    if (shopLogo && !shopLogo.startsWith('http')) {
+        let logoPath = shopLogo;
+        if (!shopLogo.startsWith('/')) {
+            logoPath = '/images/' + shopLogo;
+        }
+        shopLogo = assetBaseUrl + logoPath;
+    }
+
+    const logoAtt = getLogoAttachment();
+    const attachments = logoAtt ? [logoAtt] : [];
+
+    const mailOptions = {
+        from: process.env.SMTP_FROM || '"Vaiyaaree Sarees Security" <security@vaiyaaree.com>',
+        to: toEmail,
+        subject: `Admin Login Verification Code: ${otp} | Vaiyaaree Sarees`,
+        attachments,
+        html: `
+            <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+            <html xmlns="http://www.w3.org/1999/xhtml">
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                <title>Admin Login OTP - Vaiyaaree Sarees</title>
+                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Outfit', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; padding: 30px 10px;">
+                    <tr>
+                        <td align="center">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 520px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); overflow: hidden;">
+                                <tr>
+                                    <td>
+                                        ${getHeaderHtml('Vaiyaaree Sarees Admin', shopLogo, 'Two-Factor Authentication')}
+
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 30px 24px; text-align: center;">
+                                            <tr>
+                                                <td>
+                                                    <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin: 0 0 10px 0;">Admin Portal Login Verification</h2>
+                                                    <p style="color: #475569; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0;">
+                                                        Hello <strong>${username}</strong>,<br/>
+                                                        A sign-in request was initiated for your administrator account. Enter the 6-digit code below to complete your login:
+                                                    </p>
+
+                                                    <table align="center" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto 20px auto;">
+                                                        <tr>
+                                                            <td style="background-color: #fdfbf7; border: 2px dashed #e5c9ad; border-radius: 10px; padding: 16px 32px; text-align: center;">
+                                                                <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #5d0821; font-family: monospace;">${otp}</span>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+
+                                                    <div style="background-color: #f8fafc; border-radius: 8px; padding: 12px 16px; margin: 15px 0 20px 0; text-align: left; font-size: 12px; color: #64748b; border: 1px solid #e2e8f0;">
+                                                        <strong style="color: #334155;">Security Notice:</strong>
+                                                        <ul style="margin: 6px 0 0 0; padding-left: 18px;">
+                                                            <li>This verification code is valid for <strong>10 minutes</strong>.</li>
+                                                            <li>Never share this code with anyone. Vaiyaaree support will never ask for your code.</li>
+                                                            <li>If you did not initiate this login, change your password immediately.</li>
+                                                        </ul>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        ${getFooterHtml({ shop_name: 'Vaiyaaree Sarees Administration' })}
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+            </html>
+        `
+    };
+
+    try {
+        return await sendEmail({
+            to: toEmail,
+            subject: mailOptions.subject,
+            html: mailOptions.html,
+            attachments: mailOptions.attachments || []
+        });
+    } catch (error) {
+        console.error('[ADMIN-LOGIN-OTP-ERROR] Failed to send email:', error);
         return { success: false, error: error.message };
     }
 }

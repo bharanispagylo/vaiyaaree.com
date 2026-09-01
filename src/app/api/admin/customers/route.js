@@ -86,7 +86,7 @@ export async function GET(req) {
         }
 
         // Fetch all registered customers matching search
-        let queryStr = 'SELECT `id`, `name`, `phone`, `country_code`, `email`, `address`, `city`, `state`, `pincode`, `role`, `created_at`, `last_login`, `admin_notes`, `metadata` FROM `customers`';
+        let queryStr = 'SELECT `id`, `name`, `phone`, `country_code`, `email`, `address`, `city`, `state`, `pincode`, `role`, `is_locked`, `created_at`, `last_login`, `admin_notes`, `metadata` FROM `customers`';
         if (searchConditions.length > 0) {
             queryStr += ' WHERE ' + searchConditions.join(' AND ');
         }
@@ -174,6 +174,7 @@ export async function GET(req) {
                     city: cust.city || '',
                     state: cust.state || '',
                     pincode: cust.pincode || '',
+                    is_locked: Boolean(cust.is_locked),
                     hasPassword: Boolean(cust.admin_notes && (cust.admin_notes.includes('pwd') || cust.admin_notes.includes('password'))),
                     totalOrders: 0,
                     totalSpent: 0,
@@ -197,6 +198,7 @@ export async function GET(req) {
                 if (cust.state && !existing.state) existing.state = cust.state;
                 if (cust.pincode && !existing.pincode) existing.pincode = cust.pincode;
                 if (cust.phone && clean10) existing.phone = clean10;
+                if (cust.is_locked !== undefined) existing.is_locked = Boolean(cust.is_locked);
                 if (cust.admin_notes && (cust.admin_notes.includes('pwd') || cust.admin_notes.includes('password'))) {
                     existing.hasPassword = true;
                 }
@@ -683,3 +685,47 @@ export async function DELETE(req) {
         return NextResponse.json({ error: 'Failed to delete customer(s): ' + error.message }, { status: 500 });
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH: Toggle Lock / Unlock Status for Customers
+// ─────────────────────────────────────────────────────────────────────────────
+export async function PATCH(req) {
+    try {
+        const body = await req.json();
+        const { id, phone, is_locked } = body;
+
+        if (!id && !phone) {
+            return NextResponse.json({ error: 'Customer ID or Phone number is required.' }, { status: 400 });
+        }
+
+        const newLockStatus = is_locked ? 1 : 0;
+        let query = 'UPDATE `customers` SET `is_locked` = ?, `updated_at` = NOW() WHERE ';
+        let params = [newLockStatus];
+
+        if (id) {
+            query += '`id` = ?';
+            params.push(id);
+        } else {
+            const rawDigits = cleanMobileDigits(phone);
+            query += '`phone` IN (?, ?)';
+            params.push(rawDigits.slice(-10), `91${rawDigits.slice(-10)}`);
+        }
+
+        const [result] = await pool.query(query, params);
+
+        if (result.affectedRows === 0) {
+            return NextResponse.json({ error: 'Customer not found.' }, { status: 404 });
+        }
+
+        return NextResponse.json({
+            success: true,
+            is_locked: Boolean(newLockStatus),
+            message: newLockStatus ? 'Customer account locked successfully.' : 'Customer account unlocked successfully.'
+        });
+
+    } catch (error) {
+        console.error('[ADMIN-CUSTOMERS-PATCH-ERROR]', error);
+        return NextResponse.json({ error: 'Failed to update customer lock status: ' + error.message }, { status: 500 });
+    }
+}
+

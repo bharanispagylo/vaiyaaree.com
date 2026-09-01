@@ -55,6 +55,13 @@ export async function POST(req) {
             // Pick customer with most complete profile data (has name/email/address), or oldest
             customerRecord = existingCustomers.find(c => Boolean(c.name || c.email || c.address)) || existingCustomers[0];
 
+            if (Boolean(customerRecord?.is_locked)) {
+                return NextResponse.json({ 
+                    error: 'Your account has been locked by administration. Please contact customer support.',
+                    is_locked: true
+                }, { status: 403 });
+            }
+
             // Normalize their phone to clean 10-digit number & update last login
             await mysqlClient
                 .from('customers')

@@ -198,6 +198,43 @@ export default function CustomersPage() {
         }
     };
 
+    // Handle Lock / Unlock Customer Account
+    const handleToggleLock = async (customer) => {
+        if (!customer) return;
+        const targetStatus = !customer.is_locked;
+        const actionLabel = targetStatus ? 'Lock' : 'Unlock';
+
+        if (!confirm(`Are you sure you want to ${actionLabel.toLowerCase()} the account for ${customer.name || customer.phone}? ${targetStatus ? 'The customer will not be able to log in, place orders, or reset password.' : 'The customer will be allowed to log in and shop normally.'}`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/customers', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: customer.id,
+                    phone: customer.phone,
+                    is_locked: targetStatus
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(data.message || `Customer account ${targetStatus ? 'locked' : 'unlocked'} successfully!`, 'success');
+                // Optimistically update list and selectedCustomer
+                setCustomers(prev => prev.map(c => (c.phone === customer.phone || (c.id && c.id === customer.id)) ? { ...c, is_locked: targetStatus } : c));
+                if (selectedCustomer && (selectedCustomer.phone === customer.phone || selectedCustomer.id === customer.id)) {
+                    setSelectedCustomer(prev => ({ ...prev, is_locked: targetStatus }));
+                }
+            } else {
+                showToast(data.error || `Failed to ${actionLabel.toLowerCase()} customer`, 'error');
+            }
+        } catch (err) {
+            showToast('Connection failed. Please try again.', 'error');
+        }
+    };
+
     return (
         <div className="animate-enter" style={{ minHeight: '100vh', paddingBottom: '3rem' }}>
             {/* Notification Toast */}
@@ -255,6 +292,7 @@ export default function CustomersPage() {
                     onCustomerUpdated={(msg) => { showToast(msg, 'success'); fetchCustomers(); }} 
                     onResetPasswordClick={(cust) => setPasswordModalCustomer(cust)} 
                     onDeleteCustomerClick={(cust) => handleDeleteSingle(cust)} 
+                    onToggleLockClick={handleToggleLock}
                 />
             ) : viewMode === 'analytics' ? (
                 /* Analytics Charts View */
@@ -319,6 +357,7 @@ export default function CustomersPage() {
                             setSelectedPhones={setSelectedPhones} 
                             onCustomerClick={(cust) => setSelectedCustomer(cust)} 
                             onResetPasswordClick={(cust) => setPasswordModalCustomer(cust)}
+                            onToggleLockClick={handleToggleLock}
                             onDeleteSingleClick={handleDeleteSingle} 
                             onDeleteBatchClick={handleDeleteBatch} 
                             onPageChange={(page) => setCustomersPage(page)} 

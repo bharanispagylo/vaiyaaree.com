@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { hashPassword } from '@/lib/hash';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -9,6 +10,10 @@ export async function POST(req) {
     try {
         const body = await req.json();
         const { name, email, phone, country_code, password } = body;
+
+        // Rate limiting: max 3 customer registration attempts per 1-minute window
+        const rateLimitError = enforceRateLimit(req, 'customer_register', email || phone || 'guest', 3, 60000);
+        if (rateLimitError) return rateLimitError;
 
         // 1. Validation Checks
         if (!name || !name.trim()) {
@@ -57,9 +62,9 @@ export async function POST(req) {
             return NextResponse.json({ error: 'An account with this mobile number already exists. Please log in.' }, { status: 400 });
         }
 
-        // 4. Hash Password & Store JSON Payload in admin_notes
-        const hashedPassword = hashPassword(password);
-        const notesPayload = JSON.stringify({ pwd: hashedPassword });
+        // 4. Hash Password with PBKDF2 (SHA-512, 100k iterations) & Store JSON Payload in admin_notes
+        const pbkdf2HashedPassword = hashPassword(password);
+        const notesPayload = JSON.stringify({ pwd: pbkdf2HashedPassword });
 
         // 5. Insert New Customer (storing only clean mobile in phone, and country_code in country_code)
         const formattedCountryCode = selectedCountryCode.startsWith('+') ? selectedCountryCode : `+${selectedCountryCode}`;

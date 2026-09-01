@@ -6,7 +6,7 @@ import {
     Users, Plus, Trash2, Edit2, Shield, 
     CheckCircle2, AlertCircle, Loader2, 
     Search, UserPlus, Mail, Lock, Key,
-    MoreVertical, X, Save
+    MoreVertical, X, Save, ShieldCheck, ShieldOff
 } from 'lucide-react';
 
 export default function UserManagementPage() {
@@ -22,7 +22,8 @@ export default function UserManagementPage() {
         password: '',
         full_name: '',
         role: 'admin',
-        is_active: true
+        is_active: true,
+        otp_enabled: false
     });
 
     useEffect(() => {
@@ -39,7 +40,6 @@ export default function UserManagementPage() {
 
             if (error) {
                 if (error.code === 'PGRST204') {
-                    // Table doesn't exist yet, show a helpful message
                     setUsers([]);
                     return;
                 }
@@ -63,7 +63,8 @@ export default function UserManagementPage() {
                 password: user.password,
                 full_name: user.full_name || '',
                 role: user.role || 'admin',
-                is_active: user.is_active ?? true
+                is_active: user.is_active ?? true,
+                otp_enabled: Boolean(user.otp_enabled)
             });
         } else {
             setEditingUser(null);
@@ -73,10 +74,50 @@ export default function UserManagementPage() {
                 password: '',
                 full_name: '',
                 role: 'admin',
-                is_active: true
+                is_active: true,
+                otp_enabled: false
             });
         }
         setShowModal(true);
+    };
+
+    const handleToggleOtp = async (user, e) => {
+        if (e) e.stopPropagation();
+        if (!user) return;
+
+        if (!user.email && !user.otp_enabled) {
+            setNotification({ 
+                message: `Please add an email address for ${user.username} before enabling Email OTP.`, 
+                type: 'error' 
+            });
+            setTimeout(() => setNotification(null), 4000);
+            handleOpenModal(user);
+            return;
+        }
+
+        const newOtpStatus = !user.otp_enabled;
+        try {
+            const { error } = await mysqlClient
+                .from('admin_users')
+                .update({ 
+                    otp_enabled: newOtpStatus ? 1 : 0,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, otp_enabled: newOtpStatus ? 1 : 0 } : u));
+            setNotification({ 
+                message: `Email OTP ${newOtpStatus ? 'Enabled' : 'Disabled'} for ${user.username}`, 
+                type: 'success' 
+            });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            console.error('Toggle OTP error:', err);
+            setNotification({ message: 'Failed to update OTP status: ' + err.message, type: 'error' });
+            setTimeout(() => setNotification(null), 3000);
+        }
     };
 
     const handleSaveUser = async (e) => {
@@ -84,12 +125,13 @@ export default function UserManagementPage() {
         setSaving(true);
         try {
             const payload = {
-                username: formData.username,
-                email: formData.email,
+                username: formData.username.trim(),
+                email: formData.email ? formData.email.trim() : null,
                 password: formData.password,
-                full_name: formData.full_name,
+                full_name: formData.full_name ? formData.full_name.trim() : null,
                 role: formData.role,
-                is_active: formData.is_active
+                is_active: formData.is_active,
+                otp_enabled: formData.otp_enabled ? 1 : 0
             };
 
             let isEmailSupported = true;
@@ -179,7 +221,7 @@ export default function UserManagementPage() {
             <div className="page-header">
                 <div>
                     <h1><Users size={32} color="hsl(var(--primary))" /> Admin User Management</h1>
-                    <p>Manage portal administrators, roles, and access credentials.</p>
+                    <p>Manage portal administrators, access credentials, and 2FA Email OTP security.</p>
                 </div>
                 <button className="btn-primary-glow" onClick={() => handleOpenModal()}>
                     <UserPlus size={18} />
@@ -216,6 +258,7 @@ export default function UserManagementPage() {
                                     <th>Email</th>
                                     <th>Full Name</th>
                                     <th>Role</th>
+                                    <th>Email OTP (2FA)</th>
                                     <th>Status</th>
                                     <th>Last Login</th>
                                     <th style={{ textAlign: 'right' }}>Actions</th>
@@ -232,13 +275,40 @@ export default function UserManagementPage() {
                                                 <strong>{user.username}</strong>
                                             </div>
                                         </td>
-                                        <td>{user.email || '—'}</td>
+                                        <td>{user.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No email set</span>}</td>
                                         <td>{user.full_name || '—'}</td>
                                         <td>
                                             <span className={`badge badge-${user.role}`}>
                                                 <Shield size={10} />
                                                 {user.role}
                                             </span>
+                                        </td>
+                                        <td onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleToggleOtp(user, e)}
+                                                title={user.otp_enabled ? "Click to Disable Email OTP" : "Click to Enable Email OTP"}
+                                                style={{
+                                                    background: user.otp_enabled ? '#f0fdf4' : '#f8fafc',
+                                                    color: user.otp_enabled ? '#16a34a' : '#64748b',
+                                                    border: `1px solid ${user.otp_enabled ? '#bbf7d0' : '#e2e8f0'}`,
+                                                    borderRadius: '20px',
+                                                    padding: '3px 10px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    transition: 'all 0.15s'
+                                                }}
+                                            >
+                                                {user.otp_enabled ? (
+                                                    <><ShieldCheck size={13} /> Enabled</>
+                                                ) : (
+                                                    <><ShieldOff size={13} /> Disabled</>
+                                                )}
+                                            </button>
                                         </td>
                                         <td>
                                             <span className={`status-indicator ${user.is_active ? 'active' : 'inactive'}`}>
@@ -248,10 +318,10 @@ export default function UserManagementPage() {
                                         <td>{user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div className="actions-group">
-                                                <button className="btn-icon" onClick={(e) => { e.stopPropagation(); handleOpenModal(user); }}>
+                                                <button className="btn-icon" title="Edit Admin User" onClick={(e) => { e.stopPropagation(); handleOpenModal(user); }}>
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button className="btn-icon danger" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.id); }}>
+                                                <button className="btn-icon danger" title="Delete Admin User" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.id); }}>
                                                     <Trash2 size={16} />
                                                 </button>
                                             </div>
@@ -336,11 +406,38 @@ export default function UserManagementPage() {
                                     <div className="toggle-field">
                                         <input 
                                             type="checkbox" 
+                                            id="user_active_toggle"
                                             checked={formData.is_active}
                                             onChange={e => setFormData({...formData, is_active: e.target.checked})}
                                         />
-                                        <span>Active Account</span>
+                                        <label htmlFor="user_active_toggle" style={{ margin: 0, cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>Active Account</label>
                                     </div>
+                                </div>
+
+                                {/* 2FA Email OTP Toggle */}
+                                <div className="field-group full-width" style={{ background: '#f8fafc', padding: '1rem 1.25rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: 700, margin: 0 }}>
+                                        <ShieldCheck size={16} color="hsl(var(--primary))" />
+                                        Two-Factor Authentication (2FA)
+                                    </label>
+                                    <div className="toggle-field" style={{ marginTop: '0.6rem' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            id="otp_enabled_toggle"
+                                            checked={Boolean(formData.otp_enabled)}
+                                            onChange={e => setFormData({...formData, otp_enabled: e.target.checked})}
+                                            disabled={!formData.email.trim()}
+                                        />
+                                        <label htmlFor="otp_enabled_toggle" style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: formData.email.trim() ? '#334155' : '#94a3b8', cursor: formData.email.trim() ? 'pointer' : 'not-allowed' }}>
+                                            Require 6-Digit Email OTP on Login
+                                        </label>
+                                    </div>
+                                    <p style={{ margin: '0.4rem 0 0', fontSize: '0.78rem', color: formData.email.trim() ? '#64748b' : '#dc2626' }}>
+                                        {formData.email.trim() 
+                                            ? "When enabled, a verification code will be sent to the user's email upon password check."
+                                            : "⚠️ An email address is required above to enable Email OTP login."
+                                        }
+                                    </p>
                                 </div>
                             </div>
                             <div className="modal-footer">
@@ -420,7 +517,7 @@ export default function UserManagementPage() {
                 
                 .toggle-field { display: flex; align-items: center; gap: 0.75rem; }
                 .toggle-field input { width: auto; }
-                .toggle-field span { font-size: 0.9rem; font-weight: 600; color: #444; }
+                .toggle-field label { font-size: 0.9rem; font-weight: 600; color: #444; }
 
                 .modal-footer { padding: 1.5rem 2rem; background: #f9fafb; display: flex; justify-content: flex-end; gap: 1rem; }
                 .btn-secondary { background: white; border: 1px solid #d1d5db; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 700; cursor: pointer; }

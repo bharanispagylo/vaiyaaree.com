@@ -166,7 +166,7 @@ export async function POST(request) {
         // Get order details
         const { data: order, error: orderError } = await mysqlClient
             .from('orders')
-            .select('*, order_items(*)')
+            .select('*, order_items(*), order_discounts(*)')
             .eq('id', orderId)
             .single();
 

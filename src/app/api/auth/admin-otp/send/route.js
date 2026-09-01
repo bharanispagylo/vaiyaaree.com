@@ -2,12 +2,17 @@ import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { getAdminSettings } from '@/lib/settings';
 import { sendAdminPasswordResetOTP } from '@/lib/emailService';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
     try {
         const { identifier } = await req.json();
+
+        // Rate limiting: max 3 OTP requests per 1-minute window
+        const rateLimitError = enforceRateLimit(req, 'admin_otp_send', identifier || 'guest', 3, 60000);
+        if (rateLimitError) return rateLimitError;
 
         if (!identifier || !identifier.trim()) {
             return NextResponse.json({ error: 'Please enter your admin username or email.' }, { status: 400 });

@@ -3,12 +3,17 @@ import { mysqlClient } from '@/lib/mysqlClient';
 import { getAdminSettings } from '@/lib/settings';
 import { sendAdminPasswordResetSuccessEmail } from '@/lib/emailService';
 import { hashPassword } from '@/lib/hash';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
     try {
         const { username, otp, newPassword } = await req.json();
+
+        // Rate limiting: max 5 attempts per 1-minute window
+        const rateLimitError = enforceRateLimit(req, 'admin_reset_password', username || 'guest', 5, 60000);
+        if (rateLimitError) return rateLimitError;
 
         if (!otp) {
             return NextResponse.json({ error: 'Verification OTP is required.' }, { status: 400 });
@@ -51,7 +56,7 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Verification OTP has expired. Please click Resend Code to request a new code.' }, { status: 400 });
         }
 
-        // 2. Hash password if needed and update specific user in admin_users table
+        // 2. Hash password with PBKDF2 and update specific user in admin_users table
         const hashedPassword = hashPassword(newPassword);
 
         if (username) {

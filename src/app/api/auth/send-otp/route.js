@@ -22,6 +22,21 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Invalid phone number format. Please include country code.' }, { status: 400 });
         }
 
+        // Check if customer account exists and is locked
+        const phone10 = cleanPhone.slice(-10);
+        const { data: customerCheck } = await mysqlClient
+            .from('customers')
+            .select('is_locked')
+            .or(`phone.eq.${phone10},phone.eq.${cleanPhone},phone.eq.+${cleanPhone}`)
+            .maybeSingle();
+
+        if (customerCheck && Boolean(customerCheck.is_locked)) {
+            return NextResponse.json({ 
+                error: 'Your account has been locked by administration. Please contact customer support.',
+                is_locked: true
+            }, { status: 403 });
+        }
+
         // 1. Generate 6-digit OTP
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
         console.log(`[AUTH-DEBUG] Attempting to send OTP: ${otpCode} to ${cleanPhone}`);

@@ -1,76 +1,84 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 @import '../styles/responsive.css';
 
 :root {
-  /* Typography - Premium Luxury E-Commerce Standard Font Family */
+  /* Typography - Cultural Heritage & Modern Luxury */
+  --font-serif-royal: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
+  --font-heading: 'Outfit', 'Cinzel', 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-roboto: 'Plus Jakarta Sans', sans-serif;
-  --font-heading: 'Outfit', 'Plus Jakarta Sans', sans-serif;
-  --font-body: 'Plus Jakarta Sans', sans-serif;
+
+  /* ── 5-Tone Indian Cultural Color Schema (Matches Logo & User Palette) ── */
+  --clr-sage: #86a397;            /* 1. Muted Teal Sage */
+  --clr-sage-dark: #627e72;
+  --clr-sage-light: #f0f5f2;
+  --clr-slate: #3e4742;           /* 2. Deep Forest Slate Charcoal */
+  --clr-slate-dark: #27302b;
+  --clr-slate-light: #4e5852;
+  --clr-terracotta: #a06650;      /* 3. Warm Terracotta Clay / Logo Arch Outline */
+  --clr-terracotta-dark: #844c38;
+  --clr-terracotta-light: #faeee9;
+  --clr-olive: #7c8675;           /* 4. Heritage Olive Khaki */
+  --clr-olive-light: #f2f5f0;
+  --clr-gold-ochre: #d47a06;      /* 5. Royal Marigold / Ochre Turmeric Gold */
+  --clr-gold-dark: #b86503;
+  --clr-gold-light: #fdf6e7;
+  --clr-gold-zari: #e69d35;
+
+  /* ── Background Silk Canvas ── */
+  --clr-bg-cream: #fdfbf7;        /* Authentic Handloom Warm Silk Canvas */
+  --clr-bg-linen: #f7f2ea;        /* Subtle Textured Linen */
+  --clr-bg-white: #ffffff;
+  --clr-border-subtle: #ebdcd0;
+  --clr-border-gold: rgba(212, 122, 6, 0.28);
+  --clr-text-main: #2b2623;
+  --clr-text-muted: #6e645e;
+  --clr-text-dim: #998c84;
 
   /* Layout Dimensions */
   --sidebar-width: 260px;
 
-  /* ── Background Surfaces (Derived from Brand Logo) ── */
-  --bg-app: 34 32% 94%;
-  /* #F6F0E8 - Warm linen cream background */
-  --bg-panel: 18 48% 10%;
-  /* #21120B - Deep rich espresso for Sidebar & Top Bar */
+  /* ── HSL Background Surfaces ── */
+  --bg-app: 38 38% 97%;
+  /* #fdfbf7 - Warm silk ivory */
+  --bg-panel: 145 12% 17%;
+  /* #27302b - Deep forest slate */
   --bg-card: 0 0% 100%;
-  /* #ffffff - Pure White for Cards */
   --bg-input: 0 0% 100%;
-  /* White inputs */
-  --bg-table-header: 34 30% 90%;
-  /* #EFE6DA - Soft warm ivory for table headers */
+  --bg-table-header: 38 28% 92%;
 
-  /* ── Brand / Primary (Terracotta Rust from Logo) ── */
-  --primary: 15 50% 54%;
-  /* #C46B4E - Terracotta Rust primary brand */
-  --primary-light: 15 50% 95%;
-  /* #FDF6F3 - Soft warm terracotta tint */
-  --primary-dark: 15 55% 42%;
-  /* #A34F35 - Deeper terracotta */
-  --primary-hover: 15 52% 48%;
-  /* #B85C40 - Hover terracotta */
+  /* ── Brand / Primary (Warm Terracotta from Logo) ── */
+  --primary: 16 34% 47%;
+  /* #a06650 - Warm Terracotta */
+  --primary-light: 16 48% 95%;
+  --primary-dark: 16 39% 37%;
+  --primary-hover: 16 36% 42%;
 
-  /* ── Secondary & Accent (Sage Green & Lotus Rose) ── */
-  --secondary: 90 16% 42%;
-  /* #6B7C5A - Muted Sage Green */
-  --accent: 9 52% 67%;
-  /* #D98A7D - Lotus Rose */
+  /* ── Secondary & Accent ── */
+  --secondary: 154 13% 58%;
+  /* #86a397 - Muted Sage */
+  --accent: 34 94% 43%;
+  /* #d47a06 - Royal Ochre Gold */
 
   /* ── Text Colors ── */
-  --text-main: 18 45% 10%;
-  /* #23140D - Deep espresso primary text */
-  --text-muted: 26 16% 40%;
-  /* #786657 - Warm taupe secondary text */
-  --text-dim: 26 14% 57%;
-  /* #A19082 - Warm dim grey for placeholders */
+  --text-main: 24 10% 15%;
+  --text-muted: 24 8% 40%;
+  --text-dim: 24 8% 56%;
   --text-on-primary: 0 0% 100%;
-  /* White text on dark/primary backgrounds */
 
   /* ── Borders ── */
-  --border-subtle: 33 24% 87%;
-  /* #EAE0D3 - Light warm border */
-  --border-bright: 33 24% 79%;
-  /* #D7C7B5 - Slightly darker warm border */
+  --border-subtle: 26 35% 87%;
+  --border-bright: 26 35% 79%;
 
   /* ── Semantic / Functional Colors ── */
-  --success: 150 45% 40%;
-  /* #398862 - Elegant deep green */
-  --success-light: 150 45% 95%;
-  /* #F1F8F4 - Light green bg */
-  --warning: 34 80% 50%;
-  /* #D98B26 - Warm amber */
-  --warning-light: 34 80% 95%;
-  /* #FDF7ED - Light amber bg */
+  --success: 154 38% 42%;
+  --success-light: 154 38% 95%;
+  --warning: 34 94% 43%;
+  --warning-light: 34 94% 95%;
   --danger: 5 70% 52%;
-  /* #CE3A33 - Warm red */
   --danger-light: 5 70% 96%;
-  /* #FDF3F3 - Light red bg */
   --info: 200 45% 45%;
-  /* #3E7C97 - Slate blue */
   --info-light: 200 45% 95%;
-  /* #F0F6F9 - Light slate bg */
 
   /* ── Dimensions & Spacing ── */
   --radius-sm: 0.5rem;
@@ -78,14 +86,72 @@
   --radius-lg: 1.25rem;
   --sidebar-width: 16rem;
 
-  /* ── Premium Effects ── */
-  --shadow-sm: 0 2px 6px 0 rgba(44, 26, 20, 0.04);
-  --shadow-card: 0 10px 40px -10px rgba(44, 26, 20, 0.08);
-  --shadow-glow: 0 0 20px -5px rgba(196, 107, 78, 0.2);
+  /* ── Cultural Luxury Effects ── */
+  --shadow-sm: 0 2px 6px 0 rgba(43, 38, 35, 0.04);
+  --shadow-card: 0 10px 40px -10px rgba(43, 38, 35, 0.08);
+  --shadow-glow: 0 0 25px -5px rgba(212, 122, 6, 0.25);
+  --shadow-terracotta: 0 8px 30px rgba(160, 102, 80, 0.28);
 
   /* ── Glassmorphism ── */
-  --glass-bg: rgba(255, 255, 255, 0.92);
-  --glass-border: 1px solid rgba(234, 224, 211, 0.8);
+  --glass-bg: rgba(253, 251, 247, 0.92);
+  --glass-border: 1px solid rgba(235, 220, 208, 0.85);
+}
+
+/* ── Indian Cultural Utility Classes ── */
+.rangoli-motif-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0.75rem auto 1.5rem;
+}
+
+.rangoli-line {
+  height: 1px;
+  width: 60px;
+  background: linear-gradient(90deg, transparent, var(--clr-gold-ochre), transparent);
+}
+
+.jharokha-card {
+  border-radius: 120px 120px 18px 18px;
+  overflow: hidden;
+  border: 1px solid var(--clr-border-subtle);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.jharokha-card:hover {
+  border-color: var(--clr-gold-ochre);
+  box-shadow: var(--shadow-terracotta);
+}
+
+.indian-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.35rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: var(--clr-sage-light);
+  color: var(--clr-sage-dark);
+  border: 1px solid rgba(134, 163, 151, 0.4);
+}
+
+.zari-gold-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.35rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  background: var(--clr-gold-light);
+  color: var(--clr-gold-dark);
+  border: 1px solid rgba(212, 122, 6, 0.35);
 }
 
 * {
@@ -293,6 +359,16 @@ p {
   .sidebar.open {
     left: 0 !important;
   }
+}
+
+.admin-main-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .main-content {

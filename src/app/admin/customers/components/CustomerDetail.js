@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { 
     ArrowLeft, Phone, Mail, MapPin, Edit2, Check, X, 
     MessageCircle, KeyRound, Trash2, Loader2, ShieldCheck, User,
-    Receipt, Truck, CheckSquare, Square, Building, Globe, Copy
+    Receipt, Truck, CheckSquare, Square, Building, Globe, Copy,
+    Lock, Unlock
 } from 'lucide-react';
 import { COUNTRY_CODES } from '@/lib/countryCodes';
 import CustomerOrders from './CustomerOrders';
@@ -27,7 +28,8 @@ export default function CustomerDetail({
     onBack, 
     onCustomerUpdated, 
     onResetPasswordClick,
-    onDeleteCustomerClick 
+    onDeleteCustomerClick,
+    onToggleLockClick
 }) {
     const [isEditing, setIsEditing] = useState(false);
     const [sameAsBilling, setSameAsBilling] = useState(
@@ -247,6 +249,24 @@ export default function CustomerDetail({
                                 <KeyRound size={15} color="hsl(var(--primary))" /> Manage Password
                             </button>
 
+                            <button
+                                onClick={() => onToggleLockClick && onToggleLockClick(customer)}
+                                className="btn btn-secondary"
+                                style={{
+                                    borderRadius: '12px',
+                                    padding: '0.65rem 1.1rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: customer?.is_locked ? '#f0fdf4' : '#fffbeb',
+                                    color: customer?.is_locked ? '#16a34a' : '#b45309',
+                                    border: `1px solid ${customer?.is_locked ? '#bbf7d0' : '#fde68a'}`,
+                                    fontWeight: 700
+                                }}
+                            >
+                                {customer?.is_locked ? <><Unlock size={15} /> Unlock Customer</> : <><Lock size={15} /> Lock Customer</>}
+                            </button>
+
                             <button 
                                 onClick={() => setIsEditing(true)} 
                                 className="btn btn-primary"
@@ -277,6 +297,52 @@ export default function CustomerDetail({
                     )}
                 </div>
             </div>
+
+            {/* Account Locked Alert */}
+            {customer?.is_locked && (
+                <div style={{
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    color: '#991b1b',
+                    padding: '0.9rem 1.25rem',
+                    borderRadius: '14px',
+                    marginBottom: '1.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Lock size={18} color="#dc2626" />
+                        <div>
+                            <strong style={{ fontSize: '0.92rem' }}>This Customer Account is Locked</strong>
+                            <p style={{ margin: 0, fontSize: '0.82rem', color: '#b91c1c' }}>
+                                The customer cannot sign in, place new orders, or reset their password.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => onToggleLockClick && onToggleLockClick(customer)}
+                        style={{
+                            background: '#16a34a',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '10px',
+                            padding: '0.5rem 1rem',
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                        }}
+                    >
+                        <Unlock size={14} /> Unlock Account
+                    </button>
+                </div>
+            )}
 
             {error && (
                 <div style={{

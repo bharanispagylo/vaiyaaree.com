@@ -171,12 +171,12 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
     });
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay" style={{ zIndex: 999999, position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onClose}>
             <div className="modal-box shadow-premium" style={{
-                maxWidth: '960px', height: '90vh',
+                maxWidth: '960px', height: '90vh', width: '100%',
                 display: 'flex', flexDirection: 'column', padding: 0,
-                borderRadius: '32px', background: '#ffffff',
-                overflow: 'hidden', border: 'none'
+                borderRadius: '24px', background: '#ffffff',
+                overflow: 'hidden', border: 'none', zIndex: 1000000, position: 'relative'
             }} onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div style={{

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck, Heart, Activity, Search } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck, Heart, Activity, Search, Sparkles, Phone } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import { useCompare } from '@/context/CompareContext';
 import styles from './ShopHeader.module.css';
@@ -27,12 +27,17 @@ function formatPhoneDisplay(phone) {
 export default function ShopHeader() {
     const pathname = usePathname();
     const { user, cartCount, wishlist, handleLogout, openCart, setIsCartOpen } = useShop();
-    const { compareItems } = useCompare();
+    const { compareItems } = useCompare ? useCompare() : { compareItems: [] };
+    const [mounted, setMounted] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isCartAlerting, setIsCartAlerting] = useState(false);
     const prevCartCountRef = useRef(cartCount);
     const profileRef = useRef(null);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleOpenCart = (e) => {
         if (e) {
@@ -76,7 +81,27 @@ export default function ShopHeader() {
     const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
     return (
-        <>
+        <div className={styles.headerContainer} suppressHydrationWarning>
+            {/* Top Royal Indian Announcement Bar */}
+            <div className={styles.topBar}>
+                <div className={styles.topBarInner}>
+                    <div className={styles.topBarLeft}>
+                        <span className={styles.topBarIconText}>
+                            <Sparkles size={12} className={styles.goldSparkle} />
+                            FREE ALL-INDIA SHIPPING • 100% AUTHENTIC HANDLOOM SILKS
+                        </span>
+                    </div>
+                    <div className={styles.topBarRight}>
+                        <a href="tel:+918667793292" className={styles.topBarPhoneLink}>
+                            <Phone size={11} className={styles.goldSparkle} />
+                            +91 86677 93292
+                        </a>
+                        <span className={styles.topBarSep}>|</span>
+                        <Link href="/about-us" className={styles.topBarLink}>WEAVER'S STORY</Link>
+                    </div>
+                </div>
+            </div>
+
             <header className={styles.header}>
                 <div className={styles.headerInner}>
                     <div className={styles.leftSection}>
@@ -84,16 +109,25 @@ export default function ShopHeader() {
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
                         <Link href="/" className={styles.logoLink}>
-                            <img src="/images/vaiyaaree-logo.png" alt="Vaiyaaree" className={styles.logoImg} onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} suppressHydrationWarning />
-                            <span className={styles.logoBrandName}>VAIYAAREE</span>
+                            <img 
+                                src="/images/vaiyaaree-logo.png" 
+                                alt="Vaiyaaree" 
+                                className={styles.logoImg} 
+                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
+                                suppressHydrationWarning 
+                            />
+                            <div className={styles.logoBrandBlock}>
+                                <span className={styles.logoBrandName}>VAIYAAREE</span>
+                                <span className={styles.logoTagline}>SILKS & WEAVES</span>
+                            </div>
                         </Link>
                     </div>
 
                     <nav className={`${styles.navbar} ${isMobileMenuOpen ? styles.navbarOpen : ''}`}>
                         <Link href="/" className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
-                        <Link href="/shop" className={`${styles.navLink} ${pathname === '/shop' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Shop</Link>
-                        <Link href="/about-us" className={`${styles.navLink} ${pathname === '/about-us' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>About Us</Link>
-                        <Link href="/contact" className={`${styles.navLink} ${pathname === '/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact Us</Link>
+                        <Link href="/shop" className={`${styles.navLink} ${pathname === '/shop' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Shop Collections</Link>
+                        <Link href="/about-us" className={`${styles.navLink} ${pathname === '/about-us' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Our Heritage</Link>
+                        <Link href="/contact" className={`${styles.navLink} ${pathname === '/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact</Link>
                     </nav>
 
                     <form
@@ -107,7 +141,7 @@ export default function ShopHeader() {
                         <input 
                             type="text" 
                             name="search" 
-                            placeholder="Search products..." 
+                            placeholder="Search silks, drapes..." 
                             className={styles.searchInput} 
                         />
                         <button type="submit" className={styles.searchBtn} aria-label="Search" title="Search">
@@ -115,7 +149,7 @@ export default function ShopHeader() {
                         </button>
                     </form>
 
-                    <div className={styles.headerActions}>
+                    <div className={styles.headerActions} suppressHydrationWarning>
                         <button
                             type="button"
                             onClick={handleOpenCart}
@@ -125,7 +159,7 @@ export default function ShopHeader() {
                         >
                             <div className={styles.cartIconWrapper}>
                                 <ShoppingCart size={22} strokeWidth={1.5} />
-                                {cartCount > 0 && (
+                                {mounted && cartCount > 0 && (
                                     <span className={`${styles.cartCountBadge} ${isCartAlerting ? styles.cartAlertPing : ''}`}>
                                         {cartCount}
                                     </span>
@@ -133,8 +167,8 @@ export default function ShopHeader() {
                             </div>
                         </button>
 
-                        <div className={styles.profileContainer} ref={profileRef}>
-                            {user ? (
+                        <div className={styles.profileContainer} ref={profileRef} suppressHydrationWarning>
+                            {mounted && user ? (
                                 <>
                                     <div className={styles.profileAvatar} onClick={() => setIsProfileOpen(!isProfileOpen)}>
                                         {user.name ? user.name.charAt(0).toUpperCase() : <User size={18} />}
@@ -165,6 +199,6 @@ export default function ShopHeader() {
                     </div>
                 </div>
             </header>
-        </>
+        </div>
     );
 }

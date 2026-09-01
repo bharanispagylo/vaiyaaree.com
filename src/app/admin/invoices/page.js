@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { getDiscountDetails } from '@/lib/discountHelper';
 import { Search, Loader2, FileText, Download, Eye, Printer, MessageCircle, Settings, MapPin, Hash, Info, X, CheckCircle2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
@@ -256,14 +257,16 @@ export default function InvoicesPage() {
     const openInvoice = async (order) => {
         setSelectedInvoice(order);
         try {
-            const { data, error } = await mysqlClient
-                .from('order_items')
-                .select('*')
-                .eq('order_id', order.id);
-            if (error) throw error;
-            setInvoiceItems(data || []);
+            const [{ data: itemsData }, { data: discountsData }] = await Promise.all([
+                mysqlClient.from('order_items').select('*').eq('order_id', order.id),
+                mysqlClient.from('order_discounts').select('*').eq('order_id', order.id)
+            ]);
+            setInvoiceItems(itemsData || []);
+            if (discountsData && discountsData.length > 0) {
+                setSelectedInvoice(prev => ({ ...prev, order_discounts: discountsData }));
+            }
         } catch (error) {
-            console.error('Error fetching invoice items:', error);
+            console.error('Error fetching invoice items or discounts:', error);
             setInvoiceItems([]);
         }
     };
@@ -583,19 +586,19 @@ export default function InvoicesPage() {
                                         ))}
                                         
                                         {/* Additional charges & Discounts */}
-                                        {parseFloat(selectedInvoice.total_discount || selectedInvoice.discount_amount || selectedInvoice.cart_discount || 0) > 0 && (
-                                            <tr>
+                                        {getDiscountDetails(selectedInvoice).map((disc, idx) => (
+                                            <tr key={`disc-${idx}`}>
                                                 <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
                                                 <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
                                                 <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>
-                                                    {selectedInvoice.coupon_code ? `Discount (${selectedInvoice.coupon_code}):` : 'Discount:'}
+                                                    {disc.label}
                                                 </td>
                                                 <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
                                                 <td style={{ padding: '5px', textAlign: 'right', color: '#dc2626' }}>
-                                                    -{parseFloat(selectedInvoice.total_discount || selectedInvoice.discount_amount || selectedInvoice.cart_discount || 0).toFixed(2)}
+                                                    -{disc.amount.toFixed(2)}
                                                 </td>
                                             </tr>
-                                        )}
+                                        ))}
                                         {selectedInvoice.shipping_cost > 0 && (
                                             <tr>
                                                 <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>

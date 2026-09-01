@@ -2,17 +2,21 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Phone, Mail, Lock, User, Eye, EyeOff, CheckCircle2, ArrowRight, ShieldCheck, Globe } from 'lucide-react';
+import { 
+    Phone, Mail, Lock, User, Eye, EyeOff, CheckCircle2, ArrowRight, 
+    ShieldCheck, Sparkles, Truck, AlertCircle, ShoppingBag, Loader2 
+} from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
+import styles from './login.module.css';
 
-function LoginContent() {
+function LoginContent({ initialMode }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirectUrl = searchParams.get('redirect') || '';
     const { setUser, showToast } = useShop();
 
-    const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
+    const [activeTab, setActiveTab] = useState(initialMode || (searchParams.get('mode') === 'register' ? 'register' : 'login')); // 'login' | 'register'
 
     // Login Form State
     const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -35,10 +39,12 @@ function LoginContent() {
 
     useEffect(() => {
         const mode = searchParams.get('mode');
-        if (mode === 'register') {
+        if (mode === 'register' || initialMode === 'register') {
             setActiveTab('register');
+        } else if (mode === 'login' || initialMode === 'login') {
+            setActiveTab('login');
         }
-    }, [searchParams]);
+    }, [searchParams, initialMode]);
 
     // Handle Existing User Login (Mobile / Email + Password)
     const handleLoginSubmit = async (e) => {
@@ -80,7 +86,7 @@ function LoginContent() {
                     } else {
                         router.push('/shop');
                     }
-                }, 1200);
+                }, 1000);
             } else {
                 setError(data.error || 'Invalid Mobile/Email or Password. Please try again.');
                 setLoading(false);
@@ -106,8 +112,8 @@ function LoginContent() {
             setError('Please enter a valid Email Address.');
             return;
         }
-        const cleanDigits = regPhone.replace(/\D/g, '');
-        if (cleanDigits.length < 7 || (regCountryCode === '+91' && cleanDigits.length !== 10)) {
+        const rawPhone = regPhone.replace(/\D/g, '');
+        if (!rawPhone || (regCountryCode === '+91' && rawPhone.length !== 10) || rawPhone.length < 7) {
             setError('Please enter a valid Mobile Number (10 digits for India).');
             return;
         }
@@ -116,7 +122,7 @@ function LoginContent() {
             return;
         }
         if (regPassword !== regConfirmPassword) {
-            setError('New Password and Confirm Password do not match.');
+            setError('Passwords do not match. Please re-enter your password.');
             return;
         }
 
@@ -127,10 +133,10 @@ function LoginContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: regName.trim(),
-                    email: regEmail.trim(),
-                    phone: cleanDigits,
+                    email: regEmail.trim().toLowerCase(),
+                    phone: rawPhone,
                     country_code: regCountryCode,
-                    password: regPassword
+                    password: regPassword.trim()
                 })
             });
 
@@ -139,8 +145,8 @@ function LoginContent() {
                 const customerData = { ...data.customer, login_at: Date.now() };
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
-                setSuccessMessage('Account created successfully! Redirecting to shop page...');
-                showToast('Account Created Successfully! Welcome to Vaiyaaree.', 'success');
+                setSuccessMessage('Account created successfully! Redirecting...');
+                showToast('Welcome to Vaiyaaree! Account created.', 'success');
 
                 setTimeout(() => {
                     if (redirectUrl) {
@@ -148,398 +154,381 @@ function LoginContent() {
                     } else {
                         router.push('/shop');
                     }
-                }, 1400);
+                }, 1000);
             } else {
-                setError(data.error || 'Account creation failed. Please try again.');
+                setError(data.error || 'Failed to create account. Please try again.');
                 setLoading(false);
             }
         } catch (err) {
-            console.error('Register Error:', err);
+            console.error('Registration Error:', err);
             setError('Connection failed. Please check your internet connection.');
             setLoading(false);
         }
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(135deg, #fdfbf7 0%, #f7eae1 100%)',
-            padding: '2rem 1rem',
-            fontFamily: 'var(--font-roboto), sans-serif',
-            color: '#2b2623'
-        }}>
-            <div className="login-card-container" style={{
-                maxWidth: '480px',
-                width: '100%',
-                margin: '0 auto',
-                background: '#ffffff',
-                padding: '2.5rem 2rem',
-                borderRadius: '20px',
-                border: '1px solid #f0e6df',
-                boxShadow: '0 15px 45px rgba(93, 8, 33, 0.08)'
-            }}>
-                {/* Logo & Title Header */}
-                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-                        <div style={{
-                            width: '80px',
-                            height: '80px',
-                            borderRadius: '16px',
-                            overflow: 'hidden',
-                            boxShadow: '0 8px 20px rgba(93, 8, 33, 0.12)',
-                            background: '#ffffff',
-                            padding: '6px'
-                        }}>
-                            <img src="/images/vaiyaaree-logo.png" alt="Vaiyaaree" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} />
+        <div className={styles.splitPage}>
+            {/* ═══════════════════════════════════════════════════════════════
+               LEFT SIDE: 50% Visual Showcase & Brand Highlights
+               ═══════════════════════════════════════════════════════════════ */}
+            <div className={styles.visualSide}>
+                <div className={styles.visualImageOverlay} />
+                <img 
+                    src="/images/about-us-saree.jpg"
+                    alt="Vaiyaaree Sarees Collection"
+                    className={styles.visualBgImage}
+                    onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1200&q=85';
+                    }}
+                />
+                
+                <div className={styles.visualContent}>
+                    {/* Brand Logo Header */}
+                    <Link href="/" className={styles.visualLogoLink}>
+                        <img 
+                            src="/images/vaiyaaree-logo.png" 
+                            alt="Vaiyaaree" 
+                            className={styles.visualLogo} 
+                            onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
+                        />
+                        <span className={styles.visualLogoText}>VAIYAAREE</span>
+                    </Link>
+
+                    {/* Hero Title & Description */}
+                    <div className={styles.visualHeroText}>
+                        <span className={styles.visualSubtitle}>Timeless Heritage & Craftsmanship</span>
+                        <h2 className={styles.visualTitle}>Wrap Yourself in Pure Elegance</h2>
+                        <p className={styles.visualDesc}>
+                            Experience authentic handpicked silks, bridal Kanchipurams, and festive weaves crafted to celebrate your moments.
+                        </p>
+                    </div>
+
+                    {/* Trust Highlights */}
+                    <div className={styles.visualHighlights}>
+                        <div className={styles.highlightCard}>
+                            <div className={styles.highlightIconBox}>
+                                <Sparkles size={20} />
+                            </div>
+                            <div className={styles.highlightInfo}>
+                                <strong>100% Authentic Handloom</strong>
+                                <span>Curated directly from master artisans across India</span>
+                            </div>
+                        </div>
+
+                        <div className={styles.highlightCard}>
+                            <div className={styles.highlightIconBox}>
+                                <Truck size={20} />
+                            </div>
+                            <div className={styles.highlightInfo}>
+                                <strong>Express Shipping & Safe Transit</strong>
+                                <span>Fast insured delivery with live SMS & WhatsApp updates</span>
+                            </div>
+                        </div>
+
+                        <div className={styles.highlightCard}>
+                            <div className={styles.highlightIconBox}>
+                                <ShieldCheck size={20} />
+                            </div>
+                            <div className={styles.highlightInfo}>
+                                <strong>Secure Payments & Easy Returns</strong>
+                                <span>256-bit encryption with hassle-free 7-day returns</span>
+                            </div>
                         </div>
                     </div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 0.35rem' }}>Vaiyaaree</h1>
-                    <p style={{ fontSize: '0.85rem', color: '#5d0821', letterSpacing: '0.1em', fontWeight: 700, textTransform: 'uppercase', margin: 0 }}>
-                        {redirectUrl.includes('checkout') ? 'Checkout Authorization' : 'Customer Shop Portal'}
-                    </p>
+
+                    {/* Visual Footer */}
+                    <div className={styles.visualFooter}>
+                        <span>© {new Date().getFullYear()} Vaiyaaree Sarees.</span>
+                        <div className={styles.visualFooterLinks}>
+                            <Link href="/privacy-policy">Privacy</Link>
+                            <span>•</span>
+                            <Link href="/terms-and-conditions">Terms</Link>
+                            <span>•</span>
+                            <Link href="/contact">Support</Link>
+                        </div>
+                    </div>
                 </div>
+            </div>
 
-                {/* Redirect Info Banner */}
-                {redirectUrl.includes('checkout') && (
-                    <div style={{
-                        background: 'rgba(93, 8, 33, 0.06)',
-                        border: '1px solid rgba(93, 8, 33, 0.2)',
-                        borderRadius: '10px',
-                        padding: '0.75rem 1rem',
-                        fontSize: '0.85rem',
-                        color: '#5d0821',
-                        fontWeight: 600,
-                        textAlign: 'center',
-                        marginBottom: '1.5rem'
-                    }}>
-                        Please login or create an account to complete your purchase. Your cart is preserved!
+            {/* ═══════════════════════════════════════════════════════════════
+               RIGHT SIDE: 50% Form Panel
+               ═══════════════════════════════════════════════════════════════ */}
+            <div className={styles.formSide}>
+                <div className={styles.formContainer}>
+                    {/* Mobile Logo & Page Header */}
+                    <div className={styles.formHeader}>
+                        <Link href="/" className={styles.mobileBrandLogo}>
+                            <img 
+                                src="/images/vaiyaaree-logo.png" 
+                                alt="Vaiyaaree" 
+                                className={styles.mobileLogoImg} 
+                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
+                            />
+                            <span className={styles.mobileBrandName}>VAIYAAREE</span>
+                        </Link>
+
+                        <h1 className={styles.formTitle}>
+                            {activeTab === 'login' ? 'Welcome Back' : 'Create Account'}
+                        </h1>
+                        <p className={styles.formSubtitle}>
+                            {activeTab === 'login' 
+                                ? 'Sign in to access your orders, track shipments, and enjoy member rewards.' 
+                                : 'Join Vaiyaaree to unlock exclusive discounts and seamless checkout.'}
+                        </p>
                     </div>
-                )}
 
-                {/* Tabs Toggle: Login vs Create Account */}
-                <div style={{
-                    display: 'flex',
-                    background: '#f8f4ee',
-                    padding: '4px',
-                    borderRadius: '12px',
-                    marginBottom: '1.75rem',
-                    border: '1px solid #efe5db'
-                }}>
-                    <button
-                        onClick={() => { setActiveTab('login'); setError(''); setSuccessMessage(''); }}
-                        style={{
-                            flex: 1,
-                            padding: '0.75rem',
-                            border: 'none',
-                            borderRadius: '9px',
-                            background: activeTab === 'login' ? '#ffffff' : 'transparent',
-                            color: activeTab === 'login' ? '#5d0821' : '#777',
-                            fontWeight: activeTab === 'login' ? 700 : 600,
-                            fontSize: '0.9rem',
-                            cursor: 'pointer',
-                            boxShadow: activeTab === 'login' ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
-                            transition: 'all 0.25s ease'
-                        }}
-                    >
-                        Existing User Login
-                    </button>
-                    <button
-                        onClick={() => { setActiveTab('register'); setError(''); setSuccessMessage(''); }}
-                        style={{
-                            flex: 1,
-                            padding: '0.75rem',
-                            border: 'none',
-                            borderRadius: '9px',
-                            background: activeTab === 'register' ? '#ffffff' : 'transparent',
-                            color: activeTab === 'register' ? '#5d0821' : '#777',
-                            fontWeight: activeTab === 'register' ? 700 : 600,
-                            fontSize: '0.9rem',
-                            cursor: 'pointer',
-                            boxShadow: activeTab === 'register' ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
-                            transition: 'all 0.25s ease'
-                        }}
-                    >
-                        Create Account
-                    </button>
-                </div>
-
-                {/* Error & Success Messages */}
-                {error && (
-                    <div style={{
-                        background: '#fdf2f2',
-                        border: '1px solid #f8b4b4',
-                        color: '#981b1b',
-                        padding: '0.85rem 1rem',
-                        borderRadius: '10px',
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        marginBottom: '1.5rem'
-                    }}>
-                        {error}
-                    </div>
-                )}
-                {successMessage && (
-                    <div style={{
-                        background: '#f0fdf4',
-                        border: '1px solid #86efac',
-                        color: '#15803d',
-                        padding: '0.9rem 1.1rem',
-                        borderRadius: '12px',
-                        fontSize: '0.9rem',
-                        fontWeight: 700,
-                        marginBottom: '1.5rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        boxShadow: '0 4px 14px rgba(22, 163, 74, 0.12)'
-                    }}>
-                        <CheckCircle2 size={20} color="#16a34a" style={{ flexShrink: 0 }} />
-                        <span>{successMessage}</span>
-                    </div>
-                )}
-
-                {/* TAB 1: EXISTING USER LOGIN FORM */}
-                {activeTab === 'login' && (
-                    <form onSubmit={handleLoginSubmit}>
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Mobile Number or Email
-                            </label>
-                            <div style={{ position: 'relative' }}>
-                                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type="text"
-                                    value={loginIdentifier}
-                                    onChange={e => setLoginIdentifier(e.target.value)}
-                                    placeholder="Enter Mobile or Email"
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.85rem 1rem 0.85rem 2.75rem',
-                                        borderRadius: '10px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '0.95rem',
-                                        outline: 'none',
-                                        background: '#faf9f6'
-                                    }}
-                                />
-                            </div>
+                    {/* Checkout Preservation Banner */}
+                    {redirectUrl.includes('checkout') && (
+                        <div className={styles.checkoutNotice}>
+                            <ShoppingBag size={18} style={{ flexShrink: 0 }} />
+                            <span>Please login or register to complete your order. Your cart items are safely preserved!</span>
                         </div>
+                    )}
 
-                        <div style={{ marginBottom: '1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    Password
-                                </label>
-                                <Link href="/forgot-password" style={{ fontSize: '0.8rem', color: '#5d0821', fontWeight: 700, textDecoration: 'none' }}>
-                                    Forgot Password?
-                                </Link>
-                            </div>
-                            <div style={{ position: 'relative' }}>
-                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type={showLoginPassword ? "text" : "password"}
-                                    value={loginPassword}
-                                    onChange={e => setLoginPassword(e.target.value)}
-                                    placeholder="Enter your password"
-                                    required
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.85rem 2.75rem 0.85rem 2.75rem',
-                                        borderRadius: '10px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '0.95rem',
-                                        outline: 'none',
-                                        background: '#faf9f6'
-                                    }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowLoginPassword(!showLoginPassword)}
-                                    style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}
-                                >
-                                    {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                        </div>
-
+                    {/* Tabs Toggle: Login vs Register */}
+                    <div className={styles.tabSwitch}>
                         <button
-                            type="submit"
-                            disabled={loading || Boolean(successMessage)}
-                            style={{
-                                width: '100%',
-                                padding: '1rem',
-                                marginTop: '1rem',
-                                background: successMessage ? '#16a34a' : '#5d0821',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                fontWeight: 800,
-                                fontSize: '0.95rem',
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
-                                cursor: successMessage ? 'default' : 'pointer',
-                                boxShadow: successMessage ? '0 6px 20px rgba(22, 163, 74, 0.25)' : '0 6px 20px rgba(93, 8, 33, 0.2)',
-                                transition: 'all 0.25s ease'
-                            }}
+                            type="button"
+                            onClick={() => { setActiveTab('login'); setError(''); setSuccessMessage(''); }}
+                            className={`${styles.tabBtn} ${activeTab === 'login' ? styles.tabBtnActive : ''}`}
                         >
-                            {successMessage ? '✓ Logged In! Redirecting...' : (loading ? 'Signing In...' : 'Login →')}
+                            <User size={16} /> Existing User Login
                         </button>
-                    </form>
-                )}
+                        <button
+                            type="button"
+                            onClick={() => { setActiveTab('register'); setError(''); setSuccessMessage(''); }}
+                            className={`${styles.tabBtn} ${activeTab === 'register' ? styles.tabBtnActive : ''}`}
+                        >
+                            <Sparkles size={16} /> Create Account
+                        </button>
+                    </div>
 
-                {/* TAB 2: NEW USER CREATE ACCOUNT FORM */}
-                {activeTab === 'register' && (
-                    <form onSubmit={handleRegisterSubmit}>
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Full Name <span style={{ color: '#5d0821' }}>*</span>
-                            </label>
-                            <div style={{ position: 'relative' }}>
-                                <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type="text"
-                                    value={regName}
-                                    onChange={e => setRegName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
-                                    placeholder="Enter your full name"
-                                    required
-                                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
-                                />
-                            </div>
+                    {/* Error & Success Feedback Alerts */}
+                    {error && (
+                        <div className={styles.errorAlert}>
+                            <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                            <span>{error}</span>
                         </div>
+                    )}
 
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Email Address <span style={{ color: '#5d0821' }}>*</span>
-                            </label>
-                            <div style={{ position: 'relative' }}>
-                                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type="email"
-                                    value={regEmail}
-                                    onChange={e => setRegEmail(e.target.value)}
-                                    placeholder="your@email.com"
-                                    required
-                                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
-                                />
-                            </div>
+                    {successMessage && (
+                        <div className={styles.successAlert}>
+                            <CheckCircle2 size={20} color="#16a34a" style={{ flexShrink: 0 }} />
+                            <span>{successMessage}</span>
                         </div>
+                    )}
 
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Mobile Number <span style={{ color: '#5d0821' }}>*</span>
-                            </label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <select
-                                    value={regCountryCode}
-                                    onChange={e => setRegCountryCode(e.target.value)}
-                                    style={{ width: '120px', padding: '0.8rem 0.4rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: 700, background: '#faf9f6', outline: 'none' }}
-                                >
-                                    {COUNTRY_CODES.map(c => (
-                                        <option key={c.code} value={c.code}>
-                                            {c.flag} {c.code}
-                                        </option>
-                                    ))}
-                                </select>
-                                <div style={{ position: 'relative', flex: 1 }}>
-                                    <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                    {/* TAB 1: EXISTING USER LOGIN FORM */}
+                    {activeTab === 'login' && (
+                        <form onSubmit={handleLoginSubmit}>
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>
+                                    Mobile Number or Email
+                                </label>
+                                <div className={styles.inputWrapper}>
+                                    <User size={18} className={styles.fieldIcon} />
                                     <input
-                                        type="tel"
-                                        value={regPhone}
-                                        onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                                        placeholder={regCountryCode === '+91' ? '10-digit mobile number' : 'Mobile number'}
+                                        type="text"
+                                        value={loginIdentifier}
+                                        onChange={e => setLoginIdentifier(e.target.value)}
+                                        placeholder="e.g. 9876543210 or your@email.com"
+                                        className={styles.formInput}
                                         required
-                                        style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
+                                        autoFocus
                                     />
                                 </div>
                             </div>
-                        </div>
 
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                New Password <span style={{ color: '#5d0821' }}>*</span>
-                            </label>
-                            <div style={{ position: 'relative' }}>
-                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type={showRegPassword ? "text" : "password"}
-                                    value={regPassword}
-                                    onChange={e => setRegPassword(e.target.value)}
-                                    placeholder="At least 6 characters"
-                                    minLength="6"
-                                    required
-                                    style={{ width: '100%', padding: '0.8rem 2.75rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowRegPassword(!showRegPassword)}
-                                    style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}
-                                >
-                                    {showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
+                            <div className={styles.formGroup}>
+                                <div className={styles.labelRow}>
+                                    <label className={styles.formLabel}>
+                                        Password
+                                    </label>
+                                    <Link href="/forgot-password" className={styles.forgotLink}>
+                                        Forgot Password?
+                                    </Link>
+                                </div>
+                                <div className={styles.inputWrapper}>
+                                    <Lock size={18} className={styles.fieldIcon} />
+                                    <input
+                                        type={showLoginPassword ? "text" : "password"}
+                                        value={loginPassword}
+                                        onChange={e => setLoginPassword(e.target.value)}
+                                        placeholder="Enter your password"
+                                        className={`${styles.formInput} ${styles.passwordInput}`}
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                                        className={styles.eyeToggleBtn}
+                                        aria-label="Toggle password visibility"
+                                    >
+                                        {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#444', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Confirm Password <span style={{ color: '#5d0821' }}>*</span>
-                            </label>
-                            <div style={{ position: 'relative' }}>
-                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
-                                <input
-                                    type={showRegPassword ? "text" : "password"}
-                                    value={regConfirmPassword}
-                                    onChange={e => setRegConfirmPassword(e.target.value)}
-                                    placeholder="Re-enter password"
-                                    minLength="6"
-                                    required
-                                    style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.75rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
-                                />
+                            <button
+                                type="submit"
+                                disabled={loading || Boolean(successMessage)}
+                                className={`${styles.submitBtn} ${successMessage ? styles.submitBtnSuccess : ''}`}
+                            >
+                                {loading ? (
+                                    <><Loader2 size={18} className="animate-spin" /> Signing In...</>
+                                ) : successMessage ? (
+                                    '✓ Logged In! Redirecting...'
+                                ) : (
+                                    <>Sign In <ArrowRight size={18} /></>
+                                )}
+                            </button>
+                        </form>
+                    )}
+
+                    {/* TAB 2: NEW USER CREATE ACCOUNT FORM */}
+                    {activeTab === 'register' && (
+                        <form onSubmit={handleRegisterSubmit}>
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>
+                                    Full Name <span style={{ color: '#5d0821' }}>*</span>
+                                </label>
+                                <div className={styles.inputWrapper}>
+                                    <User size={18} className={styles.fieldIcon} />
+                                    <input
+                                        type="text"
+                                        value={regName}
+                                        onChange={e => setRegName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
+                                        placeholder="Enter your full name"
+                                        className={styles.formInput}
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
                             </div>
-                        </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading || Boolean(successMessage)}
-                            style={{
-                                width: '100%',
-                                padding: '1rem',
-                                background: successMessage ? '#16a34a' : '#5d0821',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '10px',
-                                fontWeight: 800,
-                                fontSize: '0.95rem',
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
-                                cursor: successMessage ? 'default' : 'pointer',
-                                boxShadow: successMessage ? '0 6px 20px rgba(22, 163, 74, 0.25)' : '0 6px 20px rgba(93, 8, 33, 0.2)',
-                                transition: 'all 0.25s ease'
-                            }}
-                        >
-                            {successMessage ? '✓ Account Created! Redirecting...' : (loading ? 'Creating Account...' : 'Create Account →')}
-                        </button>
-                    </form>
-                )}
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>
+                                    Email Address <span style={{ color: '#5d0821' }}>*</span>
+                                </label>
+                                <div className={styles.inputWrapper}>
+                                    <Mail size={18} className={styles.fieldIcon} />
+                                    <input
+                                        type="email"
+                                        value={regEmail}
+                                        onChange={e => setRegEmail(e.target.value)}
+                                        placeholder="your@email.com"
+                                        className={styles.formInput}
+                                        required
+                                    />
+                                </div>
+                            </div>
 
-                {/* Footer Security Badges */}
-                <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #f0e6df', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#888', fontSize: '0.78rem' }}>
-                    <ShieldCheck size={16} color="#16a34a" />
-                    <span>256-Bit Encrypted & 100% Safe Checkout</span>
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>
+                                    Mobile Number <span style={{ color: '#5d0821' }}>*</span>
+                                </label>
+                                <div className={styles.phoneRow}>
+                                    <select
+                                        value={regCountryCode}
+                                        onChange={e => setRegCountryCode(e.target.value)}
+                                        className={styles.countryCodeSelect}
+                                    >
+                                        {COUNTRY_CODES.map(c => (
+                                            <option key={c.code} value={c.code}>
+                                                {c.flag} {c.code}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className={styles.inputWrapper} style={{ flex: 1 }}>
+                                        <Phone size={18} className={styles.fieldIcon} />
+                                        <input
+                                            type="tel"
+                                            value={regPhone}
+                                            onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                                            placeholder={regCountryCode === '+91' ? '10-digit mobile number' : 'Mobile number'}
+                                            className={styles.formInput}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>
+                                    Password <span style={{ color: '#5d0821' }}>*</span>
+                                </label>
+                                <div className={styles.inputWrapper}>
+                                    <Lock size={18} className={styles.fieldIcon} />
+                                    <input
+                                        type={showRegPassword ? "text" : "password"}
+                                        value={regPassword}
+                                        onChange={e => setRegPassword(e.target.value)}
+                                        placeholder="At least 6 characters"
+                                        minLength="6"
+                                        className={`${styles.formInput} ${styles.passwordInput}`}
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowRegPassword(!showRegPassword)}
+                                        className={styles.eyeToggleBtn}
+                                        aria-label="Toggle password visibility"
+                                    >
+                                        {showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>
+                                    Confirm Password <span style={{ color: '#5d0821' }}>*</span>
+                                </label>
+                                <div className={styles.inputWrapper}>
+                                    <Lock size={18} className={styles.fieldIcon} />
+                                    <input
+                                        type={showRegPassword ? "text" : "password"}
+                                        value={regConfirmPassword}
+                                        onChange={e => setRegConfirmPassword(e.target.value)}
+                                        placeholder="Re-enter password"
+                                        minLength="6"
+                                        className={styles.formInput}
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading || Boolean(successMessage)}
+                                className={`${styles.submitBtn} ${successMessage ? styles.submitBtnSuccess : ''}`}
+                            >
+                                {loading ? (
+                                    <><Loader2 size={18} className="animate-spin" /> Creating Account...</>
+                                ) : successMessage ? (
+                                    '✓ Account Created! Redirecting...'
+                                ) : (
+                                    <>Create Account <ArrowRight size={18} /></>
+                                )}
+                            </button>
+                        </form>
+                    )}
+
+                    {/* Trust Footer */}
+                    <div className={styles.trustFooter}>
+                        <ShieldCheck size={16} color="#16a34a" />
+                        <span><strong>256-Bit SSL Encrypted</strong> & 100% Verified Safe</span>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-export default function LoginPage() {
+export default function LoginPage({ initialMode }) {
     return (
         <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>}>
-            <LoginContent />
+            <LoginContent initialMode={initialMode} />
         </Suspense>
     );
 }

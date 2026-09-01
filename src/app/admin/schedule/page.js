@@ -103,7 +103,7 @@ export default function SchedulePostPage() {
     // Generate default caption
     const generateCaption = (product) => {
         if (!product) return { caption: '', hashtags: '' };
-        const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vaiyaaree.vercel.app';
+        const shopUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vaiyaaree.com';
         const cap = `${product.name}\n\nPrice: ₹${(product.price || 0).toLocaleString()}\n\n${product.description || 'Premium quality saree from our exclusive collection.'}\n\nShop now: ${shopUrl}/shop?pid=${product.id}`;
         const tags = `#Vaiyaaree #Sarees #IndianFashion #EthnicWear #SareeLove #NewArrivals`;
         return { caption: cap, hashtags: tags };

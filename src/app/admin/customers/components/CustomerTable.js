@@ -1,7 +1,8 @@
 'use client';
 import { 
     Search, Filter, ChevronDown, ChevronLeft, ChevronRight, 
-    MessageCircle, Trash2, Mail, Phone, ExternalLink, Users, CheckSquare, Square, KeyRound 
+    MessageCircle, Trash2, Mail, Phone, ExternalLink, Users, CheckSquare, Square, KeyRound,
+    Lock, Unlock
 } from 'lucide-react';
 
 export default function CustomerTable({
@@ -18,6 +19,7 @@ export default function CustomerTable({
     setSelectedPhones,
     onCustomerClick,
     onResetPasswordClick,
+    onToggleLockClick,
     onDeleteSingleClick,
     onDeleteBatchClick,
     onPageChange
@@ -233,8 +235,24 @@ export default function CustomerTable({
 
                                         {/* Customer Name */}
                                         <td style={{ padding: '1rem' }}>
-                                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
-                                                {customer.name}
+                                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                <span>{customer.name}</span>
+                                                {customer.is_locked && (
+                                                    <span style={{
+                                                        background: '#fef2f2',
+                                                        color: '#dc2626',
+                                                        border: '1px solid #fecaca',
+                                                        padding: '1px 7px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '0.68rem',
+                                                        fontWeight: 800,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '3px'
+                                                    }}>
+                                                        <Lock size={10} /> Locked
+                                                    </span>
+                                                )}
                                             </div>
                                             {customer.city && (
                                                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
@@ -340,6 +358,27 @@ export default function CustomerTable({
                                                     }}
                                                 >
                                                     <KeyRound size={13} /> Password
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    title={customer.is_locked ? "Unlock Customer Account" : "Lock Customer Account"}
+                                                    onClick={() => onToggleLockClick && onToggleLockClick(customer)}
+                                                    style={{
+                                                        padding: '0.4rem 0.65rem',
+                                                        borderRadius: '8px',
+                                                        background: customer.is_locked ? '#f0fdf4' : '#fffbeb',
+                                                        color: customer.is_locked ? '#16a34a' : '#b45309',
+                                                        border: `1px solid ${customer.is_locked ? '#bbf7d0' : '#fde68a'}`,
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 700
+                                                    }}
+                                                >
+                                                    {customer.is_locked ? <><Unlock size={13} /> Unlock</> : <><Lock size={13} /> Lock</>}
                                                 </button>
 
                                                 <button
