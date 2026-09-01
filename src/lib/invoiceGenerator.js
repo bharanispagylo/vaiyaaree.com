@@ -1,6 +1,5 @@
 import { jsPDF } from "jspdf";
 import { mysqlClient } from './mysqlClient.js';
-import { getDiscountDetails } from './discountHelper.js';
 
 async function urlToBase64(url) {
     try {
@@ -384,15 +383,12 @@ export async function generateInvoicePDF(order) {
     }
 
     // Additional charges & Discounts
-    const discountDetails = getDiscountDetails(order);
-    if (discountDetails.length > 0) {
-        discountDetails.forEach(disc => {
-            if (disc.amount > 0) {
-                doc.text(disc.label, 148, y + 5, { align: "right" });
-                doc.text(`-${disc.amount.toFixed(2)}`, 198, y + 5, { align: "right" });
-                y += 7;
-            }
-        });
+    const discountVal = parseFloat(order.total_discount || order.discount_amount || order.cart_discount || 0);
+    if (discountVal > 0) {
+        const discountLabel = order.coupon_code ? `Discount (${order.coupon_code}):` : "Discount:";
+        doc.text(discountLabel, 148, y + 5, { align: "right" });
+        doc.text(`-${discountVal.toFixed(2)}`, 198, y + 5, { align: "right" });
+        y += 7;
     }
     if (order.shipping_cost > 0) {
         doc.text("Shipping Cost:", 148, y + 5, { align: "right" });

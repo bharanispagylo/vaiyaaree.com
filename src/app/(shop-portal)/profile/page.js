@@ -255,21 +255,21 @@ export default function ProfilePage() {
         
         if (src === 'WEBSITE' || src === 'WEB' || idStr.startsWith('WEB-')) {
             return (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'transparent', color: '#3730a3', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    <Globe size={13} /> Web Store
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#e0e7ff', color: '#3730a3', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <Globe size={12} /> Web Store
                 </span>
             );
         }
         if (src === 'MANUAL' || src === 'MAN' || idStr.startsWith('MAN-')) {
             return (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'transparent', color: '#9d174d', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    <ShoppingBag size={13} /> Direct Store
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fce7f3', color: '#9d174d', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <ShoppingBag size={12} /> Direct Store
                 </span>
             );
         }
         return (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'transparent', color: '#166534', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                <MessageCircle size={13} /> WhatsApp
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#dcfce7', color: '#166534', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                <MessageCircle size={12} /> WhatsApp
             </span>
         );
     };
@@ -1106,7 +1106,7 @@ export default function ProfilePage() {
                                                                 {getOrderSourceBadge(order)}
                                                             </td>
                                                             <td style={{ whiteSpace: 'nowrap' }}>
-                                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: 0, background: 'transparent', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.5rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
                                                                     {order.status}
                                                                 </span>
                                                             </td>
@@ -1175,7 +1175,7 @@ export default function ProfilePage() {
                                                                 {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                             </div>
                                                         </div>
-                                                        <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: 0, background: 'transparent', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                        <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
                                                             {order.status}
                                                         </span>
                                                     </div>
@@ -1490,7 +1490,7 @@ export default function ProfilePage() {
                                                                 {getOrderSourceBadge(order)}
                                                             </td>
                                                             <td style={{ whiteSpace: 'nowrap' }}>
-                                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: 0, background: 'transparent', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
                                                                     {order.status}
                                                                 </span>
                                                             </td>
@@ -1543,7 +1543,7 @@ export default function ProfilePage() {
                                                                 {new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                             </div>
                                                         </div>
-                                                        <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: 0, background: 'transparent', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                                        <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
                                                             {order.status}
                                                         </span>
                                                     </div>

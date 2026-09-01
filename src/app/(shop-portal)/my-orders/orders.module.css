@@ -501,22 +501,22 @@
 }
 
 .statusCONFIRMED {
-    background: transparent !important;
+    background: hsl(var(--info) / 0.1);
     color: hsl(var(--info));
 }
 
 .statusSHIPPED {
-    background: transparent !important;
+    background: hsl(var(--secondary) / 0.1);
     color: hsl(var(--secondary));
 }
 
 .statusDELIVERED {
-    background: transparent !important;
+    background: hsl(var(--success) / 0.1);
     color: hsl(var(--success));
 }
 
 .statusCANCELLED {
-    background: transparent !important;
+    background: hsl(var(--danger) / 0.1);
     color: hsl(var(--danger));
 }
 
@@ -530,27 +530,28 @@
     gap: 0.35rem;
     font-size: 0.72rem;
     font-weight: 700;
-    padding: 0;
+    padding: 0.3rem 0.65rem;
+    border-radius: 8px;
     line-height: 1;
     white-space: nowrap;
 }
 
 .sourceWeb {
-    background: transparent !important;
+    background: #e0e7ff;
     color: #4338ca;
-    border: none !important;
+    border: 1px solid #c7d2fe;
 }
 
 .sourceWhatsApp {
-    background: transparent !important;
+    background: #dcfce7;
     color: #15803d;
-    border: none !important;
+    border: 1px solid #bbf7d0;
 }
 
 .sourceManual {
-    background: transparent !important;
+    background: #fce7f3;
     color: #be185d;
-    border: none !important;
+    border: 1px solid #fbcfe8;
 }
 
 .orderContent {

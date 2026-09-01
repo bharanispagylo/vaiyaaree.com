@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { getDiscountDetails } from '@/lib/discountHelper';
 import { FileText, Download, Calendar, MapPin, Tag, Filter, ChevronLeft, ChevronRight, Loader2, ArrowLeft, Search, RefreshCw, TrendingUp, IndianRupee, ShoppingCart, Printer, MessageCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
@@ -156,16 +155,14 @@ export default function InvoiceReportPage() {
     const openInvoice = async (order) => {
         setSelectedInvoice(order);
         try {
-            const [{ data: itemsData }, { data: discountsData }] = await Promise.all([
-                mysqlClient.from('order_items').select('*').eq('order_id', order.id),
-                mysqlClient.from('order_discounts').select('*').eq('order_id', order.id)
-            ]);
-            setInvoiceItems(itemsData || []);
-            if (discountsData && discountsData.length > 0) {
-                setSelectedInvoice(prev => ({ ...prev, order_discounts: discountsData }));
-            }
+            const { data, error } = await mysqlClient
+                .from('order_items')
+                .select('*')
+                .eq('order_id', order.id);
+            if (error) throw error;
+            setInvoiceItems(data || []);
         } catch (error) {
-            console.error('Error fetching invoice items or discounts:', error);
+            console.error('Error fetching invoice items:', error);
             setInvoiceItems([]);
         }
     };
@@ -498,20 +495,19 @@ export default function InvoiceReportPage() {
                                         </tr>
                                     ))}
                                     
-                                    {/* Additional charges & Discounts */}
-                                    {getDiscountDetails(selectedInvoice).map((disc, idx) => (
-                                        <tr key={`disc-${idx}`}>
+                                    {parseFloat(selectedInvoice.total_discount || selectedInvoice.discount_amount || selectedInvoice.cart_discount || 0) > 0 && (
+                                        <tr>
                                             <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
                                             <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
                                             <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>
-                                                {disc.label}
+                                                {selectedInvoice.coupon_code ? `Discount (${selectedInvoice.coupon_code}):` : 'Discount:'}
                                             </td>
                                             <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
                                             <td style={{ padding: '5px', textAlign: 'right', color: '#dc2626' }}>
-                                                -{disc.amount.toFixed(2)}
+                                                -{parseFloat(selectedInvoice.total_discount || selectedInvoice.discount_amount || selectedInvoice.cart_discount || 0).toFixed(2)}
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
                                     {selectedInvoice.shipping_cost > 0 && (
                                         <tr>
                                             <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>

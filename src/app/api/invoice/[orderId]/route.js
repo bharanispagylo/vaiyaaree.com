@@ -16,7 +16,7 @@ export async function GET(request, { params }) {
 
         const { data: order, error: orderError } = await mysqlClient
             .from('orders')
-            .select('*, order_items(*), order_discounts(*)')
+            .select('*, order_items(*)')
             .eq('id', orderId.toUpperCase())
             .single();
 
