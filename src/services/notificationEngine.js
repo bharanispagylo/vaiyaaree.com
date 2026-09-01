@@ -83,18 +83,36 @@ export async function dispatchNotification({
     const customerName = order?.customer_name || order?.billing_name || extraData?.customerName || 'Valued Customer';
 
     // 1. Fetch Admin Notification Contacts
-    let adminEmail = process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_USER || 'vaiyaaree@gmail.com';
+    let adminEmails = [];
     let adminPhone = normalizePhone(process.env.ADMIN_ALERT_PHONE || '918667793292');
+    let orderNotifConfig = { enabled: true, send_pdf_invoice: true };
 
     try {
         const { data: settings } = await mysqlClient.from('app_settings').select('*');
         if (settings) {
             settings.forEach(s => {
-                if (s.key === 'admin_notification_email' && s.value) adminEmail = s.value.trim();
+                if (s.key === 'admin_notification_email' && s.value) {
+                    s.value.split(',').map(e => e.trim()).filter(Boolean).forEach(em => adminEmails.push(em));
+                }
+                if (s.key === 'order_notification_email_config' && s.value) {
+                    try {
+                        const cfg = typeof s.value === 'string' ? JSON.parse(s.value) : s.value;
+                        orderNotifConfig = { ...orderNotifConfig, ...cfg };
+                        if (cfg.enabled && cfg.recipient_emails) {
+                            cfg.recipient_emails.split(',').map(e => e.trim()).filter(Boolean).forEach(em => adminEmails.push(em));
+                        }
+                    } catch (e) {}
+                }
                 if ((s.key === 'admin_notification_phone' || s.key === 'business_phone') && s.value) adminPhone = normalizePhone(s.value);
             });
         }
     } catch (e) {}
+
+    adminEmails = Array.from(new Set(adminEmails.filter(Boolean)));
+    if (adminEmails.length === 0) {
+        const fallback = process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_USER || 'vaiyaaree@gmail.com';
+        if (fallback) adminEmails.push(fallback);
+    }
 
     // 2. Build Message Content for Event
     const content = buildEventMessages(eventType, { order, returnReq, extraData, displayInv, customerName });
@@ -156,20 +174,44 @@ export async function dispatchNotification({
     }
 
     // 5. Dispatch Admin Operational Alert (if applicable for event)
-    if (content.isAdminEvent) {
-        if (adminEmail && content.adminEmail) {
-            const adminEmailRes = await sendWithDuplicateCheck({
-                orderId,
-                returnId,
-                customerId,
-                eventType: `${eventType}_ADMIN`,
-                channel: 'EMAIL',
-                recipient: adminEmail,
-                recipientType: 'ADMIN',
-                forceRetry,
-                sendFn: async () => await sendEmail({ to: adminEmail, subject: content.adminEmail.subject, html: content.adminEmail.html })
-            });
-            results.push(adminEmailRes);
+    if (content.isAdminEvent && orderNotifConfig.enabled) {
+        if (adminEmails.length > 0 && content.adminEmail) {
+            let adminAttachments = [];
+            if (order && orderNotifConfig.send_pdf_invoice !== false) {
+                try {
+                    const pdfBuffer = await generateOrderPDFBuffer(order);
+                    if (pdfBuffer) {
+                        const cleanInv = order.invoice_no 
+                            ? order.invoice_no.replace(/^#/, '') 
+                            : String(order.id || 'ORDER').replace(/^[A-Z]+-/, 'INV-');
+                        adminAttachments.push({
+                            filename: `Invoice_${cleanInv}.pdf`,
+                            content: pdfBuffer,
+                            contentType: 'application/pdf'
+                        });
+                    }
+                } catch (pdfErr) {}
+            }
+
+            for (const singleAdminEmail of adminEmails) {
+                const adminEmailRes = await sendWithDuplicateCheck({
+                    orderId,
+                    returnId,
+                    customerId,
+                    eventType: `${eventType}_ADMIN`,
+                    channel: 'EMAIL',
+                    recipient: singleAdminEmail,
+                    recipientType: 'ADMIN',
+                    forceRetry,
+                    sendFn: async () => await sendEmail({
+                        to: singleAdminEmail,
+                        subject: content.adminEmail.subject,
+                        html: content.adminEmail.html,
+                        attachments: adminAttachments
+                    })
+                });
+                results.push(adminEmailRes);
+            }
         }
 
         if (adminPhone && content.adminWhatsApp) {

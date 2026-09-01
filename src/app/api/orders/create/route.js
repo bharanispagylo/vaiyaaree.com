@@ -484,8 +484,14 @@ export async function POST(request) {
                     customer_phone: orderResult.customerPhone,
                     customer_email: orderResult.customerEmail,
                     total_amount: orderResult.totalAmount,
+                    subtotal: orderResult.subtotal,
+                    tax_amount: orderResult.taxAmount,
+                    shipping_fee: orderResult.shippingCost,
                     payment_method: orderResult.paymentMethod,
-                    status: orderResult.initialStatus
+                    status: orderResult.initialStatus,
+                    shipping_address: shippingAddress,
+                    billing_address: billingAddress,
+                    order_items: verifiedCartItems
                 }
             });
         } catch (notifErr) {
