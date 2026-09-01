@@ -279,13 +279,13 @@ export default function ShopPage() {
 
                         <button
                             onClick={() => {
-                                if (window.innerWidth < 1024) {
-                                    setIsSidebarOpen(true);
+                                if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                    setIsSidebarOpen(prev => !prev);
                                 } else {
-                                    setIsFilterPanelOpen(!isFilterPanelOpen);
+                                    setIsFilterPanelOpen(prev => !prev);
                                 }
                             }}
-                            className={`${styles.filterToggleBtn} ${isFilterPanelOpen ? styles.filterPanelOpen : ''}`}
+                            className={`${styles.filterToggleBtn} ${(isFilterPanelOpen || isSidebarOpen) ? styles.filterPanelOpen : ''}`}
                         >
                             <Filter size={16} /> Filters
                         </button>

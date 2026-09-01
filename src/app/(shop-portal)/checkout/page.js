@@ -230,13 +230,17 @@ export default function CheckoutPage() {
                 // Cash on Delivery Flow
                 const data = await placeOrder('COD');
                 if (data) {
-                    setOrderData(data);
+                    setOrderData({
+                        ...data,
+                        payment_method: 'Cash on Delivery (COD)'
+                    });
                     showToast('Your Placed Order Confirmed!', 'success');
                 }
             }
         } catch (err) {
             console.error('Checkout Error:', err);
             showToast(err.message || 'Failed to place order', 'error');
+            setPlacing(false);
         } finally {
             if (checkoutForm.paymentMethod !== 'RAZORPAY') {
                 setPlacing(false);
@@ -250,7 +254,7 @@ export default function CheckoutPage() {
         window.open(`https://wa.me/${bizPhone}?text=${message}`, '_blank');
     };
 
-    if (cart.length === 0 && !orderData) {
+    if (cart.length === 0 && !orderData && !placing) {
         return (
             <div className={styles.emptyCheckout}>
                 <ShoppingBag size={64} style={{ opacity: 0.1, marginBottom: '2rem' }} />
@@ -759,20 +763,15 @@ export default function CheckoutPage() {
                         </div>
                     </div>
 
-                    {placing && checkoutForm.paymentMethod === 'COD' && (
-                        <div style={{ marginBottom: '1rem', marginInline: '1.25rem', padding: '12px', background: '#f0fdf4', color: '#166534', borderRadius: '8px', fontSize: '14px', textAlign: 'center', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <strong>Cash on Delivery Selected</strong>
-                            <span>Order is processing, please do not close the window...</span>
-                        </div>
-                    )}
-                    {placing && checkoutForm.paymentMethod === 'RAZORPAY' && (
-                        <div style={{ marginBottom: '1rem', marginInline: '1.25rem', padding: '12px', background: '#eff6ff', color: '#1e40af', borderRadius: '8px', fontSize: '14px', textAlign: 'center', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <strong>Opening Razorpay Online Payment...</strong>
-                            <span>Please complete the payment in the Razorpay popup.</span>
-                        </div>
-                    )}
                     <button className={styles.placeOrderBtn} onClick={handlePlaceOrder} disabled={placing}>
-                        {placing ? (checkoutForm.paymentMethod === 'RAZORPAY' ? 'Opening Payment...' : 'Processing...') : (checkoutForm.paymentMethod === 'RAZORPAY' ? 'Pay Online & Place Order' : 'Place Order')}
+                        {placing ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <Loader2 size={18} className={styles.spinnerRing} style={{ color: '#ffffff' }} />
+                                {checkoutForm.paymentMethod === 'RAZORPAY' ? 'Processing...' : 'Placing Order...'}
+                            </span>
+                        ) : (
+                            checkoutForm.paymentMethod === 'RAZORPAY' ? 'Pay Online & Place Order' : 'Place Order'
+                        )}
                     </button>
                     <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
                 </div>
@@ -780,26 +779,109 @@ export default function CheckoutPage() {
         </div>
         </div>
 
-        {/* Order Confirmed Pop-up Modal */}
-        {orderData && (
+        {/* Modal 1: Centered Order Placing / Processing Loading Modal */}
+        {placing && !orderData && (
             <ModalPortal>
-            <div className={styles.modalOverlay}>
-                <div className={styles.modalContent}>
-                    <div className={styles.modalHeaderBadge}>
-                        <CheckCircle size={44} color="#16a34a" />
-                    </div>
-                    <h2 className={styles.modalTitle}>Your Placed Order Confirmed</h2>
-                    <p className={styles.modalSubtitle}>
-                        Thank you for your purchase! We have received your order and will process it shortly.
-                    </p>
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent}>
+                        <div className={styles.modalLoadingBadge}>
+                            <Loader2 size={42} className={styles.spinnerRing} strokeWidth={2.5} />
+                        </div>
+                        <h2 className={styles.modalTitle}>
+                            {checkoutForm.paymentMethod === 'RAZORPAY' ? 'Processing Payment...' : 'Placing Your Order...'}
+                        </h2>
+                        <p className={styles.modalSubtitle}>
+                            {checkoutForm.paymentMethod === 'RAZORPAY'
+                                ? 'Connecting to secure payment gateway. Please complete the transaction in the Razorpay window.'
+                                : 'Please wait while we confirm your order details and reserve your items.'}
+                        </p>
 
-                    <div className={styles.modalActions}>
-                        <button onClick={() => router.push('/profile?tab=orders')} className={styles.modalPrimaryBtn}>
-                            View My Orders
-                        </button>
+                        <div className={styles.loadingPulseBar} />
+
+                        <div className={styles.modalSecurityNotice}>
+                            <Lock size={14} color="#5d0821" />
+                            <span>Please do not refresh or close this window</span>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </ModalPortal>
+        )}
+
+        {/* Modal 2: Centered Order Confirmed Pop-up Modal with Close Options */}
+        {orderData && (
+            <ModalPortal>
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent}>
+                        {/* Top-Right Close 'X' Button */}
+                        <button 
+                            className={styles.modalCloseBtn}
+                            onClick={() => {
+                                setOrderData(null);
+                                router.push('/shop');
+                            }}
+                            title="Close"
+                            aria-label="Close"
+                        >
+                            <X size={18} />
+                        </button>
+
+                        <div className={styles.modalHeaderBadge}>
+                            <CheckCircle size={46} color="#16a34a" strokeWidth={2.5} />
+                        </div>
+                        <h2 className={styles.modalTitle}>Your Placed Order Confirmed</h2>
+                        <p className={styles.modalSubtitle}>
+                            Thank you for your purchase! We have received your order and will process it shortly.
+                        </p>
+
+                        {/* Order Details Card */}
+                        <div className={styles.modalOrderCard}>
+                            <div className={styles.modalOrderRow}>
+                                <span>Order Number</span>
+                                <strong style={{ color: '#5d0821', letterSpacing: '0.02em', fontSize: '0.95rem' }}>
+                                    #{orderData.orderId}
+                                </strong>
+                            </div>
+                            <div className={styles.modalOrderRow}>
+                                <span>Payment Method</span>
+                                <strong>
+                                    {orderData.payment_method || (checkoutForm.paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : 'Online Payment')}
+                                </strong>
+                            </div>
+                            {orderData.total !== undefined && (
+                                <div className={styles.modalOrderRow}>
+                                    <span>Total Amount</span>
+                                    <strong style={{ color: '#16a34a', fontSize: '1.05rem' }}>
+                                        ₹{Number(orderData.total).toLocaleString()}.00
+                                    </strong>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Action Buttons with Close Options */}
+                        <div className={styles.modalActions}>
+                            <button onClick={() => router.push('/profile?tab=orders')} className={styles.modalPrimaryBtn}>
+                                <Package size={18} />
+                                <span>View My Orders</span>
+                            </button>
+                            
+                            <button onClick={() => goToWhatsApp(orderData.orderId)} className={styles.modalWaBtn}>
+                                <MessageCircle size={18} />
+                                <span>Confirm on WhatsApp</span>
+                            </button>
+
+                            <button 
+                                onClick={() => {
+                                    setOrderData(null);
+                                    router.push('/shop');
+                                }} 
+                                className={styles.modalSecondaryBtn}
+                            >
+                                <ShoppingBag size={17} />
+                                <span>Continue Shopping</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </ModalPortal>
         )}
         </>

@@ -72,7 +72,7 @@ function ProtectedAdminLayout({ children, pathname }) {
                 />
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div className="admin-main-wrapper">
                 <AdminTopBar onMenuClick={() => setSidebarOpen(true)} />
                 <main className="main-content" style={{ overflow: 'visible' }}>
                     {children}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import pool from '@/lib/mysql';
 import { hashPassword } from '@/lib/hash';
+import { saveCustomerAddress, ensureCustomerAddressesTable } from '@/services/customerAddressService';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -11,11 +12,61 @@ function cleanMobileDigits(input) {
     return input.toString().replace(/\D/g, '');
 }
 
+let metadataChecked = false;
+async function ensureCustomerMetadataColumn() {
+    if (metadataChecked) return;
+    try {
+        const [cols] = await pool.query('DESCRIBE `customers`');
+        const colNames = cols.map(c => c.Field);
+        if (!colNames.includes('metadata')) {
+            await pool.query('ALTER TABLE `customers` ADD COLUMN `metadata` TEXT DEFAULT NULL');
+        }
+        metadataChecked = true;
+    } catch (e) {
+        console.error('[ENSURE-METADATA-ERROR]', e);
+    }
+}
+
+function parseAddressObject(raw, defaultName = '', defaultPhone = '', defaultEmail = '') {
+    if (!raw) return null;
+    let obj = raw;
+    if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+        try { obj = JSON.parse(raw); } catch (e) { obj = null; }
+    }
+    if (typeof obj === 'object' && obj !== null) {
+        return {
+            name: obj.name || obj.full_name || defaultName || '',
+            phone: obj.phone || obj.mobile || defaultPhone || '',
+            whatsapp: obj.whatsapp || obj.billing_whatsapp || obj.billingWhatsApp || obj.phone || '',
+            email: obj.email || defaultEmail || '',
+            address: obj.address || obj.address_line || obj.street || '',
+            city: obj.city || '',
+            state: obj.state || '',
+            pincode: obj.pincode || obj.postal_code || obj.zip || '',
+            country: obj.country || 'India'
+        };
+    }
+    return {
+        name: defaultName || '',
+        phone: defaultPhone || '',
+        whatsapp: defaultPhone || '',
+        email: defaultEmail || '',
+        address: String(raw).trim(),
+        city: '',
+        state: '',
+        pincode: '',
+        country: 'India'
+    };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// GET: Fetch Customers with Search, Filter & Aggregated Order Stats
+// GET: Fetch Customers with Search, Filter & Aggregated Order Stats + Full Addresses
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(req) {
     try {
+        await ensureCustomerMetadataColumn();
+        await ensureCustomerAddressesTable();
+
         const { searchParams } = new URL(req.url);
         const page = parseInt(searchParams.get('page') || '1', 10);
         const limit = parseInt(searchParams.get('limit') || '10', 10);
@@ -35,7 +86,7 @@ export async function GET(req) {
         }
 
         // Fetch all registered customers matching search
-        let queryStr = 'SELECT `id`, `name`, `phone`, `country_code`, `email`, `address`, `city`, `state`, `pincode`, `role`, `created_at`, `last_login`, `admin_notes` FROM `customers`';
+        let queryStr = 'SELECT `id`, `name`, `phone`, `country_code`, `email`, `address`, `city`, `state`, `pincode`, `role`, `created_at`, `last_login`, `admin_notes`, `metadata` FROM `customers`';
         if (searchConditions.length > 0) {
             queryStr += ' WHERE ' + searchConditions.join(' AND ');
         }
@@ -70,18 +121,53 @@ export async function GET(req) {
             orderRows = orders;
         }
 
-        // Build customer aggregated data map (keyed by clean phone or customer id)
+        // Build customer aggregated data map (keyed by canonical 10-digit phone or customer id)
         const customerMap = {};
         customerRows.forEach(cust => {
-            const cleanPhone = cleanMobileDigits(cust.phone);
+            const rawDigits = cleanMobileDigits(cust.phone);
+            const clean10 = (cust.country_code === '+91' || cust.country_code === '91' || (!cust.country_code && rawDigits.length >= 10))
+                ? rawDigits.slice(-10)
+                : rawDigits;
             const countryCode = cust.country_code ? (cust.country_code.startsWith('+') ? cust.country_code : `+${cust.country_code}`) : '+91';
-            const mapKey = cleanPhone || cust.id;
+            const mapKey = clean10 || cust.id;
+
+            let parsedMetadata = {};
+            if (cust.metadata) {
+                try {
+                    parsedMetadata = typeof cust.metadata === 'string' ? JSON.parse(cust.metadata) : cust.metadata;
+                } catch (e) {
+                    parsedMetadata = {};
+                }
+            }
+
+            const initialBilling = parsedMetadata.last_billing_address || {
+                name: cust.name || '',
+                phone: clean10 || cust.phone || '',
+                whatsapp: parsedMetadata.billing_whatsapp || clean10 || cust.phone || '',
+                email: cust.email || '',
+                address: cust.address || '',
+                city: cust.city || '',
+                state: cust.state || '',
+                pincode: cust.pincode || '',
+                country: 'India'
+            };
+
+            const initialShipping = parsedMetadata.last_shipping_address || {
+                name: cust.name || '',
+                phone: clean10 || cust.phone || '',
+                email: cust.email || '',
+                address: cust.address || '',
+                city: cust.city || '',
+                state: cust.state || '',
+                pincode: cust.pincode || '',
+                country: 'India'
+            };
 
             if (!customerMap[mapKey]) {
                 customerMap[mapKey] = {
                     id: cust.id,
                     name: cust.name || 'Customer',
-                    phone: cleanPhone || cust.phone || '',
+                    phone: clean10 || cust.phone || '',
                     country_code: countryCode,
                     email: cust.email || '',
                     address: cust.address || '',
@@ -94,24 +180,33 @@ export async function GET(req) {
                     created_at: cust.created_at,
                     lastOrder: cust.created_at,
                     lastAddress: cust.address || '',
+                    billing: initialBilling,
+                    shipping: initialShipping,
+                    same_as_billing: parsedMetadata.same_as_billing !== undefined ? parsedMetadata.same_as_billing : true,
                     orders: []
                 };
             } else {
                 const existing = customerMap[mapKey];
-                if (cust.id && !existing.id) existing.id = cust.id;
-                if (cust.name && cust.name !== 'Customer') existing.name = cust.name;
+                if (cust.id && (!existing.id || existing.id.startsWith('cust_'))) existing.id = cust.id;
+                if (cust.name && cust.name !== 'Customer' && (existing.name === 'Customer' || !existing.name || cust.name.length > existing.name.length)) {
+                    existing.name = cust.name;
+                }
                 if (cust.email && !existing.email) existing.email = cust.email;
                 if (cust.address && !existing.address) existing.address = cust.address;
                 if (cust.city && !existing.city) existing.city = cust.city;
                 if (cust.state && !existing.state) existing.state = cust.state;
                 if (cust.pincode && !existing.pincode) existing.pincode = cust.pincode;
+                if (cust.phone && clean10) existing.phone = clean10;
+                if (cust.admin_notes && (cust.admin_notes.includes('pwd') || cust.admin_notes.includes('password'))) {
+                    existing.hasPassword = true;
+                }
                 if (cust.created_at && (!existing.created_at || new Date(cust.created_at) < new Date(existing.created_at))) {
                     existing.created_at = cust.created_at;
                 }
             }
         });
 
-        // Match orders to customers by phone number
+        // Match orders to customers by phone number & extract latest billing/shipping addresses
         orderRows.forEach(order => {
             const ordDigits = cleanMobileDigits(order.customer_phone);
             if (!ordDigits) return;
@@ -133,6 +228,41 @@ export async function GET(req) {
                 }
                 if (order.delivery_address && !targetCustomer.lastAddress) {
                     targetCustomer.lastAddress = order.delivery_address;
+                }
+
+                // If latest order has structured billing_address, parse and attach
+                if (order.billing_address) {
+                    const parsedB = parseAddressObject(order.billing_address, order.customer_name, order.customer_phone, order.customer_email);
+                    if (parsedB) {
+                        targetCustomer.billing = {
+                            name: parsedB.name || targetCustomer.billing.name || targetCustomer.name,
+                            phone: parsedB.phone || targetCustomer.billing.phone || targetCustomer.phone,
+                            whatsapp: parsedB.whatsapp || targetCustomer.billing.whatsapp || targetCustomer.phone,
+                            email: parsedB.email || targetCustomer.billing.email || targetCustomer.email,
+                            address: parsedB.address || targetCustomer.billing.address || targetCustomer.address,
+                            city: parsedB.city || targetCustomer.billing.city || targetCustomer.city,
+                            state: parsedB.state || targetCustomer.billing.state || targetCustomer.state,
+                            pincode: parsedB.pincode || targetCustomer.billing.pincode || targetCustomer.pincode,
+                            country: parsedB.country || targetCustomer.billing.country || 'India'
+                        };
+                    }
+                }
+
+                // If latest order has structured shipping_address or delivery_address
+                if (order.shipping_address || order.delivery_address) {
+                    const parsedS = parseAddressObject(order.shipping_address || order.delivery_address, order.customer_name, order.customer_phone, order.customer_email);
+                    if (parsedS) {
+                        targetCustomer.shipping = {
+                            name: parsedS.name || targetCustomer.shipping.name || targetCustomer.name,
+                            phone: parsedS.phone || targetCustomer.shipping.phone || targetCustomer.phone,
+                            email: parsedS.email || targetCustomer.shipping.email || targetCustomer.email,
+                            address: parsedS.address || targetCustomer.shipping.address || targetCustomer.address,
+                            city: parsedS.city || targetCustomer.shipping.city || targetCustomer.city,
+                            state: parsedS.state || targetCustomer.shipping.state || targetCustomer.state,
+                            pincode: parsedS.pincode || targetCustomer.shipping.pincode || targetCustomer.pincode,
+                            country: parsedS.country || targetCustomer.shipping.country || 'India'
+                        };
+                    }
                 }
             }
         });
@@ -183,27 +313,42 @@ export async function GET(req) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST: Create New Customer with Separate Country Code and Mobile Number
+// POST: Create New Customer with Full Billing & Shipping Addresses
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(req) {
     try {
-        const body = await req.json();
-        const { name, phone, country_code, email, address, password } = body;
+        await ensureCustomerMetadataColumn();
+        await ensureCustomerAddressesTable();
 
-        if (!name?.trim() || !phone?.trim()) {
+        const body = await req.json();
+        const { 
+            name, 
+            phone, 
+            country_code, 
+            email, 
+            password,
+            billing = {},
+            shipping = {},
+            same_as_billing = true
+        } = body;
+
+        const customerName = (billing?.name || name || '').trim();
+        const rawPhone = billing?.phone || phone || '';
+
+        if (!customerName || !rawPhone?.trim()) {
             return NextResponse.json({ error: 'Full Name and Phone Number are required.' }, { status: 400 });
         }
 
         const selectedCountryCode = (country_code || '+91').trim();
         const formattedCountryCode = selectedCountryCode.startsWith('+') ? selectedCountryCode : `+${selectedCountryCode}`;
-        const rawDigits = cleanMobileDigits(phone);
+        const rawDigits = cleanMobileDigits(rawPhone);
         const cleanPhone = (formattedCountryCode === '+91') ? rawDigits.slice(-10) : rawDigits;
 
         if (!cleanPhone || cleanPhone.length < 7 || (formattedCountryCode === '+91' && cleanPhone.length !== 10)) {
-            return NextResponse.json({ error: 'Please enter a valid Mobile Number.' }, { status: 400 });
+            return NextResponse.json({ error: 'Please enter a valid Mobile Number (10 digits for India).' }, { status: 400 });
         }
 
-        const cleanEmail = (email || '').trim().toLowerCase();
+        const cleanEmail = (billing?.email || email || '').trim().toLowerCase();
         if (cleanEmail && !cleanEmail.includes('@')) {
             return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
         }
@@ -226,26 +371,89 @@ export async function POST(req) {
             adminNotes = JSON.stringify({ pwd: hashed });
         }
 
+        // Normalize Billing Object
+        const finalBilling = {
+            name: customerName,
+            phone: cleanPhone,
+            whatsapp: (billing?.whatsapp || cleanPhone).replace(/\D/g, ''),
+            email: cleanEmail || null,
+            address: (billing?.address || '').trim(),
+            city: (billing?.city || '').trim(),
+            state: (billing?.state || 'Tamil Nadu').trim(),
+            pincode: (billing?.pincode || '').trim(),
+            country: (billing?.country || 'India').trim()
+        };
+
+        // Normalize Shipping Object
+        const finalShipping = same_as_billing ? {
+            name: finalBilling.name,
+            phone: finalBilling.phone,
+            email: finalBilling.email,
+            address: finalBilling.address,
+            city: finalBilling.city,
+            state: finalBilling.state,
+            pincode: finalBilling.pincode,
+            country: finalBilling.country
+        } : {
+            name: (shipping?.name || customerName).trim(),
+            phone: (shipping?.phone || cleanPhone).replace(/\D/g, ''),
+            email: (shipping?.email || cleanEmail || '').trim() || null,
+            address: (shipping?.address || '').trim(),
+            city: (shipping?.city || '').trim(),
+            state: (shipping?.state || 'Tamil Nadu').trim(),
+            pincode: (shipping?.pincode || '').trim(),
+            country: (shipping?.country || 'India').trim()
+        };
+
+        const metadataPayload = JSON.stringify({
+            last_billing_address: finalBilling,
+            last_shipping_address: finalShipping,
+            same_as_billing: Boolean(same_as_billing),
+            billing_whatsapp: finalBilling.whatsapp
+        });
+
+        // Insert into customers table
         await pool.query(
-            `INSERT INTO \`customers\` (\`id\`, \`phone\`, \`country_code\`, \`name\`, \`email\`, \`address\`, \`role\`, \`admin_notes\`, \`is_verified\`, \`created_at\`, \`updated_at\`)
-             VALUES (?, ?, ?, ?, ?, ?, 'user', ?, 1, NOW(), NOW())`,
-            [newId, cleanPhone, formattedCountryCode, name.trim(), cleanEmail || null, (address || '').trim() || null, adminNotes]
+            `INSERT INTO \`customers\` (
+                \`id\`, \`phone\`, \`country_code\`, \`name\`, \`email\`, 
+                \`address\`, \`city\`, \`state\`, \`pincode\`, 
+                \`role\`, \`admin_notes\`, \`metadata\`, \`is_verified\`, \`created_at\`, \`updated_at\`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'user', ?, ?, 1, NOW(), NOW())`,
+            [
+                newId, 
+                cleanPhone, 
+                formattedCountryCode, 
+                customerName, 
+                cleanEmail || null, 
+                finalShipping.address || finalBilling.address || null,
+                finalShipping.city || finalBilling.city || null,
+                finalShipping.state || finalBilling.state || null,
+                finalShipping.pincode || finalBilling.pincode || null,
+                adminNotes,
+                metadataPayload
+            ]
         );
 
-        // Also add address record if address provided
-        if (address && address.trim()) {
-            const addrId = `addr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-            await pool.query(
-                `INSERT INTO \`customer_addresses\` (\`id\`, \`customer_id\`, \`name\`, \`phone\`, \`country_code\`, \`address\`, \`is_default\`, \`created_at\`)
-                 VALUES (?, ?, ?, ?, ?, ?, '1', NOW())`,
-                [addrId, newId, name.trim(), cleanPhone, formattedCountryCode, address.trim()]
-            );
+        // Also save to customer_addresses table
+        if (finalShipping.address) {
+            await saveCustomerAddress({
+                customerId: newId,
+                name: finalShipping.name,
+                phone: finalShipping.phone,
+                address: finalShipping.address,
+                address_line: finalShipping.address,
+                city: finalShipping.city,
+                state: finalShipping.state,
+                pincode: finalShipping.pincode,
+                country: finalShipping.country,
+                is_default: 1
+            });
         }
 
         return NextResponse.json({
             success: true,
             id: newId,
-            message: 'Customer added successfully!'
+            message: 'Customer and addresses saved successfully!'
         });
 
     } catch (error) {
@@ -255,34 +463,97 @@ export async function POST(req) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PUT: Update Existing Customer Profile (Name, Email, Address, Phone, Country Code)
+// PUT: Update Existing Customer Profile, Billing & Shipping Addresses
 // ─────────────────────────────────────────────────────────────────────────────
 export async function PUT(req) {
     try {
+        await ensureCustomerMetadataColumn();
+        await ensureCustomerAddressesTable();
+
         const body = await req.json();
-        const { id, phone, country_code, name, email, address } = body;
+        const { 
+            id, 
+            phone, 
+            country_code, 
+            name, 
+            email, 
+            billing = {}, 
+            shipping = {}, 
+            same_as_billing = true 
+        } = body;
 
         if (!id && !phone) {
             return NextResponse.json({ error: 'Customer ID or Phone Number is required.' }, { status: 400 });
         }
 
-        if (!name?.trim()) {
+        const customerName = (billing?.name || name || '').trim();
+        if (!customerName) {
             return NextResponse.json({ error: 'Customer Name cannot be empty.' }, { status: 400 });
         }
 
-        const cleanEmail = (email || '').trim().toLowerCase();
+        const cleanEmail = (billing?.email || email || '').trim().toLowerCase();
         if (cleanEmail && !cleanEmail.includes('@')) {
             return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
         }
 
         let formattedCountryCode = country_code ? (country_code.startsWith('+') ? country_code : `+${country_code}`) : '+91';
-        let cleanPhone = phone ? cleanMobileDigits(phone) : null;
+        let rawPhone = billing?.phone || phone;
+        let cleanPhone = rawPhone ? cleanMobileDigits(rawPhone) : null;
         if (cleanPhone && formattedCountryCode === '+91') {
             cleanPhone = cleanPhone.slice(-10);
         }
 
-        let query = 'UPDATE `customers` SET `name` = ?, `email` = ?, `address` = ?';
-        const params = [name.trim(), cleanEmail || null, (address || '').trim() || null];
+        // Normalize Billing Object
+        const finalBilling = {
+            name: customerName,
+            phone: cleanPhone || '',
+            whatsapp: (billing?.whatsapp || cleanPhone || '').replace(/\D/g, ''),
+            email: cleanEmail || null,
+            address: (billing?.address || '').trim(),
+            city: (billing?.city || '').trim(),
+            state: (billing?.state || 'Tamil Nadu').trim(),
+            pincode: (billing?.pincode || '').trim(),
+            country: (billing?.country || 'India').trim()
+        };
+
+        // Normalize Shipping Object
+        const finalShipping = same_as_billing ? {
+            name: finalBilling.name,
+            phone: finalBilling.phone,
+            email: finalBilling.email,
+            address: finalBilling.address,
+            city: finalBilling.city,
+            state: finalBilling.state,
+            pincode: finalBilling.pincode,
+            country: finalBilling.country
+        } : {
+            name: (shipping?.name || customerName).trim(),
+            phone: (shipping?.phone || cleanPhone || '').replace(/\D/g, ''),
+            email: (shipping?.email || cleanEmail || '').trim() || null,
+            address: (shipping?.address || '').trim(),
+            city: (shipping?.city || '').trim(),
+            state: (shipping?.state || 'Tamil Nadu').trim(),
+            pincode: (shipping?.pincode || '').trim(),
+            country: (shipping?.country || 'India').trim()
+        };
+
+        const metadataPayload = JSON.stringify({
+            last_billing_address: finalBilling,
+            last_shipping_address: finalShipping,
+            same_as_billing: Boolean(same_as_billing),
+            billing_whatsapp: finalBilling.whatsapp
+        });
+
+        let query = 'UPDATE `customers` SET `name` = ?, `email` = ?, `address` = ?, `city` = ?, `state` = ?, `pincode` = ?, `metadata` = ?';
+        const params = [
+            customerName, 
+            cleanEmail || null, 
+            finalShipping.address || finalBilling.address || null,
+            finalShipping.city || finalBilling.city || null,
+            finalShipping.state || finalBilling.state || null,
+            finalShipping.pincode || finalBilling.pincode || null,
+            metadataPayload
+        ];
 
         if (cleanPhone) {
             query += ', `phone` = ?, `country_code` = ?';
@@ -304,9 +575,25 @@ export async function PUT(req) {
             return NextResponse.json({ error: 'Customer not found.' }, { status: 404 });
         }
 
+        // Also update / insert into customer_addresses table
+        if (id && finalShipping.address) {
+            await saveCustomerAddress({
+                customerId: id,
+                name: finalShipping.name,
+                phone: finalShipping.phone,
+                address: finalShipping.address,
+                address_line: finalShipping.address,
+                city: finalShipping.city,
+                state: finalShipping.state,
+                pincode: finalShipping.pincode,
+                country: finalShipping.country,
+                is_default: 1
+            });
+        }
+
         return NextResponse.json({
             success: true,
-            message: 'Customer profile updated successfully!'
+            message: 'Customer billing and shipping details updated successfully!'
         });
 
     } catch (error) {

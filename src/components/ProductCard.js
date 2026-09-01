@@ -59,7 +59,7 @@ function getVariantColor(variantName) {
 }
 
 export default function ProductCard({ product, gridView = true }) {
-    const { addToCart, mysqlClient } = useShop();
+    const { addToCart, mysqlClient, getEffectiveProductPrice } = useShop();
     const { compareItems, toggleCompare } = useCompare();
 
     // Local variants list (from props or lazy fallback)
@@ -113,18 +113,28 @@ export default function ProductCard({ product, gridView = true }) {
         }
     }, [localVariants, hasVariants]);
 
-    // Image computation: prefer selected variant image, then product image, then placeholder
+    // Active image computation
     const activeImage = useMemo(() => {
-        if (selectedVariant?.image_url && selectedVariant.image_url.trim()) {
-            return selectedVariant.image_url.split(',')[0].trim();
+        if (selectedVariant?.image_url) {
+            return selectedVariant.image_url.split(',')[0];
         }
         return product.image_url?.split(',')[0] || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
     }, [selectedVariant, product.image_url]);
 
-    // Price & Stock computation
-    const activePrice = selectedVariant?.price !== undefined && selectedVariant?.price !== null
-        ? Number(selectedVariant.price)
-        : Number(product.price || 0);
+    // Dynamic Price & Discount computation via Central Discount Engine
+    const pricing = useMemo(() => {
+        if (typeof getEffectiveProductPrice === 'function') {
+            return getEffectiveProductPrice(product, selectedVariant);
+        }
+        const base = selectedVariant?.price !== undefined && selectedVariant?.price !== null ? Number(selectedVariant.price) : Number(product.price || 0);
+        return { originalPrice: base, comparePrice: base, discountedPrice: base, discountPercent: 0, hasDiscount: false };
+    }, [product, selectedVariant, getEffectiveProductPrice]);
+
+    const activePrice = pricing.discountedPrice;
+    const hasDiscount = pricing.hasDiscount;
+    const mrpVal = pricing.comparePrice || pricing.originalPrice;
+    const discountPercent = pricing.discountPercent;
+    const activeOfferTitle = pricing.activeRule?.name;
 
     const activeStock = selectedVariant
         ? Number(selectedVariant.stock ?? 0)
@@ -141,17 +151,6 @@ export default function ProductCard({ product, gridView = true }) {
         }
         return baseUrl;
     }, [product, selectedVariant]);
-
-    // MRP & Discount computation
-    const tagList = Array.isArray(product.tags)
-        ? product.tags
-        : (typeof product.tags === 'string' ? product.tags.split(',') : []);
-
-    const mrpTag = tagList.map(t => String(t).trim()).find(t => t.toLowerCase().startsWith('mrp:'));
-    const mrpVal = selectedVariant?.compare_price || selectedVariant?.original_price || (mrpTag ? Number(mrpTag.split(':')[1]) : (product.compare_price || product.original_price || product.mrp));
-
-    const hasDiscount = mrpVal && !isNaN(mrpVal) && mrpVal > activePrice;
-    const discountPercent = hasDiscount ? Math.round(((mrpVal - activePrice) / mrpVal) * 100) : 0;
 
     // Handle variant chip click
     const handleVariantClick = (e, variant) => {
@@ -281,6 +280,25 @@ export default function ProductCard({ product, gridView = true }) {
 
                 {isOutOfStock && <div className={styles.outOfStockBadge}>Out of Stock</div>}
                 {isOutOfStock && <div className={styles.outOfStockOverlay}>Out of Stock</div>}
+                {!isOutOfStock && hasDiscount && discountPercent > 0 && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '12px',
+                        background: 'linear-gradient(135deg, #e11d48, #be123c)',
+                        color: '#ffffff',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        boxShadow: '0 2px 8px rgba(225, 29, 72, 0.4)',
+                        zIndex: 5,
+                        letterSpacing: '0.02em',
+                        textTransform: 'uppercase'
+                    }}>
+                        {discountPercent}% OFF
+                    </div>
+                )}
                 {!isOutOfStock && hasVariants && (
                     <div className={styles.variantBadge}>
                         {localVariants.length} Options

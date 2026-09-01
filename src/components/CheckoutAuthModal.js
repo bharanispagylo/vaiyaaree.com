@@ -45,6 +45,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
     }, [otpCountdown]);
 
     const syncCustomerToForm = (customerData) => {
+        if (!customerData) return;
         const phoneClean = customerData.phone ? String(customerData.phone).replace(/^91/, '').replace(/\D/g, '') : '';
         const cCode = customerData.country_code || DEFAULT_COUNTRY_CODE;
         setCheckoutForm(prev => ({
@@ -59,7 +60,11 @@ export default function CheckoutAuthModal({ onSuccess }) {
             billingState: customerData.state || prev.billingState || 'Tamil Nadu',
             billingPincode: customerData.pincode || prev.billingPincode || '',
             shippingName: customerData.name || prev.shippingName || '',
-            shippingPhone: phoneClean || prev.shippingPhone || ''
+            shippingPhone: phoneClean || prev.shippingPhone || '',
+            shippingAddress: customerData.address || prev.shippingAddress || '',
+            shippingCity: customerData.city || prev.shippingCity || '',
+            shippingState: customerData.state || prev.shippingState || 'Tamil Nadu',
+            shippingPincode: customerData.pincode || prev.shippingPincode || ''
         }));
     };
 
@@ -127,20 +132,29 @@ export default function CheckoutAuthModal({ onSuccess }) {
             });
 
             const data = await res.json();
-            if (res.ok && data.success) {
+            if (res.ok && data.success && data.user) {
                 const customerData = {
-                    id: data.user?.id || 'cust_' + cleanDigits,
-                    name: data.user?.name || '',
-                    email: data.user?.email || '',
-                    phone: cleanDigits,
-                    country_code: otpCountryCode,
-                    role: data.user?.role || 'user',
+                    id: data.user.id || 'cust_' + cleanDigits,
+                    name: data.user.name || '',
+                    email: data.user.email || '',
+                    phone: data.user.phone || cleanDigits,
+                    country_code: data.user.country_code || otpCountryCode,
+                    address: data.user.address || '',
+                    city: data.user.city || '',
+                    state: data.user.state || 'Tamil Nadu',
+                    pincode: data.user.pincode || '',
+                    role: data.user.role || 'user',
                     login_at: Date.now()
                 };
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
                 syncCustomerToForm(customerData);
-                showToast('WhatsApp Verified! Continuing Checkout.', 'success');
+                showToast(
+                    customerData.name 
+                        ? `Welcome back, ${customerData.name}! Continuing Checkout.` 
+                        : 'WhatsApp Verified! Continuing Checkout.', 
+                    'success'
+                );
                 if (onSuccess) onSuccess(customerData);
             } else {
                 setError(data.error || 'Invalid or expired 6-digit OTP code.');

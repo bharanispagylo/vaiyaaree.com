@@ -61,6 +61,20 @@ export async function POST(request) {
 
         if (updateError) {
             console.error('Error updating order status:', updateError);
+        } else {
+            // Record in Order Activity Timeline Logs
+            try {
+                const logId = crypto.randomUUID ? crypto.randomUUID() : `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+                await mysqlClient.from('order_status_logs').insert({
+                    id: logId,
+                    order_id: orderId,
+                    status: 'PAID',
+                    notes: `Payment completed successfully via Razorpay (Payment ID: ${razorpay_payment_id})`,
+                    created_at: new Date().toISOString()
+                });
+            } catch (logErr) {
+                console.error('[STATUS-LOG-ERROR]', logErr);
+            }
         }
 
         // Send WhatsApp confirmation message to customer via centralized helper
