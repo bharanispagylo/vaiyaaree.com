@@ -5,6 +5,7 @@ import {
     XCircle, Tag, MessageCircle, RotateCcw, Globe
 } from 'lucide-react';
 import ModalPortal from '@/components/ModalPortal';
+import { formatOrderDate } from '@/lib/dateUtils';
 import styles from '../profile.module.css';
 
 function getInternalStatusIndex(status) {
@@ -198,7 +199,7 @@ export default function OrderDetailModal({
                                 <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--text-muted, #64748b))', textTransform: 'uppercase', letterSpacing: '0.04em' }}>ORDER REFERENCE</div>
                                 <h2 style={{ margin: '2px 0 6px', fontSize: '1.5rem', color: 'hsl(var(--primary, #5d0821))', fontWeight: 900 }}>{invoiceNo}</h2>
                                 <div style={{ fontSize: '0.82rem', color: 'hsl(var(--text-muted, #64748b))', fontWeight: 600 }}>
-                                    Placed on {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    Placed on {formatOrderDate(order.created_at)}
                                 </div>
                             </div>
 

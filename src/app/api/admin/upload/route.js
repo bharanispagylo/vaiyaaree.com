@@ -216,6 +216,19 @@ export async function POST(request) {
             return NextResponse.json({ error: 'No valid image data provided' }, { status: 400 });
         }
 
+        // 1. Max size validation: 10MB limit
+        const maxBytes = 10 * 1024 * 1024;
+        if (buffer.length > maxBytes) {
+            return NextResponse.json({ error: 'File exceeds maximum upload size of 10MB.' }, { status: 400 });
+        }
+
+        // 2. Format validation: JPEG, PNG, SVG only
+        const cleanExt = String(fileExt).replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'jpg';
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg'];
+        if (!allowedExtensions.includes(cleanExt)) {
+            return NextResponse.json({ error: 'Invalid file format. Only JPEG, PNG, and SVG formats are allowed.' }, { status: 400 });
+        }
+
         let hasWatermark = false;
         let detectedCatalogId = null;
 

@@ -11,13 +11,15 @@ export default function EditSectionModal({
     onSave,
     openMediaPicker
 }) {
-    if (!editingSection) return null;
-
-    const [formState, setFormState] = React.useState(editingSection);
+    const [formState, setFormState] = React.useState(editingSection || {});
 
     React.useEffect(() => {
-        setFormState(editingSection);
+        if (editingSection) {
+            setFormState(editingSection);
+        }
     }, [editingSection]);
+
+    if (!editingSection) return null;
 
     const updateField = (field, value) => {
         setFormState(prev => ({ ...prev, [field]: value }));
@@ -37,8 +39,8 @@ export default function EditSectionModal({
         onSave(formState);
     };
 
-    const sectionType = formState.section_type;
-    const settings = formState.settings || {};
+    const sectionType = formState?.section_type || '';
+    const settings = formState?.settings || {};
 
     return (
         <div style={{

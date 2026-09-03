@@ -217,6 +217,15 @@ export default function ProductFormContainer({ productId = null, isNew = false }
         };
 
         if (productType === 'simple') {
+            if (!sellingPriceInput || isNaN(parseFloat(sellingPriceInput)) || parseFloat(sellingPriceInput) <= 0) {
+                setErrorModal({
+                    title: 'Selling Price Required',
+                    message: 'Selling Price (Price ₹) is mandatory. Please enter a valid Selling Price.'
+                });
+                setFbProcessing(false);
+                return;
+            }
+
             if (!comparePriceVal || comparePriceVal <= 0) {
                 setErrorModal({
                     title: 'Regular Price Required',
@@ -470,12 +479,19 @@ export default function ProductFormContainer({ productId = null, isNew = false }
 
     // Delete Product
     const handleDelete = async (id) => {
+        const targetId = id || currentProduct?.id;
+        if (!targetId) return;
+
         setConfirmModal({
             title: 'Delete Product',
-            message: 'Are you sure you want to delete this product? This action cannot be undone.',
+            message: 'Are you sure you want to permanently delete this product? All variants, categories and history associated with it will also be removed.',
             onConfirm: async () => {
                 try {
-                    const { error } = await mysqlClient.from('products').delete().eq('id', id);
+                    setLoading(true);
+                    await mysqlClient.from('product_variants').delete().eq('product_id', targetId);
+                    await mysqlClient.from('product_history').delete().eq('product_id', targetId);
+                    await mysqlClient.from('category_products').delete().eq('product_id', targetId);
+                    const { error } = await mysqlClient.from('products').delete().eq('id', targetId);
                     if (error) throw error;
                     router.push('/admin/products');
                 } catch (err) {
@@ -484,6 +500,8 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                         title: 'Delete Failed',
                         message: err.message || 'Failed to delete product.'
                     });
+                } finally {
+                    setLoading(false);
                 }
             }
         });
@@ -503,6 +521,7 @@ export default function ProductFormContainer({ productId = null, isNew = false }
         <>
             <ProductForm
                 currentProduct={currentProduct}
+                setCurrentProduct={setCurrentProduct}
                 formProductName={formProductName}
                 setFormProductName={setFormProductName}
                 copiedProductUrl={copiedProductUrl}

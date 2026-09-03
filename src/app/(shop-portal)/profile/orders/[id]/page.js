@@ -8,6 +8,7 @@ import {
     XCircle, Tag, MessageCircle, RotateCcw, Globe, Loader2, AlertTriangle, ShieldCheck
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
+import { formatOrderDate } from '@/lib/dateUtils';
 import styles from './order-detail.module.css';
 
 function getStatusIndex(status) {
@@ -285,7 +286,7 @@ export default function OrderDetailPage() {
                         <div className={styles.orderRefLabel}>ORDER REFERENCE</div>
                         <h1 className={styles.invoiceNumber}>{invoiceNo}</h1>
                         <div className={styles.orderDate}>
-                            Placed on {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            Placed on {formatOrderDate(order.created_at)}
                         </div>
                     </div>
 

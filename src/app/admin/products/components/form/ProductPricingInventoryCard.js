@@ -11,13 +11,15 @@ export default function ProductPricingInventoryCard({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                 <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#0f172a', marginBottom: '6px' }}>
-                        Price (Selling Price ₹)
+                        Price (Selling Price ₹) *
                     </label>
                     <input
                         type="number"
                         name="price"
                         defaultValue={currentProduct?.price ?? ''}
+                        required
                         min="0"
+                        step="0.01"
                         placeholder="0.00"
                         className="admin-input"
                         style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}
@@ -40,6 +42,7 @@ export default function ProductPricingInventoryCard({
                         })()}
                         required
                         min="0"
+                        step="0.01"
                         placeholder="0.00"
                         className="admin-input"
                         onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}

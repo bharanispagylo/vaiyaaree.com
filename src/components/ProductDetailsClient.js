@@ -94,18 +94,18 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                     const rawParam = decodeURIComponent(String(id)).trim().replace(/\/$/, '');
 
                     // A. Direct Slug match
-                    const { data: directSlug } = await mysqlClient.from('products').select('*').eq('slug', rawParam).maybeSingle();
+                    const { data: directSlug } = await mysqlClient.from('products').select('*').eq('slug', rawParam).eq('is_active', true).maybeSingle();
                     if (directSlug) found = directSlug;
 
                     // B. Direct ID match
                     if (!found) {
-                        const { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
+                        const { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).eq('is_active', true).maybeSingle();
                         if (directData) found = directData;
                     }
 
                     // C. Direct SKU match
                     if (!found) {
-                        const { data: directSku } = await mysqlClient.from('products').select('*').eq('sku', rawParam).maybeSingle();
+                        const { data: directSku } = await mysqlClient.from('products').select('*').eq('sku', rawParam).eq('is_active', true).maybeSingle();
                         if (directSku) found = directSku;
                     }
 
@@ -114,10 +114,10 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                         const lastHyphen = rawParam.lastIndexOf('-');
                         if (lastHyphen !== -1) {
                             const identifier = rawParam.substring(lastHyphen + 1);
-                            const { data: bySku } = await mysqlClient.from('products').select('*').eq('sku', identifier).maybeSingle();
+                            const { data: bySku } = await mysqlClient.from('products').select('*').eq('sku', identifier).eq('is_active', true).maybeSingle();
                             if (bySku) found = bySku;
                             if (!found) {
-                                const { data: byId } = await mysqlClient.from('products').select('*').eq('id', identifier).maybeSingle();
+                                const { data: byId } = await mysqlClient.from('products').select('*').eq('id', identifier).eq('is_active', true).maybeSingle();
                                 if (byId) found = byId;
                             }
                         }
@@ -133,6 +133,11 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                 }
 
                 if (!isMounted) return;
+
+                // Ensure draft products are not displayed
+                if (found && (found.is_active === 0 || found.is_active === false || String(found.is_active) === '0')) {
+                    found = null;
+                }
 
                 if (found) {
                     setProduct(found);
@@ -522,13 +527,15 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
 
                     <div className={styles.divider} />
 
-                    {/* Description */}
-                    <div className={styles.descriptionBlock}>
-                        <p className={styles.descLabel}>Description</p>
-                        <p className={styles.descText}>
-                            {product.description || "Premium quality saree from our exclusive collection. Crafted with elegance and precision for your special occasions."}
-                        </p>
-                    </div>
+                    {/* Description - only show if exists */}
+                    {product.description && String(product.description).trim().length > 0 && (
+                        <div className={styles.descriptionBlock}>
+                            <p className={styles.descLabel}>Description</p>
+                            <p className={styles.descText}>
+                                {product.description}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Multi-Option Selectors (Shopify Style: Size, Color, etc.) */}
                     {product.type === 'variant' && variants.length > 0 && parsedOptionGroups.length > 1 && (

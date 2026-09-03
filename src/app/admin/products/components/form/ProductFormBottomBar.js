@@ -25,7 +25,7 @@ export default function ProductFormBottomBar({
                 {currentProduct?.id && (
                     <button
                         type="button"
-                        onClick={() => { handleDelete(currentProduct.id); setIsEditing(false); }}
+                        onClick={() => handleDelete(currentProduct.id)}
                         className="btn btn-danger"
                         style={{ padding: '0.55rem 1.15rem', fontSize: '0.84rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
                     >

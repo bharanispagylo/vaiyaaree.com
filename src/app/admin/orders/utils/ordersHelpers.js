@@ -15,30 +15,8 @@ export const formatOrderInvoice = (o) => {
     return `#${clean}`;
 };
 
-/**
- * Parse UTC/MySQL timestamps reliably into IST (Asia/Kolkata)
- */
-export const toIST = (dStr, opts = {}) => {
-    if (!dStr) return '';
-    let s = String(dStr).trim();
-    if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
-    if (!s.endsWith('Z') && !s.includes('+')) s += 'Z';
-    try {
-        const d = new Date(s);
-        if (isNaN(d.getTime())) return dStr;
-        return d.toLocaleString('en-IN', {
-            timeZone: 'Asia/Kolkata',
-            day: 'numeric',
-            month: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true,
-            ...opts
-        });
-    } catch (e) { return dStr; }
-};
+import { toIST, formatOrderDate, parseDateToUTC } from '@/lib/dateUtils';
+export { toIST, formatOrderDate, parseDateToUTC };
 
 /**
  * CSS class name reference for status badge

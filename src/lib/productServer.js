@@ -9,9 +9,9 @@ export async function getProductServer(param) {
     try {
         const rawParam = decodeURIComponent(String(param)).trim().replace(/\/$/, '').toLowerCase();
 
-        // 1. Direct Slug or ID query
+        // 1. Direct Slug or ID query (active published products only)
         const [rows] = await pool.query(
-            'SELECT * FROM `products` WHERE `slug` = ? OR `id` = ? OR `product_no` = ? OR `sku` = ? LIMIT 1',
+            'SELECT * FROM `products` WHERE (`slug` = ? OR `id` = ? OR `product_no` = ? OR `sku` = ?) AND `is_active` = 1 LIMIT 1',
             [rawParam, rawParam, rawParam, rawParam]
         );
         if (rows && rows.length > 0) return rows[0];

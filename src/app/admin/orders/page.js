@@ -143,16 +143,25 @@ export default function OrdersPage() {
                 .neq('status', 'DRAFT');
             if (error) throw error;
             if (data) {
+                const totalOrders = data.length;
+                const pendingOrders = data.filter(o => ['PLACED', 'AWAITING_PAYMENT', 'PENDING', 'PENDING_VERIFICATION', 'PACKING'].includes(o.status)).length;
+                const cancelledOrders = data.filter(o => o.status === 'CANCELLED').length;
+                const returnOrders = data.filter(o => ['REFUNDED', 'REFUND_REQUESTED', 'RETURNED', 'PARTIAL_RETURN'].includes(o.status) || (o.status || '').toUpperCase().includes('RETURN') || (o.status || '').toUpperCase().includes('REFUND')).length;
+
                 const counts = {
-                    ALL: data.length,
+                    ALL: totalOrders,
+                    TOTAL: totalOrders,
+                    PENDING: pendingOrders,
                     PLACED: data.filter(o => o.status === 'PLACED').length,
                     'AWAITING_PAYMENT': data.filter(o => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING' || o.status === 'PENDING_VERIFICATION').length,
                     PAID: data.filter(o => o.status === 'PAID').length,
                     PACKING: data.filter(o => o.status === 'PACKING').length,
                     SHIPPED: data.filter(o => o.status === 'SHIPPED').length,
                     DELIVERED: data.filter(o => o.status === 'DELIVERED').length,
-                    CANCELLED: data.filter(o => o.status === 'CANCELLED').length,
-                    REFUNDED: data.filter(o => o.status === 'REFUNDED').length,
+                    CANCELLED: cancelledOrders,
+                    REFUNDED: returnOrders,
+                    RETURNED: returnOrders,
+                    RETURN_ORDERS: returnOrders,
                 };
                 setStatusCounts(counts);
             }
@@ -175,7 +184,11 @@ export default function OrdersPage() {
             // 1. Status Filter
             if (statusFilter !== 'ALL') {
                 if (statusFilter === 'AWAITING_PAYMENT') {
-                    query = query.or('status.eq.AWAITING_PAYMENT,status.eq.PENDING');
+                    query = query.or('status.eq.AWAITING_PAYMENT,status.eq.PENDING,status.eq.PENDING_VERIFICATION');
+                } else if (statusFilter === 'PENDING') {
+                    query = query.or('status.eq.PLACED,status.eq.AWAITING_PAYMENT,status.eq.PENDING,status.eq.PENDING_VERIFICATION,status.eq.PACKING');
+                } else if (statusFilter === 'REFUNDED' || statusFilter === 'RETURNED' || statusFilter === 'RETURN_ORDERS') {
+                    query = query.or('status.eq.REFUNDED,status.eq.REFUND_REQUESTED,status.eq.RETURNED,status.eq.PARTIAL_RETURN');
                 } else {
                     query = query.eq('status', statusFilter);
                 }

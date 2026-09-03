@@ -10,6 +10,7 @@ export default function ProductMediaCard({
     galleryImageUrl,
     setGalleryImageUrl,
     currentProduct,
+    setCurrentProduct,
     setZoomedImage,
     setActiveImageField,
     setShowMediaPicker,
@@ -89,9 +90,29 @@ export default function ProductMediaCard({
                         </button>
                         <label className="btn btn-secondary" style={{ flex: 1, height: '40px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700 }}>
                             <Upload size={14} /> Upload
-                            <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={async (e) => {
+                            <input type="file" accept=".jpg, .jpeg, .png, .svg, image/jpeg, image/png, image/svg+xml" multiple style={{ display: 'none' }} onChange={async (e) => {
                                 const files = Array.from(e.target.files || []);
-                                if (!files.length) return;                                 try {
+                                if (!files.length) return;
+
+                                const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
+                                const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg'];
+                                const maxBytes = 10 * 1024 * 1024; // 10MB
+
+                                for (const file of files) {
+                                    const ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
+                                    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
+                                        setErrorModal({ title: 'Invalid File Format', message: `File "${file.name}" is not supported. Only JPEG, PNG, and SVG formats are allowed.` });
+                                        e.target.value = '';
+                                        return;
+                                    }
+                                    if (file.size > maxBytes) {
+                                        setErrorModal({ title: 'File Too Large', message: `File "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 10MB limit.` });
+                                        e.target.value = '';
+                                        return;
+                                    }
+                                }
+
+                                try {
                                     setLoadingOverlayText("Analyzing Fabric Image & Watermark..."); setOcrLoading(true);
                                     for (const file of files) {
                                         const reader = new FileReader();
@@ -118,66 +139,39 @@ export default function ProductMediaCard({
                                                         uploadData.append('requireClean', 'true');
                                                         uploadData.append('skipDetection', 'true');
                                                         const token = localStorage.getItem('cast_prince_admin') || '';
-                                                        const res = await fetch('/api/admin/upload', {
+                                                        const upRes = await fetch('/api/admin/upload', {
                                                             method: 'POST',
                                                             headers: { 'Authorization': `Bearer ${token}` },
                                                             body: uploadData
                                                         });
-                                                        const data = await res.json();
-                                                        const finalUrl = data.watermarkedUrl || data.url;
-                                                        setLoadingOverlayText("Attaching Watermarked Image to Product...");
-                                                        setProductImageUrl(prev => {
-                                                            const existingArray = prev ? prev.split(',').filter(Boolean) : [];
-                                                            return [...existingArray, finalUrl].join(',');
-                                                        });
+                                                        const upData = await upRes.json();
+                                                        if (upRes.ok && upData.url) {
+                                                            setProductImageUrl(prev => {
+                                                                const existingArray = prev ? prev.split(',').filter(Boolean) : [];
+                                                                return [...existingArray, upData.url].join(',');
+                                                            });
+                                                            if (typeof setCurrentProduct === 'function') {
+                                                                setCurrentProduct(prev => ({ ...(prev || {}), product_catalog_image_id: catId }));
+                                                            }
+                                                        } else {
+                                                            setErrorModal({ title: 'Upload Failed', message: upData.error || 'Failed to apply watermark and save image.' });
+                                                        }
+                                                        setOcrLoading(false);
                                                         setWatermarkModal(null);
-                                                        setTimeout(() => {
-                                                            setOcrLoading(false);
-                                                            resolve();
-                                                        }, 350);
-                                                    };
-
-                                                    const onProceedWithExisting = async (catId) => {
-                                                        setLoadingOverlayText("Attaching Watermarked Image to Product..."); setOcrLoading(true);
-                                                        const uploadData = new FormData();
-                                                        uploadData.append('file', file);
-                                                        uploadData.append('catalogId', catId || currentProduct?.product_catalog_image_id || '');
-                                                        uploadData.append('alreadyWatermarked', 'true');
-                                                        uploadData.append('skipDetection', 'true');
-                                                        uploadData.append('requireClean', 'false');
-                                                        const token = localStorage.getItem('cast_prince_admin') || '';
-                                                        const res = await fetch('/api/admin/upload', {
-                                                            method: 'POST',
-                                                            headers: { 'Authorization': `Bearer ${token}` },
-                                                            body: uploadData
-                                                        });
-                                                        const data = await res.json();
-                                                        const finalUrl = data.watermarkedUrl || data.url;
-                                                        setProductImageUrl(prev => {
-                                                            const existingArray = prev ? prev.split(',').filter(Boolean) : [];
-                                                            return [...existingArray, finalUrl].join(',');
-                                                        });
-                                                        setWatermarkModal(null);
-                                                        setTimeout(() => {
-                                                            setOcrLoading(false);
-                                                            resolve();
-                                                        }, 350);
+                                                        resolve();
                                                     };
 
                                                     if (detData.hasWatermark) {
-                                                        const existingCatId = detData.catalogId || currentProduct?.product_catalog_image_id || 'CAT-WATERMARK';
+                                                        setOcrLoading(false);
                                                         if (useExistingWatermark) {
-                                                            await onProceedWithExisting(existingCatId);
+                                                            await onProceedWithUpload(detData.catalogId || '');
                                                         } else {
-                                                            setOcrLoading(false);
+                                                            const detectedId = detData.catalogId || currentProduct?.product_catalog_image_id || '';
                                                             setWatermarkModal({
                                                                 type: 'existing',
-                                                                detectedCode: existingCatId,
+                                                                detectedCode: detectedId,
                                                                 url: base64,
-                                                                onUseExisting: () => {
-                                                                    setUseExistingWatermark(true);
-                                                                    onProceedWithExisting(existingCatId);
-                                                                }
+                                                                onProceed: () => onProceedWithUpload(detectedId)
                                                             });
                                                         }
                                                     } else {
@@ -238,9 +232,28 @@ export default function ProductMediaCard({
                         </button>
                         <label className="btn btn-secondary" style={{ flex: 1, height: '40px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700 }}>
                             <Upload size={14} /> Upload
-                            <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={async (e) => {
+                            <input type="file" accept=".jpg, .jpeg, .png, .svg, image/jpeg, image/png, image/svg+xml" multiple style={{ display: 'none' }} onChange={async (e) => {
                                 const files = Array.from(e.target.files || []);
                                 if (!files.length) return;
+
+                                const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
+                                const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg'];
+                                const maxBytes = 10 * 1024 * 1024; // 10MB
+
+                                for (const file of files) {
+                                    const ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
+                                    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
+                                        setErrorModal({ title: 'Invalid File Format', message: `File "${file.name}" is not supported. Only JPEG, PNG, and SVG formats are allowed.` });
+                                        e.target.value = '';
+                                        return;
+                                    }
+                                    if (file.size > maxBytes) {
+                                        setErrorModal({ title: 'File Too Large', message: `File "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 10MB limit.` });
+                                        e.target.value = '';
+                                        return;
+                                    }
+                                }
+
                                 try {
                                     setLoadingOverlayText('Uploading Gallery Assets...');
                                     setOcrLoading(true);

@@ -371,19 +371,23 @@ export default function HomepageBuilderPage() {
             )}
 
             {/* ADD SECTION MODAL */}
-            <AddSectionModal
-                isOpen={showAddModal}
-                onClose={() => setShowAddModal(false)}
-                onSelectTemplate={addNewSectionFromTemplate}
-            />
+            {showAddModal && (
+                <AddSectionModal
+                    isOpen={showAddModal}
+                    onClose={() => setShowAddModal(false)}
+                    onSelectTemplate={addNewSectionFromTemplate}
+                />
+            )}
 
             {/* EDIT SECTION MODAL */}
-            <EditSectionModal
-                editingSection={editingSection}
-                onClose={() => setEditingSection(null)}
-                onSave={saveEditingSectionModal}
-                openMediaPicker={(cb) => setMediaPickerCallback(() => cb)}
-            />
+            {editingSection && (
+                <EditSectionModal
+                    editingSection={editingSection}
+                    onClose={() => setEditingSection(null)}
+                    onSave={saveEditingSectionModal}
+                    openMediaPicker={(cb) => setMediaPickerCallback(() => cb)}
+                />
+            )}
 
             {/* MEDIA PICKER MODAL */}
             {mediaPickerCallback && (

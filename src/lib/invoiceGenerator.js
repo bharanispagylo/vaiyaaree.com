@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { mysqlClient } from './mysqlClient.js';
 import { getDiscountDetails } from './discountHelper.js';
+import { formatOrderDate } from './dateUtils.js';
 
 async function urlToBase64(url) {
     try {
@@ -240,7 +241,7 @@ export async function generateInvoicePDF(order) {
     doc.setFont("helvetica", "bold");
     doc.text("Invoice Date:", margin + 2, y + 15);
     doc.setFont("helvetica", "normal");
-    doc.text(new Date(order.created_at || Date.now()).toLocaleDateString('en-IN'), margin + 25, y + 15);
+    doc.text(formatOrderDate(order.created_at || Date.now(), { includeTime: false }), margin + 25, y + 15);
     
     doc.setFont("helvetica", "bold");
     doc.text("Payment Method:", 107, y + 5);

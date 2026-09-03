@@ -14,6 +14,7 @@ import ProductFormBottomBar from './form/ProductFormBottomBar';
 
 export default function ProductForm({
     currentProduct,
+    setCurrentProduct,
     formProductName,
     setFormProductName,
     copiedProductUrl,
@@ -340,6 +341,7 @@ export default function ProductForm({
                             galleryImageUrl={galleryImageUrl}
                             setGalleryImageUrl={setGalleryImageUrl}
                             currentProduct={currentProduct}
+                            setCurrentProduct={setCurrentProduct}
                             setZoomedImage={setZoomedImage}
                             setActiveImageField={setActiveImageField}
                             setShowMediaPicker={setShowMediaPicker}

@@ -8,6 +8,7 @@ import {
     XCircle, AlertTriangle
 } from 'lucide-react';
 import ModalPortal from '@/components/ModalPortal';
+import { formatOrderDate } from '@/lib/dateUtils';
 
 // ─── STATUS CONFIG ─────────────────────────────────────────────────────────
 
@@ -263,7 +264,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                     productName: item.product_name || item.products?.name || 'Saree Product',
                     productImage: item.products?.image_url || item.image_url || null,
                     price: item.price_at_time || item.price || 0,
-                    orderDate: new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    orderDate: formatOrderDate(o.created_at, { includeTime: false }),
                     deliveredOrder: o,
                 });
             }
@@ -925,7 +926,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                                             )}
 
                                             <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
-                                                Requested Date: {new Date(r.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                Requested Date: {formatOrderDate(r.created_at, { includeTime: false })}
                                             </div>
                                         </div>
 

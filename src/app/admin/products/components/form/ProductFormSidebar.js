@@ -174,8 +174,9 @@ export default function ProductFormSidebar({
                     <input
                         type="number"
                         name="alert_threshold"
-                        defaultValue={currentProduct?.alert_threshold || 5}
+                        defaultValue={currentProduct?.alert_threshold !== undefined && currentProduct?.alert_threshold !== null ? currentProduct.alert_threshold : ''}
                         min="0"
+                        placeholder="e.g. 5"
                         className="admin-input"
                         style={{ fontSize: '0.84rem', fontWeight: 700 }}
                         onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}

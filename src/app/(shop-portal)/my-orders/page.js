@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, ChevronLeft, Download, XCircle, AlertTriangle, CheckCircle, Globe, ShoppingBag } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
+import { formatOrderDate } from '@/lib/dateUtils';
 import Link from 'next/link';
 import styles from './orders.module.css';
 
@@ -225,11 +226,7 @@ export default function MyOrdersPage() {
                                                 <span className={styles.orderId}>{invoiceNo}</span>
                                             </td>
                                             <td className={styles.dateCell}>
-                                                {new Date(order.created_at).toLocaleDateString('en-IN', {
-                                                    day: 'numeric',
-                                                    month: 'short',
-                                                    year: 'numeric'
-                                                })}
+                                                {formatOrderDate(order.created_at, { includeTime: false })}
                                             </td>
                                             <td className={styles.itemsCell}>
                                                 {order.order_items?.length || 0} item(s)

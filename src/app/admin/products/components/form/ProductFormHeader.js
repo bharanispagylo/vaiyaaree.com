@@ -82,7 +82,7 @@ export default function ProductFormHeader({
                     {currentProduct?.id && (
                         <button
                             type="button"
-                            onClick={() => { handleDelete(currentProduct.id); setIsEditing(false); }}
+                            onClick={() => handleDelete(currentProduct.id)}
                             className="btn btn-danger"
                             style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}
                         >

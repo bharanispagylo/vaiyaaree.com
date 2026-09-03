@@ -4,7 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { 
     Search, Plus, RefreshCw, TrendingUp, X, Loader2, 
-    Truck, Send, Info, Trash2, ChevronLeft, ChevronRight 
+    Truck, Send, Info, Trash2, ChevronLeft, ChevronRight,
+    ShoppingBag, Clock, XCircle, RotateCcw
 } from 'lucide-react';
 import { 
     formatOrderInvoice, 
@@ -40,20 +41,65 @@ export default function OrdersListView({
     setIsAddingOrder,
     fetchOrders
 }) {
+    const summaryCards = [
+        {
+            key: 'TOTAL',
+            label: 'Total Orders',
+            count: orderCounts.TOTAL ?? orderCounts.ALL ?? 0,
+            icon: ShoppingBag,
+            color: '#4f46e5',
+            bgTint: 'rgba(79, 70, 229, 0.08)',
+            isActive: statusFilter === 'ALL',
+            onClick: () => setStatusFilter('ALL')
+        },
+        {
+            key: 'PENDING',
+            label: 'Pending Orders',
+            count: orderCounts.PENDING ?? ((orderCounts.AWAITING_PAYMENT || 0) + (orderCounts.PLACED || 0) + (orderCounts.PACKING || 0)),
+            icon: Clock,
+            color: '#d97706',
+            bgTint: 'rgba(217, 119, 6, 0.08)',
+            isActive: statusFilter === 'PENDING' || statusFilter === 'AWAITING_PAYMENT' || statusFilter === 'PLACED' || statusFilter === 'PACKING',
+            onClick: () => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')
+        },
+        {
+            key: 'CANCELLED',
+            label: 'Cancelled Orders',
+            count: orderCounts.CANCELLED || 0,
+            icon: XCircle,
+            color: '#dc2626',
+            bgTint: 'rgba(220, 38, 38, 0.08)',
+            isActive: statusFilter === 'CANCELLED',
+            onClick: () => setStatusFilter(statusFilter === 'CANCELLED' ? 'ALL' : 'CANCELLED')
+        },
+        {
+            key: 'RETURN',
+            label: 'Return Orders',
+            count: orderCounts.RETURN_ORDERS ?? orderCounts.RETURNED ?? orderCounts.REFUNDED ?? 0,
+            icon: RotateCcw,
+            color: '#7c3aed',
+            bgTint: 'rgba(124, 58, 237, 0.08)',
+            isActive: statusFilter === 'REFUNDED' || statusFilter === 'RETURNED' || statusFilter === 'RETURN_ORDERS' || statusFilter === 'REFUND_REQUESTED',
+            onClick: () => setStatusFilter(statusFilter === 'REFUNDED' ? 'ALL' : 'REFUNDED')
+        }
+    ];
+
     return (
         <div className="orders-list-section">
             {/* Header */}
-            <div className="admin-header-row">
+            <div className="admin-header-row" style={{ marginBottom: '1.25rem' }}>
                 <div>
-                    <h1 style={{ marginBottom: '0.5rem' }}>Orders</h1>
-                    <p>Manage and track all customer orders • {orders.length} total</p>
+                    <h1 style={{ marginBottom: '0.35rem', fontSize: '1.65rem', fontWeight: 800 }}>Orders</h1>
+                    <p style={{ margin: 0, color: 'hsl(var(--text-muted))', fontSize: '0.88rem' }}>
+                        Manage and track all customer orders • {orderCounts.ALL || orders.length} total
+                    </p>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <button 
                         type="button" 
                         onClick={() => setIsAddingOrder(true)} 
                         className="btn btn-primary" 
-                        style={{ background: 'hsl(var(--primary))', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+                        style={{ background: 'hsl(var(--primary))', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '0.6rem 1.15rem', fontSize: '0.88rem', fontWeight: 700 }}
                     >
                         <Plus size={16} /> Add Manual Order
                     </button>
@@ -61,32 +107,109 @@ export default function OrdersListView({
                         type="button" 
                         onClick={fetchOrders} 
                         className="btn btn-secondary"
+                        style={{ padding: '0.6rem 1.15rem', fontSize: '0.88rem', fontWeight: 600 }}
                     >
                         <RefreshCw size={16} /> Refresh
                     </button>
                 </div>
             </div>
 
+            {/* Small-Sized Order Count Cards */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '0.85rem',
+                marginBottom: '1.25rem'
+            }}>
+                {summaryCards.map((card) => (
+                    <div
+                        key={card.key}
+                        onClick={card.onClick}
+                        title={`Filter by ${card.label}`}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0.85rem 1.1rem',
+                            borderRadius: '14px',
+                            backgroundColor: '#ffffff',
+                            border: card.isActive ? `1.5px solid ${card.color}` : '1px solid hsl(var(--border-subtle))',
+                            boxShadow: card.isActive ? `0 4px 14px ${card.color}22` : '0 2px 6px rgba(0,0,0,0.02)',
+                            cursor: 'pointer',
+                            transition: 'all 0.18s ease-in-out',
+                            userSelect: 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                            if (!card.isActive) {
+                                e.currentTarget.style.borderColor = `${card.color}80`;
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            if (!card.isActive) {
+                                e.currentTarget.style.borderColor = 'hsl(var(--border-subtle))';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                            }
+                        }}
+                    >
+                        <div>
+                            <div style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                                color: 'hsl(var(--text-muted))',
+                                marginBottom: '0.2rem'
+                            }}>
+                                {card.label}
+                            </div>
+                            <div style={{
+                                fontSize: '1.38rem',
+                                fontWeight: 800,
+                                color: 'hsl(var(--text-main))',
+                                lineHeight: 1.1
+                            }}>
+                                {Number(card.count || 0).toLocaleString()}
+                            </div>
+                        </div>
+                        <div style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '10px',
+                            backgroundColor: card.bgTint,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: card.color,
+                            flexShrink: 0
+                        }}>
+                            <card.icon size={18} strokeWidth={2.4} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+
             {/* Unified View Controls & Filters Row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1.5rem', flexWrap: 'wrap', background: '#ffffff', padding: '1.25rem', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))' }}>
-                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '1rem', flexWrap: 'wrap', background: '#ffffff', padding: '0.85rem 1.25rem', borderRadius: '14px', border: '1px solid hsl(var(--border-subtle))' }}>
+                {/* Left Controls: Status, Channel, Analysis */}
+                <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {/* Status Filter */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                         <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Status:</label>
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            style={{ padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                            style={{ padding: '0.5rem 2rem 0.5rem 0.85rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                         >
                             {Object.entries(orderCounts).map(([status, count]) => (
                                 <option key={status} value={status}>
-                                    {status === 'ALL' ? 'All Orders' : status.replace(/_/g, ' ')} ({count})
+                                    {status === 'ALL' ? 'All Orders' : status === 'PENDING' ? 'Pending (All)' : status === 'RETURN_ORDERS' ? 'Return Orders' : status.replace(/_/g, ' ')} ({count})
                                 </option>
                             ))}
                         </select>
                     </div>
 
-                    <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-subtle))' }} />
+                    <div style={{ width: '1px', height: '20px', background: 'hsl(var(--border-subtle))' }} />
 
                     {/* Channel / Source Filter */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -94,7 +217,7 @@ export default function OrdersListView({
                         <select
                             value={sourceFilter}
                             onChange={(e) => setSourceFilter(e.target.value)}
-                            style={{ padding: '0.6rem 2.2rem 0.6rem 1rem', borderRadius: '10px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
+                            style={{ padding: '0.5rem 2rem 0.5rem 0.85rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                         >
                             {SOURCE_FILTERS.map(src => (
                                 <option key={src} value={src}>
@@ -109,57 +232,56 @@ export default function OrdersListView({
                         href="/admin/orders/analysis"
                         className="btn btn-secondary"
                         style={{
-                            padding: '0.6rem 1.25rem', borderRadius: '10px',
+                            padding: '0.5rem 1rem', borderRadius: '8px',
                             fontSize: '0.85rem', fontWeight: 700,
-                            display: 'flex', alignItems: 'center', gap: '8px',
+                            display: 'flex', alignItems: 'center', gap: '6px',
                             textDecoration: 'none'
                         }}
                     >
-                        <TrendingUp size={16} color="hsl(var(--primary))" /> Order Analysis
+                        <TrendingUp size={15} color="hsl(var(--primary))" /> Order Analysis
                     </Link>
+                </div>
+
+                {/* Right Controls: Order Table Search (moved to top right) */}
+                <div style={{ position: 'relative', width: '300px', maxWidth: '100%', minWidth: '220px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))', pointerEvents: 'none' }} />
+                    <input
+                        type="text"
+                        placeholder="Search Order ID, Name, Phone..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{
+                            width: '100%',
+                            padding: searchTerm ? '0.52rem 2.2rem 0.52rem 2.2rem' : '0.52rem 0.85rem 0.52rem 2.2rem',
+                            background: 'hsl(var(--bg-app))',
+                            border: '1px solid hsl(var(--border-subtle))',
+                            borderRadius: '8px',
+                            fontSize: '0.88rem',
+                            outline: 'none',
+                            transition: 'border 0.2s, box-shadow 0.2s',
+                            color: 'hsl(var(--text-main))',
+                            fontFamily: 'inherit'
+                        }}
+                    />
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            onClick={() => setSearchTerm('')}
+                            style={{
+                                position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                                background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px'
+                            }}
+                            title="Clear search"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Search + Table Card */}
+            {/* Table Card */}
             <div className="card" style={{ padding: 0 }}>
-                {/* Search Bar */}
-                <div className="admin-search-container">
-                    <div className="admin-search-input-wrapper" style={{ position: 'relative' }}>
-                        <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
-                        <input
-                            type="text"
-                            placeholder="Search by Order ID, Name or Phone..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: searchTerm ? '0.75rem 2.5rem 0.75rem 2.75rem' : '0.75rem 1rem 0.75rem 2.75rem',
-                                background: '#f1f5f9',
-                                border: '1px solid hsl(var(--border-subtle))',
-                                borderRadius: 'var(--radius-sm)',
-                                fontSize: '0.9rem',
-                                outline: 'none',
-                                transition: 'border 0.2s',
-                                color: 'hsl(var(--text-main))',
-                                fontFamily: 'inherit'
-                            }}
-                        />
-                        {searchTerm && (
-                            <button
-                                type="button"
-                                onClick={() => setSearchTerm('')}
-                                style={{
-                                    position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                                    background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px'
-                                }}
-                                title="Clear search"
-                            >
-                                <X size={16} />
-                            </button>
-                        )}
-                    </div>
-                </div>
 
                 {/* Table */}
                 {loading ? (
@@ -214,7 +336,10 @@ export default function OrdersListView({
                                                 }}
                                             >
                                                 <td style={{ fontWeight: 600, color: isSelected ? 'hsl(var(--primary))' : 'inherit' }}>
-                                                    {formatOrderInvoice(order)}
+                                                    <div style={{ fontWeight: 800 }}>{formatOrderInvoice(order)}</div>
+                                                    <div style={{ fontSize: '0.74rem', color: 'hsl(var(--text-muted))', fontWeight: 500, marginTop: '2px' }}>
+                                                        {toIST(order.created_at)}
+                                                    </div>
                                                 </td>
                                                 <td style={{ textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); toggleSelectItem(order.id); }}>
                                                     <input

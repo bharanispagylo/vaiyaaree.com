@@ -114,6 +114,24 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // 1. Format validation: JPEG, PNG, SVG only
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg'];
+        const ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
+        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
+            alert('Invalid file format. Only JPEG, PNG, and SVG formats are allowed.');
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
+        // 2. Max 10MB upload size limit
+        const maxBytes = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxBytes) {
+            alert(`File size exceeds the 10MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB). Please choose an image smaller than 10MB.`);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
         setUploading(true);
         try {
             const token = localStorage.getItem('cast_prince_admin') || '';
@@ -173,10 +191,9 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
     return (
         <div className="modal-overlay" style={{ zIndex: 999999, position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onClose}>
             <div className="modal-box shadow-premium" style={{
-                maxWidth: '960px', height: '90vh', width: '100%',
-                display: 'flex', flexDirection: 'column', padding: 0,
-                borderRadius: '24px', background: '#ffffff',
-                overflow: 'hidden', border: 'none', zIndex: 1000000, position: 'relative'
+                maxWidth: '1200px', width: '95vw', height: '90vh', padding: 0,
+                borderRadius: '32px', background: '#ffffff', display: 'flex',
+                flexDirection: 'column', overflow: 'hidden', border: 'none', zIndex: 1000000, position: 'relative'
             }} onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div style={{
@@ -189,7 +206,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                             {multiple ? `Select Images (${selectedUrls.length})` : 'Select Image'}
                         </h2>
                         <p style={{ fontSize: '0.825rem', color: 'hsl(var(--text-muted))', margin: '4px 0 0', fontWeight: 500 }}>
-                            {multiple ? 'Select multiple assets for your gallery.' : 'Choose from media library or upload new assets.'}
+                            {multiple ? 'Select multiple assets for your gallery (JPEG, PNG, SVG - Max 10MB).' : 'Choose from media library or upload new assets (JPEG, PNG, SVG - Max 10MB).'}
                         </p>
                     </div>
                     <button
@@ -227,7 +244,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                             {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
                             {uploading ? 'Uploading...' : 'Upload New'}
                         </button>
-                        <input type="file" ref={fileInputRef} onChange={handleUpload} style={{ display: 'none' }} accept="image/*" />
+                        <input type="file" ref={fileInputRef} onChange={handleUpload} style={{ display: 'none' }} accept=".jpg, .jpeg, .png, .svg, image/jpeg, image/png, image/svg+xml" />
                         <button onClick={fetchFiles} className="btn-icon primary" style={{ width: '48px', height: '48px', borderRadius: '14px' }}>
                             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
                         </button>

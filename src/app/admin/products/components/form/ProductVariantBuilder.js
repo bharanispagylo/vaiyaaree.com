@@ -412,7 +412,9 @@ export default function ProductVariantBuilder({
                                         placeholder="0.00"
                                         value={v.price !== undefined ? v.price : ''}
                                         min="0"
-                                        onChange={e => updateVariant(i, 'price', e.target.value ? Number(e.target.value) : '')}
+                                        step="0.01"
+                                        required
+                                        onChange={e => updateVariant(i, 'price', e.target.value !== '' ? parseFloat(e.target.value) : '')}
                                         className="admin-input"
                                         style={{ padding: '0.45rem 0.65rem', fontSize: '0.84rem', fontWeight: 700, color: 'hsl(var(--primary))' }}
                                         onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
@@ -425,8 +427,9 @@ export default function ProductVariantBuilder({
                                         placeholder="0.00"
                                         value={v.compare_price || ''}
                                         min="0"
+                                        step="0.01"
                                         required
-                                        onChange={e => updateVariant(i, 'compare_price', e.target.value ? Number(e.target.value) : '')}
+                                        onChange={e => updateVariant(i, 'compare_price', e.target.value !== '' ? parseFloat(e.target.value) : '')}
                                         className="admin-input"
                                         style={{ padding: '0.45rem 0.65rem', fontSize: '0.84rem', fontWeight: 600, color: '#475569' }}
                                         onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}

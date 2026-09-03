@@ -24,7 +24,7 @@ export async function GET(request) {
                 SELECT COUNT(DISTINCT p.id) as total
                 FROM products p
                 LEFT JOIN category_products cp ON cp.product_id = p.id
-                WHERE (p.is_active = 1 OR p.is_active IS NULL)
+                WHERE p.is_active = 1
                   AND (
                       cp.category_id = ?
                       OR LOWER(TRIM(p.category)) = LOWER(TRIM(?))
