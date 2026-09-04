@@ -679,14 +679,14 @@ export default function CheckoutPage() {
                             <span>₹{cartTotal.toLocaleString()}.00</span>
                         </div>
 
-                        {(discountData?.totalDiscount > 0 || (appliedCoupon && appliedCoupon.couponDiscount > 0)) && (
+                        {discountData?.totalDiscount > 0 && (
                             <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700 }}>
                                 <span>
                                     Discount {discountData?.appliedRules?.length > 0 
                                         ? `(${discountData.appliedRules.map(r => r.name || r.couponCode).join(', ')})` 
                                         : (appliedCoupon ? `(${appliedCoupon.couponCode})` : '')}
                                 </span>
-                                <span>-₹{Math.max(discountData?.totalDiscount || 0, appliedCoupon?.couponDiscount || 0).toLocaleString()}.00</span>
+                                <span>-₹{discountData.totalDiscount.toLocaleString()}.00</span>
                             </div>
                         )}
 
@@ -719,7 +719,7 @@ export default function CheckoutPage() {
                         <div className={styles.summaryTotalRow}>
                             <span>Total</span>
                             <span className={styles.totalPrice}>
-                                ₹{Math.max(0, taxDetails.totalOrder - (appliedCoupon?.couponDiscount || 0)).toLocaleString()}.00
+                                ₹{Math.max(0, taxDetails.totalOrder).toLocaleString()}.00
                             </span>
                         </div>
                     </div>

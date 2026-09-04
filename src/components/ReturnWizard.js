@@ -273,7 +273,10 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
 
     // ── Photo upload ──────────────────────────────────────────────────────────
     async function handlePhotoUpload(files) {
+        if (!files || files.length === 0) return;
         const newPhotos = Array.from(files).slice(0, 5 - photos.length);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+
         for (const file of newPhotos) {
             const preview = URL.createObjectURL(file);
             const tmp = { preview, uploading: true, url: null, error: null };
@@ -285,13 +288,17 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
             try {
                 const res = await fetch('/api/returns/upload-photo', { method: 'POST', body: formData });
                 const data = await res.json();
-                if (data.url) {
+                if (res.ok && data.url) {
                     setPhotos(prev => prev.map(p => p.preview === preview ? { ...p, uploading: false, url: data.url } : p));
                 } else {
-                    setPhotos(prev => prev.map(p => p.preview === preview ? { ...p, uploading: false, error: data.error || 'Upload failed' } : p));
+                    const errMsg = data.error || 'Upload failed';
+                    setPhotos(prev => prev.map(p => p.preview === preview ? { ...p, uploading: false, error: errMsg } : p));
+                    setError(errMsg);
                 }
-            } catch {
-                setPhotos(prev => prev.map(p => p.preview === preview ? { ...p, uploading: false, error: 'Upload failed' } : p));
+            } catch (fetchErr) {
+                const errMsg = fetchErr.message || 'Upload failed';
+                setPhotos(prev => prev.map(p => p.preview === preview ? { ...p, uploading: false, error: errMsg } : p));
+                setError(errMsg);
             }
         }
     }

@@ -5,6 +5,7 @@ import { User, Mail, Phone, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, MessageC
 import { useShop } from '@/context/ShopContext';
 import ModalPortal from '@/components/ModalPortal';
 import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
+import { sanitizeCustomerSession } from '@/lib/authSanitizer';
 
 export default function CheckoutAuthModal({ onSuccess }) {
     const { setUser, showToast, setCheckoutForm } = useShop();
@@ -133,7 +134,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
 
             const data = await res.json();
             if (res.ok && data.success && data.user) {
-                const customerData = {
+                const customerData = sanitizeCustomerSession({
                     id: data.user.id || 'cust_' + cleanDigits,
                     name: data.user.name || '',
                     email: data.user.email || '',
@@ -145,7 +146,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                     pincode: data.user.pincode || '',
                     role: data.user.role || 'user',
                     login_at: Date.now()
-                };
+                });
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
                 syncCustomerToForm(customerData);
@@ -209,7 +210,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                const customerData = { ...data.customer, login_at: Date.now() };
+                const customerData = sanitizeCustomerSession({ ...data.customer, login_at: Date.now() });
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
                 syncCustomerToForm(customerData);
@@ -252,7 +253,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                const customerData = { ...data.customer, login_at: Date.now() };
+                const customerData = sanitizeCustomerSession({ ...data.customer, login_at: Date.now() });
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
                 syncCustomerToForm(customerData);

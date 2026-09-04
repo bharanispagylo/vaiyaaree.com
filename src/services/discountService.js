@@ -80,13 +80,19 @@ export async function calculateDiscounts({
         const nowStr = new Date().toISOString();
 
         // 2. Fetch all active discount rules
-        const { data: rulesData, error: rulesError } = await mysqlClient
+        const { data: allRules, error: rulesError } = await mysqlClient
             .from('discount_rules')
             .select('*')
-            .eq('is_active', true)
             .order('priority', { ascending: false });
 
-        if (rulesError || !rulesData || rulesData.length === 0) {
+        if (rulesError || !allRules || allRules.length === 0) {
+            return buildResult({ subtotal, shippingCost, cart, productDiscount: 0, cartDiscount: 0, couponDiscount: 0, shippingDiscount: 0, appliedRules: [], appliedCouponCode: null });
+        }
+
+        // Strictly filter for active rules
+        const rulesData = allRules.filter(r => r.is_active === 1 || r.is_active === true || r.is_active === '1');
+
+        if (rulesData.length === 0) {
             return buildResult({ subtotal, shippingCost, cart, productDiscount: 0, cartDiscount: 0, couponDiscount: 0, shippingDiscount: 0, appliedRules: [], appliedCouponCode: null });
         }
 
@@ -101,19 +107,19 @@ export async function calculateDiscounts({
         const ruleProductsMap = new Map();
         (productsRes.data || []).forEach(rp => {
             if (!ruleProductsMap.has(rp.discount_rule_id)) ruleProductsMap.set(rp.discount_rule_id, new Set());
-            ruleProductsMap.get(rp.discount_rule_id).add(rp.product_id);
+            ruleProductsMap.get(rp.discount_rule_id).add(String(rp.product_id).trim());
         });
 
         const ruleCategoriesMap = new Map();
         (categoriesRes.data || []).forEach(rc => {
             if (!ruleCategoriesMap.has(rc.discount_rule_id)) ruleCategoriesMap.set(rc.discount_rule_id, new Set());
-            ruleCategoriesMap.get(rc.discount_rule_id).add(rc.category.trim().toLowerCase());
+            ruleCategoriesMap.get(rc.discount_rule_id).add(String(rc.category || '').trim().toLowerCase());
         });
 
         const ruleCustomersMap = new Map();
         (customersRes.data || []).forEach(rcu => {
             if (!ruleCustomersMap.has(rcu.discount_rule_id)) ruleCustomersMap.set(rcu.discount_rule_id, new Set());
-            ruleCustomersMap.get(rcu.discount_rule_id).add(rcu.customer_id);
+            ruleCustomersMap.get(rcu.discount_rule_id).add(String(rcu.customer_id).trim());
         });
 
         const normalizedCoupon = (couponCode || '').trim().toUpperCase();
@@ -143,7 +149,7 @@ export async function calculateDiscounts({
             // Check customer specific target if specified
             if (rule.target_type === 'SPECIFIC_CUSTOMERS') {
                 const allowedCustomers = ruleCustomersMap.get(rule.id);
-                if (!allowedCustomers || !customer?.id || !allowedCustomers.has(customer.id)) continue;
+                if (!allowedCustomers || !customer?.id || !allowedCustomers.has(String(customer.id).trim())) continue;
             }
 
             let ruleDiscount = 0;
@@ -227,10 +233,10 @@ export async function calculateDiscounts({
             let eligibleCartItems = cart;
             if (rule.target_type === 'SPECIFIC_PRODUCTS') {
                 const allowedProds = ruleProductsMap.get(rule.id) || new Set();
-                eligibleCartItems = cart.filter(i => allowedProds.has(i.id));
+                eligibleCartItems = cart.filter(i => allowedProds.has(String(i.id).trim()));
             } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
                 const allowedCats = ruleCategoriesMap.get(rule.id) || new Set();
-                eligibleCartItems = cart.filter(i => i.category && allowedCats.has(i.category.trim().toLowerCase()));
+                eligibleCartItems = cart.filter(i => i.category && allowedCats.has(String(i.category || '').trim().toLowerCase()));
             }
 
             const eligibleQuantity = eligibleCartItems.reduce((sum, item) => sum + parseInt(item.qty || 1, 10), 0);
@@ -306,11 +312,15 @@ export async function validateCouponCode(couponCode, { subtotal = 0, cartItems =
         .from('discount_rules')
         .select('*')
         .eq('coupon_code', code)
-        .eq('is_active', true)
         .maybeSingle();
 
     if (error || !rule) {
         return { valid: false, message: 'Invalid coupon code.' };
+    }
+
+    // Strict check for active status
+    if (!rule.is_active || rule.is_active === 0 || rule.is_active === '0' || rule.is_active === false) {
+        return { valid: false, message: 'This coupon is currently inactive or disabled.' };
     }
 
     const dateCheck = isRuleActiveByDate(rule.start_date, rule.end_date);
@@ -357,21 +367,36 @@ export async function validateCouponCode(couponCode, { subtotal = 0, cartItems =
 
         const minProdsEnabled = rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true;
         const minProdsReq = rule.minimum_cart_products ? parseInt(rule.minimum_cart_products, 10) : 0;
-        if (minProdsEnabled && minProdsReq > 0 && Array.isArray(cartItems)) {
-            let eligibleCartItems = cartItems;
-            if (rule.target_type === 'SPECIFIC_PRODUCTS') {
-                const { data: prods } = await mysqlClient.from('discount_rule_products').select('product_id').eq('discount_rule_id', rule.id);
-                const allowedProds = new Set((prods || []).map(p => p.product_id));
-                eligibleCartItems = cartItems.filter(i => allowedProds.has(i.id));
-            } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
-                const { data: cats } = await mysqlClient.from('discount_rule_categories').select('category').eq('discount_rule_id', rule.id);
-                const allowedCats = new Set((cats || []).map(c => c.category.trim().toLowerCase()));
-                eligibleCartItems = cartItems.filter(i => i.category && allowedCats.has(i.category.trim().toLowerCase()));
+
+        if (rule.target_type === 'SPECIFIC_PRODUCTS') {
+            const { data: prods } = await mysqlClient.from('discount_rule_products').select('product_id').eq('discount_rule_id', rule.id);
+            const allowedProds = new Set((prods || []).map(p => String(p.product_id).trim()));
+            const eligibleCartItems = (cartItems || []).filter(i => allowedProds.has(String(i.id).trim()));
+
+            if (eligibleCartItems.length === 0) {
+                return { valid: false, message: 'This coupon is valid only for specific selected sarees which are not in your cart.' };
             }
 
-            const eligibleQty = eligibleCartItems.reduce((sum, i) => sum + parseInt(i.qty || 1, 10), 0);
-            if (eligibleQty < minProdsReq) {
-                return { valid: false, message: `Coupon requires a minimum of ${minProdsReq} eligible product units in cart.` };
+            if (minProdsEnabled && minProdsReq > 0) {
+                const eligibleQty = eligibleCartItems.reduce((sum, i) => sum + parseInt(i.qty || 1, 10), 0);
+                if (eligibleQty < minProdsReq) {
+                    return { valid: false, message: `Coupon requires a minimum of ${minProdsReq} eligible sarees in cart.` };
+                }
+            }
+        } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
+            const { data: cats } = await mysqlClient.from('discount_rule_categories').select('category').eq('discount_rule_id', rule.id);
+            const allowedCats = new Set((cats || []).map(c => String(c.category || '').trim().toLowerCase()));
+            const eligibleCartItems = (cartItems || []).filter(i => i.category && allowedCats.has(String(i.category || '').trim().toLowerCase()));
+
+            if (eligibleCartItems.length === 0) {
+                return { valid: false, message: 'This coupon is valid only for selected saree categories which are not in your cart.' };
+            }
+
+            if (minProdsEnabled && minProdsReq > 0) {
+                const eligibleQty = eligibleCartItems.reduce((sum, i) => sum + parseInt(i.qty || 1, 10), 0);
+                if (eligibleQty < minProdsReq) {
+                    return { valid: false, message: `Coupon requires a minimum of ${minProdsReq} sarees from eligible categories in cart.` };
+                }
             }
         }
     }

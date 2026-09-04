@@ -113,14 +113,14 @@ export default function DiscountForm({
                             <button
                                 type="button"
                                 className={`basis-btn ${formData.calculation_basis === 'PRODUCT' ? 'active' : ''}`}
-                                onClick={() => setFormData({ ...formData, calculation_basis: 'PRODUCT', categories: [], product_ids: [] })}
+                                onClick={() => setFormData({ ...formData, calculation_basis: 'PRODUCT' })}
                             >
                                 Products (Storewide, Category, or Item Scoped)
                             </button>
                             <button
                                 type="button"
                                 className={`basis-btn ${formData.calculation_basis === 'CART' ? 'active' : ''}`}
-                                onClick={() => setFormData({ ...formData, calculation_basis: 'CART', categories: [], product_ids: [] })}
+                                onClick={() => setFormData({ ...formData, calculation_basis: 'CART' })}
                             >
                                 Cart Level (Spend / Quantity Threshold)
                             </button>
@@ -139,13 +139,13 @@ export default function DiscountForm({
                                 <div className="form-field">
                                     <label className="field-label">Discount Type</label>
                                     <select
-                                        value={formData.discount_type}
+                                        value={formData.product_discount_type || 'PERCENTAGE'}
                                         onChange={e => {
                                             const newType = e.target.value;
                                             setFormData({
                                                 ...formData,
-                                                discount_type: newType,
-                                                discount_value: newType === 'FREE_SHIPPING' ? '0' : (formData.discount_value === '0' ? '10' : formData.discount_value)
+                                                product_discount_type: newType,
+                                                product_discount_value: newType === 'FREE_SHIPPING' ? '0' : (formData.product_discount_value === '0' ? '10' : formData.product_discount_value)
                                             });
                                         }}
                                         className="styled-select"
@@ -161,16 +161,16 @@ export default function DiscountForm({
 
                                 <div className="form-field">
                                     <label className="field-label">
-                                        Discount Value {formData.discount_type === 'FREE_SHIPPING' ? '(Free Shipping)' : (formData.discount_type === 'PERCENTAGE' ? '(%)' : '(₹)')}
+                                        Discount Value {formData.product_discount_type === 'FREE_SHIPPING' ? '(Free Shipping)' : (formData.product_discount_type === 'PERCENTAGE' ? '(%)' : '(₹)')}
                                     </label>
                                     <input
-                                        type={formData.discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
+                                        type={formData.product_discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
                                         step="0.01"
                                         min="0"
-                                        placeholder={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
-                                        value={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : formData.discount_value}
-                                        onChange={e => setFormData({ ...formData, discount_value: e.target.value })}
-                                        disabled={formData.discount_type === 'FREE_SHIPPING'}
+                                        placeholder={formData.product_discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
+                                        value={formData.product_discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : (formData.product_discount_value ?? '')}
+                                        onChange={e => setFormData({ ...formData, product_discount_value: e.target.value })}
+                                        disabled={formData.product_discount_type === 'FREE_SHIPPING'}
                                         className="styled-input"
                                     />
                                 </div>
@@ -337,13 +337,13 @@ export default function DiscountForm({
                                 <div className="form-field">
                                     <label className="field-label">Discount Type</label>
                                     <select
-                                        value={formData.discount_type}
+                                        value={formData.cart_discount_type || 'PERCENTAGE'}
                                         onChange={e => {
                                             const newType = e.target.value;
                                             setFormData({
                                                 ...formData,
-                                                discount_type: newType,
-                                                discount_value: newType === 'FREE_SHIPPING' ? '0' : (formData.discount_value === '0' ? '10' : formData.discount_value)
+                                                cart_discount_type: newType,
+                                                cart_discount_value: newType === 'FREE_SHIPPING' ? '0' : (formData.cart_discount_value === '0' ? '10' : formData.cart_discount_value)
                                             });
                                         }}
                                         className="styled-select"
@@ -358,22 +358,22 @@ export default function DiscountForm({
                             <div className="form-grid-2 mt-3" style={{ marginTop: '1rem' }}>
                                 <div className="form-field">
                                     <label className="field-label">
-                                        Discount Value {formData.discount_type === 'FREE_SHIPPING' ? '(Free Shipping)' : (formData.discount_type === 'PERCENTAGE' ? '(%)' : '(₹)')}
+                                        Discount Value {formData.cart_discount_type === 'FREE_SHIPPING' ? '(Free Shipping)' : (formData.cart_discount_type === 'PERCENTAGE' ? '(%)' : '(₹)')}
                                     </label>
                                     <input
-                                        type={formData.discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
+                                        type={formData.cart_discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
                                         step="0.01"
                                         min="0"
-                                        placeholder={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
-                                        value={formData.discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : formData.discount_value}
-                                        onChange={e => setFormData({ ...formData, discount_value: e.target.value })}
-                                        disabled={formData.discount_type === 'FREE_SHIPPING'}
+                                        placeholder={formData.cart_discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
+                                        value={formData.cart_discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : (formData.cart_discount_value ?? '')}
+                                        onChange={e => setFormData({ ...formData, cart_discount_value: e.target.value })}
+                                        disabled={formData.cart_discount_type === 'FREE_SHIPPING'}
                                         className="styled-input"
                                     />
                                     <div className="field-explain">
-                                        {formData.discount_type === 'FREE_SHIPPING'
+                                        {formData.cart_discount_type === 'FREE_SHIPPING'
                                             ? 'Automatically waives shipping charges when cart condition is satisfied.'
-                                            : (formData.discount_type === 'PERCENTAGE' ? 'Percentage reduction on qualifying cart subtotal.' : 'Flat rupee discount on qualifying cart subtotal.')}
+                                            : (formData.cart_discount_type === 'PERCENTAGE' ? 'Percentage reduction on qualifying cart subtotal.' : 'Flat rupee discount on qualifying cart subtotal.')}
                                     </div>
                                 </div>
                             </div>

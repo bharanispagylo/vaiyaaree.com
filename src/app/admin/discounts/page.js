@@ -26,7 +26,7 @@ export default function AdminDiscountsPage() {
     const [availableCategories, setAvailableCategories] = useState([]);
     const [availableProducts, setAvailableProducts] = useState([]);
 
-    // Form State
+    // Form State with decoupled Product vs Cart Level discount types and values
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -35,8 +35,10 @@ export default function AdminDiscountsPage() {
         threshold_type: 'COUNT', // 'COUNT' | 'VALUE'
         threshold_count: '5',
         threshold_value: '5000',
-        discount_type: 'PERCENTAGE',
-        discount_value: '10',
+        product_discount_type: 'PERCENTAGE',
+        product_discount_value: '10',
+        cart_discount_type: 'PERCENTAGE',
+        cart_discount_value: '10',
         target_type: 'ALL_PRODUCTS',
         minimum_cart_amount: '0',
         minimum_cart_products_enabled: false,
@@ -100,8 +102,10 @@ export default function AdminDiscountsPage() {
                 threshold_type: threshType,
                 threshold_count: rule.threshold_count !== null && rule.threshold_count !== undefined ? String(rule.threshold_count) : '5',
                 threshold_value: rule.threshold_value !== null && rule.threshold_value !== undefined ? String(rule.threshold_value) : '5000',
-                discount_type: rule.discount_type || 'PERCENTAGE',
-                discount_value: rule.discount_value !== undefined ? String(rule.discount_value) : '10',
+                product_discount_type: basis === 'PRODUCT' ? (rule.discount_type || 'PERCENTAGE') : 'PERCENTAGE',
+                product_discount_value: basis === 'PRODUCT' ? (rule.discount_value !== undefined ? String(rule.discount_value) : '10') : '10',
+                cart_discount_type: basis === 'CART' ? (rule.discount_type || 'PERCENTAGE') : 'PERCENTAGE',
+                cart_discount_value: basis === 'CART' ? (rule.discount_value !== undefined ? String(rule.discount_value) : '10') : '10',
                 target_type: rule.target_type || 'ALL_PRODUCTS',
                 minimum_cart_amount: rule.minimum_cart_amount !== undefined ? String(rule.minimum_cart_amount) : '0',
                 minimum_cart_products_enabled: rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true,
@@ -125,8 +129,10 @@ export default function AdminDiscountsPage() {
                 threshold_type: 'COUNT',
                 threshold_count: '5',
                 threshold_value: '5000',
-                discount_type: 'PERCENTAGE',
-                discount_value: '10',
+                product_discount_type: 'PERCENTAGE',
+                product_discount_value: '10',
+                cart_discount_type: 'PERCENTAGE',
+                cart_discount_value: '10',
                 target_type: 'ALL_PRODUCTS',
                 minimum_cart_amount: '0',
                 minimum_cart_products_enabled: false,
@@ -158,20 +164,29 @@ export default function AdminDiscountsPage() {
         setError(null);
         try {
             const isCartBasis = formData.calculation_basis === 'CART';
+            const effectiveDiscountType = isCartBasis ? formData.cart_discount_type : formData.product_discount_type;
+            const rawDiscountValue = isCartBasis ? formData.cart_discount_value : formData.product_discount_value;
+            const effectiveDiscountValue = effectiveDiscountType === 'FREE_SHIPPING' ? 0 : parseFloat(rawDiscountValue || 0);
 
             const payload = {
-                ...formData,
+                name: formData.name,
+                description: formData.description,
+                coupon_code: formData.coupon_code,
                 calculation_basis: formData.calculation_basis,
                 threshold_type: isCartBasis ? formData.threshold_type : null,
                 threshold_count: isCartBasis && formData.threshold_type === 'COUNT' ? parseInt(formData.threshold_count || '1', 10) : null,
                 threshold_value: isCartBasis && formData.threshold_type === 'VALUE' ? parseFloat(formData.threshold_value || '0') : null,
-                discount_value: formData.discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(formData.discount_value || 0),
+                discount_type: effectiveDiscountType,
+                discount_value: effectiveDiscountValue,
+                target_type: isCartBasis ? 'ALL_PRODUCTS' : formData.target_type,
                 minimum_cart_amount: parseFloat(formData.minimum_cart_amount || 0),
                 maximum_discount_amount: null,
                 minimum_cart_products_enabled: !isCartBasis && formData.minimum_cart_products_enabled ? 1 : 0,
                 minimum_cart_products: !isCartBasis && formData.minimum_cart_products_enabled ? parseInt(formData.minimum_cart_products || '1', 10) : null,
                 categories: isCartBasis ? [] : formData.categories,
                 product_ids: isCartBasis ? [] : formData.product_ids,
+                start_date: formData.start_date || null,
+                end_date: formData.end_date || null,
                 priority: parseInt(formData.priority || '10', 10),
                 usage_limit: null,
                 customer_limit: parseInt(formData.customer_limit || '1', 10),

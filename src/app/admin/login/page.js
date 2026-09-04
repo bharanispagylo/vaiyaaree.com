@@ -7,6 +7,7 @@ import {
     Mail, ArrowLeft, RefreshCw, Sparkles, PackageCheck,
     Layers, ArrowRight, CheckCircle2, AlertCircle
 } from 'lucide-react';
+import { sanitizeAdminProfile } from '@/lib/authSanitizer';
 
 export default function AdminLoginPage() {
     const router = useRouter();
@@ -76,7 +77,13 @@ export default function AdminLoginPage() {
                     }, 100);
                 } else {
                     // Direct login without 2FA
-                    const adminData = { ...data, login_at: Date.now() };
+                    const adminData = sanitizeAdminProfile({
+                        username: data.username,
+                        role: data.role,
+                        email: data.email,
+                        full_name: data.full_name,
+                        login_at: Date.now()
+                    });
                     localStorage.setItem('cast_prince_admin', data.token);
                     localStorage.setItem('cast_prince_admin_user', JSON.stringify(adminData));
                     router.push('/admin');
@@ -162,7 +169,13 @@ export default function AdminLoginPage() {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                const adminData = { ...data, login_at: Date.now() };
+                const adminData = sanitizeAdminProfile({
+                    username: data.username,
+                    role: data.role,
+                    email: data.email,
+                    full_name: data.full_name,
+                    login_at: Date.now()
+                });
                 localStorage.setItem('cast_prince_admin', data.token);
                 localStorage.setItem('cast_prince_admin_user', JSON.stringify(adminData));
                 router.push('/admin');

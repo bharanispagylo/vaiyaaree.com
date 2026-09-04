@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { LogOut, Menu, User, ShieldCheck, ChevronDown, Mail, Settings, Users, Sparkles, Check } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
+import { sanitizeAdminProfile } from '@/lib/authSanitizer';
 
 // Map path → page title
 const PAGE_TITLES = {
@@ -84,8 +85,10 @@ export default function AdminTopBar({ onMenuClick }) {
             const adminStored = typeof window !== 'undefined' ? localStorage.getItem('cast_prince_admin_user') : null;
             if (adminStored) {
                 const parsed = JSON.parse(adminStored);
-                if (parsed && (parsed.full_name || parsed.username || parsed.role)) {
-                    setAdminUser(prev => ({ ...prev, ...parsed }));
+                const safeParsed = sanitizeAdminProfile(parsed);
+                if (safeParsed && (safeParsed.full_name || safeParsed.username || safeParsed.role)) {
+                    setAdminUser(prev => ({ ...prev, ...safeParsed }));
+                    localStorage.setItem('cast_prince_admin_user', JSON.stringify(safeParsed));
                 }
             }
         } catch (e) {
@@ -95,7 +98,7 @@ export default function AdminTopBar({ onMenuClick }) {
         // 2. Fetch fresh session info from verify-session API
         const token = typeof window !== 'undefined' ? localStorage.getItem('cast_prince_admin') : null;
         const storedUsername = adminUser?.username || (typeof window !== 'undefined' ? (() => {
-            try { return JSON.parse(localStorage.getItem('cast_prince_admin_user'))?.username || ''; } catch(e) { return ''; }
+            try { return sanitizeAdminProfile(JSON.parse(localStorage.getItem('cast_prince_admin_user')))?.username || ''; } catch(e) { return ''; }
         })() : '');
 
         if (token) {
@@ -108,15 +111,17 @@ export default function AdminTopBar({ onMenuClick }) {
                 .then(res => res.json())
                 .then(data => {
                     if (data.success && data.admin) {
+                        const safeAdmin = sanitizeAdminProfile(data.admin);
                         setAdminUser(prev => {
-                            const newFullName = (data.admin.full_name && data.admin.full_name !== 'Administrator') 
-                                ? data.admin.full_name 
-                                : (prev.full_name && prev.full_name !== 'Administrator' ? prev.full_name : (data.admin.username || prev.username || ''));
-                            return {
+                            const newFullName = (safeAdmin.full_name && safeAdmin.full_name !== 'Administrator') 
+                                ? safeAdmin.full_name 
+                                : (prev.full_name && prev.full_name !== 'Administrator' ? prev.full_name : (safeAdmin.username || prev.username || ''));
+                            const updated = {
                                 ...prev,
-                                ...data.admin,
+                                ...safeAdmin,
                                 full_name: newFullName
                             };
+                            return updated;
                         });
                     }
                 })

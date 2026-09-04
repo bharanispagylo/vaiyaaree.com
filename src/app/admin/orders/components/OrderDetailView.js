@@ -592,48 +592,89 @@ export default function OrderDetailView({
                         gridArea: 'others' 
                     }}>
                         <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', order: isEditingItems ? 2 : 1 }}>
-                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Order Summary</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem', color: 'hsl(var(--text-main))' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>Subtotal:</span>
-                                    <span style={{ fontWeight: 600 }}>₹{(selectedOrder.subtotal || (selectedOrder.total_amount - (selectedOrder.tax_amount || 0) - (selectedOrder.shipping_cost || 0))).toLocaleString()}</span>
-                                </div>
+                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem', fontWeight: 700 }}>Order Summary</h4>
+                            {(() => {
+                                const rawDiscount = Number(
+                                    selectedOrder.total_discount || 
+                                    selectedOrder.discount_amount || 
+                                    selectedOrder.coupon_discount || 
+                                    selectedOrder.cart_discount || 
+                                    0
+                                );
+                                const rawSubtotal = Number(selectedOrder.subtotal || 0);
+                                const subtotalVal = rawSubtotal > 0 
+                                    ? rawSubtotal 
+                                    : (itemsTotal > 0 
+                                        ? itemsTotal 
+                                        : Math.max(0, Number(selectedOrder.total_amount || 0) - Number(selectedOrder.tax_amount || 0) - Number(selectedOrder.shipping_cost || 0) + rawDiscount));
+                                
+                                const rawCgst = Number(selectedOrder.cgst || selectedOrder.cgst_amount || 0);
+                                const rawSgst = Number(selectedOrder.sgst || selectedOrder.sgst_amount || 0);
+                                const rawIgst = Number(selectedOrder.igst || selectedOrder.igst_amount || 0);
+                                const rawTax = Number(selectedOrder.tax_amount || 0);
 
-                                {selectedOrder.cgst > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                        <span>CGST (2.5%):</span>
-                                        <span>₹{parseFloat(selectedOrder.cgst).toLocaleString()}</span>
-                                    </div>
-                                )}
-                                {selectedOrder.sgst > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                        <span>SGST (2.5%):</span>
-                                        <span>₹{parseFloat(selectedOrder.sgst).toLocaleString()}</span>
-                                    </div>
-                                )}
-                                {selectedOrder.igst > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                        <span>IGST (5%):</span>
-                                        <span>₹{parseFloat(selectedOrder.igst).toLocaleString()}</span>
-                                    </div>
-                                )}
-                                {(!selectedOrder.cgst && !selectedOrder.sgst && !selectedOrder.igst && selectedOrder.tax_amount > 0) && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                        <span>Tax (Aggregate):</span>
-                                        <span>₹{parseFloat(selectedOrder.tax_amount).toLocaleString()}</span>
-                                    </div>
-                                )}
+                                let cgstVal = 0;
+                                let sgstVal = 0;
+                                if (rawCgst > 0 || rawSgst > 0) {
+                                    cgstVal = rawCgst;
+                                    sgstVal = rawSgst;
+                                } else if (rawTax > 0) {
+                                    cgstVal = rawTax / 2;
+                                    sgstVal = rawTax / 2;
+                                } else if (rawIgst > 0) {
+                                    cgstVal = rawIgst / 2;
+                                    sgstVal = rawIgst / 2;
+                                } else if (subtotalVal > 0) {
+                                    cgstVal = Math.round(subtotalVal * 0.025 * 100) / 100;
+                                    sgstVal = Math.round(subtotalVal * 0.025 * 100) / 100;
+                                }
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: 'hsl(var(--text-muted))' }}>
-                                    <span>Shipping:</span>
-                                    <span>₹{(selectedOrder.shipping_cost || 0).toLocaleString()}</span>
-                                </div>
-                                <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.5rem 0' }} />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
-                                    <span>Total:</span>
-                                    <span>₹{(selectedOrder.total_amount || 0).toLocaleString()}</span>
-                                </div>
-                            </div>
+                                const shippingVal = Number(selectedOrder.shipping_cost || selectedOrder.shipping_fee || 0);
+                                const grandTotalVal = Number(selectedOrder.total_amount || 0);
+
+                                return (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem', color: 'hsl(var(--text-main))' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Subtotal:</span>
+                                            <span style={{ fontWeight: 600 }}>₹{subtotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                            <span>CGST (2.5%):</span>
+                                            <span>₹{cgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                            <span>SGST (2.5%):</span>
+                                            <span>₹{sgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+
+                                        {rawIgst > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                                <span>IGST (5%):</span>
+                                                <span>₹{rawIgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                        )}
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                            <span>Shipping:</span>
+                                            <span>{shippingVal > 0 ? `₹${shippingVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Free (₹0.00)'}</span>
+                                        </div>
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                            <span>Discount{selectedOrder.coupon_code ? ` (${selectedOrder.coupon_code})` : ''}:</span>
+                                            <span style={{ color: rawDiscount > 0 ? '#dc2626' : 'inherit', fontWeight: rawDiscount > 0 ? 600 : 400 }}>
+                                                {rawDiscount > 0 ? `- ₹${rawDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
+                                            </span>
+                                        </div>
+
+                                        <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.5rem 0' }} />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
+                                            <span>Grand Total:</span>
+                                            <span>₹{grandTotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Source & Channel Info Card */}

@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { calculateDiscounts } from '@/services/discountService';
+import { sanitizeCustomerSession } from '@/lib/authSanitizer';
 
 const defaultContextValue = {
     products: [], cart: [], loading: false, user: null, setUser: () => { }, isSessionLoading: true,
@@ -430,20 +431,30 @@ export function ShopProvider({ children }) {
                 return;
             }
 
-            // Set local user immediately so UI remains logged in on page refresh
-            setUser(localUser);
+            // Sanitize existing localUser immediately to strip any legacy sensitive fields
+            const cleanLocalUser = sanitizeCustomerSession(localUser);
+            if (!cleanLocalUser) {
+                localStorage.removeItem('cast_prince_user');
+                setUser(null);
+                setIsSessionLoading(false);
+                return;
+            }
+
+            // Set sanitized local user immediately so UI remains logged in on page refresh
+            setUser(cleanLocalUser);
+            localStorage.setItem('cast_prince_user', JSON.stringify(cleanLocalUser));
 
             // Fetch latest user profile from DB to sync changes if valid ID exists
-            if (localUser.id && localUser.id !== 'undefined') {
+            if (cleanLocalUser.id && cleanLocalUser.id !== 'undefined') {
                 try {
                     const { data: dbUser, error: dbError } = await mysqlClient
                         .from('customers')
-                        .select('*')
-                        .eq('id', localUser.id)
+                        .select('id, name, email, phone, country_code, address, city, state, pincode, role, is_verified')
+                        .eq('id', cleanLocalUser.id)
                         .maybeSingle();
 
                     if (!dbError && dbUser) {
-                        const activeUser = { ...localUser, ...dbUser, login_at: localUser.login_at || Date.now() };
+                        const activeUser = sanitizeCustomerSession({ ...cleanLocalUser, ...dbUser });
                         setUser(activeUser);
                         localStorage.setItem('cast_prince_user', JSON.stringify(activeUser));
 
@@ -715,6 +726,7 @@ export function ShopProvider({ children }) {
                     couponCode: appliedCoupon?.couponCode || null,
                     customer: user || null
                 });
+
                 setDiscountData(res || {
                     subtotal: cartTotal,
                     productDiscount: 0,
@@ -725,12 +737,33 @@ export function ShopProvider({ children }) {
                     discountedItems: [],
                     appliedRules: []
                 });
+
+                // Reconcile appliedCoupon with actual server calculation results
+                if (appliedCoupon) {
+                    const couponCodeUpper = (appliedCoupon.couponCode || '').trim().toUpperCase();
+                    const hasAppliedCouponRule = (res?.appliedRules || []).some(
+                        r => r.isCoupon || (r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper)
+                    );
+                    const couponDiscountAmount = Number(res?.couponDiscount || 0);
+
+                    if (!hasAppliedCouponRule || couponDiscountAmount <= 0) {
+                        // Coupon is disabled, expired, or invalid for cart items
+                        setAppliedCoupon(null);
+                        setCouponError('The applied coupon is no longer active or valid for the items in your cart.');
+                    } else {
+                        setAppliedCoupon(prev => prev ? {
+                            ...prev,
+                            couponDiscount: couponDiscountAmount,
+                            calculation: res
+                        } : null);
+                    }
+                }
             } catch (err) {
                 console.error('Error calculating storewide discounts:', err);
             }
         }
         syncDiscounts();
-    }, [cart, appliedCoupon, user]);
+    }, [cart, appliedCoupon?.couponCode, user]);
 
     const taxDetails = useMemo(() => {
         const subtotal = cartTotal;
@@ -953,8 +986,11 @@ export function ShopProvider({ children }) {
                 }
 
                 // Log the customer in locally so they see their correct profile immediately
-                setUser(currentCustomer);
-                localStorage.setItem('cast_prince_user', JSON.stringify(currentCustomer));
+                const safeCustomer = sanitizeCustomerSession(currentCustomer);
+                if (safeCustomer) {
+                    setUser(safeCustomer);
+                    localStorage.setItem('cast_prince_user', JSON.stringify(safeCustomer));
+                }
             } else {
                 // User is logged in as valid customer: sync customer profile with latest billing details
                 try {
@@ -971,10 +1007,13 @@ export function ShopProvider({ children }) {
                             last_billing_address: billingAddressObj,
                             last_shipping_address: shippingAddressObj
                         }
-                    }).eq('id', user.id).select().single();
+                    }).eq('id', user.id).select('id, name, email, phone, country_code, address, city, state, pincode, role, is_verified').single();
                     if (updatedUser) {
-                        setUser(updatedUser);
-                        localStorage.setItem('cast_prince_user', JSON.stringify(updatedUser));
+                        const safeUpdated = sanitizeCustomerSession(updatedUser);
+                        if (safeUpdated) {
+                            setUser(safeUpdated);
+                            localStorage.setItem('cast_prince_user', JSON.stringify(safeUpdated));
+                        }
                     }
                 } catch (syncErr) {
                     console.error('[PROFILE-SYNC] Failed to update customer profile:', syncErr);

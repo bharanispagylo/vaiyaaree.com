@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Tag, Truck, ExternalLink, Loader2 } from 'lucide-react';
+import { X, Tag, Truck, ExternalLink, Loader2, Receipt, ShieldCheck } from 'lucide-react';
 import { 
     formatOrderInvoice, 
     toIST, 
@@ -14,17 +14,63 @@ import {
 export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProducts = [] }) {
     if (!infoModalOrder) return null;
 
+    // Calculations for Complete Order Summary
+    const items = infoModalOrder.items || infoModalOrder.order_items || [];
+    const itemsTotal = items.reduce((sum, item) => sum + (Number(item.price_at_time || item.price || 0) * Number(item.quantity || item.qty || 1)), 0);
+    const rawSubtotal = Number(infoModalOrder.subtotal || 0);
+    const rawTax = Number(infoModalOrder.tax_amount || 0);
+    const shippingCost = Number(infoModalOrder.shipping_cost || infoModalOrder.shipping_fee || 0);
+    const discountAmount = Number(
+        infoModalOrder.total_discount || 
+        infoModalOrder.discount_amount || 
+        infoModalOrder.coupon_discount || 
+        infoModalOrder.cart_discount || 
+        0
+    );
+    const grandTotal = Number(infoModalOrder.total_amount || 0);
+
+    const subtotal = rawSubtotal > 0 
+        ? rawSubtotal 
+        : (itemsTotal > 0 
+            ? itemsTotal 
+            : Math.max(0, grandTotal - rawTax - shippingCost + discountAmount));
+
+    const rawCgst = Number(infoModalOrder.cgst || infoModalOrder.cgst_amount || 0);
+    const rawSgst = Number(infoModalOrder.sgst || infoModalOrder.sgst_amount || 0);
+    const rawIgst = Number(infoModalOrder.igst || infoModalOrder.igst_amount || 0);
+
+    let cgst = 0;
+    let sgst = 0;
+    if (rawCgst > 0 || rawSgst > 0) {
+        cgst = rawCgst;
+        sgst = rawSgst;
+    } else if (rawTax > 0) {
+        cgst = rawTax / 2;
+        sgst = rawTax / 2;
+    } else if (rawIgst > 0) {
+        cgst = rawIgst / 2;
+        sgst = rawIgst / 2;
+    } else if (subtotal > 0) {
+        cgst = Math.round(subtotal * 0.025 * 100) / 100;
+        sgst = Math.round(subtotal * 0.025 * 100) / 100;
+    }
+
+    const couponCode = infoModalOrder.coupon_code || '';
+
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999 }}>
-            <div className="animate-enter card shadow-premium" style={{ padding: '0', maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', background: '#fff', borderRadius: '16px' }}>
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
+            <div className="animate-enter card shadow-premium" style={{ padding: '0', maxWidth: '620px', width: '92%', maxHeight: '90vh', overflowY: 'auto', background: '#fff', borderRadius: '16px' }}>
+                {/* Modal Header */}
+                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
                     <div>
                         <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Order {formatOrderInvoice(infoModalOrder)}</h3>
                         <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Placed on {toIST(infoModalOrder.created_at)}</div>
                     </div>
                     <button onClick={onClose} className="btn btn-secondary" style={{ padding: '0.5rem' }}><X size={18} /></button>
                 </div>
+
                 <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* Top Overview Cards */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1.25rem' }}>
                         <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                             <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>Customer Overview</div>
@@ -36,8 +82,8 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                             <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.2rem', fontWeight: 700, letterSpacing: '0.5px' }}>Order Status</div>
                             <div><span className={`badge ${getStatusReference(infoModalOrder.status)}`} style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}>{infoModalOrder.status}</span></div>
                             <div style={{ marginTop: '0.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Total Price :</div>
-                                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'hsl(var(--success))' }}>₹{(infoModalOrder.total_amount || 0).toLocaleString('en-IN')}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Grand Total :</div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'hsl(var(--success))' }}>₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Payment Method :</div>
@@ -46,6 +92,7 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                         </div>
                     </div>
                     
+                    {/* Order Items */}
                     {infoModalOrder.items ? (
                         <div>
                             <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', fontWeight: 700, letterSpacing: '0.5px' }}>Order Items</div>
@@ -81,6 +128,55 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                         <div style={{ textAlign: 'center', padding: '2rem' }}><Loader2 size={24} className="animate-spin" style={{ color: 'hsl(var(--text-muted))', margin: '0 auto' }} /></div>
                     )}
 
+                    {/* FULL ORDER SUMMARY SECTION */}
+                    <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.85rem', fontWeight: 800, letterSpacing: '0.5px' }}>
+                            <Receipt size={14} style={{ color: 'hsl(var(--primary))' }} /> Full Order Summary
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.88rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Subtotal:</span>
+                                <span style={{ fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>CGST (2.5%):</span>
+                                <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>SGST (2.5%):</span>
+                                <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            {rawIgst > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>IGST (5%):</span>
+                                    <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{rawIgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Shipping:</span>
+                                <span style={{ fontWeight: 600, color: shippingCost > 0 ? 'hsl(var(--text-main))' : '#16a34a' }}>
+                                    {shippingCost > 0 ? `₹${shippingCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Free (₹0.00)'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>
+                                    Discount{couponCode ? ` (${couponCode})` : ''}:
+                                </span>
+                                <span style={{ fontWeight: 600, color: discountAmount > 0 ? '#dc2626' : 'hsl(var(--text-muted))' }}>
+                                    {discountAmount > 0 ? `- ₹${discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
+                                </span>
+                            </div>
+                            <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.4rem 0' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '1.05rem', fontWeight: 800 }}>
+                                <span style={{ color: 'hsl(var(--text-main))' }}>Grand Total:</span>
+                                <span style={{ color: 'hsl(var(--primary))', fontSize: '1.15rem' }}>
+                                    ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Shipping Address */}
                     <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
                         <div style={{ fontSize: '0.7rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.75rem', fontWeight: 700, letterSpacing: '0.5px' }}>Shipping Address</div>
                         <div style={{ fontSize: '0.9rem', wordBreak: 'break-word', color: 'hsl(var(--text-main))' }}>
@@ -106,6 +202,7 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                         </div>
                     </div>
 
+                    {/* Logistics / Courier Details */}
                     {(() => {
                         const courierInfo = parseCourierDetails(infoModalOrder);
                         if (!courierInfo.name && !courierInfo.trackingNumber) return null;

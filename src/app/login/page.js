@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
+import { sanitizeCustomerSession } from '@/lib/authSanitizer';
 import styles from './login.module.css';
 
 function LoginContent({ initialMode }) {
@@ -74,7 +75,7 @@ function LoginContent({ initialMode }) {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                const customerData = { ...data.customer, login_at: Date.now() };
+                const customerData = sanitizeCustomerSession({ ...data.customer, login_at: Date.now() });
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
                 setSuccessMessage('Logged in successfully! Redirecting...');
@@ -142,7 +143,7 @@ function LoginContent({ initialMode }) {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                const customerData = { ...data.customer, login_at: Date.now() };
+                const customerData = sanitizeCustomerSession({ ...data.customer, login_at: Date.now() });
                 localStorage.setItem('cast_prince_user', JSON.stringify(customerData));
                 setUser(customerData);
                 setSuccessMessage('Account created successfully! Redirecting...');
