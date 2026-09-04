@@ -46,7 +46,8 @@ export default function OrderDetailView({
     handleCancelOrder,
     notificationSelection,
     setNotificationSelection,
-    notification
+    notification,
+    isUpdatingStatus = false
 }) {
     if (!selectedOrder) return null;
 
@@ -61,6 +62,22 @@ export default function OrderDetailView({
                         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Order Details {formatOrderInvoice(selectedOrder)}</h2>
                         <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '4px', flexWrap: 'wrap' }}>
                             <span>Placed on {toIST(selectedOrder.created_at)}</span>
+                            {isUpdatingStatus && (
+                                <span style={{
+                                    padding: '0.2rem 0.65rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 800,
+                                    background: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    color: 'hsl(var(--primary))',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}>
+                                    <Loader2 size={12} className="animate-spin" /> Updating Status...
+                                </span>
+                            )}
                             {(() => {
                                 const src = selectedOrder.source || (selectedOrder.id?.startsWith('WEB-') ? 'WEBSITE' : selectedOrder.id?.startsWith('MAN-') ? 'MANUAL' : 'WHATSAPP');
                                 const badgeConfig = {
@@ -709,32 +726,67 @@ export default function OrderDetailView({
 
                         {/* Actions Card */}
                         <div className="card-sub" style={{ padding: '1.25rem', background: '#ffffff', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', order: isEditingItems ? 1 : 2 }}>
-                            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', marginBottom: '1rem' }}>Actions</h4>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted))', margin: 0 }}>Actions</h4>
+                                {isUpdatingStatus && (
+                                    <span style={{ fontSize: '0.75rem', color: 'hsl(var(--primary))', display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}>
+                                        <Loader2 size={13} className="animate-spin" /> Updating...
+                                    </span>
+                                )}
+                            </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
-                                <select
-                                    value={selectedOrder.status}
-                                    onChange={(e) => {
-                                        const newStatus = e.target.value;
-                                        setStatusConfirmModal(null);
+                                <div style={{ position: 'relative', width: '100%' }}>
+                                    <select
+                                        value={selectedOrder.status}
+                                        disabled={loading || isUpdatingStatus}
+                                        onChange={(e) => {
+                                            const newStatus = e.target.value;
+                                            if (isUpdatingStatus) return;
+                                            setStatusConfirmModal(null);
 
-                                        if (newStatus === 'SHIPPED') {
-                                            openCourierModal(selectedOrder, false);
-                                        } else if (newStatus === 'CANCELLED') {
-                                            setShowCancelModal(true);
-                                        } else if (['PAID', 'PACKING', 'DELIVERED'].includes(newStatus)) {
-                                            setStatusConfirmModal({
-                                                status: newStatus,
-                                                title: `Confirm ${newStatus}`,
-                                                message: `Change order status to ${newStatus}? This will automatically notify all relevant contacts via WhatsApp and Email.`,
-                                            });
-                                        } else {
-                                            onUpdateStatus(selectedOrder.id, newStatus);
-                                        }
-                                    }}
-                                    style={{ padding: '0.75rem', borderRadius: '8px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}
-                                >
-                                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
+                                            if (newStatus === 'SHIPPED') {
+                                                openCourierModal(selectedOrder, false);
+                                            } else if (newStatus === 'CANCELLED') {
+                                                setShowCancelModal(true);
+                                            } else if (['PAID', 'PACKING', 'DELIVERED'].includes(newStatus)) {
+                                                setStatusConfirmModal({
+                                                    status: newStatus,
+                                                    title: `Confirm ${newStatus}`,
+                                                    message: `Change order status to ${newStatus}? This will automatically notify all relevant contacts via WhatsApp and Email.`,
+                                                });
+                                            } else {
+                                                onUpdateStatus(selectedOrder.id, newStatus);
+                                            }
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            paddingRight: isUpdatingStatus ? '2.5rem' : '0.75rem',
+                                            borderRadius: '8px',
+                                            background: isUpdatingStatus ? '#e2e8f0' : '#f1f5f9',
+                                            border: isUpdatingStatus ? '1px solid hsl(var(--primary) / 0.5)' : '1px solid hsl(var(--border-subtle))',
+                                            color: isUpdatingStatus ? '#64748b' : 'hsl(var(--text-main))',
+                                            cursor: isUpdatingStatus ? 'not-allowed' : 'pointer',
+                                            opacity: isUpdatingStatus ? 0.75 : 1
+                                        }}
+                                    >
+                                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                    {isUpdatingStatus && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            right: '12px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            color: 'hsl(var(--primary))',
+                                            pointerEvents: 'none'
+                                        }}>
+                                            <Loader2 size={16} className="animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
 
                                 {/* Status Confirmation Modal */}
                                 {statusConfirmModal && (
@@ -746,16 +798,36 @@ export default function OrderDetailView({
                                             {statusConfirmModal.message}
                                         </p>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                            <button type="button" onClick={() => setStatusConfirmModal(null)} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    onUpdateStatus(selectedOrder.id, statusConfirmModal.status);
+                                                disabled={isUpdatingStatus}
+                                                onClick={() => setStatusConfirmModal(null)}
+                                                className="btn btn-secondary"
+                                                style={{ fontSize: '0.8rem', opacity: isUpdatingStatus ? 0.6 : 1, cursor: isUpdatingStatus ? 'not-allowed' : 'pointer' }}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={isUpdatingStatus}
+                                                onClick={async () => {
+                                                    if (isUpdatingStatus) return;
+                                                    await onUpdateStatus(selectedOrder.id, statusConfirmModal.status);
                                                     setStatusConfirmModal(null);
                                                 }}
                                                 className="btn btn-primary"
-                                                style={{ fontSize: '0.8rem' }}
-                                            >Confirm</button>
+                                                style={{
+                                                    fontSize: '0.8rem',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '6px',
+                                                    opacity: isUpdatingStatus ? 0.75 : 1,
+                                                    cursor: isUpdatingStatus ? 'not-allowed' : 'pointer'
+                                                }}
+                                            >
+                                                {isUpdatingStatus ? <><Loader2 size={13} className="animate-spin" /> Updating...</> : 'Confirm'}
+                                            </button>
                                         </div>
                                     </div>
                                 )}
@@ -769,19 +841,39 @@ export default function OrderDetailView({
                                         <textarea
                                             placeholder="Enter cancellation reason..."
                                             value={cancelReason}
+                                            disabled={loading || isUpdatingStatus}
                                             onChange={e => setCancelReason(e.target.value)}
                                             rows={2}
-                                            style={{ width: '100%', padding: '0.5rem', background: '#fff', border: '1px solid #fca5a5', borderRadius: '6px', fontSize: '0.85rem' }}
+                                            style={{ width: '100%', padding: '0.5rem', background: '#fff', border: '1px solid #fca5a5', borderRadius: '6px', fontSize: '0.85rem', opacity: (loading || isUpdatingStatus) ? 0.7 : 1 }}
                                         />
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                            <button type="button" onClick={() => { setShowCancelModal(false); setCancelReason(''); }} className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>Cancel</button>
+                                            <button
+                                                type="button"
+                                                disabled={loading || isUpdatingStatus}
+                                                onClick={() => { setShowCancelModal(false); setCancelReason(''); }}
+                                                className="btn btn-secondary"
+                                                style={{ fontSize: '0.8rem', opacity: (loading || isUpdatingStatus) ? 0.6 : 1, cursor: (loading || isUpdatingStatus) ? 'not-allowed' : 'pointer' }}
+                                            >
+                                                Cancel
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={handleCancelOrder}
-                                                disabled={!cancelReason.trim()}
+                                                disabled={!cancelReason.trim() || loading || isUpdatingStatus}
                                                 className="btn btn-primary"
-                                                style={{ fontSize: '0.8rem', background: '#ef4444' }}
-                                            >Confirm Cancel</button>
+                                                style={{
+                                                    fontSize: '0.8rem',
+                                                    background: '#ef4444',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '6px',
+                                                    opacity: (!cancelReason.trim() || loading || isUpdatingStatus) ? 0.7 : 1,
+                                                    cursor: (!cancelReason.trim() || loading || isUpdatingStatus) ? 'not-allowed' : 'pointer'
+                                                }}
+                                            >
+                                                {(loading || isUpdatingStatus) ? <><Loader2 size={13} className="animate-spin" /> Cancelling...</> : 'Confirm Cancel'}
+                                            </button>
                                         </div>
                                     </div>
                                 )}

@@ -11,7 +11,10 @@ export async function POST(request) {
             status,
             courierName,
             trackingNumber,
-            trackingUrl
+            trackingUrl,
+            notes,
+            adminNotes,
+            cancelReason
         } = await request.json();
 
         // 0. Authorization Check
@@ -165,6 +168,15 @@ export async function POST(request) {
             const updateFields = ["`status` = ?", "`updated_at` = NOW()"];
             const updateParams = [status];
 
+            if (adminNotes || cancelReason) {
+                const combinedAdminNotes = adminNotes || `Cancelled: ${cancelReason}`;
+                updateFields.push("`admin_notes` = ?");
+                updateParams.push(combinedAdminNotes);
+            }
+            if (cancelReason) {
+                updateFields.push("`cancel_reason` = ?");
+                updateParams.push(cancelReason);
+            }
             if (courierName) {
                 updateFields.push("`courier_name` = ?");
                 updateParams.push(courierName);
@@ -186,7 +198,7 @@ export async function POST(request) {
 
             // 5. Insert into order_status_logs
             const logId = crypto.randomUUID ? crypto.randomUUID() : `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-            const noteText = courierName ? `Shipped via ${courierName} (Tracking: ${trackingNumber || 'N/A'})` : `Status updated to ${status} via Admin Dashboard`;
+            const noteText = notes || (courierName ? `Shipped via ${courierName} (Tracking: ${trackingNumber || 'N/A'})` : cancelReason ? `Order cancelled. Reason: ${cancelReason}` : `Status updated to ${status} via Admin Dashboard`);
             await conn.query(
                 "INSERT INTO `order_status_logs` (`id`, `order_id`, `status`, `notes`, `created_at`) VALUES (?, ?, ?, ?, NOW())",
                 [logId, orderId, status, noteText]
@@ -233,7 +245,8 @@ export async function POST(request) {
 
         return new Response(JSON.stringify({
             success: true,
-            message: `Order updated to ${status} with ACID transaction guarantee and notification triggered`
+            message: `Order updated to ${status} with ACID transaction guarantee and notification triggered`,
+            order: updatedOrderResult
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }

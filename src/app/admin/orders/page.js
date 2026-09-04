@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, X } from 'lucide-react';
 
 // Helpers & Constants
 import { 
@@ -59,6 +59,7 @@ export default function OrdersPage() {
     const [cancelReason, setCancelReason] = useState('');
     const [returningItem, setReturningItem] = useState(null);
     const [returnQty, setReturnQty] = useState(1);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     // Courier & Shipping Modals
     const [showShippingForm, setShowShippingForm] = useState(false);
@@ -118,6 +119,16 @@ export default function OrdersPage() {
     const [notification, setNotification] = useState(null);
     const [hasMounted, setHasMounted] = useState(false);
 
+    // Auto-dismiss transient toast notifications (error & success)
+    useEffect(() => {
+        if (notification && notification.type !== 'info') {
+            const timer = setTimeout(() => {
+                setNotification(null);
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
+
     // Debounce search term
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
@@ -171,6 +182,8 @@ export default function OrdersPage() {
     };
 
     const fetchOrders = async () => {
+        setNotification(null);
+        setCourierModalError('');
         setLoading(true);
         try {
             const from = (ordersPage - 1) * ORDERS_PER_PAGE;
@@ -364,6 +377,8 @@ export default function OrdersPage() {
 
     // Order Detail & Quick Info Handlers
     const openOrderDetail = async (order) => {
+        setNotification(null);
+        setCourierModalError('');
         setLoading(true);
         setSelectedOrder(order);
         prepareOrderForEditing(order);
@@ -399,6 +414,7 @@ export default function OrdersPage() {
         setIsCourierFromTable(fromTable);
         setIsCourierSaved(false);
         setCourierModalError('');
+        setNotification(null);
         setShippingForm({
             courier_name: order.courier_name || '',
             tracking_number: order.tracking_number || '',
@@ -415,12 +431,14 @@ export default function OrdersPage() {
         if (!selectedCourierId || !shippingForm.courier_name?.trim()) {
             setCourierModalError('Please choose a courier partner.');
             setNotification({ message: 'Please select a courier partner first.', type: 'error' });
+            setTimeout(() => setNotification(null), 3500);
             return;
         }
 
         if (!shippingForm.tracking_number || !shippingForm.tracking_number.trim()) {
             setCourierModalError('AWB / Tracking ID is required.');
             setNotification({ message: 'AWB / Tracking ID is required. Please fill in the Tracking ID.', type: 'error' });
+            setTimeout(() => setNotification(null), 3500);
             return;
         }
 
@@ -451,13 +469,28 @@ export default function OrdersPage() {
                 throw new Error(errData.error || 'Failed to update status');
             }
 
-            setSelectedOrder(prev => ({
-                ...prev,
-                courier_name: shippingForm.courier_name.trim(),
-                tracking_number: shippingForm.tracking_number.trim(),
-                tracking_url: shippingForm.tracking_url,
-                status: 'SHIPPED'
-            }));
+            // Fetch fresh order & fresh status logs from DB
+            const orderIdToSync = selectedOrder.id;
+            const [{ data: freshOrder }, { data: updatedLogs }] = await Promise.all([
+                mysqlClient.from('orders').select('*').eq('id', orderIdToSync).single(),
+                mysqlClient.from('order_status_logs').select('*').eq('order_id', orderIdToSync).order('created_at', { ascending: true })
+            ]);
+
+            if (freshOrder) {
+                setSelectedOrder(freshOrder);
+            } else {
+                setSelectedOrder(prev => ({
+                    ...prev,
+                    courier_name: shippingForm.courier_name.trim(),
+                    tracking_number: shippingForm.tracking_number.trim(),
+                    tracking_url: shippingForm.tracking_url,
+                    status: 'SHIPPED'
+                }));
+            }
+
+            if (updatedLogs) {
+                setOrderActivityLogs(updatedLogs);
+            }
 
             setNotification({ message: 'Tracking ID saved & Order status updated to SHIPPED successfully!', type: 'success' });
             setIsCourierSaved(true);
@@ -631,7 +664,9 @@ export default function OrdersPage() {
     };
 
     // Update Status Handler
-    const updateOrderStatus = async (orderId, newStatus, shippingData = {}, targetPhone = null) => {
+    const updateOrderStatus = async (orderId, newStatus, shippingData = {}, targetPhone = null, extraNotes = null) => {
+        if (isUpdatingStatus) return;
+        setIsUpdatingStatus(true);
         try {
             const token = localStorage.getItem('cast_prince_admin') || '';
             const res = await fetch('/api/orders/update-status', {
@@ -640,36 +675,40 @@ export default function OrdersPage() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ orderId, status: newStatus, targetPhone, ...shippingData })
+                body: JSON.stringify({
+                    orderId,
+                    status: newStatus,
+                    targetPhone,
+                    notes: extraNotes || shippingData.notes,
+                    ...shippingData
+                })
             });
 
             const data = await res.json();
             if (res.ok) {
-                const mappedShipping = {};
-                if (shippingData.courierName) mappedShipping.courier_name = shippingData.courierName;
-                if (shippingData.trackingNumber) mappedShipping.tracking_number = shippingData.trackingNumber;
-                if (shippingData.trackingUrl) mappedShipping.tracking_url = shippingData.trackingUrl;
+                // Fetch fresh order & fresh status logs from DB (server inserted log via NOW() in exact IST)
+                const [{ data: freshOrder }, { data: updatedLogs }] = await Promise.all([
+                    mysqlClient.from('orders').select('*').eq('id', orderId).single(),
+                    mysqlClient.from('order_status_logs').select('*').eq('order_id', orderId).order('created_at', { ascending: true })
+                ]);
 
-                setSelectedOrder(prev => prev ? {
-                    ...prev,
-                    status: newStatus,
-                    ...mappedShipping
-                } : null);
+                if (freshOrder) {
+                    setSelectedOrder(freshOrder);
+                } else {
+                    const mappedShipping = {};
+                    if (shippingData.courierName) mappedShipping.courier_name = shippingData.courierName;
+                    if (shippingData.trackingNumber) mappedShipping.tracking_number = shippingData.trackingNumber;
+                    if (shippingData.trackingUrl) mappedShipping.tracking_url = shippingData.trackingUrl;
+                    setSelectedOrder(prev => prev ? {
+                        ...prev,
+                        status: newStatus,
+                        ...mappedShipping
+                    } : null);
+                }
 
-                const logEntry = {
-                    order_id: orderId,
-                    status: newStatus,
-                    notes: shippingData.courierName ? `Shipped via ${shippingData.courierName}` : `Status updated to ${newStatus}`,
-                    created_at: new Date().toISOString()
-                };
-
-                await mysqlClient.from('order_status_logs').insert(logEntry);
-
-                const newLog = {
-                    id: `log-${Date.now()}`,
-                    ...logEntry
-                };
-                setOrderActivityLogs(prev => [...prev, newLog]);
+                if (updatedLogs) {
+                    setOrderActivityLogs(updatedLogs);
+                }
 
                 fetchOrders();
                 setNotification({
@@ -677,12 +716,15 @@ export default function OrdersPage() {
                     type: 'success'
                 });
             } else {
-                setNotification({ message: `Failed: ${data.error}`, type: 'error' });
+                setNotification({ message: `Failed: ${data.error || data.message || 'Status update failed'}`, type: 'error' });
             }
         } catch (error) {
+            console.error('[STATUS-UPDATE-ERROR]', error);
             setNotification({ message: 'Error updating status', type: 'error' });
+        } finally {
+            setIsUpdatingStatus(false);
+            setTimeout(() => setNotification(null), 4000);
         }
-        setTimeout(() => setNotification(null), 4000);
     };
 
     // Item Edit Handlers
@@ -872,86 +914,65 @@ export default function OrdersPage() {
     };
 
     const handleCancelOrder = async () => {
-        if (!selectedOrder || !cancelReason.trim()) return;
+        if (!selectedOrder || !cancelReason.trim() || isUpdatingStatus) return;
 
+        setIsUpdatingStatus(true);
         setLoading(true);
         try {
-            const { data: items } = await mysqlClient
-                .from('order_items')
-                .select('*')
-                .eq('order_id', selectedOrder.id);
-
-            if (items) {
-                for (const item of items) {
-                    if (item.variant_id) {
-                        const { data: variant } = await mysqlClient
-                            .from('product_variants')
-                            .select('stock')
-                            .eq('id', item.variant_id)
-                            .single();
-                        if (variant) {
-                            await mysqlClient
-                                .from('product_variants')
-                                .update({ stock: variant.stock + item.quantity })
-                                .eq('id', item.variant_id);
-                        }
-                    } else {
-                        const { data: product } = await mysqlClient
-                            .from('products')
-                            .select('stock')
-                            .eq('id', item.product_id)
-                            .single();
-                        if (product) {
-                            await mysqlClient
-                                .from('products')
-                                .update({ stock: product.stock + item.quantity })
-                                .eq('id', item.product_id);
-                        }
-                    }
-                }
-            }
-
-            await mysqlClient
-                .from('orders')
-                .update({
+            const token = localStorage.getItem('cast_prince_admin') || '';
+            const res = await fetch('/api/orders/update-status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    orderId: selectedOrder.id,
                     status: 'CANCELLED',
-                    admin_notes: `Order cancelled by admin on ${new Date().toLocaleString()}. Reason: ${cancelReason}`
+                    cancelReason: cancelReason.trim(),
+                    adminNotes: `Order cancelled by admin on ${new Date().toLocaleString()}. Reason: ${cancelReason.trim()}`,
+                    notes: `Order cancelled. Reason: ${cancelReason.trim()}`
                 })
-                .eq('id', selectedOrder.id);
-
-            await mysqlClient.from('order_status_logs').insert({
-                order_id: selectedOrder.id,
-                status: 'CANCELLED',
-                notes: `Order cancelled. Reason: ${cancelReason}`,
-                created_at: new Date().toISOString()
             });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Failed to cancel order');
+            }
 
             const { error: refundError } = await mysqlClient.from('refunds').insert({
                 order_id: selectedOrder.id,
                 amount: selectedOrder.total_amount || 0,
-                reason: `Order Cancelled: ${cancelReason}`,
+                reason: `Order Cancelled: ${cancelReason.trim()}`,
                 status: 'REQUESTED'
             });
 
             if (refundError) {
                 console.error('Refund tracking error:', refundError);
-                setNotification({ message: `Order cancelled, but refund track failed: ${refundError.message}`, type: 'warning' });
-            } else {
-                setNotification({ message: 'Order cancelled and successfully sent to Refunds', type: 'success' });
             }
 
+            // Sync fresh order & fresh status logs from DB
+            const orderIdToSync = selectedOrder.id;
+            const [{ data: freshOrder }, { data: updatedLogs }] = await Promise.all([
+                mysqlClient.from('orders').select('*').eq('id', orderIdToSync).single(),
+                mysqlClient.from('order_status_logs').select('*').eq('order_id', orderIdToSync).order('created_at', { ascending: true })
+            ]);
+
+            if (freshOrder) setSelectedOrder(freshOrder);
+            if (updatedLogs) setOrderActivityLogs(updatedLogs);
+
+            setNotification({ message: 'Order cancelled and successfully updated', type: 'success' });
             setShowCancelModal(false);
             setCancelReason('');
             fetchOrders();
 
-            const { data: updatedOrder } = await mysqlClient.from('orders').select('*').eq('id', selectedOrder.id).single();
-            setSelectedOrder(updatedOrder);
-
         } catch (err) {
             console.error('Cancel Error:', err);
-            setNotification({ message: 'Failed to cancel order', type: 'error' });
+            setNotification({ message: `Failed to cancel order: ${err.message || 'Error'}`, type: 'error' });
         } finally {
+            setIsUpdatingStatus(false);
             setLoading(false);
+            setTimeout(() => setNotification(null), 4000);
         }
     };
 
@@ -1041,7 +1062,7 @@ export default function OrdersPage() {
                             orderActivityLogs={orderActivityLogs}
                             loading={loading}
                             allProducts={allProducts}
-                            onBack={() => { setSelectedOrder(null); setOrderItems([]); setIsEditingItems(false); }}
+                            onBack={() => { setSelectedOrder(null); setOrderItems([]); setIsEditingItems(false); setNotification(null); }}
                             onSaveEdits={saveOrderEdits}
                             onCancelEdit={() => { setIsEditingItems(false); openOrderDetail(selectedOrder); }}
                             onPrepareEditing={() => prepareOrderForEditing(selectedOrder)}
@@ -1064,6 +1085,7 @@ export default function OrdersPage() {
                             notificationSelection={notificationSelection}
                             setNotificationSelection={setNotificationSelection}
                             notification={notification}
+                            isUpdatingStatus={isUpdatingStatus}
                         />
                     )}
 
@@ -1112,7 +1134,9 @@ export default function OrdersPage() {
                     if (isCourierFromTable) setSelectedOrder(null);
                     setIsCourierFromTable(false);
                     setCourierModalError('');
+                    setNotification(null);
                 }}
+                onClearNotification={() => setNotification(null)}
                 onSaveCourier={handleSaveCourier}
                 onSendInfoClick={() => {
                     setShowShippingForm(false);
@@ -1187,7 +1211,28 @@ export default function OrdersPage() {
                         {notification.type === 'success' && <CheckCircle size={16} />}
                         {notification.type === 'error' && <AlertCircle size={16} />}
                     </div>
-                    {notification.message}
+                    <span style={{ flex: 1 }}>{notification.message}</span>
+                    <button
+                        type="button"
+                        onClick={() => setNotification(null)}
+                        style={{
+                            background: 'rgba(255, 255, 255, 0.2)',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '24px',
+                            height: '24px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                            marginLeft: '8px'
+                        }}
+                        title="Dismiss"
+                    >
+                        <X size={14} />
+                    </button>
                 </div>
             )}
 

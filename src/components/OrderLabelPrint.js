@@ -33,6 +33,47 @@ const formatAddress = (addr) => {
     return String(addr);
 };
 
+const formatPhoneNumber = (phone) => {
+    if (!phone) return '';
+    let str = String(phone).trim();
+    let digits = str.replace(/\D/g, '');
+    if (!digits) return str;
+
+    if (digits.length === 11 && digits.startsWith('0')) {
+        digits = digits.substring(1);
+    }
+
+    if (digits.length === 10) {
+        return '+91 ' + digits.substring(0, 5) + ' ' + digits.substring(5);
+    } else if (digits.length === 12 && digits.startsWith('91')) {
+        return '+91 ' + digits.substring(2, 7) + ' ' + digits.substring(7);
+    } else if (digits.length > 10 && digits.startsWith('91')) {
+        return '+91 ' + digits.substring(2);
+    } else if (digits.length > 5) {
+        return '+' + digits.substring(0, 2) + ' ' + digits.substring(2);
+    }
+    return '+' + digits;
+};
+
+const extractCustomerPhone = (order) => {
+    if (!order) return '';
+    if (order.customer_phone) return order.customer_phone;
+    const addrs = [order.shipping_address, order.delivery_address, order.billing_address];
+    for (const addr of addrs) {
+        if (!addr) continue;
+        if (typeof addr === 'object' && (addr.phone || addr.mobile)) {
+            return addr.phone || addr.mobile;
+        }
+        if (typeof addr === 'string' && addr.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(addr);
+                if (parsed.phone || parsed.mobile) return parsed.phone || parsed.mobile;
+            } catch (e) {}
+        }
+    }
+    return '';
+};
+
 const STORE_INFO = {
     name: "VAIYAAREE",
     address: "123, Sample Street, Saree Market",
@@ -103,7 +144,7 @@ export default function OrderLabelPrint({ orders, mode = 'address' }) {
                                                 {formatAddress(order.shipping_address || order.delivery_address || order.billing_address)}
                                             </div>
                                             <div className="to-phone">
-                                                {order.customer_phone}
+                                                {formatPhoneNumber(extractCustomerPhone(order) || order.customer_phone)}
                                             </div>
                                         </div>
 

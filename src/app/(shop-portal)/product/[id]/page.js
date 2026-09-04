@@ -17,8 +17,10 @@ function getBaseUrl() {
 /**
  * Clean plain text for meta description
  */
-function cleanDescription(text, maxLength = 160) {
-    if (!text) return 'Discover exclusive handcrafted sarees at Vaiyaaree. Pure silk, soft cotton, and authentic handlooms.';
+function cleanDescription(text, fallbackText = '', maxLength = 160) {
+    if (!text || !String(text).trim()) {
+        return fallbackText || 'Discover exclusive handcrafted sarees at Vaiyaaree. Pure silk, soft cotton, and authentic handlooms.';
+    }
     const cleaned = String(text).replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
     if (cleaned.length <= maxLength) return cleaned;
     return cleaned.substring(0, maxLength - 3) + '...';
@@ -41,7 +43,8 @@ export async function generateMetadata({ params }) {
     }
 
     const title = `${product.name} | Buy Online | Vaiyaaree Sarees`;
-    const description = cleanDescription(product.description);
+    const dynamicFallback = `Buy ${product.name} online at Vaiyaaree. Handcrafted ${product.category || 'saree'} with premium quality and authentic craftsmanship.`;
+    const description = cleanDescription(product.description, dynamicFallback);
     const slug = getProductSlug(product);
     const productUrl = `${baseUrl}/product/${slug}/`;
 
@@ -128,7 +131,7 @@ export default async function ProductPage({ params }) {
         '@type': 'Product',
         'name': product.name,
         'image': allImages,
-        'description': cleanDescription(product.description, 300),
+        'description': cleanDescription(product.description, `Buy ${product.name} online at Vaiyaaree. Handcrafted ${product.category || 'saree'} with premium quality and authentic craftsmanship.`, 300),
         'sku': product.sku || product.product_no || String(product.id),
         'mpn': product.product_catalog_image_id || product.sku || String(product.id),
         'brand': {

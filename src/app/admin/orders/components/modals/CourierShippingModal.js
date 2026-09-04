@@ -16,6 +16,7 @@ export default function CourierShippingModal({
     savingCourier,
     isCourierSaved,
     onClose,
+    onClearNotification,
     onSaveCourier,
     onSendInfoClick
 }) {
@@ -39,6 +40,7 @@ export default function CourierShippingModal({
                                 const cid = e.target.value;
                                 setSelectedCourierId(cid);
                                 setCourierModalError('');
+                                if (onClearNotification) onClearNotification();
                                 const courier = couriers.find(c => c.id === cid);
                                 if (courier) {
                                     const awb = shippingForm.tracking_number || '';
@@ -109,6 +111,7 @@ export default function CourierShippingModal({
                             onChange={e => {
                                 const awb = e.target.value;
                                 setCourierModalError('');
+                                if (onClearNotification) onClearNotification();
                                 const courier = couriers.find(c => c.id === selectedCourierId);
                                 setShippingForm({
                                     ...shippingForm,

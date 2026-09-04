@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Settings, Layers, CheckCircle, FileText, Lock, Eye } from 'lucide-react';
 
 export default function ProductFormSidebar({
@@ -8,6 +9,19 @@ export default function ProductFormSidebar({
     setProductStatus,
     dbActiveCategories = []
 }) {
+    const [isFeatured, setIsFeatured] = useState(() => Boolean(currentProduct?.is_featured));
+    const [isExplore, setIsExplore] = useState(() => currentProduct?.product_group === 'EXPLORE');
+    const [productGroupVal, setProductGroupVal] = useState(() => {
+        const pg = currentProduct?.product_group || '';
+        return pg === 'EXPLORE' ? '' : pg;
+    });
+
+    useEffect(() => {
+        setIsFeatured(Boolean(currentProduct?.is_featured));
+        setIsExplore(currentProduct?.product_group === 'EXPLORE');
+        const pg = currentProduct?.product_group || '';
+        setProductGroupVal(pg === 'EXPLORE' ? '' : pg);
+    }, [currentProduct?.id, currentProduct?.is_featured, currentProduct?.product_group]);
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
@@ -85,11 +99,31 @@ export default function ProductFormSidebar({
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: 600, color: '#1e293b', cursor: 'pointer' }}>
-                        <input id="is_featured" name="is_featured" type="checkbox" defaultChecked={Boolean(currentProduct?.is_featured)} style={{ cursor: 'pointer', width: '16px', height: '16px' }} />
+                        <input
+                            id="is_featured"
+                            name="is_featured"
+                            type="checkbox"
+                            checked={isFeatured}
+                            onChange={(e) => setIsFeatured(e.target.checked)}
+                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                        />
                         Feature on Home Page
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', fontWeight: 600, color: '#1e293b', cursor: 'pointer' }}>
-                        <input id="is_explore" name="is_explore" type="checkbox" defaultChecked={currentProduct?.product_group === 'EXPLORE'} style={{ cursor: 'pointer', width: '16px', height: '16px' }} />
+                        <input
+                            id="is_explore"
+                            name="is_explore"
+                            type="checkbox"
+                            checked={isExplore}
+                            onChange={(e) => {
+                                const checked = e.target.checked;
+                                setIsExplore(checked);
+                                if (checked) {
+                                    setProductGroupVal('');
+                                }
+                            }}
+                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                        />
                         Explore Slider Showcase
                     </label>
                 </div>
@@ -136,11 +170,25 @@ export default function ProductFormSidebar({
                     </label>
                     <input
                         name="product_group"
-                        defaultValue={currentProduct?.product_group || ''}
+                        value={isExplore ? '' : productGroupVal}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            setProductGroupVal(val);
+                            if (val.trim().toUpperCase() === 'EXPLORE') {
+                                setIsExplore(true);
+                                setProductGroupVal('');
+                            }
+                        }}
+                        disabled={isExplore}
                         className="admin-input"
-                        placeholder="e.g. Bestsellers, Wedding"
-                        style={{ fontSize: '0.84rem' }}
+                        placeholder={isExplore ? "Assigned to 'EXPLORE' via showcase toggle above" : "e.g. Bestsellers, Wedding"}
+                        style={{ fontSize: '0.84rem', opacity: isExplore ? 0.7 : 1, background: isExplore ? '#f8fafc' : '#ffffff' }}
                     />
+                    {isExplore && (
+                        <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                            Included in Explore Slider Showcase. Uncheck above to enter a custom group.
+                        </span>
+                    )}
                 </div>
 
                 {/* Tags / Keywords */}

@@ -202,11 +202,20 @@ export default function ProductFormContainer({ productId = null, isNew = false }
         const rawActive = formData.get('is_active');
         const isActive = (rawActive === 'on' || rawActive === '1' || rawActive === 'active' || rawActive === true) ? 1 : 0;
 
+        let finalProductGroup = null;
+        if (isExplore) {
+            finalProductGroup = 'EXPLORE';
+        } else if (rawGroup && rawGroup.toUpperCase() !== 'EXPLORE') {
+            finalProductGroup = rawGroup;
+        } else {
+            finalProductGroup = null;
+        }
+
         const productData = {
             name: rawName,
             slug: cleanSlug,
             category: formData.get('category')?.trim() || '',
-            product_group: isExplore ? 'EXPLORE' : rawGroup,
+            product_group: finalProductGroup,
             description: formData.get('description')?.trim() || '',
             type: productType,
             tax_class: formData.get('tax_class') || 'GST_5',

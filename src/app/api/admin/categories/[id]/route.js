@@ -170,6 +170,14 @@ export async function PATCH(request, { params }) {
             [name, slug, status, categoryId]
         );
 
+        // 1b. If category name changed, synchronize existing products referencing old name
+        if (existingCat[0].name && existingCat[0].name !== name) {
+            await connection.query(
+                'UPDATE products SET category = ? WHERE LOWER(TRIM(category)) = LOWER(TRIM(?))',
+                [name, existingCat[0].name]
+            );
+        }
+
         // 2. Synchronize category_products ONLY if productIds is explicitly provided in request body
         if (Array.isArray(productIds)) {
             await connection.query(

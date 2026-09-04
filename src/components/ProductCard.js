@@ -192,7 +192,11 @@ export default function ProductCard({ product, gridView = true }) {
                     <Link href={productDetailUrl} className={styles.link}>
                         <h3 className={styles.productName}>{product.name}</h3>
                     </Link>
-                    <p className={styles.productDescription}>{product.description?.slice(0, 140)}...</p>
+                    {product.description && String(product.description).trim().length > 0 && (
+                        <p className={styles.productDescription}>
+                            {product.description.slice(0, 140)}{product.description.length > 140 ? '...' : ''}
+                        </p>
+                    )}
 
                     {/* Variant Selector in List View */}
                     {hasVariants && (

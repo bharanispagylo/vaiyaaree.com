@@ -319,6 +319,7 @@
     color: #475569;
     line-height: 1.7;
     margin: 0;
+    white-space: pre-line;
 }
 
 /* ── Variants ── */

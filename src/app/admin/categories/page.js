@@ -99,7 +99,9 @@ export default function AdminCategoriesPage() {
         setFormName(cat.name);
         setFormSlug(cat.slug);
         setFormStatus(cat.status || 'active');
-        setIsSlugManuallyEdited(true);
+        // Only consider slug manually edited if it diverged from the auto-slug of the category name
+        const wasCustom = Boolean(cat.slug && cat.name && cat.slug !== slugify(cat.name));
+        setIsSlugManuallyEdited(wasCustom);
         setFormError('');
         setIsModalOpen(true);
     };
@@ -136,8 +138,14 @@ export default function AdminCategoriesPage() {
 
     // Slug change handler
     const handleSlugChange = (e) => {
-        setFormSlug(e.target.value);
-        setIsSlugManuallyEdited(true);
+        const val = e.target.value;
+        setFormSlug(val);
+        // If user clears the slug or sets it to match the auto-slug of the current name, resume auto-sync
+        if (!val.trim() || val.trim() === slugify(formName)) {
+            setIsSlugManuallyEdited(false);
+        } else {
+            setIsSlugManuallyEdited(true);
+        }
     };
 
     // Save Category (Create or Edit)
@@ -438,9 +446,32 @@ export default function AdminCategoriesPage() {
 
                                 {/* Category Slug */}
                                 <div style={{ marginBottom: '1.25rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: 800, color: '#334155', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                        Category Slug <span style={{ color: '#dc2626' }}>*</span>
-                                    </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                                        <label style={{ fontSize: '0.825rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Category Slug <span style={{ color: '#dc2626' }}>*</span>
+                                        </label>
+                                        {isSlugManuallyEdited ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormSlug(slugify(formName));
+                                                    setIsSlugManuallyEdited(false);
+                                                }}
+                                                style={{
+                                                    border: 'none', background: 'none', color: 'hsl(var(--primary))',
+                                                    fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', gap: '4px', padding: 0
+                                                }}
+                                                title="Reset slug to automatically match Category Name"
+                                            >
+                                                <RefreshCw size={11} /> Sync with Name
+                                            </button>
+                                        ) : (
+                                            <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                <Check size={12} /> Auto-syncing with Name
+                                            </span>
+                                        )}
+                                    </div>
                                     <input
                                         type="text"
                                         placeholder="e.g. cotton-sarees"

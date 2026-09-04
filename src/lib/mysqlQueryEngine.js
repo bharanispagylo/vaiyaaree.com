@@ -83,15 +83,41 @@ export async function executeMysqlQuery(payload) {
 function formatValueForMySQL(val) {
     if (val === null || val === undefined) return null;
     if (val instanceof Date) {
-        return val.toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
+        if (isNaN(val.getTime())) return null;
+        return val.toLocaleString('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            hour12: false,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        }).replace(',', '').replace('24:', '00:');
     }
     if (typeof val === 'string') {
         let cleanStr = val.trim();
         if (cleanStr.startsWith('"') && cleanStr.endsWith('"')) {
             cleanStr = cleanStr.substring(1, cleanStr.length - 1);
         }
-        // Matches ISO timestamp strings like '2026-08-22T11:49:24.546Z' or '2026-08-22T11:49:24'
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(cleanStr)) {
+        // Matches ISO timestamp strings with timezone like '2026-08-22T11:49:24.546Z' or '+05:30'
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(cleanStr)) {
+            const parsed = new Date(cleanStr);
+            if (!isNaN(parsed.getTime())) {
+                return parsed.toLocaleString('en-CA', {
+                    timeZone: 'Asia/Kolkata',
+                    hour12: false,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }).replace(',', '').replace('24:', '00:');
+            }
+        }
+        // Matches MySQL datetime strings without timezone e.g. '2026-08-22 11:49:24' or '2026-08-22T11:49:24'
+        if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/.test(cleanStr)) {
             return cleanStr.replace('T', ' ').replace('Z', '').split('.')[0];
         }
         return val;
@@ -326,9 +352,16 @@ function parseJsonFields(row) {
                 } catch (e) {
                     // Keep original string if not valid JSON
                 }
-            } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(val)) {
-                // Ensure MySQL datetimes are returned as ISO UTC strings with Z suffix
-                result[key] = val.replace(' ', 'T') + 'Z';
+            } else if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/i.test(val.trim())) {
+                // MySQL stores datetimes in local server time (Asia/Kolkata / IST / UTC+05:30).
+                // Parse with +05:30 offset to produce an accurate UTC ISO-8601 string without shifting local time.
+                const cleanVal = val.trim().replace(' ', 'T');
+                const d = new Date(cleanVal + '+05:30');
+                if (!isNaN(d.getTime())) {
+                    result[key] = d.toISOString();
+                } else {
+                    result[key] = val;
+                }
             }
         }
     }
