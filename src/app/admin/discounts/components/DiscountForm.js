@@ -3,6 +3,7 @@
 import {
     Tag, Percent, Calendar, ArrowLeft, Check, Loader2, Plus, Sliders
 } from 'lucide-react';
+import { formatOrderDate } from '@/lib/dateUtils';
 
 export default function DiscountForm({
     editingRule = null,
@@ -393,10 +394,15 @@ export default function DiscountForm({
                             <label className="field-label">Start Date & Time (Optional)</label>
                             <input
                                 type="datetime-local"
-                                value={formData.start_date}
+                                value={formData.start_date || ''}
                                 onChange={e => setFormData({ ...formData, start_date: e.target.value })}
                                 className="styled-input"
                             />
+                            {formData.start_date && (
+                                <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', fontWeight: 600, color: '#4f46e5' }}>
+                                    Active From: {formatOrderDate(formData.start_date)}
+                                </div>
+                            )}
                             <div className="field-explain">
                                 Leave blank to start immediately.
                             </div>
@@ -406,10 +412,15 @@ export default function DiscountForm({
                             <label className="field-label">End Date & Time (Optional)</label>
                             <input
                                 type="datetime-local"
-                                value={formData.end_date}
+                                value={formData.end_date || ''}
                                 onChange={e => setFormData({ ...formData, end_date: e.target.value })}
                                 className="styled-input"
                             />
+                            {formData.end_date && (
+                                <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', fontWeight: 600, color: '#4f46e5' }}>
+                                    Expires: {formatOrderDate(formData.end_date)}
+                                </div>
+                            )}
                             <div className="field-explain">
                                 Leave blank for an ongoing promotion with no expiry date.
                             </div>

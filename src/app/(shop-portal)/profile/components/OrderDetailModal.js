@@ -384,12 +384,41 @@ export default function OrderDetailModal({
                                     </span>
                                 </div>
 
-                                {Number(order.tax_amount || 0) > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'hsl(var(--text-muted, #64748b))' }}>
-                                        <span>GST Tax</span>
-                                        <span style={{ fontWeight: 700, color: 'hsl(var(--text-main, #0f172a))' }}>₹{Number(order.tax_amount).toLocaleString()}.00</span>
-                                    </div>
-                                )}
+                                {(() => {
+                                    const rawCgst = Number(order.cgst || order.cgst_amount || 0);
+                                    const rawSgst = Number(order.sgst || order.sgst_amount || 0);
+                                    const rawIgst = Number(order.igst || order.igst_amount || 0);
+                                    const totalTax = Number(order.tax_amount || 0);
+                                    const deliveryState = (order.delivery_state || order.shipping_state || order.billing_state || '').trim().toLowerCase();
+
+                                    const isIgst = rawIgst > 0 || (rawCgst === 0 && rawSgst === 0 && totalTax > 0 && deliveryState && deliveryState !== 'tamil nadu');
+
+                                    if (isIgst) {
+                                        const igstVal = rawIgst > 0 ? rawIgst : totalTax;
+                                        return (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'hsl(var(--text-muted, #64748b))' }}>
+                                                <span>IGST (5%)</span>
+                                                <span style={{ fontWeight: 700, color: 'hsl(var(--text-main, #0f172a))' }}>₹{igstVal.toLocaleString()}.00</span>
+                                            </div>
+                                        );
+                                    } else if (rawCgst > 0 || rawSgst > 0 || totalTax > 0) {
+                                        const cgstVal = rawCgst > 0 ? rawCgst : Math.round(totalTax / 2);
+                                        const sgstVal = rawSgst > 0 ? rawSgst : Math.round(totalTax / 2);
+                                        return (
+                                            <>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'hsl(var(--text-muted, #64748b))' }}>
+                                                    <span>CGST (2.5%)</span>
+                                                    <span style={{ fontWeight: 700, color: 'hsl(var(--text-main, #0f172a))' }}>₹{cgstVal.toLocaleString()}.00</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'hsl(var(--text-muted, #64748b))' }}>
+                                                    <span>SGST (2.5%)</span>
+                                                    <span style={{ fontWeight: 700, color: 'hsl(var(--text-main, #0f172a))' }}>₹{sgstVal.toLocaleString()}.00</span>
+                                                </div>
+                                            </>
+                                        );
+                                    }
+                                    return null;
+                                })()}
 
                                 <div style={{
                                     borderTop: '1px solid hsl(var(--border-subtle, #e2e8f0))',

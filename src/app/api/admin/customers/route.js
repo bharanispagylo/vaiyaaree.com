@@ -129,7 +129,7 @@ export async function GET(req) {
                 ? rawDigits.slice(-10)
                 : rawDigits;
             const countryCode = cust.country_code ? (cust.country_code.startsWith('+') ? cust.country_code : `+${cust.country_code}`) : '+91';
-            const mapKey = clean10 || cust.id;
+            const mapKey = cust.id;
 
             let parsedMetadata = {};
             if (cust.metadata) {

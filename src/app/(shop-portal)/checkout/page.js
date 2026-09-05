@@ -106,8 +106,7 @@ export default function CheckoutPage() {
             showToast('Please enter a valid 10-digit Phone Number', 'error');
             return;
         }
-        const effectiveWhatsApp = checkoutForm.billingWhatsApp?.trim() || checkoutForm.billingPhone?.trim();
-        if (!effectiveWhatsApp || effectiveWhatsApp.length !== 10) {
+        if (!checkoutForm.billingWhatsApp || checkoutForm.billingWhatsApp.trim().length !== 10) {
             showToast('Please enter a valid 10-digit WhatsApp Number', 'error');
             return;
         }
@@ -305,8 +304,7 @@ export default function CheckoutPage() {
                                             const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
                                             setCheckoutForm(p => ({
                                                 ...p,
-                                                billingPhone: val,
-                                                billingWhatsApp: (!p.billingWhatsApp || p.billingWhatsApp === p.billingPhone) ? val : p.billingWhatsApp
+                                                billingPhone: val
                                             }));
                                         }} 
                                         placeholder="10-digit phone number" 
@@ -680,14 +678,26 @@ export default function CheckoutPage() {
                         </div>
 
                         {discountData?.totalDiscount > 0 && (
-                            <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700 }}>
-                                <span>
-                                    Discount {discountData?.appliedRules?.length > 0 
-                                        ? `(${discountData.appliedRules.map(r => r.name || r.couponCode).join(', ')})` 
-                                        : (appliedCoupon ? `(${appliedCoupon.couponCode})` : '')}
-                                </span>
-                                <span>-₹{discountData.totalDiscount.toLocaleString()}.00</span>
-                            </div>
+                            <>
+                                <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700 }}>
+                                    <span>Promotions & Savings</span>
+                                    <span>-₹{discountData.totalDiscount.toLocaleString()}.00</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '-4px 0 10px', padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '0.78rem', color: '#15803d' }}>
+                                    {(discountData.appliedRules || []).map((r, idx) => {
+                                        const ruleDisplayName = r.name || r.ruleName || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
+                                        const savingsText = r.discountType === 'FREE_SHIPPING'
+                                            ? 'Free Shipping'
+                                            : `-₹${(r.discountAmount || 0).toLocaleString()}.00`;
+                                        return (
+                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
+                                                <span style={{ fontWeight: 700 }}>{savingsText}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         )}
 
                         {taxDetails.cgst > 0 && (

@@ -120,6 +120,37 @@ export function toIST(dateInput, opts = {}) {
 }
 
 /**
+ * Formats a date input (ISO UTC string, MySQL datetime string, Date object)
+ * into 'YYYY-MM-DDTHH:mm' in Asia/Kolkata (IST) timezone for HTML5 <input type="datetime-local">.
+ *
+ * @param {string|number|Date} dateInput
+ * @returns {string} e.g. "2026-09-05T15:51"
+ */
+export function formatToLocalDateTimeInput(dateInput) {
+    if (!dateInput) return '';
+    const date = parseDateToUTC(dateInput);
+    if (!date) return '';
+
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).formatToParts(date);
+
+    const map = {};
+    for (const p of parts) {
+        map[p.type] = p.value;
+    }
+
+    const hour = map.hour === '24' ? '00' : map.hour;
+    return `${map.year}-${map.month}-${map.day}T${hour}:${map.minute}`;
+}
+
+/**
  * Format general app date (e.g. for returns, payments, refunds)
  */
 export function formatAppDate(dateInput, includeTime = false) {
@@ -129,3 +160,4 @@ export function formatAppDate(dateInput, includeTime = false) {
         dayFormat: '2-digit'
     });
 }
+

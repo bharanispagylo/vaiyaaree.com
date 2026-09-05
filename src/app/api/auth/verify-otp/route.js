@@ -73,18 +73,15 @@ export async function POST(req) {
                 })
                 .eq('id', customerRecord.id);
 
-            // Clean up any empty duplicate customer records created with '91...'
+            // Re-assign any orders from alternate phone variations to main customer record without deleting customer accounts
             if (existingCustomers.length > 1) {
-                const duplicateIds = existingCustomers.filter(c => c.id !== customerRecord.id).map(c => c.id);
-                if (duplicateIds.length > 0) {
-                    for (const dupId of duplicateIds) {
+                const alternateIds = existingCustomers.filter(c => c.id !== customerRecord.id).map(c => c.id);
+                if (alternateIds.length > 0) {
+                    for (const altId of alternateIds) {
                         try {
-                            // Re-assign any orders from duplicate to main customer
-                            await mysqlClient.from('orders').update({ customer_id: customerRecord.id }).eq('customer_id', dupId);
-                            // Delete duplicate customer record
-                            await mysqlClient.from('customers').delete().eq('id', dupId);
+                            await mysqlClient.from('orders').update({ customer_id: customerRecord.id }).eq('customer_id', altId);
                         } catch (mergeErr) {
-                            console.warn('[AUTH] Customer merge notice:', mergeErr);
+                            console.warn('[AUTH] Customer order consolidation notice:', mergeErr);
                         }
                     }
                 }

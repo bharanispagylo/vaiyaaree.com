@@ -449,11 +449,18 @@ export function ShopProvider({ children }) {
                 try {
                     const { data: dbUser, error: dbError } = await mysqlClient
                         .from('customers')
-                        .select('id, name, email, phone, country_code, address, city, state, pincode, role, is_verified')
+                        .select('id, name, email, phone, country_code, address, city, state, pincode, role, is_verified, is_locked')
                         .eq('id', cleanLocalUser.id)
                         .maybeSingle();
 
                     if (!dbError && dbUser) {
+                        if (Boolean(dbUser.is_locked)) {
+                            console.warn('[SESSION] Customer account has been locked by admin.');
+                            localStorage.removeItem('cast_prince_user');
+                            setUser(null);
+                            setIsSessionLoading(false);
+                            return;
+                        }
                         const activeUser = sanitizeCustomerSession({ ...cleanLocalUser, ...dbUser });
                         setUser(activeUser);
                         localStorage.setItem('cast_prince_user', JSON.stringify(activeUser));
@@ -741,19 +748,22 @@ export function ShopProvider({ children }) {
                 // Reconcile appliedCoupon with actual server calculation results
                 if (appliedCoupon) {
                     const couponCodeUpper = (appliedCoupon.couponCode || '').trim().toUpperCase();
-                    const hasAppliedCouponRule = (res?.appliedRules || []).some(
-                        r => r.isCoupon || (r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper)
+                    const matchingCouponRule = (res?.appliedRules || []).find(
+                        r => (r.isCoupon && r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper) ||
+                             (r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper) ||
+                             r.isCoupon
                     );
-                    const couponDiscountAmount = Number(res?.couponDiscount || 0);
+                    const hasAppliedCouponRule = Boolean(matchingCouponRule);
+                    const totalBenefit = Number(res?.couponDiscount || 0) + Number(res?.shippingDiscount || 0) + Number(res?.totalDiscount || 0);
 
-                    if (!hasAppliedCouponRule || couponDiscountAmount <= 0) {
+                    if (!hasAppliedCouponRule || (totalBenefit <= 0 && matchingCouponRule?.discountType !== 'FREE_SHIPPING')) {
                         // Coupon is disabled, expired, or invalid for cart items
                         setAppliedCoupon(null);
                         setCouponError('The applied coupon is no longer active or valid for the items in your cart.');
                     } else {
                         setAppliedCoupon(prev => prev ? {
                             ...prev,
-                            couponDiscount: couponDiscountAmount,
+                            couponDiscount: Number(res?.couponDiscount || matchingCouponRule?.discountAmount || 0),
                             calculation: res
                         } : null);
                     }
@@ -876,7 +886,7 @@ export function ShopProvider({ children }) {
         const billingCountry = String(rawBillingCountry || 'India').trim() || 'India';
         const shippingCountry = String(rawShippingCountry || 'India').trim() || 'India';
 
-        if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingAddress) {
+        if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingWhatsApp || !checkoutForm.billingAddress) {
             showToast('Please fill all required billing fields', 'error');
             return;
         }

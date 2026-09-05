@@ -1,6 +1,7 @@
 'use client';
 
 import { Tag, Edit, Trash2 } from 'lucide-react';
+import { parseDateToUTC, formatOrderDate } from '@/lib/dateUtils';
 
 export default function DiscountCard({
     rule,
@@ -9,12 +10,15 @@ export default function DiscountCard({
     handleToggleActive
 }) {
     const now = new Date();
+    const startObj = rule.start_date ? parseDateToUTC(rule.start_date) : null;
+    const endObj = rule.end_date ? parseDateToUTC(rule.end_date) : null;
+
     const isCurrentActive = (rule.is_active === 1 || rule.is_active === true) &&
-        (!rule.start_date || new Date(rule.start_date) <= now) &&
-        (!rule.end_date || new Date(rule.end_date) >= now);
+        (!startObj || startObj <= now) &&
+        (!endObj || endObj >= now);
 
     const isScheduled = (rule.is_active === 1 || rule.is_active === true) &&
-        rule.start_date && new Date(rule.start_date) > now;
+        startObj && startObj > now;
 
     return (
         <div className={`rule-card ${!isCurrentActive ? 'inactive' : ''}`}>
@@ -76,7 +80,7 @@ export default function DiscountCard({
                     </div>
                     <div className="detail-item">
                         <span>Expires:</span>
-                        <span className="val">{rule.end_date ? new Date(rule.end_date).toLocaleDateString() : 'Never'}</span>
+                        <span className="val">{rule.end_date ? formatOrderDate(rule.end_date, { includeTime: false }) : 'Never'}</span>
                     </div>
                 </div>
             </div>

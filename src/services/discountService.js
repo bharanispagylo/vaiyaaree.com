@@ -205,6 +205,7 @@ export async function calculateDiscounts({
                     appliedRules.push({
                         id: rule.id,
                         name: rule.name,
+                        ruleName: rule.name,
                         couponCode: rule.coupon_code || null,
                         discountType: rule.discount_type,
                         discountValue: val,
@@ -277,6 +278,7 @@ export async function calculateDiscounts({
                 appliedRules.push({
                     id: rule.id,
                     name: rule.name,
+                    ruleName: rule.name,
                     couponCode: rule.coupon_code || null,
                     discountType: rule.discount_type,
                     discountValue: val,
@@ -308,18 +310,18 @@ export async function validateCouponCode(couponCode, { subtotal = 0, cartItems =
         return { valid: false, message: 'Please enter a coupon code.' };
     }
 
-    const { data: rule, error } = await mysqlClient
+    const { data: rules, error } = await mysqlClient
         .from('discount_rules')
         .select('*')
-        .eq('coupon_code', code)
-        .maybeSingle();
+        .eq('coupon_code', code);
 
-    if (error || !rule) {
+    if (error || !rules || rules.length === 0) {
         return { valid: false, message: 'Invalid coupon code.' };
     }
 
-    // Strict check for active status
-    if (!rule.is_active || rule.is_active === 0 || rule.is_active === '0' || rule.is_active === false) {
+    const rule = rules.find(r => r.is_active === 1 || r.is_active === true || r.is_active === '1');
+
+    if (!rule) {
         return { valid: false, message: 'This coupon is currently inactive or disabled.' };
     }
 

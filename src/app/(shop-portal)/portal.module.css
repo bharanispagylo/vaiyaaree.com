@@ -1,4 +1,5 @@
-.shopApp {
+.shopApp,
+.portalContainer {
     min-height: 100vh;
     background: hsl(var(--bg-app));
     color: hsl(var(--text-main));
@@ -6,10 +7,11 @@
     position: relative;
 }
 
-.main {
+.main,
+.mainContent {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 2rem 1.5rem 4rem;
+    width: 100%;
 }
 
 .toast {

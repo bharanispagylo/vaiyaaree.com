@@ -100,8 +100,8 @@ function formatValueForMySQL(val) {
         if (cleanStr.startsWith('"') && cleanStr.endsWith('"')) {
             cleanStr = cleanStr.substring(1, cleanStr.length - 1);
         }
-        // Matches ISO timestamp strings with timezone like '2026-08-22T11:49:24.546Z' or '+05:30'
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(cleanStr)) {
+        // Matches ISO timestamp strings with timezone like '2026-08-22T11:49:24.546Z', '2026-08-22T11:49Z', or '+05:30'
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(cleanStr)) {
             const parsed = new Date(cleanStr);
             if (!isNaN(parsed.getTime())) {
                 return parsed.toLocaleString('en-CA', {
@@ -116,9 +116,10 @@ function formatValueForMySQL(val) {
                 }).replace(',', '').replace('24:', '00:');
             }
         }
-        // Matches MySQL datetime strings without timezone e.g. '2026-08-22 11:49:24' or '2026-08-22T11:49:24'
-        if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/.test(cleanStr)) {
-            return cleanStr.replace('T', ' ').replace('Z', '').split('.')[0];
+        // Matches datetime strings without timezone e.g. '2026-08-22 11:49:24', '2026-08-22T11:49:24', or '2026-08-22T11:49'
+        if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}(?::\d{2})?/.test(cleanStr)) {
+            const raw = cleanStr.replace('T', ' ').replace('Z', '').split('.')[0];
+            return raw.length === 16 ? `${raw}:00` : raw;
         }
         return val;
     }

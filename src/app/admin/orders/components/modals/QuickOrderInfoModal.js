@@ -38,22 +38,12 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
     const rawCgst = Number(infoModalOrder.cgst || infoModalOrder.cgst_amount || 0);
     const rawSgst = Number(infoModalOrder.sgst || infoModalOrder.sgst_amount || 0);
     const rawIgst = Number(infoModalOrder.igst || infoModalOrder.igst_amount || 0);
+    const deliveryState = (infoModalOrder.delivery_state || infoModalOrder.shipping_state || infoModalOrder.billing_state || '').trim().toLowerCase();
 
-    let cgst = 0;
-    let sgst = 0;
-    if (rawCgst > 0 || rawSgst > 0) {
-        cgst = rawCgst;
-        sgst = rawSgst;
-    } else if (rawTax > 0) {
-        cgst = rawTax / 2;
-        sgst = rawTax / 2;
-    } else if (rawIgst > 0) {
-        cgst = rawIgst / 2;
-        sgst = rawIgst / 2;
-    } else if (subtotal > 0) {
-        cgst = Math.round(subtotal * 0.025 * 100) / 100;
-        sgst = Math.round(subtotal * 0.025 * 100) / 100;
-    }
+    const isIgst = rawIgst > 0 || (rawCgst === 0 && rawSgst === 0 && rawTax > 0 && deliveryState && deliveryState !== 'tamil nadu');
+    const igstVal = rawIgst > 0 ? rawIgst : rawTax;
+    const cgst = rawCgst > 0 ? rawCgst : Math.round((rawTax / 2) * 100) / 100;
+    const sgst = rawSgst > 0 ? rawSgst : Math.round((rawTax / 2) * 100) / 100;
 
     const couponCode = infoModalOrder.coupon_code || '';
 

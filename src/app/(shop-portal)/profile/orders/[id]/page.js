@@ -430,12 +430,41 @@ export default function OrderDetailPage() {
                             </span>
                         </div>
 
-                        {Number(order.tax_amount || 0) > 0 && (
-                            <div className={styles.billRow}>
-                                <span>GST Tax</span>
-                                <span className={styles.billRowVal}>₹{Number(order.tax_amount).toLocaleString()}.00</span>
-                            </div>
-                        )}
+                        {(() => {
+                            const rawCgst = Number(order.cgst || order.cgst_amount || 0);
+                            const rawSgst = Number(order.sgst || order.sgst_amount || 0);
+                            const rawIgst = Number(order.igst || order.igst_amount || 0);
+                            const totalTax = Number(order.tax_amount || 0);
+                            const deliveryState = (order.delivery_state || order.shipping_state || order.billing_state || '').trim().toLowerCase();
+
+                            const isIgst = rawIgst > 0 || (rawCgst === 0 && rawSgst === 0 && totalTax > 0 && deliveryState && deliveryState !== 'tamil nadu');
+
+                            if (isIgst) {
+                                const igstVal = rawIgst > 0 ? rawIgst : totalTax;
+                                return (
+                                    <div className={styles.billRow}>
+                                        <span>IGST (5%)</span>
+                                        <span className={styles.billRowVal}>₹{igstVal.toLocaleString()}.00</span>
+                                    </div>
+                                );
+                            } else if (rawCgst > 0 || rawSgst > 0 || totalTax > 0) {
+                                const cgstVal = rawCgst > 0 ? rawCgst : Math.round(totalTax / 2);
+                                const sgstVal = rawSgst > 0 ? rawSgst : Math.round(totalTax / 2);
+                                return (
+                                    <>
+                                        <div className={styles.billRow}>
+                                            <span>CGST (2.5%)</span>
+                                            <span className={styles.billRowVal}>₹{cgstVal.toLocaleString()}.00</span>
+                                        </div>
+                                        <div className={styles.billRow}>
+                                            <span>SGST (2.5%)</span>
+                                            <span className={styles.billRowVal}>₹{sgstVal.toLocaleString()}.00</span>
+                                        </div>
+                                    </>
+                                );
+                            }
+                            return null;
+                        })()}
 
                         <div className={styles.billTotalRow}>
                             <span>Total Paid</span>

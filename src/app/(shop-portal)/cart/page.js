@@ -180,10 +180,19 @@ export default function CartPage() {
                                         </span>
                                         <span>-₹{totalDiscount.toLocaleString()}.00</span>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '-4px 0 8px', fontSize: '0.75rem', color: '#15803d' }}>
-                                        {(discountData.appliedRules || []).map((r, i) => (
-                                            <div key={i}>• {r.ruleName}</div>
-                                        ))}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '-2px 0 10px', padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '0.78rem', color: '#15803d' }}>
+                                        {(discountData.appliedRules || []).map((r, i) => {
+                                            const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
+                                            const savingsText = r.discountType === 'FREE_SHIPPING' 
+                                                ? 'Free Shipping' 
+                                                : `-₹${(r.discountAmount || 0).toLocaleString()}.00`;
+                                            return (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
+                                                    <span style={{ fontWeight: 700 }}>{savingsText}</span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </>
                             )}

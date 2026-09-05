@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { formatToLocalDateTimeInput, parseDateToUTC } from '@/lib/dateUtils';
 
 // Modular Components
 import DiscountStats from './components/DiscountStats';
@@ -103,15 +104,15 @@ export default function AdminDiscountsPage() {
                 threshold_count: rule.threshold_count !== null && rule.threshold_count !== undefined ? String(rule.threshold_count) : '5',
                 threshold_value: rule.threshold_value !== null && rule.threshold_value !== undefined ? String(rule.threshold_value) : '5000',
                 product_discount_type: basis === 'PRODUCT' ? (rule.discount_type || 'PERCENTAGE') : 'PERCENTAGE',
-                product_discount_value: basis === 'PRODUCT' ? (rule.discount_value !== undefined ? String(rule.discount_value) : '10') : '10',
+                product_discount_value: rule.discount_value !== undefined && rule.discount_value !== null ? String(rule.discount_value) : '10',
                 cart_discount_type: basis === 'CART' ? (rule.discount_type || 'PERCENTAGE') : 'PERCENTAGE',
-                cart_discount_value: basis === 'CART' ? (rule.discount_value !== undefined ? String(rule.discount_value) : '10') : '10',
+                cart_discount_value: rule.discount_value !== undefined && rule.discount_value !== null ? String(rule.discount_value) : '10',
                 target_type: rule.target_type || 'ALL_PRODUCTS',
                 minimum_cart_amount: rule.minimum_cart_amount !== undefined ? String(rule.minimum_cart_amount) : '0',
                 minimum_cart_products_enabled: rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true,
                 minimum_cart_products: rule.minimum_cart_products !== null && rule.minimum_cart_products !== undefined ? String(rule.minimum_cart_products) : '3',
-                start_date: rule.start_date ? rule.start_date.substring(0, 16) : '',
-                end_date: rule.end_date ? rule.end_date.substring(0, 16) : '',
+                start_date: formatToLocalDateTimeInput(rule.start_date),
+                end_date: formatToLocalDateTimeInput(rule.end_date),
                 priority: rule.priority !== undefined ? String(rule.priority) : '10',
                 is_active: rule.is_active === 1 || rule.is_active === true,
                 customer_limit: rule.customer_limit !== undefined ? String(rule.customer_limit) : '1',
@@ -168,6 +169,11 @@ export default function AdminDiscountsPage() {
             const rawDiscountValue = isCartBasis ? formData.cart_discount_value : formData.product_discount_value;
             const effectiveDiscountValue = effectiveDiscountType === 'FREE_SHIPPING' ? 0 : parseFloat(rawDiscountValue || 0);
 
+            const cleanStartDate = formData.start_date?.trim() ? formData.start_date.trim().replace('T', ' ') : null;
+            const cleanEndDate = formData.end_date?.trim() ? formData.end_date.trim().replace('T', ' ') : null;
+            const formattedStartDate = cleanStartDate ? (cleanStartDate.length === 16 ? `${cleanStartDate}:00` : cleanStartDate) : null;
+            const formattedEndDate = cleanEndDate ? (cleanEndDate.length === 16 ? `${cleanEndDate}:00` : cleanEndDate) : null;
+
             const payload = {
                 name: formData.name,
                 description: formData.description,
@@ -185,8 +191,8 @@ export default function AdminDiscountsPage() {
                 minimum_cart_products: !isCartBasis && formData.minimum_cart_products_enabled ? parseInt(formData.minimum_cart_products || '1', 10) : null,
                 categories: isCartBasis ? [] : formData.categories,
                 product_ids: isCartBasis ? [] : formData.product_ids,
-                start_date: formData.start_date || null,
-                end_date: formData.end_date || null,
+                start_date: formattedStartDate,
+                end_date: formattedEndDate,
                 priority: parseInt(formData.priority || '10', 10),
                 usage_limit: null,
                 customer_limit: parseInt(formData.customer_limit || '1', 10),
@@ -255,14 +261,17 @@ export default function AdminDiscountsPage() {
 
             if (!matchesSearch) return false;
 
+            const startObj = rule.start_date ? parseDateToUTC(rule.start_date) : null;
+            const endObj = rule.end_date ? parseDateToUTC(rule.end_date) : null;
+
             const isCurrentActive = (rule.is_active === 1 || rule.is_active === true) &&
-                (!rule.start_date || new Date(rule.start_date) <= now) &&
-                (!rule.end_date || new Date(rule.end_date) >= now);
+                (!startObj || startObj <= now) &&
+                (!endObj || endObj >= now);
 
             const isScheduled = (rule.is_active === 1 || rule.is_active === true) &&
-                rule.start_date && new Date(rule.start_date) > now;
+                startObj && startObj > now;
 
-            const isExpired = rule.end_date && new Date(rule.end_date) < now;
+            const isExpired = endObj && endObj < now;
             const isCoupon = Boolean(rule.coupon_code);
 
             if (activeTab === 'ACTIVE') return isCurrentActive;
@@ -275,7 +284,10 @@ export default function AdminDiscountsPage() {
 
     const stats = useMemo(() => {
         const now = new Date();
-        const activeCount = rules.filter(r => (r.is_active === 1 || r.is_active === true) && (!r.end_date || new Date(r.end_date) >= now)).length;
+        const activeCount = rules.filter(r => {
+            const endObj = r.end_date ? parseDateToUTC(r.end_date) : null;
+            return (r.is_active === 1 || r.is_active === true) && (!endObj || endObj >= now);
+        }).length;
         const couponCount = rules.filter(r => r.coupon_code).length;
         const totalRedemptions = rules.reduce((sum, r) => sum + (r.usage_count || 0), 0);
         return { total: rules.length, active: activeCount, coupons: couponCount, redemptions: totalRedemptions };

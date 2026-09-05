@@ -18,6 +18,7 @@ export default function ShippingAdminPage() {
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [selectedZone, setSelectedZone] = useState(null);
+    const [activeTab, setActiveTab] = useState('DOMESTIC'); // 'DOMESTIC' | 'INTERNATIONAL'
     const [hasMounted, setHasMounted] = useState(false);
     const [stateSearch, setStateSearch] = useState('');
     const [confirmAction, setConfirmAction] = useState(null); // { title, message, onConfirm }
@@ -49,7 +50,8 @@ export default function ShippingAdminPage() {
 
             if (zonesRes.data) {
                 setZones(zonesRes.data);
-                if (!selectedZone && zonesRes.data.length > 0) setSelectedZone(zonesRes.data[0]);
+                const matchingZone = zonesRes.data.find(z => activeTab === 'INTERNATIONAL' ? z.is_international : !z.is_international) || zonesRes.data[0] || null;
+                setSelectedZone(matchingZone);
             }
             if (mappingRes.data) setMappings(mappingRes.data);
 
@@ -61,14 +63,32 @@ export default function ShippingAdminPage() {
         }
     };
 
+    const currentTabZones = useMemo(() => {
+        return zones.filter(z => activeTab === 'INTERNATIONAL' ? z.is_international : !z.is_international);
+    }, [zones, activeTab]);
+
+    const activeZone = useMemo(() => {
+        if (selectedZone && ((activeTab === 'INTERNATIONAL' && selectedZone.is_international) || (activeTab === 'DOMESTIC' && !selectedZone.is_international))) {
+            return selectedZone;
+        }
+        return currentTabZones[0] || null;
+    }, [selectedZone, activeTab, currentTabZones]);
+
+    const handleTabSwitch = async (tab) => {
+        setActiveTab(tab);
+        const targetIsIntl = tab === 'INTERNATIONAL';
+        const matchingZone = zones.find(z => targetIsIntl ? z.is_international : !z.is_international);
+        if (matchingZone) {
+            setSelectedZone(matchingZone);
+        } else {
+            await addZoneForTab(targetIsIntl);
+        }
+    };
+
     const handleUpdateZone = (id, field, value) => {
         setZones(prev => prev.map(z => z.id === id ? { ...z, [field]: value } : z));
         if (selectedZone?.id === id) {
             setSelectedZone(prev => ({ ...prev, [field]: value }));
-        }
-        if (field === 'is_international' && value === true) {
-            // Clear state mappings for this zone when converted to international
-            setMappings(prev => prev.filter(m => m.zone_id !== id));
         }
     };
 
@@ -115,11 +135,12 @@ export default function ShippingAdminPage() {
                 if (updateError) throw new Error(updateError.message || updateError.details || JSON.stringify(updateError));
             }
 
-            // 3. Update region mappings
+            // 3. Update region mappings (only for domestic zones)
             const zoneIds = zones.map(z => z.id);
+            const domesticZoneIds = new Set(zones.filter(z => !z.is_international).map(z => z.id));
             if (zoneIds.length > 0) {
                 await mysqlClient.from('shipping_zone_states').delete().in('zone_id', zoneIds);
-                const validMappings = mappings.filter(m => zoneIds.includes(m.zone_id));
+                const validMappings = mappings.filter(m => domesticZoneIds.has(m.zone_id));
                 if (validMappings.length > 0) {
                     const uniqueMappingsMap = new Map();
                     validMappings.forEach(m => {
@@ -149,12 +170,15 @@ export default function ShippingAdminPage() {
     };
 
     const addZone = async () => {
+        await addZoneForTab(activeTab === 'INTERNATIONAL');
+    };
+
+    const addZoneForTab = async (isIntl) => {
         setSaving(true);
         setError(null);
         try {
-            // Auto-generate a unique group title
             const existingTitles = new Set(zones.map(z => (z.name || '').trim().toLowerCase()));
-            let baseName = 'New Price Group';
+            let baseName = isIntl ? 'International Standard' : 'New Price Group';
             let newTitle = baseName;
             let counter = 1;
             while (existingTitles.has(newTitle.toLowerCase())) {
@@ -163,7 +187,12 @@ export default function ShippingAdminPage() {
 
             const { data, error } = await mysqlClient
                 .from('shipping_zones')
-                .insert([{ name: newTitle, rate: 100, free_threshold: 5000, is_international: 0 }])
+                .insert([{
+                    name: newTitle,
+                    rate: isIntl ? 1500 : 100,
+                    free_threshold: isIntl ? 10000 : 5000,
+                    is_international: isIntl ? 1 : 0
+                }])
                 .select()
                 .single();
 
@@ -172,6 +201,7 @@ export default function ShippingAdminPage() {
             setSelectedZone(data);
             setSuccess(`Price group "${newTitle}" created!`);
             setTimeout(() => setSuccess(null), 3000);
+            return data;
         } catch (err) {
             setError(err.message);
         } finally {
@@ -191,7 +221,10 @@ export default function ShippingAdminPage() {
                     const remaining = zones.filter(z => z.id !== id);
                     setZones(remaining);
                     setMappings(mappings.filter(m => m.zone_id !== id));
-                    if (selectedZone?.id === id) setSelectedZone(remaining[0] || null);
+                    if (selectedZone?.id === id) {
+                        const nextInTab = remaining.find(z => activeTab === 'INTERNATIONAL' ? z.is_international : !z.is_international);
+                        setSelectedZone(nextInTab || null);
+                    }
                     setSuccess('Zone removed.');
                 } catch (err) {
                     setError(err.message);
@@ -203,12 +236,13 @@ export default function ShippingAdminPage() {
     };
 
     const addLocation = (state) => {
-        if (!selectedZone) return;
-        const exists = mappings.find(m => m.zone_id === selectedZone.id && m.state_name === state && !m.district_name);
+        const target = activeZone;
+        if (!target) return;
+        const exists = mappings.find(m => m.zone_id === target.id && m.state_name === state && !m.district_name);
         if (exists) return;
 
         const filtered = mappings.filter(m => !(m.state_name === state && !m.district_name));
-        setMappings([...filtered, { zone_id: selectedZone.id, state_name: state, district_name: null }]);
+        setMappings([...filtered, { zone_id: target.id, state_name: state, district_name: null }]);
     };
 
     const removeMapping = (idx) => {
@@ -240,15 +274,15 @@ export default function ShippingAdminPage() {
                 {/* Zones Sidebar */}
                 <div className="zones-stack">
                     <div className="stack-header">
-                        <h3>Price Groups</h3>
+                        <h3>{activeTab === 'INTERNATIONAL' ? 'Intl Groups' : 'Price Groups'}</h3>
                         <button onClick={addZone} className="btn-icon-plus"><Plus size={16} /></button>
                     </div>
 
                     <div className="zones-list">
-                        {zones.map(zone => (
+                        {currentTabZones.map(zone => (
                             <div
                                 key={zone.id}
-                                className={`zone-card ${selectedZone?.id === zone.id ? 'active' : ''}`}
+                                className={`zone-card ${activeZone?.id === zone.id ? 'active' : ''}`}
                                 onClick={() => setSelectedZone(zone)}
                             >
                                 <div className="zone-icon">
@@ -261,24 +295,29 @@ export default function ShippingAdminPage() {
                                 <button onClick={(e) => { e.stopPropagation(); deleteZone(zone.id); }} className="btn-delete"><Trash2 size={14} /></button>
                             </div>
                         ))}
+                        {currentTabZones.length === 0 && (
+                            <div style={{ padding: '1.5rem 1rem', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>
+                                No {activeTab === 'INTERNATIONAL' ? 'international' : 'domestic'} price groups found. Click + to add one.
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Configuration Area */}
                 <div className="config-area">
-                    {selectedZone ? (
+                    <div className="type-toggle" style={{ marginBottom: '1.5rem' }}>
+                        <button className={activeTab === 'DOMESTIC' ? 'active' : ''} onClick={() => handleTabSwitch('DOMESTIC')}>Configure Domestic</button>
+                        <button className={activeTab === 'INTERNATIONAL' ? 'active' : ''} onClick={() => handleTabSwitch('INTERNATIONAL')}>Configure International</button>
+                    </div>
+
+                    {activeZone ? (
                         <div className="glass-panel animate-enter">
                             <div className="panel-header">
-                                <h2>Configure {selectedZone.name}</h2>
+                                <h2>Configure {activeZone.name}</h2>
                                 <p>Set rates and assign geographical regions to this group.</p>
                             </div>
 
-                            <div className="type-toggle" style={{ marginBottom: '2rem' }}>
-                                <button className={!selectedZone.is_international ? 'active' : ''} onClick={() => handleUpdateZone(selectedZone.id, 'is_international', false)}>Domestic</button>
-                                <button className={selectedZone.is_international ? 'active' : ''} onClick={() => handleUpdateZone(selectedZone.id, 'is_international', true)}>International</button>
-                            </div>
-
-                            {!selectedZone.is_international ? (
+                            {activeTab === 'DOMESTIC' ? (
                                 <div className="domestic-settings">
                                     <div className="settings-row" style={{ marginBottom: '2rem' }}>
                                         <div className="setting-input">
@@ -286,8 +325,8 @@ export default function ShippingAdminPage() {
                                             <div className="input-prefix no-icon">
                                                 <input
                                                     type="text"
-                                                    value={selectedZone.name}
-                                                    onChange={e => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
+                                                    value={activeZone.name}
+                                                    onChange={e => handleUpdateZone(activeZone.id, 'name', e.target.value)}
                                                     placeholder="e.g. South India Express"
                                                 />
                                             </div>
@@ -299,8 +338,8 @@ export default function ShippingAdminPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
-                                                    value={selectedZone.rate}
-                                                    onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
+                                                    value={activeZone.rate}
+                                                    onChange={e => handleUpdateZone(activeZone.id, 'rate', e.target.value)}
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
                                             </div>
@@ -312,8 +351,8 @@ export default function ShippingAdminPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
-                                                    value={selectedZone.free_threshold}
-                                                    onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
+                                                    value={activeZone.free_threshold}
+                                                    onChange={e => handleUpdateZone(activeZone.id, 'free_threshold', e.target.value)}
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
                                             </div>
@@ -327,13 +366,13 @@ export default function ShippingAdminPage() {
                                         </div>
 
                                         <div className="tags-container">
-                                            {mappings.filter(m => m.zone_id === selectedZone.id).map((m, i) => (
+                                            {mappings.filter(m => m.zone_id === activeZone.id).map((m, i) => (
                                                 <div key={i} className="region-tag">
                                                     {m.state_name}
                                                     <button onClick={() => removeMapping(mappings.indexOf(m))}><X size={12} /></button>
                                                 </div>
                                             ))}
-                                            {mappings.filter(m => m.zone_id === selectedZone.id).length === 0 && (
+                                            {mappings.filter(m => m.zone_id === activeZone.id).length === 0 && (
                                                 <div className="empty-regions">No regions assigned. Select from below.</div>
                                             )}
                                         </div>
@@ -345,8 +384,8 @@ export default function ShippingAdminPage() {
                                             </div>
                                             <div className="state-grid">
                                                 {filteredStates.map(s => {
-                                                    const isAssigned = mappings.find(m => m.state_name === s && m.zone_id === selectedZone.id);
-                                                    const isInOther = mappings.find(m => m.state_name === s && m.zone_id !== selectedZone.id);
+                                                    const isAssigned = mappings.find(m => m.state_name === s && m.zone_id === activeZone.id);
+                                                    const isInOther = mappings.find(m => m.state_name === s && m.zone_id !== activeZone.id);
 
                                                     return (
                                                         <button
@@ -372,8 +411,8 @@ export default function ShippingAdminPage() {
                                             <div className="input-prefix no-icon">
                                                 <input
                                                     type="text"
-                                                    value={selectedZone.name}
-                                                    onChange={e => handleUpdateZone(selectedZone.id, 'name', e.target.value)}
+                                                    value={activeZone.name}
+                                                    onChange={e => handleUpdateZone(activeZone.id, 'name', e.target.value)}
                                                     placeholder="e.g. International Standard"
                                                 />
                                             </div>
@@ -385,8 +424,8 @@ export default function ShippingAdminPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
-                                                    value={selectedZone.rate}
-                                                    onChange={e => handleUpdateZone(selectedZone.id, 'rate', e.target.value)}
+                                                    value={activeZone.rate}
+                                                    onChange={e => handleUpdateZone(activeZone.id, 'rate', e.target.value)}
                                                     placeholder="e.g. 1500"
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
@@ -399,8 +438,8 @@ export default function ShippingAdminPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
-                                                    value={selectedZone.free_threshold}
-                                                    onChange={e => handleUpdateZone(selectedZone.id, 'free_threshold', e.target.value)}
+                                                    value={activeZone.free_threshold}
+                                                    onChange={e => handleUpdateZone(activeZone.id, 'free_threshold', e.target.value)}
                                                     placeholder="e.g. 10000"
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
@@ -421,7 +460,7 @@ export default function ShippingAdminPage() {
                     ) : (
                         <div className="empty-panel">
                             <Truck size={40} />
-                            <h3>Select a price group to configure</h3>
+                            <h3>Select or create a price group to configure</h3>
                         </div>
                     )}
                 </div>

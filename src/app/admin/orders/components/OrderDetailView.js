@@ -629,22 +629,12 @@ export default function OrderDetailView({
                                 const rawSgst = Number(selectedOrder.sgst || selectedOrder.sgst_amount || 0);
                                 const rawIgst = Number(selectedOrder.igst || selectedOrder.igst_amount || 0);
                                 const rawTax = Number(selectedOrder.tax_amount || 0);
+                                const deliveryState = (selectedOrder.delivery_state || selectedOrder.shipping_state || selectedOrder.billing_state || '').trim().toLowerCase();
 
-                                let cgstVal = 0;
-                                let sgstVal = 0;
-                                if (rawCgst > 0 || rawSgst > 0) {
-                                    cgstVal = rawCgst;
-                                    sgstVal = rawSgst;
-                                } else if (rawTax > 0) {
-                                    cgstVal = rawTax / 2;
-                                    sgstVal = rawTax / 2;
-                                } else if (rawIgst > 0) {
-                                    cgstVal = rawIgst / 2;
-                                    sgstVal = rawIgst / 2;
-                                } else if (subtotalVal > 0) {
-                                    cgstVal = Math.round(subtotalVal * 0.025 * 100) / 100;
-                                    sgstVal = Math.round(subtotalVal * 0.025 * 100) / 100;
-                                }
+                                const isIgst = rawIgst > 0 || (rawCgst === 0 && rawSgst === 0 && rawTax > 0 && deliveryState && deliveryState !== 'tamil nadu');
+                                const igstVal = rawIgst > 0 ? rawIgst : rawTax;
+                                const cgstVal = rawCgst > 0 ? rawCgst : Math.round((rawTax / 2) * 100) / 100;
+                                const sgstVal = rawSgst > 0 ? rawSgst : Math.round((rawTax / 2) * 100) / 100;
 
                                 const shippingVal = Number(selectedOrder.shipping_cost || selectedOrder.shipping_fee || 0);
                                 const grandTotalVal = Number(selectedOrder.total_amount || 0);
@@ -656,21 +646,23 @@ export default function OrderDetailView({
                                             <span style={{ fontWeight: 600 }}>₹{subtotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         </div>
 
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                            <span>CGST (2.5%):</span>
-                                            <span>₹{cgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                            <span>SGST (2.5%):</span>
-                                            <span>₹{sgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        </div>
-
-                                        {rawIgst > 0 && (
+                                        {isIgst ? (
                                             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
                                                 <span>IGST (5%):</span>
-                                                <span>₹{rawIgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                <span>₹{igstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             </div>
-                                        )}
+                                        ) : (rawTax > 0 || cgstVal > 0 || sgstVal > 0) ? (
+                                            <>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                                    <span>CGST (2.5%):</span>
+                                                    <span>₹{cgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                                    <span>SGST (2.5%):</span>
+                                                    <span>₹{sgstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                            </>
+                                        ) : null}
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
                                             <span>Shipping:</span>

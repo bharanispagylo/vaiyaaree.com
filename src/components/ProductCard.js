@@ -260,7 +260,7 @@ export default function ProductCard({ product, gridView = true }) {
                         className={`${styles.addToCartBtn} ${isOutOfStock ? styles.addToCartDisabled : ''}`}
                         style={{ alignSelf: 'flex-start' }}
                     >
-                        {isOutOfStock ? 'Out of Stock' : (selectedVariant ? `Add ${selectedVariant.name} to Cart` : 'Add to Cart')}
+                        {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                     </button>
                 </div>
             </div>
@@ -322,7 +322,7 @@ export default function ProductCard({ product, gridView = true }) {
                             addToCart(product, selectedVariant || (hasVariants ? localVariants[0] : null));
                         }}
                     >
-                        <ShoppingCart size={16} /> {selectedVariant ? `ADD ${selectedVariant.name.toUpperCase()}` : 'ADD TO CART'}
+                        <ShoppingCart size={16} /> ADD TO CART
                     </div>
                 )}
             </div>

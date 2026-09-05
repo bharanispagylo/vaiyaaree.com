@@ -178,13 +178,19 @@ export default function CartDrawer() {
                                     <span>Promotions & Savings</span>
                                     <span>-₹{discountData.totalDiscount.toLocaleString()}</span>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: '4px 0 8px' }}>
-                                    {(discountData.appliedRules || []).map((r, idx) => (
-                                        <div key={idx} style={{ fontSize: '0.75rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <span>✨ {r.ruleName}</span>
-                                            {r.discountAmount > 0 && <span>(-₹{r.discountAmount.toLocaleString()})</span>}
-                                        </div>
-                                    ))}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '4px 0 8px', padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+                                    {(discountData.appliedRules || []).map((r, idx) => {
+                                        const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
+                                        const savingsText = r.discountType === 'FREE_SHIPPING'
+                                            ? 'Free Shipping'
+                                            : `-₹${(r.discountAmount || 0).toLocaleString()}`;
+                                        return (
+                                            <div key={idx} style={{ fontSize: '0.78rem', color: '#15803d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontWeight: 600 }}>✨ {ruleDisplayName}</span>
+                                                <span style={{ fontWeight: 700 }}>{savingsText}</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </>
                         )}

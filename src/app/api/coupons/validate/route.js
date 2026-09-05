@@ -24,8 +24,9 @@ export async function POST(request) {
         const couponDiscount = calculation.couponDiscount || 0;
         const shippingDiscount = calculation.shippingDiscount || 0;
         const totalDiscount = calculation.totalDiscount || 0;
+        const hasAppliedCouponRule = (calculation.appliedRules || []).some(r => r.isCoupon);
 
-        if (couponDiscount <= 0 && shippingDiscount <= 0 && totalDiscount <= 0) {
+        if (couponDiscount <= 0 && shippingDiscount <= 0 && totalDiscount <= 0 && !hasAppliedCouponRule) {
             return NextResponse.json({
                 success: false,
                 message: 'Coupon conditions were not met for the selected items in your cart.'
