@@ -114,6 +114,91 @@ export async function dispatchNotification({
         if (fallback) adminEmails.push(fallback);
     }
 
+    // Auto-enrich order items & product images if missing or incomplete
+    if (order && order.id) {
+        try {
+            let items = order.order_items || [];
+            if (!Array.isArray(items) || items.length === 0) {
+                const { data: dbItems } = await mysqlClient
+                    .from('order_items')
+                    .select('*')
+                    .eq('order_id', order.id);
+                if (dbItems && dbItems.length > 0) {
+                    items = dbItems;
+                }
+            }
+
+            if (Array.isArray(items) && items.length > 0) {
+                const prodIdsToFetch = [];
+                const variantIdsToFetch = [];
+
+                items.forEach(it => {
+                    if (!it.image_url) {
+                        if (it.variant_id) variantIdsToFetch.push(it.variant_id);
+                        if (it.product_id) prodIdsToFetch.push(it.product_id);
+                        if (it.id && !it.product_id) prodIdsToFetch.push(it.id);
+                    }
+                });
+
+                let variantImageMap = {};
+                let productImageMap = {};
+
+                if (variantIdsToFetch.length > 0) {
+                    try {
+                        const { data: vRows } = await mysqlClient
+                            .from('product_variants')
+                            .select('id, image_url')
+                            .in('id', [...new Set(variantIdsToFetch)]);
+                        if (vRows) {
+                            vRows.forEach(v => {
+                                if (v.image_url) variantImageMap[v.id] = v.image_url;
+                            });
+                        }
+                    } catch (vErr) {}
+                }
+
+                if (prodIdsToFetch.length > 0) {
+                    try {
+                        const { data: pRows } = await mysqlClient
+                            .from('products')
+                            .select('id, image_url, name')
+                            .in('id', [...new Set(prodIdsToFetch)]);
+                        if (pRows) {
+                            pRows.forEach(p => {
+                                if (p.image_url) {
+                                    productImageMap[p.id] = p.image_url;
+                                    if (p.name) productImageMap[p.name] = p.image_url;
+                                }
+                            });
+                        }
+                    } catch (pErr) {}
+                }
+
+                order.order_items = items.map(it => {
+                    const prodId = it.product_id || it.id;
+                    const variantId = it.variant_id || it.variantId;
+                    const resolvedImg = it.image_url 
+                        || (variantId && variantImageMap[variantId])
+                        || (prodId && productImageMap[prodId])
+                        || (it.product_name && productImageMap[it.product_name])
+                        || (it.name && productImageMap[it.name])
+                        || '';
+
+                    return {
+                        ...it,
+                        product_name: it.product_name || it.name || it.title || 'Pure Handloom Silk Saree',
+                        variant_name: it.variant_name || it.variantName || it.variant || null,
+                        quantity: Number(it.quantity || it.qty || 1),
+                        price_at_time: Number(it.price_at_time || it.price || 0),
+                        image_url: resolvedImg
+                    };
+                });
+            }
+        } catch (enrichErr) {
+            console.error('[NOTIF ENGINE] Order items enrichment error:', enrichErr);
+        }
+    }
+
     // 2. Build Message Content for Event
     const content = buildEventMessages(eventType, { order, returnReq, extraData, displayInv, customerName });
 

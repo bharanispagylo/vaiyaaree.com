@@ -31,6 +31,12 @@ export async function POST(req) {
                 .maybeSingle();
 
             if (dbOrder) {
+                if (dbOrder.order_items) {
+                    dbOrder.order_items = dbOrder.order_items.map(it => ({
+                        ...it,
+                        image_url: it.image_url || it.products?.image_url || ''
+                    }));
+                }
                 order = dbOrder;
             }
         }
@@ -44,7 +50,7 @@ export async function POST(req) {
             shop_name: 'Vaiyaaree Sarees',
             shop_phone: '8667793292',
             shop_email: 'vaiyaaree@gmail.com',
-            shop_address: 'Salem Main Road, Komarapalayam, Namakkal, Tamil Nadu, 638183'
+            shop_address: '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.'
         };
 
         try {

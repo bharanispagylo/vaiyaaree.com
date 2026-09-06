@@ -142,7 +142,10 @@ function getFooterHtml(settings = {}) {
     const shopName = settings.shop_name || 'Vaiyaaree Sarees';
     const shopPhone = settings.shop_phone || '8667793292';
     const shopEmail = settings.shop_email || 'vaiyaaree@gmail.com';
-    const shopAddress = settings.shop_address || 'Premium Saree Collections';
+    const rawShopAddress = settings.shop_address || '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.';
+    const shopAddress = rawShopAddress.includes('<br')
+        ? rawShopAddress
+        : rawShopAddress.replace(/Uppili Palayam,\s*/i, 'Uppili Palayam,<br/>');
     const billTerms = settings.bill_terms || 'All sales are final. Returns accepted within 7 days of delivery.';
 
     return `
@@ -205,12 +208,97 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
 
     const baseUrl = getCleanBaseUrl();
 
+    // Auto-enrich order items & product images if missing or incomplete
+    if (order && order.id) {
+        try {
+            let items = order.order_items || [];
+            if (!Array.isArray(items) || items.length === 0) {
+                const { data: dbItems } = await mysqlClient
+                    .from('order_items')
+                    .select('*')
+                    .eq('order_id', order.id);
+                if (dbItems && dbItems.length > 0) {
+                    items = dbItems;
+                }
+            }
+
+            if (Array.isArray(items) && items.length > 0) {
+                const prodIdsToFetch = [];
+                const variantIdsToFetch = [];
+
+                items.forEach(it => {
+                    if (!it.image_url) {
+                        if (it.variant_id) variantIdsToFetch.push(it.variant_id);
+                        if (it.product_id) prodIdsToFetch.push(it.product_id);
+                        if (it.id && !it.product_id) prodIdsToFetch.push(it.id);
+                    }
+                });
+
+                let variantImageMap = {};
+                let productImageMap = {};
+
+                if (variantIdsToFetch.length > 0) {
+                    try {
+                        const { data: vRows } = await mysqlClient
+                            .from('product_variants')
+                            .select('id, image_url')
+                            .in('id', [...new Set(variantIdsToFetch)]);
+                        if (vRows) {
+                            vRows.forEach(v => {
+                                if (v.image_url) variantImageMap[v.id] = v.image_url;
+                            });
+                        }
+                    } catch (vErr) {}
+                }
+
+                if (prodIdsToFetch.length > 0) {
+                    try {
+                        const { data: pRows } = await mysqlClient
+                            .from('products')
+                            .select('id, image_url, name')
+                            .in('id', [...new Set(prodIdsToFetch)]);
+                        if (pRows) {
+                            pRows.forEach(p => {
+                                if (p.image_url) {
+                                    productImageMap[p.id] = p.image_url;
+                                    if (p.name) productImageMap[p.name] = p.image_url;
+                                }
+                            });
+                        }
+                    } catch (pErr) {}
+                }
+
+                order.order_items = items.map(it => {
+                    const prodId = it.product_id || it.id;
+                    const variantId = it.variant_id || it.variantId;
+                    const resolvedImg = it.image_url 
+                        || (variantId && variantImageMap[variantId])
+                        || (prodId && productImageMap[prodId])
+                        || (it.product_name && productImageMap[it.product_name])
+                        || (it.name && productImageMap[it.name])
+                        || '';
+
+                    return {
+                        ...it,
+                        product_name: it.product_name || it.name || it.title || 'Pure Handloom Silk Saree',
+                        variant_name: it.variant_name || it.variantName || it.variant || null,
+                        quantity: Number(it.quantity || it.qty || 1),
+                        price_at_time: Number(it.price_at_time || it.price || 0),
+                        image_url: resolvedImg
+                    };
+                });
+            }
+        } catch (enrichErr) {
+            console.error('[EMAIL-SERVICE] Order items enrichment error:', enrichErr);
+        }
+    }
+
     // Fetch store branding settings
     let settings = {
         shop_name: 'Vaiyaaree Sarees',
         shop_phone: '8667793292',
         shop_email: 'vaiyaaree@gmail.com',
-        shop_address: 'Salem Main Road, Komarapalayam, Namakkal, Tamil Nadu, 638183'
+        shop_address: '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.'
     };
 
     try {

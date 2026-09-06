@@ -366,40 +366,57 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                                 Out of Stock
                             </div>
                         )}
-                        <Swiper
-                            modules={[Autoplay]}
-                            onSwiper={setSwiperInstance}
-                            onSlideChange={(swiper) => setCurrentImageIdx(swiper.activeIndex)}
-                            loop={false}
-                            spaceBetween={0}
-                            slidesPerView={1}
-                            className={styles.swiperContainer}
-                        >
-                            {galleryImages.map((img, idx) => (
-                                <SwiperSlide key={`slide-${img}-${idx}`} className={styles.swiperSlide}>
-                                    <div
-                                        className={styles.imageWrapper}
-                                        onClick={() => setIsZoomed(true)}
-                                        title="Click to zoom image"
-                                    >
-                                        <img
-                                            src={img}
-                                            alt={`${product.name} - View ${idx + 1}`}
-                                            className={styles.mainImage}
-                                            style={{ filter: isOutOfStock ? 'grayscale(25%)' : 'none' }}
-                                            onError={(e) => {
-                                                e.target.onerror = null;
-                                                e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
-                                            }}
-                                        />
-                                        <div className={styles.zoomBadge}>
-                                            <ZoomIn size={14} />
-                                            <span>Zoom</span>
+                        {galleryImages.length === 0 ? (
+                            <div style={{
+                                width: '100%',
+                                minHeight: '380px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: '#f8fafc',
+                                borderRadius: '16px',
+                                border: '1px dashed #cbd5e1',
+                                color: '#94a3b8'
+                            }}>
+                                <span style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>No Image</span>
+                            </div>
+                        ) : (
+                            <Swiper
+                                modules={[Autoplay]}
+                                onSwiper={setSwiperInstance}
+                                onSlideChange={(swiper) => setCurrentImageIdx(swiper.activeIndex)}
+                                loop={false}
+                                spaceBetween={0}
+                                slidesPerView={1}
+                                className={styles.swiperContainer}
+                            >
+                                {galleryImages.map((img, idx) => (
+                                    <SwiperSlide key={`slide-${img}-${idx}`} className={styles.swiperSlide}>
+                                        <div
+                                            className={styles.imageWrapper}
+                                            onClick={() => setIsZoomed(true)}
+                                            title="Click to zoom image"
+                                        >
+                                            <img
+                                                src={img}
+                                                alt={`${product.name} - View ${idx + 1}`}
+                                                className={styles.mainImage}
+                                                style={{ filter: isOutOfStock ? 'grayscale(25%)' : 'none' }}
+                                                onError={(e) => {
+                                                    e.target.onerror = null;
+                                                    e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23f8fafc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="700" fill="%2394a3b8">NO IMAGE</text></svg>';
+                                                }}
+                                            />
+                                            <div className={styles.zoomBadge}>
+                                                <ZoomIn size={14} />
+                                                <span>Zoom</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </SwiperSlide>
-                            ))}
-                        </Swiper>
+                                    </SwiperSlide>
+                                ))}
+                            </Swiper>
+                        )}
                     </div>
 
                     {/* Small Dot Thumbnails Indicator Bar */}
@@ -448,7 +465,7 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                                         alt={`View ${idx + 1}`}
                                         onError={(e) => {
                                             e.target.onerror = null;
-                                            e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80';
+                                            e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f8fafc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="%2394a3b8">NO IMAGE</text></svg>';
                                         }}
                                     />
                                 </button>

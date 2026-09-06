@@ -307,7 +307,9 @@ export default function OrderDetailModal({
                                             if (Array.isArray(parsedImgs) && parsedImgs.length > 0) imgUrl = parsedImgs[0];
                                         } catch (e) {}
                                     }
-                                    if (!imgUrl) imgUrl = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
+                                    const noImageSvg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f8fafc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="%2394a3b8">NO IMAGE</text></svg>';
+                                    if (imgUrl && imgUrl.includes('images.unsplash.com')) imgUrl = '';
+                                    if (!imgUrl) imgUrl = noImageSvg;
                                     const itemPrice = Number(item.price_at_time || item.price || 0);
                                     const itemQty = item.quantity || 1;
                                     const itemLineTotal = itemPrice * itemQty;
@@ -329,7 +331,7 @@ export default function OrderDetailModal({
                                                 src={imgUrl}
                                                 alt={item.product_name}
                                                 style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #e2e8f0' }}
-                                                onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = noImageSvg; }}
                                             />
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'hsl(var(--text-main, #0f172a))' }}>

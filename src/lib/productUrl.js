@@ -185,10 +185,8 @@ export function extractProductGalleryImages(product, selectedVariant = null) {
 
     rawList.forEach(item => parseItem(item));
 
-    const uniqueUrls = Array.from(new Set(parsedUrls));
-    const fallbackImg = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&q=80';
-
-    return uniqueUrls.length > 0 ? uniqueUrls : [fallbackImg];
+    const uniqueUrls = Array.from(new Set(parsedUrls)).filter(u => !u.includes('images.unsplash.com'));
+    return uniqueUrls;
 }
 
 

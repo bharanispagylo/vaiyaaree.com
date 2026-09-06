@@ -142,10 +142,13 @@ export default function TrackOrderTab({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {(trackOrderData.order_items || []).map(item => {
                                 const rawImg = item.image_url || item.products?.image_url || '';
-                                const imgUrl = rawImg ? rawImg.split(',')[0].trim() : 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
+                                const noImageSvg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f8fafc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="%2394a3b8">NO IMAGE</text></svg>';
+                                let cleanImg = rawImg ? rawImg.split(',')[0].trim() : '';
+                                if (cleanImg.includes('images.unsplash.com')) cleanImg = '';
+                                const imgUrl = cleanImg || noImageSvg;
                                 return (
                                     <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))' }}>
-                                        <img src={imgUrl} alt={item.product_name} style={{ width: '52px', height: '52px', borderRadius: '10px', objectFit: 'cover' }} onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }} />
+                                        <img src={imgUrl} alt={item.product_name} style={{ width: '52px', height: '52px', borderRadius: '10px', objectFit: 'cover' }} onError={(e) => { e.target.onerror = null; e.target.src = noImageSvg; }} />
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'hsl(var(--text-main))' }}>{item.product_name}</div>
                                             <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>Qty: {item.quantity || 1} • ₹{Number(item.price_at_time || item.price || 0).toLocaleString()} each</div>

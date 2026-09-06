@@ -50,9 +50,9 @@ export async function POST(request) {
             const order = orderRows[0];
             const oldStatus = order.status;
 
-            // 2. Fetch order items
+            // 2. Fetch order items (including product image)
             const [items] = await conn.query(
-                "SELECT * FROM `order_items` WHERE `order_id` = ?",
+                "SELECT oi.*, p.image_url FROM `order_items` oi LEFT JOIN `products` p ON oi.product_id = p.id WHERE oi.order_id = ?",
                 [orderId]
             );
 

@@ -84,7 +84,9 @@ export default function CartDrawer() {
                     ) : (
                         <div className={styles.itemsList}>
                             {cart.map((item, index) => {
-                                const firstImage = item.image_url?.split(',')[0] || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
+                                const rawImg = item.image_url?.split(',')[0]?.trim();
+                                const noImageSvg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f8fafc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="%2394a3b8">NO IMAGE</text></svg>';
+                                const firstImage = (rawImg && !rawImg.includes('images.unsplash.com')) ? rawImg : noImageSvg;
                                 const itemStock = item.stock !== undefined && item.stock !== null ? item.stock : 999;
                                 const isOutOfStock = itemStock <= 0;
                                 const isStockLimitReached = item.qty >= itemStock && itemStock > 0;
@@ -95,7 +97,7 @@ export default function CartDrawer() {
                                             src={firstImage}
                                             alt={item.name}
                                             className={styles.itemImage}
-                                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
+                                            onError={(e) => { e.target.onerror = null; e.target.src = noImageSvg; }}
                                         />
                                         <div className={styles.itemDetails}>
                                             <div className={styles.itemTopRow}>

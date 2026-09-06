@@ -65,21 +65,26 @@ export async function POST(request) {
             }
             const productId = itemRows[0].product_id;
             if (productId) {
-                const [productRows] = await pool.query('SELECT category FROM products WHERE id = ? LIMIT 1', [productId]);
-                const productCategory = productRows?.[0]?.category || '';
-                const [discountRuleRows] = await pool.query(
-                    `SELECT id FROM discounts
-                     WHERE is_active = 1
-                       AND (
-                           (target_scope = 'SPECIFIC_PRODUCTS' AND JSON_CONTAINS(eligible_products, JSON_QUOTE(?)))
-                           OR (target_scope = 'SPECIFIC_CATEGORIES' AND JSON_CONTAINS(eligible_categories, JSON_QUOTE(?)))
-                       )
-                       AND is_non_returnable = 1
-                     LIMIT 1`,
-                    [productId, productCategory]
-                );
-                if (discountRuleRows && discountRuleRows.length > 0) {
-                    return apiError('NON_RETURNABLE_ITEM', 'This product was purchased under a promotional offer and is not eligible for a refund.');
+                try {
+                    const [productRows] = await pool.query('SELECT category FROM products WHERE id = ? LIMIT 1', [productId]);
+                    const productCategory = productRows?.[0]?.category || '';
+                    const [discountRuleRows] = await pool.query(
+                        `SELECT id FROM discounts
+                         WHERE is_active = 1
+                           AND (
+                               (target_scope = 'SPECIFIC_PRODUCTS' AND JSON_CONTAINS(eligible_products, JSON_QUOTE(?)))
+                               OR (target_scope = 'SPECIFIC_CATEGORIES' AND JSON_CONTAINS(eligible_categories, JSON_QUOTE(?)))
+                           )
+                           AND is_non_returnable = 1
+                         LIMIT 1`,
+                        [productId, productCategory]
+                    );
+                    if (discountRuleRows && discountRuleRows.length > 0) {
+                        return apiError('NON_RETURNABLE_ITEM', 'This product was purchased under a promotional offer and is not eligible for a refund.');
+                    }
+                } catch (discountCheckErr) {
+                    // Non-fatal: discounts table may not exist yet, or query failed. Skip this check.
+                    console.warn('[REFUND-CREATE] Discount non-returnable check skipped:', discountCheckErr.message);
                 }
             }
         }

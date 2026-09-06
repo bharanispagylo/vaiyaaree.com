@@ -282,7 +282,11 @@ export async function POST(request) {
         const finalEmail = targetEmail || order.billing_email || order.customer_email;
         if (sendEmail && finalEmail) {
             try {
-                const orderWithTarget = { ...order, customer_email: finalEmail };
+                const orderWithTarget = { 
+                    ...order, 
+                    customer_email: finalEmail,
+                    order_items: (itemsWithImages && itemsWithImages.length > 0) ? itemsWithImages : order.order_items
+                };
                 let mailRes;
                 if (statusOverride) {
                     mailRes = await sendOrderStatusEmail(orderWithTarget, statusOverride);

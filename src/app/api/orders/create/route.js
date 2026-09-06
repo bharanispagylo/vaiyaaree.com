@@ -71,13 +71,14 @@ export async function POST(request) {
                 let actualPrice = 0;
                 let actualName = item.name;
                 let actualCategory = item.category || '';
-                let actualVariantName = item.variantName || null;
+                let actualVariantName = null;
                 let verifiedVariantId = null;
+                let actualImageUrl = '';
 
                 if (item.variantId) {
                     // Try locking variant row for update
                     const [vRows] = await conn.query(
-                        "SELECT `id`, `name`, `price`, `stock` FROM `product_variants` WHERE `id` = ? FOR UPDATE",
+                        "SELECT `id`, `name`, `price`, `stock`, `image_url`, `product_id` FROM `product_variants` WHERE `id` = ? FOR UPDATE",
                         [item.variantId]
                     );
 
@@ -91,10 +92,25 @@ export async function POST(request) {
                         actualPrice = parseFloat(variant.price || 0);
                         actualVariantName = variant.name;
                         verifiedVariantId = variant.id;
+                        if (variant.image_url) actualImageUrl = variant.image_url;
+
+                        // Also fetch parent product for name/category/image if needed
+                        const parentProdId = variant.product_id || item.id;
+                        if (parentProdId) {
+                            const [pRows] = await conn.query(
+                                "SELECT `id`, `name`, `category`, `image_url` FROM `products` WHERE `id` = ?",
+                                [parentProdId]
+                            );
+                            if (pRows.length > 0) {
+                                if (pRows[0].name) actualName = pRows[0].name;
+                                if (pRows[0].category) actualCategory = pRows[0].category;
+                                if (!actualImageUrl && pRows[0].image_url) actualImageUrl = pRows[0].image_url;
+                            }
+                        }
                     } else {
                         // Fallback: Check if item.id exists in products table if variant ID is not found
                         const [pRows] = await conn.query(
-                            "SELECT `id`, `name`, `price`, `stock`, `category` FROM `products` WHERE `id` = ? FOR UPDATE",
+                            "SELECT `id`, `name`, `price`, `stock`, `category`, `image_url` FROM `products` WHERE `id` = ? FOR UPDATE",
                             [item.id]
                         );
 
@@ -111,12 +127,13 @@ export async function POST(request) {
                         actualPrice = parseFloat(product.price || item.price || 0);
                         if (product.name) actualName = product.name;
                         if (product.category) actualCategory = product.category;
+                        if (product.image_url) actualImageUrl = product.image_url;
                         verifiedVariantId = null;
                     }
                 } else {
                     // Lock product row for update
                     const [pRows] = await conn.query(
-                        "SELECT `id`, `name`, `price`, `stock`, `category` FROM `products` WHERE `id` = ? FOR UPDATE",
+                        "SELECT `id`, `name`, `price`, `stock`, `category`, `image_url` FROM `products` WHERE `id` = ? FOR UPDATE",
                         [item.id]
                     );
 
@@ -133,17 +150,25 @@ export async function POST(request) {
                     actualPrice = parseFloat(product.price || item.price || 0);
                     if (product.name) actualName = product.name;
                     if (product.category) actualCategory = product.category;
+                    if (product.image_url) actualImageUrl = product.image_url;
                 }
 
                 subtotal += actualPrice * item.qty;
                 verifiedCartItems.push({
                     id: item.id,
+                    product_id: item.id,
                     name: actualName,
+                    product_name: actualName,
                     category: actualCategory,
                     price: actualPrice,
+                    price_at_time: actualPrice,
                     qty: item.qty,
+                    quantity: item.qty,
                     variantId: verifiedVariantId,
-                    variantName: actualVariantName
+                    variant_id: verifiedVariantId,
+                    variantName: actualVariantName,
+                    variant_name: actualVariantName,
+                    image_url: actualImageUrl
                 });
             }
 

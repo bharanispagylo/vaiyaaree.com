@@ -10,10 +10,10 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Missing orderId' }), { status: 400 });
         }
 
-        // Fetch order to get details
+        // Fetch order to get details (with items and product details)
         const { data: order } = await mysqlClient
             .from('orders')
-            .select('*')
+            .select('*, order_items(*, products(*))')
             .eq('id', orderId)
             .single();
 

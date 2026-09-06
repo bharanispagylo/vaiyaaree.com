@@ -200,7 +200,10 @@ export function buildOrderStatusEmailHtml({
     const shopName = settings.shop_name || 'Vaiyaaree Sarees';
     const shopPhone = settings.shop_phone || settings.business_phone || '8667793292';
     const shopEmail = settings.shop_email || 'vaiyaaree@gmail.com';
-    const shopAddress = settings.shop_address || 'Salem Main Road, Komarapalayam, Namakkal, Tamil Nadu, 638183';
+    const rawShopAddress = settings.shop_address || '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.';
+    const shopAddress = rawShopAddress.includes('<br')
+        ? rawShopAddress
+        : rawShopAddress.replace(/Uppili Palayam,\s*/i, 'Uppili Palayam,<br/>');
 
     const invoiceNo = order.invoice_no 
         ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
@@ -233,27 +236,60 @@ export function buildOrderStatusEmailHtml({
 
     // Direct Target URLs
     const cleanBaseUrl = (baseUrl || 'https://vaiyaaree.com').replace(/\/$/, '');
+    const liveDomainUrl = 'https://vaiyaaree.com';
+    const appDomain = (cleanBaseUrl && !cleanBaseUrl.includes('localhost') && !cleanBaseUrl.includes('127.0.0.1'))
+        ? cleanBaseUrl
+        : (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes('localhost')
+            ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
+            : liveDomainUrl);
+
     const ctaDirectUrl = config.ctaUrlSuffix?.startsWith('http') ? config.ctaUrlSuffix : `${cleanBaseUrl}/${config.ctaUrlSuffix}`;
     const invoicePdfUrl = `${cleanBaseUrl}/api/invoice/${order.id || 'sample'}?phone=${encodeURIComponent(customerPhone)}`;
     const whatsAppHelpUrl = `https://wa.me/${shopPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${shopName}, I have a query about my order ${invoiceNo}.`)}`;
 
     // Generate Items HTML Rows
     const itemsRowsHtml = items.map((item, idx) => {
-        const rawImg = item.image_url || item.products?.image_url || '';
-        let imgUrl = rawImg ? rawImg.split(',')[0].trim() : '';
+        const rawImg = item.image_url || item.image || item.imageUrl || item.products?.image_url || item.product?.image_url || '';
+        let imgUrl = rawImg ? String(rawImg).split(',')[0].trim() : '';
         if (!imgUrl && item.products?.images) {
             try {
                 const parsed = typeof item.products.images === 'string' ? JSON.parse(item.products.images) : item.products.images;
                 if (Array.isArray(parsed) && parsed.length > 0) imgUrl = parsed[0];
             } catch (e) {}
         }
-        if (!imgUrl) imgUrl = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=200&q=80';
 
-        const itemName = item.product_name || item.name || 'Pure Handloom Silk Saree';
-        const variantName = item.variant_name || item.variant || '';
-        const qty = item.quantity || 1;
-        const unitPrice = Number(item.price_at_time || item.price || 0);
+        // Never display sample/stock images for real customer orders
+        if (order.id !== 'WEB-1042' && imgUrl && imgUrl.includes('images.unsplash.com')) {
+            imgUrl = '';
+        }
+
+        // Convert relative URLs to absolute public URLs for email clients (Gmail, Outlook, Apple Mail)
+        if (imgUrl) {
+            if (imgUrl.startsWith('//')) {
+                imgUrl = `https:${imgUrl}`;
+            } else if (imgUrl.startsWith('/')) {
+                imgUrl = `${appDomain}${imgUrl}`;
+            } else if (!imgUrl.startsWith('http://') && !imgUrl.startsWith('https://')) {
+                imgUrl = `${appDomain}/${imgUrl}`;
+            }
+        }
+
+        const itemName = item.product_name || item.name || item.title || 'Pure Handloom Silk Saree';
+        const variantName = item.variant_name || item.variantName || item.variant || '';
+        const qty = Number(item.quantity || item.qty || 1);
+        const unitPrice = Number(item.price_at_time || item.price || item.unit_price || 0);
         const lineTotal = unitPrice * qty;
+
+        // Display specified saree image if uploaded, or clean "No Image" text placeholder
+        const imageCellHtml = imgUrl
+            ? `<img src="${imgUrl}" alt="${itemName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 10px; object-fit: cover; border: 1px solid #e2e8f0; display: block;" />`
+            : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="width: 64px; height: 64px; background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px;">
+                <tr>
+                    <td align="center" valign="middle" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; line-height: 1.2;">
+                        No<br/>Image
+                    </td>
+                </tr>
+            </table>`;
 
         return `
             <tr>
@@ -261,7 +297,7 @@ export function buildOrderStatusEmailHtml({
                     <table cellpadding="0" cellspacing="0" border="0" width="100%">
                         <tr>
                             <td width="64" style="vertical-align: top; padding-right: 14px;">
-                                <img src="${imgUrl}" alt="${itemName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 10px; object-fit: cover; border: 1px solid #e2e8f0; display: block;" />
+                                ${imageCellHtml}
                             </td>
                             <td style="vertical-align: top;">
                                 <div style="font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.35;">${itemName}</div>

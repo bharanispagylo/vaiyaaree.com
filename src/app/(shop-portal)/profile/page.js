@@ -502,7 +502,7 @@ export default function ProfilePage() {
             return;
         }
 
-        const [orderId, productId] = refundForm.orderItemKey.split('::');
+        const [orderId, orderItemId, productId] = refundForm.orderItemKey.split('::');
         const finalReason = refundForm.reason === 'Other' ? refundForm.otherReason : refundForm.reason;
 
         if (!finalReason) {
@@ -517,7 +517,7 @@ export default function ProfilePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     order_id: orderId,
-                    order_item_id: productId && productId !== 'undefined' ? productId : null,
+                    order_item_id: orderItemId && orderItemId !== 'undefined' ? orderItemId : null,
                     customer_id: user.id,
                     reason: finalReason,
                     customer_note: refundForm.otherReason || null,
@@ -527,7 +527,7 @@ export default function ProfilePage() {
 
             const data = await res.json();
             if (!res.ok) {
-                throw new Error(data.error || 'Failed to submit refund request');
+                throw new Error(data.message || data.error || 'Failed to submit refund request');
             }
 
             showToast('Refund request submitted successfully!');
@@ -617,14 +617,14 @@ export default function ProfilePage() {
         (o.order_items || []).forEach(item => {
             const alreadyRefunded = refunds.some(ref => 
                 String(ref.order_id) === String(o.id) && 
-                (String(ref.product_id) === String(item.product_id) || !ref.product_id) &&
-                ref.status !== 'REJECTED'
+                (String(ref.order_item_id) === String(item.id) || !ref.order_item_id) &&
+                !['REJECTED', 'CANCELLED', 'REFUND_FAILED'].includes((ref.refund_status || ref.status || '').toUpperCase())
             );
 
             if (!alreadyRefunded) {
                 const priceVal = item.price_at_time || item.price || 0;
                 eligibleRefundProducts.push({
-                    key: `${o.id}::${item.product_id}::${priceVal}`,
+                    key: `${o.id}::${item.id}::${item.product_id}::${priceVal}`,
                     orderId: displayInv,
                     productName: item.product_name || 'Product Item',
                     price: priceVal,

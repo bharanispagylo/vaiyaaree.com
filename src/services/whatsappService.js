@@ -1,5 +1,7 @@
 //  Vaiyaaree — WHATSAPP BUSINESS BOT (Premium Edition)
 
+import fs from 'fs';
+import path from 'path';
 import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import { processReturnRequest } from './returnService';
 import { generateOrderPDFBuffer } from '@/app/api/invoice/[orderId]/route';
@@ -25,14 +27,23 @@ export function formatInvoiceId(orderOrId) {
         rawId = String(orderOrId);
     }
 
-    if (invNo) {
+    if (invNo && String(invNo).trim()) {
         const cleanInv = String(invNo).trim().replace(/^#/, '');
-        return `#${cleanInv}`;
+        if (cleanInv) return `#${cleanInv}`;
     }
 
     const clean = String(rawId).trim().replace(/^#/, '');
-    const formatted = clean.replace(/^([A-Z]+-)?/i, 'INV-');
-    return `#${formatted}`;
+    const numMatch = clean.match(/\d+/);
+    if (numMatch) {
+        return `#INV-${numMatch[0]}`;
+    }
+
+    if (clean && clean !== 'INV-') {
+        const formatted = clean.replace(/^([A-Z]+-)?/i, 'INV-');
+        return `#${formatted}`;
+    }
+
+    return '#INV-0001';
 }
 const truncate = (str, limit) => (str && str.length > limit) ? str.substring(0, limit - 3) + "..." : str;
 
@@ -42,17 +53,43 @@ async function updateCustomerAdminNotes(toOrId, notes) {
     let query;
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toOrId);
 
+    const normalizedPhone = normalizePhoneNumber(toOrId);
+    const phoneVariations = [normalizedPhone];
+    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        phoneVariations.push(normalizedPhone.substring(2));
+    }
+
+    // Check if customer already has an account payload (like password hash { pwd: '...' }) in admin_notes
+    let custQuery = isUuid
+        ? mysqlAdmin.from('customers').select('id, admin_notes').eq('id', toOrId)
+        : mysqlAdmin.from('customers').select('id, admin_notes').in('phone', phoneVariations);
+
+    const { data: existingCusts } = await custQuery;
+    const cust = existingCusts?.[0];
+
+    let newNotesVal = notes;
+    if (cust && typeof cust.admin_notes === 'object' && cust.admin_notes !== null) {
+        const merged = { ...cust.admin_notes };
+        if (notes) merged.wa_state = notes;
+        else delete merged.wa_state;
+        newNotesVal = merged;
+    } else if (cust && typeof cust.admin_notes === 'string' && cust.admin_notes.startsWith('{')) {
+        try {
+            const parsed = JSON.parse(cust.admin_notes);
+            if (notes) parsed.wa_state = notes;
+            else delete parsed.wa_state;
+            newNotesVal = JSON.stringify(parsed);
+        } catch (e) {
+            newNotesVal = notes;
+        }
+    }
+
     if (isUuid) {
         console.log(`[WA-UPDATE] Updating notes by ID: ${toOrId}`);
-        query = mysqlAdmin.from('customers').update({ admin_notes: notes }).eq('id', toOrId);
+        query = mysqlAdmin.from('customers').update({ admin_notes: newNotesVal }).eq('id', toOrId);
     } else {
-        const normalizedPhone = normalizePhoneNumber(toOrId);
-        const phoneVariations = [normalizedPhone];
-        if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-            phoneVariations.push(normalizedPhone.substring(2));
-        }
         console.log(`[WA-UPDATE] Updating notes by Phone variations:`, phoneVariations);
-        query = mysqlAdmin.from('customers').update({ admin_notes: notes }).in('phone', phoneVariations);
+        query = mysqlAdmin.from('customers').update({ admin_notes: newNotesVal }).in('phone', phoneVariations);
     }
 
     const { data, error } = await query.select();
@@ -60,7 +97,7 @@ async function updateCustomerAdminNotes(toOrId, notes) {
     if (error) {
         console.error(`[WA-UPDATE-ERROR] Failed to update notes:`, error);
     } else if (data && data.length > 0) {
-        console.log(`[WA-UPDATE-SUCCESS] Notes set to: "${notes}" for ${data.length} record(s)`);
+        console.log(`[WA-UPDATE-SUCCESS] Notes set for ${data.length} record(s)`);
     } else {
         console.warn(`[WA-UPDATE-WARNING] No records found to update for: ${toOrId}`);
     }
@@ -161,17 +198,22 @@ async function getConfig(key, fallback) {
     if (cached && Date.now() - cached.ts < CONFIG_TTL) return cached.value;
 
     const { data } = await mysqlClient.from('app_settings').select('value').eq('key', key).single();
-    // Replace literal \n from database with actual newline characters
+    // Replace literal \n from database with actual newline characters safely
     const raw = data?.value || fallback;
-    const value = raw.replace(/\\n/g, '\n');
+    const value = typeof raw === 'string' ? raw.replace(/\\n/g, '\n') : (raw ?? fallback);
 
     configCache.set(key, { value, ts: Date.now() });
     return value;
 }
 
-// Deterministic image selector based on Product ID
+// Deterministic image selector based on Product ID with verified disk existence
 function getPremiumImage(product) {
-    if (!product) return PREMIUM_IMAGES[0];
+    let hash = 0;
+    const str = String(product?.id || product?.name || product?.product_catalog_image_id || 'default');
+    for (let i = 0; i < str.length; i++) { hash = str.charCodeAt(i) + ((hash << 5) - hash); }
+    const index = Math.abs(hash) % PREMIUM_IMAGES.length;
+
+    if (!product) return PREMIUM_IMAGES[index];
 
     // Get website base URL for resolving relative product image paths (/uploads/...)
     let baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://vaiyaaree.com').trim();
@@ -186,18 +228,30 @@ function getPremiumImage(product) {
         if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
             return firstUrl;
         }
-        if (firstUrl.startsWith('/')) {
-            return `${baseUrl}${firstUrl}`;
-        }
-        if (firstUrl) {
-            return `${baseUrl}/${firstUrl}`;
+
+        const relPath = firstUrl.startsWith('/') ? firstUrl : `/${firstUrl}`;
+        const publicRoot = path.join(process.cwd(), 'public');
+        const filename = path.basename(relPath);
+
+        const candidatePaths = [
+            path.join(publicRoot, relPath.replace(/\//g, path.sep)),
+            path.join(publicRoot, relPath.replace('/with-watermark/', '/').replace(/\//g, path.sep)),
+            path.join(publicRoot, relPath.replace('/without-watermark/', '/').replace(/\//g, path.sep)),
+            path.join(publicRoot, 'uploads', 'media', filename),
+            path.join(publicRoot, 'uploads', 'products', filename)
+        ];
+
+        for (const cp of candidatePaths) {
+            try {
+                if (fs.existsSync(cp)) {
+                    const relFound = cp.substring(publicRoot.length).replace(/\\/g, '/');
+                    return `${baseUrl}${relFound}`;
+                }
+            } catch (_) {}
         }
     }
 
-    let hash = 0;
-    const str = String(product.id || product.name || 'default');
-    for (let i = 0; i < str.length; i++) { hash = str.charCodeAt(i) + ((hash << 5) - hash); }
-    const index = Math.abs(hash) % PREMIUM_IMAGES.length;
+    // If local file is missing, return high quality verified live saree image fallback
     return PREMIUM_IMAGES[index];
 }
 
@@ -273,6 +327,9 @@ export async function sendText(to, text) {
 
 export async function sendImageButtons(to, imageUrl, bodyText, buttons) {
     const cleanImgUrl = imageUrl && typeof imageUrl === 'string' ? imageUrl.split(',')[0].trim() : imageUrl;
+    if (!cleanImgUrl) {
+        return await sendButtons(to, bodyText, buttons);
+    }
     const res = await sendRawMessage(to, {
         messaging_product: "whatsapp", recipient_type: "individual", to, type: "interactive",
         interactive: {
@@ -515,45 +572,80 @@ async function deductStock(orderId) {
 //  PRODUCT INQUIRY via Catalog ID (printed on product image) 
 // Customer reads the CAT-XXXXX code from the product image and texts it to the bot.
 
-// Generate lookup variants to fix common OCR misreads (e.g. 1→I, 0→O)
-function getCatalogIdVariants(catalogId) {
-    const code = catalogId.replace(/^CAT[-\s]?/i, '').toUpperCase();
-    const CONFUSABLES = {
-        '1': ['I', 'L'], 'I': ['1', 'L'], 'L': ['1', 'I'],
-        '0': ['O'], 'O': ['0'],
-        '5': ['S'], 'S': ['5'],
-        '8': ['B'], 'B': ['8'],
-        '6': ['G'], 'G': ['6'],
-        'Z': ['2'], '2': ['Z']
-    };
+// Robust Catalog ID extraction from any user phrasing (e.g. "cat no: 0ai0s", "CAT-0AI0S", "0ai0s", "cat 0ai0s")
+export function extractCatCode(text) {
+    if (!text || typeof text !== 'string') return null;
+    const trimmed = text.trim();
 
-    const variants = new Set();
-
-    // Recursive function to generate all permutations of confusable characters
-    function generatePermutations(currentStr, index) {
-        if (index === code.length) {
-            variants.add(currentStr);
-            variants.add(`CAT-${currentStr}`);
-            variants.add(`CAT${currentStr}`);
-            return;
-        }
-
-        const char = code[index];
-        const options = [char, ...(CONFUSABLES[char] || [])];
-
-        for (const opt of options) {
-            generatePermutations(currentStr + opt, index + 1);
+    // 1. Explicit CAT prefix with optional words like no, num, number, code, #, :
+    // e.g. "cat no 0ai0s", "cat no: 0ai0s", "cat no CAT-0AI0S", "CAT-0AI0S", "cat 0ai0s", "cat#0ai0s", "cat: 0ai0s"
+    const catExplicitMatch = trimmed.match(/(?:CAT\s*(?:NO|NUM|NUMBER|CODE)?\s*[:#.-]?\s*)+(?:CAT[-_\s]*)?([A-Z0-9]{4,12})/i);
+    if (catExplicitMatch) {
+        const candidate = catExplicitMatch[1].toUpperCase();
+        const RESERVED_WORDS = ['NUMBER', 'ORDERS', 'ORDER', 'PRODUCT', 'SAREES', 'CATALOGUE', 'CATALOG'];
+        if (!RESERVED_WORDS.includes(candidate)) {
+            return candidate;
         }
     }
 
-    // Safety: Only recurse if the code isn't excessively long to avoid memory issues
-    if (code.length <= 10) {
-        generatePermutations('', 0);
-    } else {
-        // Fallback for long codes: just add base and basic dash variants
-        variants.add(code);
-        variants.add(`CAT-${code}`);
-        variants.add(`CAT${code}`);
+    // 2. Standalone alphanumeric code: e.g. "0AI0S", "OAIOS", "BNR6S", "#0AI0S"
+    const standaloneMatch = trimmed.match(/^(?:#\s*)?([A-Z0-9]{4,12})$/i);
+    if (standaloneMatch) {
+        const candidate = standaloneMatch[1].toUpperCase();
+        const RESERVED_WORDS = [
+            'TEST', 'ORDERS', 'ORDER', 'CANCEL', 'CONTACT', 'RETURN', 'REFUND',
+            'EXCHANGE', 'HELP', 'PRICE', 'INFO', 'HOME', 'MENU', 'SAREE', 'SAREES',
+            'CART', 'BAG', 'START', 'STOP', 'STATUS', 'RESET', 'CATALOGUE', 'CATALOG'
+        ];
+        if (!RESERVED_WORDS.includes(candidate)) {
+            return candidate;
+        }
+    }
+
+    return null;
+}
+
+// Generate lookup variants using BFS queue to fix common OCR/typing misreads (e.g. 1↔I, 0↔O)
+export function getCatalogIdVariants(catalogId) {
+    if (!catalogId) return [];
+    const code = catalogId.replace(/^CAT[-\s_]?/i, '').toUpperCase().trim();
+    const CONFUSABLES = {
+        '1': ['I', 'L', 'T', 'J'],
+        'I': ['1', 'L', 'T'],
+        'L': ['1', 'I'],
+        '0': ['O', 'D', 'Q'],
+        'O': ['0', 'Q', 'D'],
+        '5': ['S'],
+        'S': ['5'],
+        '8': ['B'],
+        'B': ['8'],
+        '6': ['G'],
+        'G': ['6'],
+        'Z': ['2'],
+        '2': ['Z']
+    };
+
+    const variants = new Set([catalogId.toUpperCase(), `CAT-${code}`, `CAT${code}`, code]);
+
+    // BFS Queue: ensures single-character variations across the ENTIRE string are generated first!
+    const queue = [code];
+    while (queue.length > 0 && variants.size < 60) {
+        const curr = queue.shift();
+        for (let i = 0; i < curr.length; i++) {
+            const ch = curr[i];
+            const reps = CONFUSABLES[ch] || [];
+            for (const r of reps) {
+                const next = curr.substring(0, i) + r + curr.substring(i + 1);
+                if (!variants.has(next)) {
+                    variants.add(next);
+                    variants.add(`CAT-${next}`);
+                    variants.add(`CAT${next}`);
+                    queue.push(next);
+                    if (variants.size >= 60) break;
+                }
+            }
+            if (variants.size >= 60) break;
+        }
     }
 
     return [...variants];
@@ -719,7 +811,11 @@ export async function handleProductInquiry(to, catalogId) {
                 { id: 'menu_main', title: ' Main Menu' }
             ];
 
-        await sendImageButtons(to, imgUrl, caption, buttons);
+        const res = await sendImageButtons(to, imgUrl, caption, buttons);
+        if (res && res.error) {
+            console.warn('[WA] sendImageButtons failed, falling back to text buttons:', res.error);
+            await sendButtons(to, caption, buttons);
+        }
     } catch (err) {
         console.error('[WA] handleProductInquiry error:', err);
         await sendText(to, ' Could not load product details. Please send *Hi* to browse our catalogue.');
@@ -804,6 +900,29 @@ const CATEGORY_EMOJIS = {};
 
 function getCategoryEmoji(category) {
     return '';
+}
+
+export function matchCategoryInput(text) {
+    if (!text || typeof text !== 'string') return null;
+    const clean = text.toLowerCase().replace(/sarees?|collection|type|please|show|view|sari/gi, '').trim();
+    if (!clean) return null;
+
+    const KNOWN_CATEGORIES = [
+        { name: 'Banarasi', keywords: ['banarasi', 'banrasi', 'banaras', 'benarasi', 'benaras'] },
+        { name: 'Silk Saree', keywords: ['silk', 'silks', 'semi silk', 'surat silk', 'kanjivaram'] },
+        { name: 'Cotton Saree', keywords: ['cotton', 'cottons', 'south cotton', 'linen cotton'] },
+        { name: 'Organza', keywords: ['organza', 'organzas'] },
+        { name: 'Designer', keywords: ['designer', 'designers', 'fancy', 'party wear', 'tissue', 'baghalpuri', 'kota'] }
+    ];
+
+    for (const cat of KNOWN_CATEGORIES) {
+        for (const kw of cat.keywords) {
+            if (clean === kw || clean.includes(kw) || kw.includes(clean)) {
+                return cat.name;
+            }
+        }
+    }
+    return null;
 }
 
 export async function sendCatalogueCategories(to) {
@@ -988,10 +1107,13 @@ export async function handleAddToCart(to, productIdRaw) {
     const { data: product } = await mysqlClient.from('products').select('*').eq('id', productId).single();
     const { data: variants } = await mysqlClient.from('product_variants').select('*').eq('product_id', productId);
 
-    const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
-    if (!product || !product.is_active || effectiveStock <= 0) return sendText(to, " Sorry, this item is out of stock or no longer available.");
+    if (!product || !product.is_active) return sendText(to, " Sorry, this item is out of stock or no longer available.");
 
     if (variants && variants.length > 0) {
+        const totalVariantStock = variants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
+        if (totalVariantStock <= 0) {
+            return sendText(to, " Sorry, all options for this item are currently out of stock.");
+        }
         // Show variant selection list
         const rows = variants.map(v => ({
             id: `vsel_${v.id}`,
@@ -1001,6 +1123,9 @@ export async function handleAddToCart(to, productIdRaw) {
 
         return await sendList(to, " SELECT OPTION", `Please select your preferred option for *${product.name}*:`, "Select Option", rows);
     }
+
+    const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
+    if (effectiveStock <= 0) return sendText(to, " Sorry, this item is out of stock or no longer available.");
 
     // No variants, add directly
     await addToCart(to, product, 1);
@@ -1159,6 +1284,7 @@ export async function startCheckout(to) {
         // Initial Draft
         const { error: insertErr } = await mysqlClient.from('orders').insert({
             id: orderId,
+            invoice_no: invoiceNo,
             customer_phone: to,
             status: "DRAFT",
             subtotal: subtotal,
@@ -1650,10 +1776,11 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
 
                 await new Promise(r => setTimeout(r, 1200));
 
+                const targetCancelId = orderId || order?.id;
                 await sendButtons(targetPhone, "Thank you for shopping with *Vaiyaaree*!\n\nTap below to manage your order:", [
                     { id: "menu_track", title: "Track Order" },
                     { id: "menu_my_orders", title: "View Order" },
-                    { id: `menu_cancel_order`, title: "Cancel Order" }
+                    { id: targetCancelId ? `init_cancel_${targetCancelId}` : `menu_cancel_order`, title: "Cancel Order" }
                 ]);
             } catch (notifyErr) {
                 console.error(`[NOTIFY] Error notifying target ${targetPhone}:`, notifyErr);
@@ -1768,7 +1895,7 @@ export async function handlePaymentConfirmed(to, orderId) {
     // Note: Stock is NOT deducted yet for unverified UPI to prevent "locking" stock with fake payments.
     // Stock will be deducted when admin marks it as PAID.
 
-    const { data: ord } = await mysqlClient.from('orders').select('invoice_no').eq('id', orderId).maybeSingle();
+    const { data: ord } = await mysqlClient.from('orders').select('id, invoice_no').eq('id', orderId).maybeSingle();
     const displayInv = formatInvoiceId(ord || orderId);
 
     return await sendText(to, " *Payment Notification Received*\n\nThank you! We are verifying your payment. Once confirmed, you will receive your official invoice and tracking details.\n\nInvoice No: *" + displayInv + "*");
@@ -1786,20 +1913,37 @@ export async function handleCancelOrder(to, customerId) {
     if (to.length === 10) {
         phoneVariations.push('91' + to);
     }
+    const withPlus = phoneVariations.map(p => '+' + p);
+    const allPhoneVariations = [...new Set([...phoneVariations, ...withPlus])];
 
-    // Query with OR condition for all phone variations
-    let orders = [];
-    for (const phone of phoneVariations) {
-        const { data } = await mysqlClient
-            .from('orders')
-            .select('id, status, total_amount, created_at')
-            .eq('customer_phone', phone)
-            .in('status', ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'])
-            .order('created_at', { ascending: false })
-            .limit(10);
-        if (data && data.length > 0) {
-            orders = data;
-            break;
+    const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PACKING'];
+
+    // Query for all phone variations
+    let { data: orders } = await mysqlClient
+        .from('orders')
+        .select('id, invoice_no, status, total_amount, created_at')
+        .in('customer_phone', allPhoneVariations)
+        .in('status', cancellableStatuses)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+    // Fallback: If no orders matched by exact phone list, match by last 10 digits
+    if (!orders?.length) {
+        const last10 = normalizedPhone.replace(/\D/g, '').slice(-10);
+        if (last10 && last10.length === 10) {
+            const { data: recentOrders } = await mysqlClient
+                .from('orders')
+                .select('id, invoice_no, status, total_amount, customer_phone, created_at')
+                .in('status', cancellableStatuses)
+                .order('created_at', { ascending: false })
+                .limit(20);
+
+            if (recentOrders?.length) {
+                orders = recentOrders.filter(o => {
+                    const phoneDigits = (o.customer_phone || '').replace(/\D/g, '').slice(-10);
+                    return phoneDigits === last10;
+                });
+            }
         }
     }
 
@@ -1810,17 +1954,37 @@ export async function handleCancelOrder(to, customerId) {
         );
     }
 
-    let msg = " *Cancel Order*\n\nYour recent orders:\n";
-    orders.forEach((o, i) => {
-        msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()} (${o.status})\n`;
-    });
-    msg += "\n *Please reply with the Order ID you want to cancel*\n\n_Example: ORD-123456_";
+    if (orders.length === 1) {
+        const o = orders[0];
+        const displayInv = formatInvoiceId(o);
+        return sendButtons(to,
+            ` *Cancel Order*\n\nActive Order Found:\n*Invoice No:* ${displayInv} (ID: #${o.id})\n*Amount:* ₹${o.total_amount?.toLocaleString()}\n*Status:* ${o.status}\n\nDo you want to cancel this order?`,
+            [
+                { id: `init_cancel_${o.id}`, title: "Yes, Cancel Order" },
+                { id: "menu_main", title: "Keep Order" }
+            ]
+        );
+    }
 
-    return sendText(to, msg);
+    let msg = " *Cancel Order*\n\nYour active orders:\n";
+    orders.forEach((o, i) => {
+        const displayInv = formatInvoiceId(o);
+        msg += `${i + 1}. *${displayInv}* (ID: #${o.id}) - ₹${o.total_amount?.toLocaleString()} (${o.status})\n`;
+    });
+    msg += "\n *Please reply with the Order ID or Invoice No you want to cancel*\n\n_Example: " + formatInvoiceId(orders[0]) + "_";
+
+    const buttons = orders.slice(0, 2).map(o => ({
+        id: `init_cancel_${o.id}`,
+        title: `Cancel ${formatInvoiceId(o)}`
+    }));
+    buttons.push({ id: "menu_main", title: "Main Menu" });
+
+    return sendButtons(to, msg, buttons);
 }
 
 export async function processCancelOrder(to, orderId) {
-    const upperOrderId = orderId.toUpperCase();
+    const cleanId = String(orderId || '').trim().replace(/^#/, '').toUpperCase();
+    const numPart = cleanId.replace(/^[A-Z]+-?/i, '');
 
     // Normalize phone number variations
     const normalizedPhone = normalizePhoneNumber(to);
@@ -1831,68 +1995,129 @@ export async function processCancelOrder(to, orderId) {
     if (to.length === 10) {
         phoneVariations.push('91' + to);
     }
+    const withPlus = phoneVariations.map(p => '+' + p);
+    const allPhoneVariations = [...new Set([...phoneVariations, ...withPlus])];
 
-    // Check if order exists and belongs to user (try all phone variations)
+    // Check if order exists and belongs to user (try direct ID and invoice_no)
     let order = null;
-    for (const phone of phoneVariations) {
-        const { data } = await mysqlClient.from('orders')
+    for (const phone of allPhoneVariations) {
+        let { data } = await mysqlClient.from('orders')
             .select('*')
-            .eq('id', upperOrderId)
+            .eq('id', cleanId)
             .eq('customer_phone', phone)
-            .single();
+            .maybeSingle();
+
+        if (!data) {
+            const { data: byInv } = await mysqlClient.from('orders')
+                .select('*')
+                .eq('customer_phone', phone)
+                .or(`invoice_no.eq.${cleanId},invoice_no.eq.#${cleanId},id.eq.WEB-${numPart},id.eq.ORD-${numPart}`)
+                .maybeSingle();
+            data = byInv;
+        }
+
         if (data) {
             order = data;
             break;
         }
     }
 
+    // Fallback: If not found by phone variation list, match order by ID and compare last 10 digits
+    if (!order) {
+        let { data: fallbackOrder } = await mysqlClient.from('orders')
+            .select('*')
+            .eq('id', cleanId)
+            .maybeSingle();
+
+        if (!fallbackOrder) {
+            const { data: byInv } = await mysqlClient.from('orders')
+                .select('*')
+                .or(`invoice_no.eq.${cleanId},invoice_no.eq.#${cleanId},id.eq.WEB-${numPart},id.eq.ORD-${numPart}`)
+                .maybeSingle();
+            fallbackOrder = byInv;
+        }
+
+        if (fallbackOrder) {
+            const orderPhoneDigits = (fallbackOrder.customer_phone || '').replace(/\D/g, '').slice(-10);
+            const userPhoneDigits = normalizedPhone.replace(/\D/g, '').slice(-10);
+            if (orderPhoneDigits && userPhoneDigits && orderPhoneDigits === userPhoneDigits) {
+                order = fallbackOrder;
+            }
+        }
+    }
+
     if (!order) {
         return sendButtons(to,
-            ` Order *${orderId}* not found or doesn't belong to you.\n\nPlease check the Order ID and try again.`,
+            ` Order *#${cleanId}* not found or doesn't belong to you.\n\nPlease check the Order ID / Invoice No and try again.`,
             [{ id: "menu_cancel_order", title: "Try Again" }, { id: "menu_main", title: " Main Menu" }]
         );
     }
 
+    const displayInv = formatInvoiceId(order);
+
     // Check if order is already cancelled
     if (order.status === 'CANCELLED') {
         return sendButtons(to,
-            ` Order *${orderId}* has already been cancelled.\n\nNo further action needed.`,
+            ` Order *${displayInv}* has already been cancelled.\n\nNo further action needed.`,
             [{ id: "menu_main", title: " Main Menu" }]
         );
     }
 
     // Check if order can be cancelled
-    const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'];
+    const cancellableStatuses = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PACKING'];
     if (!cancellableStatuses.includes(order.status)) {
         return sendButtons(to,
-            ` Order *${orderId}* cannot be cancelled.\n\nStatus: ${order.status}\nOrders that are already shipped or delivered cannot be cancelled.`,
+            ` Order *${displayInv}* cannot be cancelled.\n\nStatus: ${order.status}\nOrders that are already shipped or delivered cannot be cancelled.`,
             [{ id: "menu_main", title: " Main Menu" }]
         );
     }
 
-    // Update state to wait for reason
-    await updateCustomerAdminNotes(to, `WAITING_CANCEL_REASON:${upperOrderId}`);
+    // Update state to wait for reason - Save canonical DB order.id
+    await updateCustomerAdminNotes(to, `WAITING_CANCEL_REASON:${order.id}`);
 
     // Ask for reason
     return sendText(to,
-        ` *Cancel Order: ${upperOrderId}*\n\n` +
+        ` *Cancel Order: ${displayInv}*\n\n` +
         `Please reply with the *reason* for your cancellation.\n\n` +
         `_Example: "Changed my mind" or "Need to change shipping address"_`
     );
 }
 
 export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by customer via WhatsApp') {
-    const upperOrderId = orderId.toUpperCase();
+    const cleanId = String(orderId || '').trim().replace(/^#/, '').toUpperCase();
+    const numPart = cleanId.replace(/^[A-Z]+-?/i, '');
 
-    // First check if order is already cancelled
-    const { data: existingOrder } = await mysqlClient.from('orders')
-        .select('status')
-        .eq('id', upperOrderId)
-        .single();
+    // Resolve order with all necessary fields
+    let existingOrder = null;
+    let { data: ord } = await mysqlClient.from('orders')
+        .select('id, invoice_no, status, total_amount, customer_phone')
+        .eq('id', cleanId)
+        .maybeSingle();
 
-    if (existingOrder?.status === 'CANCELLED') {
+    if (ord) {
+        existingOrder = ord;
+    } else {
+        const { data: byInv } = await mysqlClient.from('orders')
+            .select('id, invoice_no, status, total_amount, customer_phone')
+            .or(`invoice_no.eq.${cleanId},invoice_no.eq.#${cleanId},id.eq.WEB-${numPart},id.eq.ORD-${numPart}`)
+            .maybeSingle();
+        existingOrder = byInv;
+    }
+
+    if (!existingOrder) {
         return sendButtons(to,
-            ` Order *${upperOrderId}* has already been cancelled.\n\nNo further action needed.`,
+            ` Order *${cleanId}* not found.\n\nPlease contact customer support if you need assistance.`,
+            [{ id: "menu_main", title: " Main Menu" }]
+        );
+    }
+
+    const actualOrderId = existingOrder.id;
+    const displayInv = formatInvoiceId(existingOrder);
+
+    // Check if order is already cancelled
+    if (existingOrder.status === 'CANCELLED') {
+        return sendButtons(to,
+            ` Order *${displayInv}* has already been cancelled.\n\nNo further action needed.`,
             [{ id: "menu_main", title: " Main Menu" }]
         );
     }
@@ -1900,7 +2125,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
     // Get order items to restore stock
     const { data: items } = await mysqlClient.from('order_items')
         .select('*')
-        .eq('order_id', upperOrderId);
+        .eq('order_id', actualOrderId);
 
     // Restore stock for each item
     if (items) {
@@ -1924,7 +2149,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
                         change_type: 'STOCK_IN',
                         quantity_change: item.quantity,
                         new_stock: newStock,
-                        reason: `Order #${upperOrderId} Cancelled (WhatsApp)`
+                        reason: `Order #${actualOrderId} Cancelled (WhatsApp)`
                     });
                 }
             } else {
@@ -1945,7 +2170,7 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
                         change_type: 'STOCK_IN',
                         quantity_change: item.quantity,
                         new_stock: newStock,
-                        reason: `Order #${upperOrderId} Cancelled (WhatsApp)`
+                        reason: `Order #${actualOrderId} Cancelled (WhatsApp)`
                     });
                 }
             }
@@ -1958,26 +2183,26 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
             status: 'CANCELLED',
             admin_notes: `Order cancelled by customer via WhatsApp on ${new Date().toLocaleString()}. Reason: ${reason}`
         })
-        .eq('id', upperOrderId);
+        .eq('id', actualOrderId);
 
     // Clear customer state
     await updateCustomerAdminNotes(to, null);
 
     // Only create a refund entry if money was actually collected (PAID or AWAITING_PAYMENT)
     // PLACED (COD) orders never took money, so no refund is needed
-    if (['PAID', 'AWAITING_PAYMENT'].includes(existingOrder?.status)) {
+    if (['PAID', 'AWAITING_PAYMENT'].includes(existingOrder.status)) {
         await mysqlClient.from('refunds').insert({
-            order_id: upperOrderId,
-            amount: existingOrder?.total_amount || 0,
-            reason: 'Order Cancelled by Customer via WhatsApp (Paid Order)',
+            order_id: actualOrderId,
+            amount: existingOrder.total_amount || 0,
+            reason: `Order Cancelled by Customer via WhatsApp (${existingOrder.status} Order)`,
             status: 'REQUESTED'
         });
     }
 
     // Add to status history (both tables for compatibility)
     await mysqlClient.from('order_status_history').insert({
-        order_id: upperOrderId,
-        status_from: null,
+        order_id: actualOrderId,
+        status_from: existingOrder.status,
         status_to: 'CANCELLED',
         changed_by: 'customer',
         notes: `Order cancelled. Reason: ${reason}`
@@ -1985,13 +2210,11 @@ export async function confirmCancelOrder(to, orderId, reason = 'Cancelled by cus
 
     // Also add to order_status_logs which is what the admin panel reads
     await mysqlClient.from('order_status_logs').insert({
-        order_id: upperOrderId,
+        order_id: actualOrderId,
         status: 'CANCELLED',
         notes: `Order cancelled. Reason: ${reason}`,
         created_at: new Date().toISOString()
     });
-
-    const displayInv = formatInvoiceId(targetOrder || upperOrderId);
 
     return sendButtons(to,
         ` *Order Cancelled Successfully*\n\nInvoice No: *${displayInv}*\nReason: ${reason}\n\nYour order has been cancelled and stock has been restored.\n\nIf you have already paid, a refund will be processed within 5-7 business days.`,
@@ -2007,11 +2230,13 @@ export async function handleRefundOrder(to) {
     const phoneVariations = [normalizedPhone];
     if (normalizedPhone.startsWith('91')) phoneVariations.push(normalizedPhone.substring(2));
     if (to.length === 10) phoneVariations.push('91' + to);
+    const withPlus = phoneVariations.map(p => '+' + p);
+    const allPhoneVariations = [...new Set([...phoneVariations, ...withPlus])];
 
     let allDelivered = [];
-    for (const phone of phoneVariations) {
+    for (const phone of allPhoneVariations) {
         const { data } = await mysqlClient.from('orders')
-            .select('id, status, total_amount, created_at')
+            .select('id, invoice_no, status, total_amount, created_at')
             .eq('customer_phone', phone)
             .eq('status', 'DELIVERED')
             .order('created_at', { ascending: false })
@@ -2020,7 +2245,25 @@ export async function handleRefundOrder(to) {
     }
 
     if (!allDelivered?.length) {
-        return sendButtons(to, "You don't have any delivered orders available for refund. Only delivered orders can be refunded.", [{ id: "menu_main", title: "Main Menu" }]);
+        const last10 = normalizedPhone.replace(/\D/g, '').slice(-10);
+        if (last10 && last10.length === 10) {
+            const { data: recentOrders } = await mysqlClient
+                .from('orders')
+                .select('id, invoice_no, status, total_amount, customer_phone, created_at')
+                .eq('status', 'DELIVERED')
+                .order('created_at', { ascending: false })
+                .limit(20);
+            if (recentOrders?.length) {
+                allDelivered = recentOrders.filter(o => {
+                    const phoneDigits = (o.customer_phone || '').replace(/\D/g, '').slice(-10);
+                    return phoneDigits === last10;
+                });
+            }
+        }
+    }
+
+    if (!allDelivered?.length) {
+        return sendButtons(to, "You don't have any delivered orders available for refund. Only delivered orders can be refunded.\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree.com/profile?tab=refund", [{ id: "menu_main", title: "Main Menu" }]);
     }
 
     // Filter for 10-day delivery deadline
@@ -2040,63 +2283,132 @@ export async function handleRefundOrder(to) {
     }).slice(0, 10);
 
     if (!orders?.length) {
-        return sendButtons(to, " You don't have any orders delivered within the last 10 days. Refund requests must be submitted within 10 days of delivery.", [{ id: "menu_main", title: " Main Menu" }]);
+        return sendButtons(to, " You don't have any orders delivered within the last 10 days. Refund requests must be submitted within 10 days of delivery.\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree.com/profile?tab=refund", [{ id: "menu_main", title: " Main Menu" }]);
     }
 
-    let msg = "Refund Request\n\nYour delivered orders:\n";
-    orders.forEach((o, i) => { msg += `${i + 1}. *#${o.id}* - ₹${o.total_amount?.toLocaleString()}\n`; });
-    msg += "\nPlease reply with the Order ID you want to refund\n\n_Example: ORD-123456_";
+    if (orders.length === 1) {
+        const o = orders[0];
+        const displayInv = formatInvoiceId(o);
+        return sendButtons(to,
+            ` *Refund Request*\n\nDelivered Order Found:\n*Invoice No:* ${displayInv} (ID: #${o.id})\n*Amount:* ₹${o.total_amount?.toLocaleString()}\n*Status:* DELIVERED\n\nWould you like to request a refund for this order?\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree.com/profile?tab=refund`,
+            [
+                { id: `init_refund_${o.id}`, title: "Request Refund" },
+                { id: "menu_main", title: "Main Menu" }
+            ]
+        );
+    }
+
+    let msg = " *Refund Request*\n\nYour delivered orders:\n";
+    orders.forEach((o, i) => {
+        const displayInv = formatInvoiceId(o);
+        msg += `${i + 1}. *${displayInv}* (ID: #${o.id}) - ₹${o.total_amount?.toLocaleString()}\n`;
+    });
+    msg += `\n *Please reply with the Order ID or Invoice No* you want to refund\n\n_Example: ${formatInvoiceId(orders[0])}_`;
     msg += "\n\n🌐 *Or submit on website:*\nhttps://vaiyaaree.com/profile?tab=refund";
-    return sendText(to, msg);
+
+    const buttons = orders.slice(0, 2).map(o => ({
+        id: `init_refund_${o.id}`,
+        title: `Refund ${formatInvoiceId(o)}`
+    }));
+    buttons.push({ id: "menu_main", title: "Main Menu" });
+
+    // Store state so direct reply with order ID is processed
+    await updateCustomerAdminNotes(to, 'WAITING_REFUND_ORDER_SELECT');
+
+    return sendButtons(to, msg, buttons);
 }
 
 export async function processRefundOrder(to, orderId) {
-    const upperOrderId = orderId.toUpperCase();
+    const cleanId = String(orderId || '').trim().replace(/^#/, '').toUpperCase();
+    const numPart = cleanId.replace(/^[A-Z]+-?/i, '');
+
     const normalizedPhone = normalizePhoneNumber(to);
     const phoneVariations = [normalizedPhone];
     if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
         phoneVariations.push(normalizedPhone.substring(2));
     }
+    if (to.length === 10) {
+        phoneVariations.push('91' + to);
+    }
+    const withPlus = phoneVariations.map(p => '+' + p);
+    const allPhoneVariations = [...new Set([...phoneVariations, ...withPlus])];
 
     // Check if order exists and belongs to user (try all phone variations)
     let order = null;
-    for (const phone of phoneVariations) {
-        const { data } = await mysqlClient.from('orders')
+    for (const phone of allPhoneVariations) {
+        let { data } = await mysqlClient.from('orders')
             .select('*')
-            .eq('id', upperOrderId)
+            .eq('id', cleanId)
             .eq('customer_phone', phone)
-            .single();
+            .maybeSingle();
+
+        if (!data) {
+            const { data: byInv } = await mysqlClient.from('orders')
+                .select('*')
+                .eq('customer_phone', phone)
+                .or(`invoice_no.eq.${cleanId},invoice_no.eq.#${cleanId},id.eq.WEB-${numPart},id.eq.ORD-${numPart}`)
+                .maybeSingle();
+            data = byInv;
+        }
+
         if (data) {
             order = data;
             break;
         }
     }
 
-    if (!order || order.status !== 'DELIVERED') {
-        return sendButtons(to, `Order *${orderId}* not found or is not in a refundable status (must be DELIVERED).`, [{ id: "menu_main", title: "Main Menu" }]);
+    if (!order) {
+        let { data: fallbackOrder } = await mysqlClient.from('orders')
+            .select('*')
+            .eq('id', cleanId)
+            .maybeSingle();
+        if (!fallbackOrder) {
+            const { data: byInv } = await mysqlClient.from('orders')
+                .select('*')
+                .or(`invoice_no.eq.${cleanId},invoice_no.eq.#${cleanId},id.eq.WEB-${numPart},id.eq.ORD-${numPart}`)
+                .maybeSingle();
+            fallbackOrder = byInv;
+        }
+        if (fallbackOrder) {
+            const orderPhoneDigits = (fallbackOrder.customer_phone || '').replace(/\D/g, '').slice(-10);
+            const userPhoneDigits = normalizedPhone.replace(/\D/g, '').slice(-10);
+            if (orderPhoneDigits && userPhoneDigits && orderPhoneDigits === userPhoneDigits) {
+                order = fallbackOrder;
+            }
+        }
+    }
+
+    if (!order) {
+        return sendButtons(to, `Order *#${cleanId}* not found or doesn't belong to you.\n\n🌐 *Or submit via Website:*\nhttps://vaiyaaree.com/profile?tab=refund`, [{ id: "menu_main", title: "Main Menu" }]);
+    }
+
+    const displayInv = formatInvoiceId(order);
+
+    if (order.status !== 'DELIVERED') {
+        return sendButtons(to, `Order *${displayInv}* is not in a refundable status (must be DELIVERED).\n\n🌐 *Or submit via Website:*\nhttps://vaiyaaree.com/profile?tab=refund`, [{ id: "menu_main", title: "Main Menu" }]);
     }
 
     // Verify 10-day deadline
     const { data: deliveryLog } = await mysqlClient.from('order_status_logs')
         .select('created_at')
-        .eq('order_id', upperOrderId)
+        .eq('order_id', order.id)
         .eq('status', 'DELIVERED')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
     const deliveryDate = deliveryLog ? new Date(deliveryLog.created_at) : (order.status === 'DELIVERED' ? new Date() : new Date(order.created_at));
     const tenDaysAgo = new Date();
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
 
     if (deliveryDate < tenDaysAgo) {
-        return sendButtons(to, ` Order *${upperOrderId}* was delivered more than 10 days ago (on ${deliveryDate.toLocaleDateString()}). It is no longer eligible for refund.`, [{ id: "menu_main", title: " Main Menu" }]);
+        return sendButtons(to, ` Order *${displayInv}* was delivered more than 10 days ago (on ${deliveryDate.toLocaleDateString()}). It is no longer eligible for refund.\n\n🌐 *Or check status on Website:*\nhttps://vaiyaaree.com/profile?tab=refund`, [{ id: "menu_main", title: " Main Menu" }]);
     }
 
     // Store that this user is now in "Waiting for Refund Reason" state for this order
-    await updateCustomerAdminNotes(customerId || to, `WAITING_REFUND_REASON:${upperOrderId}`);
+    await updateCustomerAdminNotes(to, `WAITING_REFUND_REASON:${order.id}`);
 
-    return sendText(to, `Refund Request: *${upperOrderId}*\n\nPlease reply with the reason for your refund request.\n\nOur team will review your request once submitted.\n\n🌐 *Or submit via Website:*\nhttps://vaiyaaree.com/profile?tab=refund`);
+    return sendText(to, ` *Refund Request: ${displayInv}*\n\nPlease reply with the *reason* for your refund request.\n\nOur team will review your request once submitted.\n\n🌐 *Or submit via Website:*\nhttps://vaiyaaree.com/profile?tab=refund`);
 }
 
 export async function handleReturnExchangeOrder(customerId, to) {
@@ -2310,28 +2622,39 @@ export async function submitReturnExchangeRequest(to, type, orderId, reason, cus
 
 
 export async function confirmRefundOrder(to, orderId, reason) {
-    const { data: order } = await mysqlClient.from('orders').select('total_amount').eq('id', orderId).single();
+    const cleanId = String(orderId || '').trim().replace(/^#/, '').toUpperCase();
+    const numPart = cleanId.replace(/^[A-Z]+-?/i, '');
 
-    await mysqlClient.from('orders').update({ status: 'REFUND_REQUESTED', refund_reason: reason, refund_status: 'PENDING' }).eq('id', orderId);
+    let { data: order } = await mysqlClient.from('orders')
+        .select('id, invoice_no, total_amount, status')
+        .eq('id', cleanId)
+        .maybeSingle();
 
-    const normalizedPhone = normalizePhoneNumber(to);
-    const phoneVariations = [normalizedPhone];
-    if (normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-        phoneVariations.push(normalizedPhone.substring(2));
+    if (!order) {
+        const { data: byInv } = await mysqlClient.from('orders')
+            .select('id, invoice_no, total_amount, status')
+            .or(`invoice_no.eq.${cleanId},invoice_no.eq.#${cleanId},id.eq.WEB-${numPart},id.eq.ORD-${numPart}`)
+            .maybeSingle();
+        order = byInv;
     }
+
+    const actualOrderId = order?.id || cleanId;
+    const displayInv = formatInvoiceId(order || cleanId);
+
+    await mysqlClient.from('orders').update({ status: 'REFUND_REQUESTED', refund_reason: reason, refund_status: 'PENDING' }).eq('id', actualOrderId);
 
     await updateCustomerAdminNotes(to, null);
 
     if (order) {
         await mysqlClient.from('refunds').insert({
-            order_id: orderId,
-            amount: order.total_amount,
+            order_id: actualOrderId,
+            amount: order.total_amount || 0,
             reason: reason,
             status: 'REQUESTED'
         });
     }
 
-    return sendButtons(to, `Refund Request Submitted\n\nOrder: *${orderId}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.\n\n🌐 *Track refund on website:*\nhttps://vaiyaaree.com/profile?tab=refund`, [{ id: "menu_main", title: "Main Menu" }]);
+    return sendButtons(to, ` *Refund Request Submitted*\n\nInvoice No: *${displayInv}*\nReason: ${reason}\n\nYour request has been sent to our team for review. We will notify you once it's processed.\n\n🌐 *Track refund on website:*\nhttps://vaiyaaree.com/profile?tab=refund`, [{ id: "menu_main", title: "Main Menu" }]);
 }
 
 async function getOrderCatalogNumbers(orderId) {
@@ -2380,15 +2703,36 @@ export async function handleTrackOrder(to) {
     if (to.length === 10) {
         phoneVariations.push('91' + to);
     }
+    const withPlus = phoneVariations.map(p => '+' + p);
+    const allPhoneVariations = [...new Set([...phoneVariations, ...withPlus])];
 
     // Query with IN condition for all phone variations to get the absolute latest order
-    const { data: oList, error } = await mysqlClient
+    let { data: oList, error } = await mysqlClient
         .from('orders')
         .select('*')
-        .in('customer_phone', phoneVariations)
+        .in('customer_phone', allPhoneVariations)
         .neq('status', 'DRAFT')
         .order('created_at', { ascending: false })
         .limit(1);
+
+    if (!oList?.length) {
+        const last10 = normalizedPhone.replace(/\D/g, '').slice(-10);
+        if (last10 && last10.length === 10) {
+            const { data: recentOrders } = await mysqlClient
+                .from('orders')
+                .select('*')
+                .neq('status', 'DRAFT')
+                .order('created_at', { ascending: false })
+                .limit(20);
+            if (recentOrders?.length) {
+                const matched = recentOrders.filter(o => {
+                    const phoneDigits = (o.customer_phone || '').replace(/\D/g, '').slice(-10);
+                    return phoneDigits === last10;
+                });
+                if (matched.length) oList = [matched[0]];
+            }
+        }
+    }
 
     const orders = oList || [];
 
@@ -2396,21 +2740,23 @@ export async function handleTrackOrder(to) {
 
     const o = orders[0];
     const sourceLabel = o.source === 'WEBSITE' ? ' Website' : ' WhatsApp';
-    const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
+    const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PACKING'].includes(o.status);
 
     const buttons = [
         { id: "menu_main", title: " Main Menu" }
     ];
 
     if (canCancel) {
-        buttons.unshift({ id: "menu_cancel_order", title: "Cancel Order" });
+        buttons.unshift({ id: `init_cancel_${o.id}`, title: "Cancel Order" });
     }
 
     const catalogNoStr = await getOrderCatalogNumbers(o.id);
     const catalogNoLine = catalogNoStr ? `Product Catalogue No: *${catalogNoStr}*\n` : '';
+    const displayInv = formatInvoiceId(o);
 
     await sendButtons(to,
         ` *Latest Order Details*\n\n` +
+        `Invoice No: *${displayInv}*\n` +
         `Order ID: *#${o.id}*\n` +
         catalogNoLine +
         `Source: *${sourceLabel}*\n` +
@@ -2443,7 +2789,7 @@ async function analyzeImageForCatalogId(mediaId) {
         
         let mediaUrl = null;
         try {
-            const mediaRes = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
+            const mediaRes = await fetch(`${WHATSAPP_API_URL}/${mediaId}`, {
                 headers: { Authorization: `Bearer ${accessToken}` },
                 signal: metaController.signal
             });
@@ -2529,20 +2875,31 @@ async function analyzeImageForCatalogId(mediaId) {
         console.log('[OCR] Detected text from image:', detectedText.substring(0, 300));
 
         // Step 4: Robust Code Pattern Extractions
-        let catalogId = null;
-
-        // 1. Direct Regex for CAT-XXXXX or CAT XXXXX
-        const catRegex = /CAT[-\s]?([A-Z0-9]{4,10})/i;
-        const catMatch = detectedText.match(catRegex);
-        if (catMatch) {
-            catalogId = catMatch[1].toUpperCase();
-            console.log('[OCR] Extracted catalog ID via direct CAT regex:', catalogId);
+        let catalogId = extractCatCode(detectedText);
+        if (catalogId) {
+            console.log('[OCR] Extracted catalog ID via extractCatCode:', catalogId);
         }
 
-        // 2. Line by line clean matching
+        // 2. Direct Regex for CAT-XXXXX or CAT XXXXX
+        if (!catalogId && detectedText) {
+            const catRegex = /CAT[-\s]?([A-Z0-9]{4,10})/i;
+            const catMatch = detectedText.match(catRegex);
+            if (catMatch) {
+                catalogId = catMatch[1].toUpperCase();
+                console.log('[OCR] Extracted catalog ID via direct CAT regex:', catalogId);
+            }
+        }
+
+        // 3. Line by line clean matching
         if (!catalogId && detectedText) {
             const lines = detectedText.split('\n');
             for (const line of lines) {
+                const lineCode = extractCatCode(line);
+                if (lineCode) {
+                    catalogId = lineCode;
+                    console.log('[OCR] Extracted catalog ID via line extractCatCode:', catalogId);
+                    break;
+                }
                 const cleanLine = line.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
                 const strictMatch = cleanLine.match(/CAT([A-Z0-9]{4,10})/);
                 if (strictMatch) {
@@ -2692,14 +3049,34 @@ export async function processIncomingMessage(body) {
         // -------------------------
         const rawText = message.text?.body || message.button?.text || message.button?.payload || message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || '';
         const messageText = rawText.toLowerCase().trim();
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://www.vaiyaaree.com').trim().replace(/\/+$/, '');
+        const shopUrl = `${appUrl}/shop?phone=${encodeURIComponent(from)}`;
 
         //  Stop any active stream for this user immediately
         cancelStream(from);
 
         //  IMAGE MESSAGE — Customer sent a screenshot of a product
-        // Reads the catalog ID (e.g. CAT-BNR6S) stamped on the saree image via OCR
+        // Reads the catalog ID (e.g. CAT-BNR6S) stamped on the saree image via OCR or caption
         if (msgType === 'image') {
+            const caption = (message.image?.caption || '').trim();
             const mediaId = message.image?.id;
+
+            // 1. Check if user typed CAT code or category in the image caption
+            if (caption) {
+                const catFromCaption = extractCatCode(caption);
+                if (catFromCaption) {
+                    console.log(`[WA] Found CAT code in image caption: ${catFromCaption}`);
+                    return await handleProductInquiry(from, catFromCaption);
+                }
+
+                const catMatchFromCaption = matchCategoryInput(caption);
+                if (catMatchFromCaption) {
+                    console.log(`[WA] Found category in image caption: ${catMatchFromCaption}`);
+                    return await sendCatalogueByType(from, `ctlg_${catMatchFromCaption.replace(/\s+/g, '_').toLowerCase()}`);
+                }
+            }
+
+            // 2. Read code stamped on saree image via OCR
             await sendText(from, ' Searching in our catalogue... Please wait a moment!');
             try {
                 const ocrResult = await analyzeImageForCatalogId(mediaId);
@@ -2707,18 +3084,24 @@ export async function processIncomingMessage(body) {
                     console.log(`[WA] OCR found catalog ID: ${ocrResult.catalogId} from ${from}`);
                     return await handleProductInquiry(from, ocrResult.catalogId);
                 } else {
-                    const debugInfo = ocrResult?.detectedText ? `\n\n *Detected Text:* ${ocrResult.detectedText.substring(0, 100)}...` : '';
-                    return await sendText(from,
-                        ' Could not read a product code from the image.\n\n' +
-                        'Please make sure the image shows the product code clearly (e.g. *CAT-BNR6S*).\n' +
-                        'Or send *Hi* to browse our catalogue! ' + debugInfo
+                    return await sendButtons(from,
+                        ' We could not read a clear product code from the image.\n\n' +
+                        'Please text the product code directly (e.g. *CAT-0AI0S*), or tap below to browse our collection:',
+                        [
+                            { id: "menu_catalogue", title: "View Catalogue" },
+                            { id: "menu_main", title: "Main Menu" }
+                        ]
                     );
                 }
             } catch (imgErr) {
                 console.error('[WA] Image handling error:', imgErr);
-                return await sendText(from,
-                    ' Could not process the image code right now.\n\n' +
-                    'Please text the product code directly (e.g. *CAT-BNR6S*), or send *Hi* for the main menu!'
+                return await sendButtons(from,
+                    ' Could not process the image right now.\n\n' +
+                    'Please text the product code directly (e.g. *CAT-0AI0S*), or tap below to browse our collection:',
+                    [
+                        { id: "menu_catalogue", title: "View Catalogue" },
+                        { id: "menu_main", title: "Main Menu" }
+                    ]
                 );
             }
         }
@@ -2726,6 +3109,20 @@ export async function processIncomingMessage(body) {
         if (msgType === 'text' || msgType === 'button') {
             const rawBodyText = message.text?.body?.trim() || message.button?.text?.trim() || message.button?.payload?.trim() || '';
             const cleanText = messageText ? messageText.replace(/[^\w\s]/gi, '').trim() : '';
+            const buttonPayload = message.button?.payload || '';
+
+            // Handle direct button payload actions if sent via quick reply
+            if (buttonPayload === 'menu_track' || buttonPayload === 'menu_my_orders') return await handleTrackOrder(from);
+            if (buttonPayload === 'menu_catalogue' || buttonPayload === 'menu_browse') return await sendCatalogueCategories(from);
+            if (buttonPayload === 'menu_cart') return await handleViewCart(from);
+            if (buttonPayload === 'menu_contact') return await handleContact(from);
+            if (buttonPayload === 'menu_cancel_order') return await handleCancelOrder(from);
+            if (buttonPayload === 'menu_refund') return await handleRefundOrder(from);
+            if (buttonPayload === 'menu_return' || buttonPayload === 'menu_exchange') return await handleReturnExchangeOrder(customer.id, from);
+            if (buttonPayload === 'menu_main') return await sendMainMenu(from);
+            if (buttonPayload.startsWith('init_cancel_')) return await processCancelOrder(from, buttonPayload.replace('init_cancel_', ''));
+            if (buttonPayload.startsWith('init_refund_')) return await processRefundOrder(from, buttonPayload.replace('init_refund_', ''));
+            if (buttonPayload.startsWith('init_return_')) return await processReturnExchangeOrder(customer.id, buttonPayload.replace('init_return_', ''), from);
 
             //  STEP 1: RESET & HOME CARD (MENU) TRIGGERS 
             const RESET_TRIGGERS = ['reset'];
@@ -2751,14 +3148,52 @@ export async function processIncomingMessage(body) {
             }
 
             //  STEP 2: KEYWORD COMMANDS 
-            if (['1', 'catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees', 'show sarees', 'view catalogue', 'view catalog'].includes(messageText)) return await sendCatalogueCategories(from);
-            if (['2', 'track order', 'my orders', 'my order', 'orders', 'order status', 'track'].includes(messageText)) return await handleTrackOrder(from);
-            if (['3', 'contact', 'contact us', 'support', 'customer care'].includes(messageText) || messageText === 'contact') return await handleContact(from);
-            if (['cart', 'bag', 'view cart', 'my cart', 'show cart'].includes(messageText)) return await handleViewCart(from);
-            if (['cancel', 'cancel order', 'cancel my order', 'cancellation', 'cancel it'].includes(messageText)) return await handleCancelOrder(from);
+            const catalogueKeywords = [
+                '1', 'catalogue', 'catalog', 'browse', 'list for sarees', 'list sarees',
+                'show sarees', 'view catalogue', 'view catalog', 'browse categories', 'categories', 'browse sarees'
+            ];
+            if (catalogueKeywords.includes(messageText) || catalogueKeywords.includes(cleanText)) return await sendCatalogueCategories(from);
 
-            const returnKeywords = ['refund', 'return', 'exchange', 'refund order', 'return order', 'exchange order', 'returns', 'exchanges', 'retutn', 'return a product', 'exchange a product', 'i want to return', 'i want to exchange'];
-            if (returnKeywords.includes(messageText)) {
+            // Category Direct / Keyword Match (e.g. "banrasi saree", "banarasi", "silk saree", "cotton")
+            const matchedCat = matchCategoryInput(messageText || cleanText);
+            if (matchedCat) {
+                console.log(`[WA] Category matched: "${matchedCat}" from "${messageText}"`);
+                return await sendCatalogueByType(from, `ctlg_${matchedCat.replace(/\s+/g, '_').toLowerCase()}`);
+            }
+
+            const orderTrackingKeywords = [
+                '2', 'track order', 'track orders', 'track my order', 'track my orders',
+                'view order', 'view orders', 'view my order', 'view my orders',
+                'order details', 'order detail', 'order status', 'my orders', 'my order',
+                'orders', 'order', 'track', 'show order', 'show orders', 'show my order', 'latest order'
+            ];
+            if (orderTrackingKeywords.includes(messageText) || orderTrackingKeywords.includes(cleanText)) return await handleTrackOrder(from);
+
+            if (['3', 'contact', 'contact us', 'support', 'customer care'].includes(messageText) || messageText === 'contact') return await handleContact(from);
+            if (['cart', 'bag', 'view cart', 'my cart', 'show cart'].includes(messageText) || cleanText === 'view cart') return await handleViewCart(from);
+            if (['cancel', 'cancel order', 'cancel my order', 'cancellation', 'cancel it', 'yes, cancel order', 'yes cancel order'].includes(messageText) || cleanText === 'cancel order') return await handleCancelOrder(from);
+            if (['keep order', 'keep my order'].includes(messageText) || cleanText === 'keep order') return await sendMainMenu(from);
+
+            const refundKeywords = [
+                'refund', 'refunds', 'refund order', 'refund my order', 'request refund', 'refund request',
+                'i want refund', 'i want a refund', 'get refund', 'need refund'
+            ];
+            if (refundKeywords.includes(messageText) || refundKeywords.includes(cleanText)) {
+                console.log(' Refund keyword matched - calling handleRefundOrder');
+                try {
+                    return await handleRefundOrder(from);
+                } catch (error) {
+                    console.error(' handleRefundOrder failed:', error);
+                    throw error;
+                }
+            }
+
+            const returnKeywords = [
+                'return', 'returns', 'exchange', 'exchanges', 'return order', 'exchange order',
+                'return my order', 'exchange my order', 'retutn', 'return a product', 'exchange a product',
+                'i want to return', 'i want to exchange', 'replace', 'replacement'
+            ];
+            if (returnKeywords.includes(messageText) || returnKeywords.includes(cleanText)) {
                 console.log(' Return/Exchange keyword matched - calling handleReturnExchangeOrder');
                 try {
                     return await handleReturnExchangeOrder(customer.id, from);
@@ -2771,11 +3206,26 @@ export async function processIncomingMessage(body) {
             if (messageText === 'stop') return await sendText(from, " Stopped. Send *Hi* to start again.");
 
             //  STEP 3: HANDLE ACTIVE CONVERSATION STATE 
-            if (customer?.admin_notes) {
-                const notes = customer.admin_notes;
+            const rawNotes = customer?.admin_notes;
+            let notesStr = '';
+            if (typeof rawNotes === 'string') {
+                if (rawNotes.trim().startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(rawNotes);
+                        notesStr = parsed.wa_state || '';
+                    } catch {
+                        notesStr = rawNotes;
+                    }
+                } else {
+                    notesStr = rawNotes;
+                }
+            } else if (typeof rawNotes === 'object' && rawNotes !== null) {
+                notesStr = rawNotes.wa_state || '';
+            }
 
-                if (notes.startsWith('WAITING_RETURN_TYPE:')) {
-                    const orderId = notes.split(':')[1];
+            if (notesStr && typeof notesStr === 'string' && notesStr.startsWith('WAITING_')) {
+                if (notesStr.startsWith('WAITING_RETURN_TYPE:')) {
+                    const orderId = notesStr.split(':')[1];
                     let type = null;
                     if (messageText.includes('return') || messageText.includes('refund')) type = 'RETURN';
                     else if (messageText.includes('exchange')) type = 'EXCHANGE';
@@ -2783,8 +3233,8 @@ export async function processIncomingMessage(body) {
                     if (type) return await handleReturnExchangeTypeSelection(customer.id, type, orderId, from);
                 }
 
-                if (notes.startsWith('WAITING_RETURN_REASON:') || notes.startsWith('WAITING_REFUND_REASON:')) {
-                    const parts = notes.split(':');
+                if (notesStr.startsWith('WAITING_RETURN_REASON:') || notesStr.startsWith('WAITING_REFUND_REASON:')) {
+                    const parts = notesStr.split(':');
                     if (parts.length === 3) {
                         return await submitReturnExchangeRequest(from, parts[1], parts[2], message.text.body, customer.id);
                     } else {
@@ -2793,35 +3243,67 @@ export async function processIncomingMessage(body) {
                     }
                 }
 
-                if (notes.startsWith('WAITING_CANCEL_REASON:')) {
-                    const parts = notes.split(':');
-                    return await confirmCancelOrder(from, parts[1], message.text.body);
+                if (notesStr === 'WAITING_REFUND_ORDER_SELECT') {
+                    return await processRefundOrder(from, message.text?.body?.trim());
+                }
+
+                if (notesStr.startsWith('WAITING_CANCEL_REASON:')) {
+                    const orderId = notesStr.substring('WAITING_CANCEL_REASON:'.length).trim();
+                    return await confirmCancelOrder(from, orderId, message.text?.body || 'Customer requested via WhatsApp');
                 }
             }
 
             //  STEP 4: ORDER ID LOOKUP 
             const orderIdPatterns = [
-                /^(ORD|WEB|ORDER)-[A-Z0-9]+$/i,
-                /^[A-Z]{2,6}-?\d{4,}$/i,
-                /^\d{6,}$/i
+                /^(ORD|WEB|ORDER|INV)-?[A-Z0-9]+$/i,
+                /^[A-Z]{2,6}-?\d+$/i,
+                /^\d{4,}$/i
             ];
 
             const trimmedMessage = message.text?.body?.trim() || '';
+            const unhashed = trimmedMessage.replace(/^#/, '').trim();
+
+            // Direct cancel command: e.g. "cancel ORD-0016" or "cancel #INV-0027"
+            const cancelMatch = trimmedMessage.match(/^cancel\s+(?:#)?([A-Z0-9-]+)$/i);
+            if (cancelMatch) {
+                const targetCancelId = cancelMatch[1].toUpperCase().replace(/^ORDER-/i, 'ORD-');
+                return await processCancelOrder(from, targetCancelId);
+            }
+
+            // Direct refund command: e.g. "refund WEB-0026" or "refund #INV-0026"
+            const refundMatch = trimmedMessage.match(/^refund\s+(?:#)?([A-Z0-9-]+)$/i);
+            if (refundMatch) {
+                const targetRefundId = refundMatch[1].toUpperCase().replace(/^ORDER-/i, 'ORD-');
+                return await processRefundOrder(from, targetRefundId);
+            }
+
             let matchedOrderId = null;
 
             for (const pattern of orderIdPatterns) {
-                if (pattern.test(trimmedMessage)) {
-                    matchedOrderId = trimmedMessage.toUpperCase().replace(/^ORDER-/i, 'ORD-');
+                if (pattern.test(unhashed)) {
+                    matchedOrderId = unhashed.toUpperCase().replace(/^ORDER-/i, 'ORD-');
                     break;
                 }
             }
 
             if (matchedOrderId) {
-                console.log(`[WA] Detected order ID: ${matchedOrderId}`);
-                const { data: o } = await mysqlAdmin.from('orders').select('*').eq('id', matchedOrderId).maybeSingle();
+                console.log(`[WA] Detected order/invoice ID: ${matchedOrderId}`);
+                const cleanInv = matchedOrderId.replace(/^#/, '');
+
+                // 1. Try finding by order ID (e.g. ORD-0027, WEB-0027, INV-0027)
+                let { data: o } = await mysqlAdmin.from('orders').select('*').eq('id', matchedOrderId).maybeSingle();
+
+                // 2. If not found, look up by invoice_no or converted WEB-/ORD- prefix
+                if (!o) {
+                    const numPart = cleanInv.replace(/^[A-Z]+-?/i, '');
+                    const { data: byInv } = await mysqlAdmin.from('orders').select('*')
+                        .or(`invoice_no.eq.${cleanInv},invoice_no.eq.#${cleanInv},id.eq.WEB-${numPart},id.eq.ORD-${numPart}`)
+                        .maybeSingle();
+                    o = byInv;
+                }
                 if (o) {
                     const sourceLabel = o.source === 'WEBSITE' ? ' Website' : ' WhatsApp';
-                    const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes(o.status);
+                    const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PACKING'].includes(o.status);
                     const canReturn = o.status === 'DELIVERED';
 
                     const buttons = [{ id: "menu_main", title: " Main Menu" }];
@@ -2918,7 +3400,7 @@ export async function processIncomingMessage(body) {
                             await sendButtons(from, " We will contact you shortly to confirm cash on delivery dispatch!\n\nTap below to manage your order:", [
                                 { id: "menu_track", title: "Track Order" },
                                 { id: "menu_my_orders", title: "View Order" },
-                                { id: `menu_cancel_order`, title: "Cancel Order" }
+                                { id: `init_cancel_${order.id}`, title: "Cancel Order" }
                             ]);
                         }
                         return;
@@ -2935,14 +3417,16 @@ export async function processIncomingMessage(body) {
 
             const { data: draft } = await mysqlClient
                 .from('orders')
-                .select('id, billing_address, shipping_address, customer_state, customer_email')
+                .select('id, billing_address, shipping_address, customer_state, customer_email, created_at')
                 .in('customer_phone', phoneVariations)
                 .eq('status', 'DRAFT')
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
 
-            if (draft) {
+            const isDraftRecent = draft && draft.created_at && (Date.now() - new Date(draft.created_at).getTime() < 2 * 60 * 60 * 1000);
+
+            if (isDraftRecent) {
                 if (!draft.billing_address) {
                     console.log(`[WA] Saving billing address for draft ${draft.id}`);
                     return await handleNewBillingAddress(from, draft.id, message.text.body);
@@ -2979,32 +3463,12 @@ export async function processIncomingMessage(body) {
                 }
             }
 
-            //  STEP 6: SAFE CATALOG ID LOOKUP 
-            // Matches explicit CAT- code (e.g. CAT-AB12X, cat_c3fnp)
-            const catExplicitMatch = rawBodyText.match(/CAT[-\s_]?([A-Z0-9]{4,12})/i);
-            if (catExplicitMatch) {
-                const catalogId = catExplicitMatch[1].toUpperCase();
-                return await handleProductInquiry(from, catalogId);
-            }
-
-            // For standalone alphanumeric codes (e.g., AB12X):
-            // Check if product actually exists in DB before treating as catalog lookup!
-            const standaloneMatch = rawBodyText.match(/^([A-Z0-9]{4,12})$/i);
-            const RESERVED_WORDS = ['TEST', 'ORDERS', 'ORDER', 'CANCEL', 'CONTACT', 'RETURN', 'REFUND', 'EXCHANGE', 'HELP', 'PRICE', 'INFO', 'HOME', 'MENU', 'SAREE', 'SAREES', 'CART', 'BAG', 'START', 'STOP', 'STATUS'];
-
-            if (standaloneMatch && !RESERVED_WORDS.includes(rawBodyText.toUpperCase())) {
-                const codeCandidate = rawBodyText.toUpperCase();
-                const { data: existingProd } = await mysqlAdmin
-                    .from('products')
-                    .select('product_catalog_image_id')
-                    .ilike('product_catalog_image_id', `%${codeCandidate}%`)
-                    .eq('is_active', true)
-                    .limit(1)
-                    .maybeSingle();
-
-                if (existingProd) {
-                    return await handleProductInquiry(from, codeCandidate);
-                }
+            //  STEP 6: SAFE CATALOG ID / CAT NO LOOKUP 
+            // Handles: "cat no 0ai0s", "cat-0ai0s", "0ai0s", "oaios", "CAT-0AI0S", "cat 0ai0s", etc.
+            const catCode = extractCatCode(rawBodyText);
+            if (catCode) {
+                console.log(`[WA] Extracted CAT code: "${catCode}" from user input: "${rawBodyText}"`);
+                return await handleProductInquiry(from, catCode);
             }
 
             //  STEP 7: PRODUCT TERM SEARCH & HOME CARD FALLBACK 
@@ -3015,7 +3479,7 @@ export async function processIncomingMessage(body) {
                     const { data: p } = await mysqlAdmin
                         .from('products')
                         .select('product_catalog_image_id')
-                        .or(`product_catalog_image_id.ilike.%${cleanTerm}%,name.ilike.%${term}%`)
+                        .or(`product_catalog_image_id.ilike.%${cleanTerm}%,name.ilike.%${term}%,category.ilike.%${cleanTerm}%`)
                         .eq('is_active', true)
                         .limit(1)
                         .maybeSingle();
@@ -3036,10 +3500,16 @@ export async function processIncomingMessage(body) {
 
             if (id === 'menu_main') return await sendMainMenu(from);
             if (id === 'menu_cancel_order') return await handleCancelOrder(from);
+            if (id === 'menu_refund') return await handleRefundOrder(from);
+            if (id === 'menu_return' || id === 'menu_exchange') return await handleReturnExchangeOrder(customer.id, from);
 
             if (id.startsWith('init_cancel_')) {
                 const orderId = id.replace('init_cancel_', '');
                 return await processCancelOrder(from, orderId);
+            }
+            if (id.startsWith('init_refund_')) {
+                const orderId = id.replace('init_refund_', '');
+                return await processRefundOrder(from, orderId);
             }
             if (id.startsWith('init_return_')) {
                 const orderId = id.replace('init_return_', '');

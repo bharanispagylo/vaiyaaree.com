@@ -9,15 +9,21 @@ export async function POST(request) {
         const {
             refundRequestId,
             courierCompany,
+            courierName,           // frontend may send this instead of courierCompany
             trackingNumber,
             shippingDate,
             shippingCost,
             receiptUrl,
-            customerNotes
+            customerNotes,
+            notes                  // frontend may send this instead of customerNotes
         } = body;
 
-        if (!refundRequestId || !courierCompany || !trackingNumber) {
-            return NextResponse.json({ error: 'refundRequestId, courierCompany, and trackingNumber are required' }, { status: 400 });
+        // Resolve field name variants from frontend
+        const resolvedCourierCompany = courierCompany || courierName || '';
+        const resolvedCustomerNotes = customerNotes || notes || null;
+
+        if (!refundRequestId || !resolvedCourierCompany || !trackingNumber) {
+            return NextResponse.json({ error: 'refundRequestId, courier company, and trackingNumber are required' }, { status: 400 });
         }
 
         const [rows] = await pool.query('SELECT * FROM refund_requests WHERE id = ?', [refundRequestId]);
@@ -35,12 +41,12 @@ export async function POST(request) {
         `;
         await pool.query(insertShipmentSql, [
             refundRequestId,
-            courierCompany.trim(),
+            resolvedCourierCompany.trim(),
             trackingNumber.trim(),
             shippingDate || null,
             shippingCost ? Number(shippingCost) : 0,
             receiptUrl || null,
-            customerNotes || null
+            resolvedCustomerNotes
         ]);
 
         // Update refund_requests status to CUSTOMER_SHIPPED
@@ -56,7 +62,7 @@ export async function POST(request) {
             fetch(`${origin}/api/refunds/notify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refundId: refundRequestId, status: 'CUSTOMER_SHIPPED', notes: `Courier: ${courierCompany}, Tracking: ${trackingNumber}` })
+                body: JSON.stringify({ refundId: refundRequestId, status: 'CUSTOMER_SHIPPED', notes: `Courier: ${resolvedCourierCompany}, Tracking: ${trackingNumber}` })
             }).catch(e => console.error('[REFUND-SHIPPING-NOTIFY] Async error:', e));
         } catch (e) {}
 

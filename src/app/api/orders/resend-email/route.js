@@ -13,10 +13,10 @@ export async function POST(request) {
             );
         }
 
-        // Fetch order details
+        // Fetch order details (with items and product details)
         const { data: order, error: orderError } = await mysqlClient
             .from('orders')
-            .select(`*, order_items(*)`)
+            .select(`*, order_items(*, products(*))`)
             .eq('id', orderId)
             .single();
 

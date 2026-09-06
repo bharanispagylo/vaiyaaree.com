@@ -117,14 +117,25 @@ export default function ProductCard({ product, gridView = true }) {
         }
     }, [localVariants, hasVariants]);
 
+    const [imgFailed, setImgFailed] = useState(false);
+
     // Active image computation
     const activeImage = useMemo(() => {
         if (selectedVariant?.image_url) {
-            return normalizeImageUrl(selectedVariant.image_url.split(',')[0]);
+            const vImg = normalizeImageUrl(selectedVariant.image_url.split(',')[0]);
+            if (vImg && !vImg.includes('images.unsplash.com')) return vImg;
         }
         const prodImg = product.image_url ? product.image_url.split(',')[0] : '';
-        return normalizeImageUrl(prodImg) || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80';
+        const normalized = normalizeImageUrl(prodImg);
+        if (normalized && !normalized.includes('images.unsplash.com')) {
+            return normalized;
+        }
+        return '';
     }, [selectedVariant, product.image_url]);
+
+    useEffect(() => {
+        setImgFailed(false);
+    }, [activeImage]);
 
     // Dynamic Price & Discount computation via Central Discount Engine
     const pricing = useMemo(() => {
@@ -172,14 +183,35 @@ export default function ProductCard({ product, gridView = true }) {
             <div className={styles.productCardList}>
                 <div className={styles.productImageWrap}>
                     <Link href={productDetailUrl}>
-                        <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${activeImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }} />
-                        <img
-                            src={activeImage}
-                            alt={product.name}
-                            className={styles.productImage}
-                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
-                            style={{ position: 'relative', zIndex: 1, filter: isOutOfStock ? 'grayscale(30%)' : 'none' }}
-                        />
+                        {activeImage && !imgFailed ? (
+                            <>
+                                <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${activeImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }} />
+                                <img
+                                    src={activeImage}
+                                    alt={product.name}
+                                    className={styles.productImage}
+                                    onError={() => setImgFailed(true)}
+                                    style={{ position: 'relative', zIndex: 1, filter: isOutOfStock ? 'grayscale(30%)' : 'none' }}
+                                />
+                            </>
+                        ) : (
+                            <div style={{
+                                position: 'relative',
+                                zIndex: 1,
+                                width: '100%',
+                                height: '100%',
+                                minHeight: '180px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: '#f8fafc',
+                                color: '#94a3b8',
+                                border: '1px dashed #cbd5e1'
+                            }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>No Image</span>
+                            </div>
+                        )}
                     </Link>
 
                     {isOutOfStock && <div className={styles.outOfStockBadge}>Out of Stock</div>}
@@ -277,14 +309,35 @@ export default function ProductCard({ product, gridView = true }) {
         <div className={styles.productCard}>
             <div className={styles.productImageWrap}>
                 <Link href={productDetailUrl}>
-                    <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${activeImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }} />
-                    <img
-                        src={activeImage}
-                        alt={product.name}
-                        className={styles.productImage}
-                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&q=80'; }}
-                        style={{ position: 'relative', zIndex: 1, filter: isOutOfStock ? 'grayscale(30%)' : 'none' }}
-                    />
+                    {activeImage && !imgFailed ? (
+                        <>
+                            <div style={{ position: 'absolute', inset: -20, backgroundImage: `url(${activeImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(20px)', opacity: 0.5, zIndex: 0 }} />
+                            <img
+                                src={activeImage}
+                                alt={product.name}
+                                className={styles.productImage}
+                                onError={() => setImgFailed(true)}
+                                style={{ position: 'relative', zIndex: 1, filter: isOutOfStock ? 'grayscale(30%)' : 'none' }}
+                            />
+                        </>
+                    ) : (
+                        <div style={{
+                            position: 'relative',
+                            zIndex: 1,
+                            width: '100%',
+                            height: '100%',
+                            minHeight: '260px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#f8fafc',
+                            color: '#94a3b8',
+                            border: '1px dashed #cbd5e1'
+                        }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>No Image</span>
+                        </div>
+                    )}
                 </Link>
 
                 {isOutOfStock && <div className={styles.outOfStockBadge}>Out of Stock</div>}
