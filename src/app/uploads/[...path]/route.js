@@ -13,7 +13,10 @@ const MIME_TYPES = {
     webp: 'image/webp',
     gif: 'image/gif',
     svg: 'image/svg+xml',
-    ico: 'image/x-icon'
+    ico: 'image/x-icon',
+    pdf: 'application/pdf',
+    heic: 'image/heic',
+    heif: 'image/heif'
 };
 
 export async function GET(request, { params }) {

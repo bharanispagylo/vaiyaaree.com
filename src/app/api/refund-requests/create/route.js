@@ -10,6 +10,20 @@ function apiError(code, message, status = 400) {
     return NextResponse.json({ success: false, code, message }, { status });
 }
 
+let refundImageUrlColEnsured = false;
+async function ensureRefundImageUrlColumn() {
+    if (refundImageUrlColEnsured) return;
+    try {
+        const [cols] = await pool.query("SHOW COLUMNS FROM `refund_requests` LIKE 'image_url'");
+        if (!cols || cols.length === 0) {
+            await pool.query("ALTER TABLE `refund_requests` ADD COLUMN `image_url` VARCHAR(500) NULL AFTER `customer_note`");
+        }
+        refundImageUrlColEnsured = true;
+    } catch (e) {
+        // Ignore if exists or error
+    }
+}
+
 export async function POST(request) {
     try {
         const body = await request.json();
@@ -103,6 +117,7 @@ export async function POST(request) {
         const now = new Date().toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
 
         // ── 8. Insert record into refund_requests (inside transaction) ────────
+        await ensureRefundImageUrlColumn();
         const conn = await pool.getConnection();
         try {
             await conn.beginTransaction();
