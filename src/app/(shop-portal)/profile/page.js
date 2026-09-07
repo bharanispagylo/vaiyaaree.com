@@ -455,25 +455,79 @@ export default function ProfilePage() {
         }
     }
 
+    // Helper to auto-compress large phone camera images (>2MB) to prevent Vercel 4.5MB payload timeouts
+    async function compressImageIfNeeded(file) {
+        if (!file || file.size <= 2 * 1024 * 1024 || !file.type.startsWith('image/')) {
+            return file;
+        }
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let { width, height } = img;
+                    const maxDim = 1920;
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob && blob.size < file.size) {
+                                const newFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now()
+                                });
+                                resolve(newFile);
+                            } else {
+                                resolve(file);
+                            }
+                        },
+                        'image/jpeg',
+                        0.85
+                    );
+                };
+                img.onerror = () => resolve(file);
+                img.src = e.target.result;
+            };
+            reader.onerror = () => resolve(file);
+            reader.readAsDataURL(file);
+        });
+    }
+
     // Damaged product photo upload handler for refund request
     async function handleDamagedImageUpload(e) {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type.toLowerCase())) {
+        const isAllowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(file.type.toLowerCase()) ||
+            /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(file.name || '');
+
+        if (!isAllowed) {
             showToast('Invalid file format. Please upload JPG, PNG or WEBP image.', 'error');
             return;
         }
 
-        if (file.size > 10 * 1024 * 1024) {
-            showToast('File size is too large. Max 10MB allowed.', 'error');
+        if (file.size > 15 * 1024 * 1024) {
+            showToast('File size is too large. Max 15MB allowed.', 'error');
             return;
         }
 
         setRefundForm(prev => ({ ...prev, uploadingImage: true }));
         try {
+            const fileToUpload = await compressImageIfNeeded(file);
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', fileToUpload);
 
             const res = await fetch('/api/refund-requests/upload-image', {
                 method: 'POST',

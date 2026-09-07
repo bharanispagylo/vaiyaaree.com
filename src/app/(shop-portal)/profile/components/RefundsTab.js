@@ -114,7 +114,7 @@ export default function RefundsTab({
                             <div style={{ position: 'relative' }}>
                                 <input
                                     type="file"
-                                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                                    accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
                                     onChange={handleDamagedImageUpload}
                                     disabled={refundForm.uploadingImage}
                                     style={{ display: 'none' }}
