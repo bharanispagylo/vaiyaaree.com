@@ -120,17 +120,23 @@ export default function CustomersPage() {
             const res = await fetch(`/api/admin/customers?limit=500`);
             const data = await res.json();
             if (data.success && Array.isArray(data.customers)) {
-                // Group by month/day
-                const monthMap = {};
+                // Group by month with 4-digit year and chronological sorting
+                const monthMap = new Map();
                 data.customers.forEach(c => {
                     if (c.created_at) {
                         const date = new Date(c.created_at);
-                        const label = date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
-                        monthMap[label] = (monthMap[label] || 0) + 1;
+                        const sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                        const label = date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+                        if (!monthMap.has(sortKey)) {
+                            monthMap.set(sortKey, { name: label, value: 0, sortKey });
+                        }
+                        monthMap.get(sortKey).value += 1;
                     }
                 });
 
-                const growthData = Object.entries(monthMap).map(([name, value]) => ({ name, value }));
+                const growthData = Array.from(monthMap.values())
+                    .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+                    .map(({ name, value }) => ({ name, value }));
                 setAnalyticsData({ growthData: growthData.length > 0 ? growthData : [{ name: 'Current', value: data.customers.length }] });
             }
         } catch (e) {

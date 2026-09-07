@@ -124,25 +124,36 @@ export default function CustomerAnalysisPage() {
                 return true; // ALL
             });
 
-            // 1. Calculate Growth Data
+            // 1. Calculate Growth Data (with chronological sorting and clear 4-digit year format)
             const growthMap = new Map();
             filteredCustomers.forEach(c => {
-                const d = c._firstDate;
+                const d = c._firstDate instanceof Date && !isNaN(c._firstDate) ? c._firstDate : new Date();
+                let sortKey = '';
                 let label = '';
 
                 if (timeRange === 'DAILY') {
+                    sortKey = d.toISOString().split('T')[0];
                     label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 } else if (timeRange === 'QUARTERLY') {
                     const q = Math.floor(d.getMonth() / 3) + 1;
+                    sortKey = `${d.getFullYear()}-Q${q}`;
                     label = `Q${q} ${d.getFullYear()}`;
                 } else {
-                    label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                    // MONTHLY & ALL TIME: Month and 4-digit year (e.g. Aug 2026, Sep 2026)
+                    const monthPadded = String(d.getMonth() + 1).padStart(2, '0');
+                    sortKey = `${d.getFullYear()}-${monthPadded}`;
+                    label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
                 }
 
-                growthMap.set(label, (growthMap.get(label) || 0) + 1);
+                if (!growthMap.has(sortKey)) {
+                    growthMap.set(sortKey, { name: label, value: 0, sortKey });
+                }
+                growthMap.get(sortKey).value += 1;
             });
 
-            const growthData = Array.from(growthMap.entries()).map(([name, value]) => ({ name, value }));
+            const growthData = Array.from(growthMap.values())
+                .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+                .map(({ name, value }) => ({ name, value }));
 
             // 2. Calculate Tier Data
             let vipCount = 0;

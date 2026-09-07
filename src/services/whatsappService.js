@@ -757,12 +757,22 @@ export async function handleProductInquiry(to, catalogId) {
 
         const catalogLine = catNo ? ` *Product Catalogue No:* ${catNo}\n` : '';
 
+        const stock = Number(product.stock || 0);
+        const alertThreshold = Math.max(5, Number(product.alert_threshold || 5));
+        const isVariable = product.type === 'variant';
+
         if (matchingOrder) {
             // Already ordered -> Show past order details
             const orderDate = new Date(matchingOrder.created_at).toLocaleDateString('en-IN', {
                 day: '2-digit', month: 'short', year: 'numeric'
             });
             const displayInv = formatInvoiceId(matchingOrder);
+            const stockNote = stock <= 0
+                ? '\n• *Availability:* Out of Stock'
+                : stock <= alertThreshold
+                    ? `\n• *Availability:* ⚠️ Low Stock (${stock} left)`
+                    : '';
+
             const caption =
                 ` *${product.name}*\n` +
                 catalogLine +
@@ -771,23 +781,28 @@ export async function handleProductInquiry(to, catalogId) {
                 `• *Invoice No:* ${displayInv}\n` +
                 `• *Order Date:* ${orderDate}\n` +
                 `• *Status:* *${matchingOrder.status}*\n` +
-                `• *Order Total:* ₹${matchingOrder.total_amount.toLocaleString()}\n\n` +
+                `• *Order Total:* ₹${matchingOrder.total_amount.toLocaleString()}` +
+                `${stockNote}\n\n` +
                 `Tap below to track your order details:`;
 
-            const buttons = [
-                { id: "menu_track", title: "Track Order" },
-                { id: `addcart_${product.id}`, title: " Buy Again" },
-                { id: "menu_main", title: " Main Menu" }
-            ];
+            const buttons = stock > 0
+                ? [
+                    { id: "menu_track", title: "Track Order" },
+                    { id: `addcart_${product.id}`, title: " Buy Again" },
+                    { id: "menu_main", title: " Main Menu" }
+                ]
+                : [
+                    { id: "menu_track", title: "Track Order" },
+                    { id: "menu_catalogue", title: " Browse More" },
+                    { id: "menu_main", title: " Main Menu" }
+                ];
             return await sendImageButtons(to, imgUrl, caption, buttons);
         }
 
-        const stock = product.stock || 0;
-        const alertThreshold = product.alert_threshold || 5;
         const stockStatus = stock <= 0
             ? 'Out of Stock'
             : stock <= alertThreshold
-                ? `Only ${stock} left — Order soon!`
+                ? `⚠️ Low Stock: Only ${stock} left — Order soon!`
                 : `In Stock`;
 
         const desc = product.description
@@ -803,7 +818,7 @@ export async function handleProductInquiry(to, catalogId) {
 
         const buttons = stock > 0
             ? [
-                { id: `addcart_${product.id}`, title: ' Add to Cart' },
+                { id: `addcart_${product.id}`, title: isVariable ? ' Select Option' : ' Add to Cart' },
                 { id: 'menu_catalogue', title: ' Browse More' }
             ]
             : [
@@ -1035,8 +1050,13 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
             return;
         }
 
-        const effectiveStock = p.stock - (p.alert_threshold || 0);
-        const stockStatus = effectiveStock <= 0 ? " OUT OF STOCK" : effectiveStock <= 5 ? ` Only ${effectiveStock} left!` : " In Stock";
+        const stock = Number(p.stock || 0);
+        const alertThreshold = Math.max(5, Number(p.alert_threshold || 5));
+        const stockStatus = stock <= 0
+            ? "Out of Stock"
+            : stock <= alertThreshold
+                ? `⚠️ Low Stock: Only ${stock} left!`
+                : "In Stock";
         const catNo = p.product_catalog_image_id
             ? (p.product_catalog_image_id.toUpperCase().startsWith('CAT-') ? p.product_catalog_image_id.toUpperCase() : `CAT-${p.product_catalog_image_id.toUpperCase()}`)
             : null;
@@ -1046,7 +1066,7 @@ export async function sendCatalogueByType(to, typeIdRaw, startOffset = 0) {
 
         // Variable Product Logic: Change button label
         const isVariable = p.type === 'variant';
-        const buttons = p.stock > 0
+        const buttons = stock > 0
             ? [{ id: `addcart_${p.id}`, title: isVariable ? " Select Option" : " Add to Cart" }]
             : [{ id: "menu_catalogue", title: " Back to Catalogue" }];
 
@@ -1107,32 +1127,70 @@ export async function handleAddToCart(to, productIdRaw) {
     const { data: product } = await mysqlClient.from('products').select('*').eq('id', productId).single();
     const { data: variants } = await mysqlClient.from('product_variants').select('*').eq('product_id', productId);
 
-    if (!product || !product.is_active) return sendText(to, " Sorry, this item is out of stock or no longer available.");
+    if (!product || !product.is_active) {
+        return sendButtons(to, " Sorry, this item is out of stock or no longer available.", [
+            { id: "menu_catalogue", title: " Browse More" },
+            { id: "menu_main", title: " Main Menu" }
+        ]);
+    }
 
     if (variants && variants.length > 0) {
         const totalVariantStock = variants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
         if (totalVariantStock <= 0) {
-            return sendText(to, " Sorry, all options for this item are currently out of stock.");
+            return sendButtons(to, " Sorry, all options for this item are currently out of stock.", [
+                { id: "menu_catalogue", title: " Browse More" },
+                { id: "menu_main", title: " Main Menu" }
+            ]);
         }
         // Show variant selection list
-        const rows = variants.map(v => ({
-            id: `vsel_${v.id}`,
-            title: v.name,
-            description: `₹${v.price.toLocaleString()} | Stock: ${v.stock}`
-        }));
+        const rows = variants.map(v => {
+            const vStock = parseInt(v.stock, 10) || 0;
+            const stockText = vStock <= 0 ? 'Out of Stock' : (vStock <= 5 ? `Low Stock: ${vStock} left` : `Stock: ${vStock}`);
+            return {
+                id: `vsel_${v.id}`,
+                title: v.name,
+                description: `₹${v.price.toLocaleString()} | ${stockText}`
+            };
+        });
 
         return await sendList(to, " SELECT OPTION", `Please select your preferred option for *${product.name}*:`, "Select Option", rows);
     }
 
-    const effectiveStock = (product.stock || 0) - (product.alert_threshold || 0);
-    if (effectiveStock <= 0) return sendText(to, " Sorry, this item is out of stock or no longer available.");
+    const stock = Number(product.stock || 0);
+    if (stock <= 0) {
+        return sendButtons(to, `❌ Sorry, *${product.name}* is currently out of stock.`, [
+            { id: "menu_catalogue", title: " Browse More" },
+            { id: "menu_main", title: " Main Menu" }
+        ]);
+    }
+
+    // Check quantity already in cart
+    const phoneVariations = getPhoneVariations(to);
+    const { data: cartItem } = await mysqlClient.from('whatsapp_cart')
+        .select('quantity')
+        .in('phone', phoneVariations)
+        .eq('product_id', productId)
+        .is('variant_id', null)
+        .maybeSingle();
+
+    const currentQty = cartItem ? Number(cartItem.quantity || 0) : 0;
+    if (currentQty + 1 > stock) {
+        return sendButtons(to, `⚠️ Only *${stock}* sarees available in stock for *${product.name}*.\nYou already have *${currentQty}* in your cart.`, [
+            { id: "menu_cart", title: " View Cart" },
+            { id: "menu_catalogue", title: " Browse More" }
+        ]);
+    }
 
     // No variants, add directly
     await addToCart(to, product, 1);
-    const { data: cartItem } = await mysqlClient.from('whatsapp_cart').select('quantity').eq('phone', to).eq('product_id', productId).is('variant_id', null).single();
-    const qty = cartItem ? cartItem.quantity : 1;
+    const qty = currentQty + 1;
 
-    await sendButtons(to, ` *Added to Cart*\n${product.name}\nQty in Cart: ${qty}`, [
+    const alertThreshold = Math.max(5, Number(product.alert_threshold || 5));
+    const lowStockNotice = stock <= alertThreshold
+        ? `\n⚠️ *Low Stock:* Only ${stock} left in stock!`
+        : '';
+
+    await sendButtons(to, ` *Added to Cart*\n${product.name}\nQty in Cart: ${qty}${lowStockNotice}`, [
         { id: `qty_inc_${productId}`, title: " Add Another" },
         { id: `qty_dec_${productId}`, title: " Reduce Qty" },
         { id: "menu_cart", title: " View Cart" }
@@ -1146,7 +1204,8 @@ export async function handleVariantSelection(to, variantId) {
     const product = variant.products;
     await addToCart(to, product, 1, variant);
 
-    const { data: cartItem } = await mysqlClient.from('whatsapp_cart').select('quantity').eq('phone', to).eq('variant_id', variantId).single();
+    const phoneVariations = getPhoneVariations(to);
+    const { data: cartItem } = await mysqlClient.from('whatsapp_cart').select('quantity').in('phone', phoneVariations).eq('variant_id', variantId).maybeSingle();
     const qty = cartItem ? cartItem.quantity : 1;
 
     await sendButtons(to, ` *Added to Cart*\n${product.name} (${variant.name})\nQty in Cart: ${qty}`, [
@@ -1157,11 +1216,12 @@ export async function handleVariantSelection(to, variantId) {
 }
 
 export async function handleModifyQuantity(to, action, targetId, isVariant = false) {
-    const query = mysqlClient.from('whatsapp_cart').select('*').eq('phone', to);
+    const phoneVariations = getPhoneVariations(to);
+    const query = mysqlClient.from('whatsapp_cart').select('*').in('phone', phoneVariations);
     if (isVariant) query.eq('variant_id', targetId);
     else query.eq('product_id', targetId).is('variant_id', null);
 
-    const { data: item } = await query.single();
+    const { data: item } = await query.maybeSingle();
     if (!item) return sendText(to, "Item not found in cart.");
 
     let newQty = item.quantity;
@@ -1174,6 +1234,24 @@ export async function handleModifyQuantity(to, action, targetId, isVariant = fal
         await mysqlClient.from('whatsapp_cart').delete().eq('id', item.id);
         return sendText(to, ` Removed ${itemName} from cart.`);
     } else {
+        if (action === 'inc') {
+            let availableStock = 0;
+            if (isVariant) {
+                const { data: v } = await mysqlClient.from('product_variants').select('stock').eq('id', targetId).maybeSingle();
+                availableStock = Number(v?.stock || 0);
+            } else {
+                const { data: p } = await mysqlClient.from('products').select('stock').eq('id', item.product_id).maybeSingle();
+                availableStock = Number(p?.stock || 0);
+            }
+
+            if (newQty > availableStock) {
+                return sendButtons(to, `⚠️ Only *${availableStock}* units available in stock for *${itemName}*.\nCannot add more to cart.`, [
+                    { id: "menu_cart", title: " View Cart" },
+                    { id: "start_checkout", title: " Checkout Now" }
+                ]);
+            }
+        }
+
         await mysqlClient.from('whatsapp_cart').update({ quantity: newQty }).eq('id', item.id);
 
         const incId = isVariant ? `vqty_inc_${targetId}` : `qty_inc_${targetId}`;
@@ -1429,15 +1507,21 @@ export async function handleShippingSame(to, orderId) {
 }
 
 // Handle new billing address input
+// Handle new billing address input
 export async function handleNewBillingAddress(to, orderId, text) {
-    const parsed = parseAddressString(text, to);
+    const parsed = parseAndValidateAddress(text, to);
 
-    if (parsed.error) {
-        return await sendText(to, ` ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
-    }
+    if (!parsed.isValid) {
+        const errorAlert =
+            `❌ *Billing Details Incomplete*\n\n` +
+            `Please provide the following required details:\n` +
+            `${parsed.errorText}\n\n` +
+            `Please reply with your billing details in this format:\n` +
+            `*Name, Phone Number, Email, Full Home Address*\n\n` +
+            `*Example:*\n` +
+            `_Lakshmi, 9876543210, lakshmi@email.com, 12 Main St, Sivanthi Puram, Virudhunagar 626001_`;
 
-    if (!parsed.email) {
-        return await sendText(to, " Email is missing. Please try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode\n\nExample:\nLakshmi, 9876543210, lakshmi@example.com, 12 Main St, Bangalore, 560001");
+        return await sendText(to, errorAlert);
     }
 
     const billingAddress = {
@@ -1464,10 +1548,19 @@ export async function handleNewBillingAddress(to, orderId, text) {
 
 // Handle new shipping address input
 export async function handleNewShippingAddress(to, orderId, text) {
-    const parsed = parseAddressString(text, to);
+    const parsed = parseAndValidateAddress(text, to);
 
-    if (parsed.error) {
-        return await sendText(to, ` ${parsed.error}\n\nPlease try again with correct format:\n\nName, Mobile, Email, Address, City, Pincode`);
+    if (!parsed.isValid) {
+        const errorAlert =
+            `❌ *Shipping Details Incomplete*\n\n` +
+            `Please provide the following required details:\n` +
+            `${parsed.errorText}\n\n` +
+            `Please reply with your shipping details in this format:\n` +
+            `*Name, Phone Number, Email, Full Home Address*\n\n` +
+            `*Example:*\n` +
+            `_Lakshmi, 9876543210, lakshmi@email.com, 12 Main St, Sivanthi Puram, Virudhunagar 626001_`;
+
+        return await sendText(to, errorAlert);
     }
 
     const shippingAddress = {
@@ -1489,68 +1582,191 @@ export async function handleNewShippingAddress(to, orderId, text) {
     return await askState(to, orderId);
 }
 
-// Helper to parse address strings
-function parseAddressString(text, defaultMobile) {
-    const rawBody = text.trim();
-    let name = 'Valued Customer';
-    let mobile = defaultMobile;
+/**
+ * Robust address parser & validator:
+ * Validates that customer provided Name, Phone Number, Email, and Home Address.
+ * If any field is missing or invalid, collects clear, specific error alerts.
+ */
+export function parseAndValidateAddress(text, defaultMobile = null) {
+    if (!text || typeof text !== 'string') {
+        return {
+            isValid: false,
+            missingFields: ['Name', 'Phone Number', 'Email', 'Home Address'],
+            errorText: '• *Name required*\n• *Phone number required* (10-digit mobile number)\n• *Email required* (e.g. name@example.com)\n• *Home address required* (Door/Flat No, Street, City, Pincode)'
+        };
+    }
+
+    const raw = text.trim();
+
+    // 1. Extract Email
     let email = '';
-    let address = '';
-    let city = '';
-    let pincode = '';
+    const emailMatch = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
+    if (emailMatch) {
+        email = emailMatch[0].trim();
+    }
 
-    // Try splitting by comma or newline
-    const parts = rawBody.split(/[,\n]/).map(p => p.trim()).filter(Boolean);
-
-    if (parts.length >= 4) {
-        // Expected: Name, Mobile, Email, Address...
-        name = parts[0];
-        mobile = parts[1];
-        email = parts[2];
-
-        // Sometimes email and mobile are swapped
-        if (mobile.includes('@') && !email.includes('@')) {
-            const temp = mobile; mobile = email; email = temp;
-        }
-
-        // Remaining parts are address, city, pincode
-        const remaining = parts.slice(3);
-
-        // Try to identify pincode (6 digits)
-        const pinIdx = remaining.findIndex(p => /^\d{6}$/.test(p));
-        if (pinIdx !== -1) {
-            pincode = remaining[pinIdx];
-            // If city is before pincode
-            if (pinIdx > 0) city = remaining[pinIdx - 1];
-            address = remaining.slice(0, pinIdx > 0 ? pinIdx - 1 : pinIdx).join(', ');
-        } else {
-            // Fallback: last part is pincode? 
-            const lastPart = remaining[remaining.length - 1];
-            if (/\d{5,6}/.test(lastPart)) {
-                pincode = lastPart;
-                if (remaining.length > 1) city = remaining[remaining.length - 2];
-                address = remaining.slice(0, -2).join(', ');
-            } else {
-                address = remaining.join(', ');
-            }
-        }
-    } else if (parts.length >= 2) {
-        name = parts[0];
-        address = parts.slice(1).join(', ');
+    // 2. Extract Phone Number (10 digits, optionally prefixed with +91, 91, or 0)
+    let mobile = '';
+    const phoneMatch = raw.match(/(?:(?:\+|0{0,2})91[\s-]*)?([6-9]\d{9})\b/);
+    if (phoneMatch) {
+        mobile = '91' + phoneMatch[1];
     } else {
-        address = rawBody;
+        const tenDigitMatch = raw.match(/\b\d{10}\b/);
+        if (tenDigitMatch) {
+            mobile = '91' + tenDigitMatch[0];
+        }
     }
 
-    // Basic Validation
-    if (email && !email.includes('@')) {
-        return { error: "Invalid email format." };
+    // 3. Extract Pincode
+    let pincode = '';
+    const pinMatch = raw.match(/\b\d{6}\b/);
+    if (pinMatch && (!mobile || !mobile.includes(pinMatch[0]))) {
+        pincode = pinMatch[0];
     }
 
-    // Clean phone
-    mobile = mobile.replace(/\D/g, '');
-    if (mobile.length === 10) mobile = '91' + mobile;
+    // 4. Split raw into lines/segments by newline or comma to identify Name and Address components
+    const lines = raw.split(/[\n,]/).map(l => l.trim()).filter(Boolean);
+    let name = '';
+    const addressParts = [];
 
-    return { name, mobile, email, address, city, pincode };
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Check if line has labeled fields (e.g., "Name: ...", "Phone: ...", "Email: ...")
+        if (/^(?:name|customer|full\s*name)\s*[:=-]\s*(.+)/i.test(line)) {
+            const m = line.match(/^(?:name|customer|full\s*name)\s*[:=-]\s*(.+)/i);
+            if (m && m[1]) name = m[1].trim();
+            continue;
+        }
+        if (/^(?:phone|mobile|contact|cell|tel|no|num|mob)\s*[:=-]\s*(.+)/i.test(line)) {
+            const m = line.match(/^(?:phone|mobile|contact|cell|tel|no|num|mob)\s*[:=-]\s*(.+)/i);
+            if (m && m[1]) {
+                const digits = m[1].replace(/\D/g, '');
+                if (digits.length >= 10) {
+                    mobile = digits.length === 10 ? '91' + digits : digits;
+                }
+            }
+            continue;
+        }
+        if (/^(?:email|mail|e-mail)\s*[:=-]\s*(.+)/i.test(line)) {
+            const m = line.match(/^(?:email|mail|e-mail)\s*[:=-]\s*(.+)/i);
+            if (m && m[1] && m[1].includes('@')) {
+                email = m[1].trim();
+            }
+            continue;
+        }
+        if (/^(?:address|addr|home|location|ship\s*to)\s*[:=-]\s*(.+)/i.test(line)) {
+            const m = line.match(/^(?:address|addr|home|location|ship\s*to)\s*[:=-]\s*(.+)/i);
+            if (m && m[1]) addressParts.push(m[1].trim());
+            continue;
+        }
+
+        // If line is the email itself
+        if (email && (line === email || line.includes(email))) {
+            continue;
+        }
+
+        // If line is the phone number itself
+        const cleanedDigits = line.replace(/\D/g, '');
+        if (cleanedDigits.length >= 10 && (cleanedDigits === mobile || ('91' + cleanedDigits) === mobile || cleanedDigits.endsWith(mobile.slice(-10)))) {
+            continue;
+        }
+
+        // If first segment hasn't been assigned to name yet, and it looks like a person's name (no long digits, no @)
+        if (!name && i === 0 && !/\d{3,}/.test(line) && !line.includes('@')) {
+            name = line.trim();
+            continue;
+        }
+
+        // Otherwise it's part of the address
+        addressParts.push(line);
+    }
+
+    // Name fallback: if name is still empty, look at first part of addressParts that isn't a street address
+    if (!name && addressParts.length > 1 && !/\d/.test(addressParts[0])) {
+        name = addressParts.shift();
+    }
+
+    // Construct address string
+    let address = addressParts.join(', ').trim();
+    if (!address) {
+        let cleanText = raw;
+        if (email) cleanText = cleanText.replace(email, '');
+        if (mobile) {
+            cleanText = cleanText.replace(mobile, '').replace(mobile.replace(/^91/, ''), '');
+        }
+        if (name) cleanText = cleanText.replace(name, '');
+        address = cleanText.replace(/^[,\s\n]+|[,\s\n]+$/g, '').trim();
+    }
+
+    // Pincode extraction from address if not already found
+    if (!pincode) {
+        const m = address.match(/\b\d{6}\b/);
+        if (m) pincode = m[0];
+    }
+
+    // City extraction attempt (token before pincode or last token)
+    let city = '';
+    if (addressParts.length >= 2) {
+        const lastPart = addressParts[addressParts.length - 1];
+        const prevPart = addressParts[addressParts.length - 2];
+        if (/\d{6}/.test(lastPart) && !/\d/.test(prevPart)) {
+            city = prevPart;
+        } else if (!/\d/.test(lastPart)) {
+            city = lastPart;
+        }
+    }
+
+    // --- VALIDATE REQUIRED FIELDS ---
+    const missingFields = [];
+    const errorDetails = [];
+
+    // 1. Name Check
+    if (!name || name.trim().length < 2) {
+        missingFields.push('Name');
+        errorDetails.push('• *Name required* (e.g. Lakshmi)');
+    }
+
+    // 2. Phone Number Check
+    if (!mobile || mobile.replace(/\D/g, '').length < 10) {
+        missingFields.push('Phone Number');
+        errorDetails.push('• *Phone number required* (10-digit mobile number, e.g. 9876543210)');
+    }
+
+    // 3. Email Check
+    if (!email || !email.includes('@') || !email.includes('.')) {
+        missingFields.push('Email');
+        errorDetails.push('• *Email required* (e.g. lakshmi@email.com)');
+    }
+
+    // 4. Home Address Check
+    if (!address || address.trim().length < 5) {
+        missingFields.push('Home Address');
+        errorDetails.push('• *Home address required* (Door/Flat No, Street, City, Pincode)');
+    }
+
+    const isValid = missingFields.length === 0;
+
+    return {
+        isValid,
+        name: name.trim() || 'Valued Customer',
+        mobile,
+        email,
+        address,
+        city,
+        pincode,
+        missingFields,
+        errorText: errorDetails.join('\n')
+    };
+}
+
+// Backward-compatibility alias
+export function parseAddressString(text, defaultMobile) {
+    const res = parseAndValidateAddress(text, defaultMobile);
+    if (!res.isValid) {
+        return { error: res.errorText };
+    }
+    return res;
 }
 
 export async function askState(to, orderId) {

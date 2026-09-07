@@ -75,8 +75,7 @@ export function parseAdminSessionToken(token) {
  * Verifies if the request is from an authorized admin.
  * Checks for:
  * 1. An 'Authorization' header with Bearer user session token (signed)
- * 2. Static admin secret (for system crons / background tasks)
- * 3. Fallback header validations
+ * 2. Dedicated master static secret (strictly for system crons / background tasks)
  */
 export async function verifyAdmin(request) {
     const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
@@ -101,11 +100,12 @@ export async function verifyAdmin(request) {
         return { authorized: false, error: 'Session expired or invalid signature' };
     }
 
-    // 2. Validate master static secret (used by background workers/crons)
-    const adminToken = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
-    if (token === adminToken || token === 'fallback_secret_change_me') {
+    // 2. Validate master static secret (used ONLY by backend system tasks/crons when ADMIN_API_SECRET is explicitly configured)
+    const adminSecret = process.env.ADMIN_API_SECRET;
+    if (adminSecret && token === adminSecret) {
         return { authorized: true, isMasterSecret: true };
     }
 
     return { authorized: false, error: 'Unauthorized: Invalid Token' };
 }
+

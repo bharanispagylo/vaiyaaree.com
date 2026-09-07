@@ -25,7 +25,7 @@ export const SECTION_TEMPLATES = [
                 {
                     title: "Wedding & Festive Collection",
                     subtitle: "Celebrate Love with Timeless Handwoven Elegance",
-                    image: "/uploads/media/without-watermark/CAT-C3FNP_1780653461488.jpg",
+                    image: "/images/hero-saree.png",
                     button_text: "SHOP NOW",
                     button_link: "/shop?category=Silk"
                 },
@@ -124,7 +124,7 @@ export const SECTION_TEMPLATES = [
             auto_play_delay: 3500,
             images: [
                 '/uploads/media/without-watermark/CAT-34H8O_1780639251590.jpg',
-                '/uploads/media/without-watermark/CAT-C3FNP_1780653461488.jpg',
+                '/images/hero-saree.png',
                 '/uploads/media/without-watermark/CAT-RPX8M_1780639172860.jpg',
                 '/uploads/media/without-watermark/CAT-XZ8NL_1780639099964.jpg',
                 '/uploads/media/without-watermark/CAT-AMB6I_1780639015058.jpg'

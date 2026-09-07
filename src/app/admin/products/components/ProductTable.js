@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Loader2, Eye, Share2, Package as PackageIcon, Trash2,
     ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown,
-    MoreVertical, Edit3, ExternalLink, Copy, Check
+    MoreVertical, Edit3, ExternalLink, Copy, Check, CheckCircle, EyeOff
 } from 'lucide-react';
 import { getProductUrl } from '@/lib/productUrl';
 
@@ -19,6 +19,7 @@ export default function ProductTable({
     shareToStatus,
     fetchHistory,
     handleDelete,
+    onToggleStatus,
     currentPage = 1,
     totalPages = 1,
     setPage,
@@ -429,15 +430,31 @@ export default function ProductTable({
 
                                             {/* 8. Status Badge */}
                                             <td style={{ textAlign: 'center', padding: '0.75rem 0.75rem' }}>
-                                                {product.is_active !== 0 ? (
-                                                    <span style={{ fontSize: '0.68rem', fontWeight: 800, background: '#f0fdf4', color: '#16a34a', padding: '2px 7px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
-                                                        ACTIVE
-                                                    </span>
-                                                ) : (
-                                                    <span style={{ fontSize: '0.68rem', fontWeight: 800, background: '#f1f5f9', color: '#64748b', padding: '2px 7px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-                                                        DRAFT
-                                                    </span>
-                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (onToggleStatus) onToggleStatus(product);
+                                                    }}
+                                                    title={`Click to ${product.is_active !== 0 ? 'unpublish (set to draft)' : 'publish to storefront'}`}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        padding: 0,
+                                                        cursor: 'pointer',
+                                                        display: 'inline-block'
+                                                    }}
+                                                >
+                                                    {product.is_active !== 0 ? (
+                                                        <span style={{ fontSize: '0.68rem', fontWeight: 800, background: '#f0fdf4', color: '#16a34a', padding: '2px 7px', borderRadius: '4px', border: '1px solid #bbf7d0', cursor: 'pointer' }}>
+                                                            ACTIVE
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.68rem', fontWeight: 800, background: '#f1f5f9', color: '#64748b', padding: '2px 7px', borderRadius: '4px', border: '1px solid #cbd5e1', cursor: 'pointer' }}>
+                                                            DRAFT
+                                                        </span>
+                                                    )}
+                                                </button>
                                             </td>
 
                                             {/* 9. Actions (3-Dot Dropdown) */}
@@ -533,6 +550,46 @@ export default function ProductTable({
                                                             >
                                                                 <Edit3 size={15} style={{ color: 'hsl(var(--primary))' }} />
                                                                 <span>Edit Product</span>
+                                                            </button>
+
+                                                            {/* 1b. Toggle Active/Draft */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    if (onToggleStatus) onToggleStatus(product);
+                                                                }}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '10px',
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '0.82rem',
+                                                                    fontWeight: 600,
+                                                                    color: product.is_active !== 0 ? '#b45309' : '#16a34a',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.12s',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                {product.is_active !== 0 ? (
+                                                                    <>
+                                                                        <EyeOff size={15} style={{ color: '#d97706' }} />
+                                                                        <span>Unpublish (Draft)</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <CheckCircle size={15} style={{ color: '#16a34a' }} />
+                                                                        <span>Publish to Store</span>
+                                                                    </>
+                                                                )}
                                                             </button>
 
                                                             {/* 2. View on Storefront */}

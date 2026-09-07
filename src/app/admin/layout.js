@@ -33,18 +33,8 @@ function ProtectedAdminLayout({ children, pathname }) {
                 return;
             }
 
-            let storedUsername = '';
-            try {
-                const storedUser = JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}');
-                storedUsername = storedUser?.username || '';
-            } catch (e) {}
-
             try {
                 const headers = { 'Authorization': `Bearer ${isAdminToken}` };
-                if (storedUsername) {
-                    headers['X-Admin-Username'] = storedUsername;
-                }
-
                 const res = await fetch('/api/admin/verify-session', { headers });
                 
                 if (res.ok) {
@@ -52,6 +42,7 @@ function ProtectedAdminLayout({ children, pathname }) {
                     if (data.success && data.admin) {
                         // Keep local profile in sync with verified database role
                         localStorage.setItem('cast_prince_admin_user', JSON.stringify({
+                            id: data.admin.id,
                             username: data.admin.username,
                             role: data.admin.role,
                             rawRole: data.admin.rawRole,

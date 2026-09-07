@@ -167,30 +167,60 @@ export async function generateBackupData({
             'Delivery Address', 'City', 'State', 'Pincode', 'Tracking Number', 'Courier Name', 'Items Summary'
         ];
 
-        const csvRows = fullOrders.map(o => {
-            const itemsSummary = (o.items || []).map(i => `${i.product_name} (x${i.quantity}) - ₹${i.price_at_time}`).join(' | ');
+        const csvRows = fullOrders.map((o, idx) => {
+            const rawInv = o.invoice_no || o.invoice_number;
+            const invNo = rawInv
+                ? (String(rawInv).startsWith('#') ? rawInv : (String(rawInv).startsWith('INV-') ? rawInv : `INV-${rawInv}`))
+                : (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(idx + 1).padStart(4, '0')}`);
+
+            let parsedAddr = null;
+            if (o.shipping_address) {
+                if (typeof o.shipping_address === 'object') {
+                    parsedAddr = o.shipping_address;
+                } else if (typeof o.shipping_address === 'string' && o.shipping_address.trim().startsWith('{')) {
+                    try { parsedAddr = JSON.parse(o.shipping_address); } catch (_) {}
+                }
+            }
+
+            const customerName = o.customer_name || o.customer_account_name || parsedAddr?.name || o.shipping_name || '';
+            const customerPhone = o.customer_phone || o.customer_account_phone || parsedAddr?.phone || o.shipping_phone || '';
+            const customerEmail = o.customer_email || o.customer_account_email || parsedAddr?.email || o.shipping_email || '';
+
+            const streetAddress = parsedAddr?.address || (typeof o.shipping_address === 'string' && !o.shipping_address.trim().startsWith('{') ? o.shipping_address : '') || '';
+            const city = parsedAddr?.city || o.city || o.shipping_city || '';
+            const state = parsedAddr?.state || o.shipping_state || o.state || '';
+            const pincode = parsedAddr?.pincode || o.pincode || o.shipping_pincode || '';
+
+            const itemsCount = (o.items || []).reduce((sum, i) => sum + Number(i.quantity || 1), 0) || o.items?.length || 0;
+            const itemsSummary = (o.items || []).map(i => {
+                const pName = i.product_name || i.name || 'Saree';
+                const qty = i.quantity || 1;
+                const price = Number(i.price_at_time || i.price || 0).toFixed(2);
+                return `${pName} (x${qty}) - ₹${price}`;
+            }).join(' | ');
+
             return [
                 formatCsvCell(o.id || o.order_number),
-                formatCsvCell(o.invoice_number || ''),
+                formatCsvCell(invNo),
                 formatCsvCell(o.created_at ? new Date(o.created_at).toISOString() : ''),
-                formatCsvCell(o.shipping_name || o.customer_account_name || ''),
-                formatCsvCell(o.shipping_phone || o.customer_account_phone || ''),
-                formatCsvCell(o.shipping_email || o.customer_account_email || ''),
-                formatCsvCell(o.items?.length || 0),
+                formatCsvCell(customerName),
+                formatCsvCell(customerPhone),
+                formatCsvCell(customerEmail),
+                formatCsvCell(itemsCount),
                 formatCsvCell(Number(o.total_amount || 0).toFixed(2)),
-                formatCsvCell(Number(o.subtotal || 0).toFixed(2)),
-                formatCsvCell(Number(o.total_discount || 0).toFixed(2)),
+                formatCsvCell(Number(o.subtotal || o.total_amount || 0).toFixed(2)),
+                formatCsvCell(Number(o.total_discount || o.discount_amount || 0).toFixed(2)),
                 formatCsvCell(o.coupon_code || ''),
-                formatCsvCell(Number(o.shipping_fee || 0).toFixed(2)),
-                formatCsvCell(Number(o.tax_amount || 0).toFixed(2)),
-                formatCsvCell(o.order_status || 'PENDING'),
+                formatCsvCell(Number(o.shipping_cost || o.shipping_fee || 0).toFixed(2)),
+                formatCsvCell(Number(o.tax_amount || (Number(o.cgst_amount || 0) + Number(o.sgst_amount || 0) + Number(o.igst_amount || 0)) || 0).toFixed(2)),
+                formatCsvCell(o.status || o.order_status || 'CONFIRMED'),
                 formatCsvCell(o.payment_method || 'COD'),
-                formatCsvCell(o.payment_status || 'PENDING'),
-                formatCsvCell(o.source || 'ONLINE'),
-                formatCsvCell(o.shipping_address || ''),
-                formatCsvCell(o.shipping_city || ''),
-                formatCsvCell(o.shipping_state || ''),
-                formatCsvCell(o.shipping_pincode || ''),
+                formatCsvCell(o.payment_status || (o.status === 'DELIVERED' || o.payment_method === 'RAZORPAY' || o.payment_method === 'PHONEPE' ? 'PAID' : 'PENDING')),
+                formatCsvCell(o.source || 'WEBSITE'),
+                formatCsvCell(streetAddress),
+                formatCsvCell(city),
+                formatCsvCell(state),
+                formatCsvCell(pincode),
                 formatCsvCell(o.tracking_number || ''),
                 formatCsvCell(o.courier_name || ''),
                 formatCsvCell(itemsSummary)
@@ -270,6 +300,10 @@ export async function GET(req) {
                 return NextResponse.json({ error: 'Backup not found' }, { status: 404 });
             }
             const backup = rows[0];
+
+            if (backup.format === 'CSV' && backup.backup_content) {
+                backup.backup_content = backup.backup_content.replace(/(["']?)(WEB|ORD)-(\d+)\1\s*,\s*["']\s*["']\s*,/gi, '$1$2-$3$1,"INV-$3",');
+            }
 
             if (download === '1') {
                 let contentType = 'application/json';

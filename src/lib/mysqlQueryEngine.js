@@ -559,7 +559,7 @@ async function handleSelect({
 
             if (orderIds.length > 0) {
                 const placeholders = orderIds.map(() => '?').join(', ');
-                const [orderRows] = await pool.query(`SELECT * FROM \`orders\` WHERE \`id\` IN (${placeholders})`, orderIds);
+                const [orderRows] = await pool.query(`SELECT * FROM \`orders\` WHERE \`id\` IN (${placeholders}) OR \`invoice_no\` IN (${placeholders})`, [...orderIds, ...orderIds]);
                 orderRows.map(parseJsonFields).forEach(o => {
                     if (!o.invoice_no && o.id) {
                         const num = String(o.id).replace(/\D/g, '');
@@ -568,6 +568,10 @@ async function handleSelect({
                         o.invoice_no = String(o.invoice_no).replace(/^#+/, '');
                     }
                     orderMap[o.id] = o;
+                    if (o.invoice_no) {
+                        orderMap[o.invoice_no] = o;
+                        orderMap[`#${o.invoice_no}`] = o;
+                    }
                 });
             }
 
@@ -587,16 +591,32 @@ async function handleSelect({
 
             processedRows = processedRows.map(r => {
                 const orderObj = orderMap[r.order_id] || null;
-                let custObj = custMap[r.customer_id] || null;
+                let custObj = custMap[r.customer_id] || (orderObj?.customer_id ? custMap[orderObj.customer_id] : null) || null;
 
                 // Resilient fallback for customer info if not matched by customer_id directly
                 if (!custObj && orderObj) {
                     custObj = {
-                        id: r.customer_id || null,
+                        id: orderObj.customer_id || r.customer_id || null,
                         name: orderObj.customer_name || 'Customer',
                         phone: orderObj.customer_phone || '',
                         email: orderObj.customer_email || ''
                     };
+                }
+
+                // If customer is still unknown or default, check pickup_address
+                if ((!custObj || custObj.name === 'Customer') && r.pickup_address) {
+                    let addr = r.pickup_address;
+                    if (typeof addr === 'string' && addr.startsWith('{')) {
+                        try { addr = JSON.parse(addr); } catch (_) {}
+                    }
+                    if (addr && typeof addr === 'object' && addr.name) {
+                        custObj = {
+                            id: custObj?.id || r.customer_id || null,
+                            name: addr.name,
+                            phone: addr.phone || custObj?.phone || '',
+                            email: addr.email || custObj?.email || ''
+                        };
+                    }
                 }
 
                 const matchedImages = [

@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { LogOut, Menu, User, ShieldCheck, ChevronDown, Mail, Settings, Users, Sparkles, Check } from 'lucide-react';
-import { useShop } from '@/context/ShopContext';
 import { sanitizeAdminProfile } from '@/lib/authSanitizer';
 
 // Map path → page title
@@ -39,7 +38,6 @@ export default function AdminTopBar({ onMenuClick }) {
     const router = useRouter();
     const pathname = usePathname();
     const pageTitle = PAGE_TITLES[pathname] || 'Admin Portal';
-    const { user } = useShop();
 
     // Initialize admin user state immediately from localStorage to eliminate flicker
     const [adminUser, setAdminUser] = useState(() => {
@@ -102,7 +100,7 @@ export default function AdminTopBar({ onMenuClick }) {
                 const parsed = JSON.parse(adminStored);
                 const safeParsed = sanitizeAdminProfile(parsed);
                 if (safeParsed && (safeParsed.full_name || safeParsed.username || safeParsed.role)) {
-                    setAdminUser(prev => ({ ...prev, ...safeParsed }));
+                    setAdminUser(safeParsed);
                 }
             }
         } catch (e) {
@@ -111,41 +109,34 @@ export default function AdminTopBar({ onMenuClick }) {
 
         // 2. Fetch fresh session info from verify-session API
         const token = typeof window !== 'undefined' ? localStorage.getItem('cast_prince_admin') : null;
-        let storedUsername = adminUser?.username;
-        if (!storedUsername && typeof window !== 'undefined') {
-            try {
-                storedUsername = JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}')?.username || '';
-            } catch(e) {}
-        }
 
         if (token) {
             fetch('/api/admin/verify-session', {
                 headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'X-Admin-Username': storedUsername || ''
+                    'Authorization': `Bearer ${token}`
                 }
             })
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        localStorage.removeItem('cast_prince_admin');
+                        localStorage.removeItem('cast_prince_admin_user');
+                        router.push('/admin/login');
+                        return null;
+                    }
+                    return res.json();
+                })
                 .then(data => {
-                    if (data.success && data.admin) {
+                    if (data && data.success && data.admin) {
                         const safeAdmin = sanitizeAdminProfile(data.admin);
-                        setAdminUser(prev => {
-                            const newFullName = (safeAdmin.full_name && safeAdmin.full_name !== 'Administrator') 
-                                ? safeAdmin.full_name 
-                                : (prev.full_name && prev.full_name !== 'Administrator' ? prev.full_name : (safeAdmin.username || prev.username || ''));
-                            const updated = {
-                                ...prev,
-                                ...safeAdmin,
-                                full_name: newFullName
-                            };
-                            localStorage.setItem('cast_prince_admin_user', JSON.stringify(updated));
-                            return updated;
-                        });
+                        if (safeAdmin) {
+                            setAdminUser(safeAdmin);
+                            localStorage.setItem('cast_prince_admin_user', JSON.stringify(safeAdmin));
+                        }
                     }
                 })
                 .catch(err => console.error('[AdminTopBar] Verify session error:', err));
         }
-    }, [user]);
+    }, [pathname]);
 
     // Periodic background worker for scheduled posts (runs once on mount and every 60s)
     useEffect(() => {
@@ -188,12 +179,12 @@ export default function AdminTopBar({ onMenuClick }) {
         return s.split(/[\s_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     };
 
-    const rawName = adminUser?.full_name || adminUser?.username || user?.full_name || user?.username;
-    const displayName = (rawName && rawName !== 'Administrator') ? rawName : (adminUser?.username || user?.username || 'Admin');
-    const displayUsername = adminUser?.username ? `@${adminUser.username}` : (user?.username ? `@${user.username}` : '@admin');
-    const displayRole = formatRoleLabel(adminUser?.role || adminUser?.rawRole || user?.role);
+    const rawName = adminUser?.full_name || adminUser?.username;
+    const displayName = (rawName && rawName !== 'Administrator') ? rawName : (adminUser?.username || 'Admin');
+    const displayUsername = adminUser?.username ? `@${adminUser.username}` : '@admin';
+    const displayRole = formatRoleLabel(adminUser?.role || adminUser?.rawRole);
     const isManager = (adminUser?.rawRole || adminUser?.role || '').toLowerCase().includes('manager');
-    const displayEmail = adminUser?.email || user?.email || 'admin@vaiyaaree.com';
+    const displayEmail = adminUser?.email || 'admin@vaiyaaree.com';
     const initial = displayName ? displayName.charAt(0).toUpperCase() : 'A';
 
     return (

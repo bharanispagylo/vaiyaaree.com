@@ -6,7 +6,7 @@ import { verifyPassword, hashPassword } from '@/lib/hash';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { sendAdminLoginOTP } from '@/lib/emailService';
 
-import { createAdminSessionToken } from '@/lib/auth';
+import { createAdminSessionToken, formatAdminRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -111,7 +111,8 @@ export async function POST(req) {
                 
                 return NextResponse.json({
                     success: true,
-                    role: userRole,
+                    role: formatAdminRole(userRole),
+                    rawRole: userRole,
                     username: user.username || cleanUsername,
                     email: user.email || '',
                     full_name: user.full_name || user.username || 'Admin User',
@@ -139,7 +140,8 @@ export async function POST(req) {
             });
             return NextResponse.json({
                 success: true,
-                role: 'super_admin',
+                role: 'Super Admin',
+                rawRole: 'super_admin',
                 username: masterUsername,
                 email: masterEmail,
                 full_name: 'Super Admin',

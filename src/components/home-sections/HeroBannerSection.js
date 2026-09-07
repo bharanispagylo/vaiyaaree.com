@@ -25,7 +25,7 @@ export default function HeroBannerSection({ sec }) {
         : [{
             title: title || 'Exclusive Handwoven Silks & Sarees',
             subtitle: subtitle || 'Celebrate Timeless Indian Heritage with Masterfully Woven Drapes',
-            image: '/uploads/media/without-watermark/CAT-C3FNP_1780653461488.jpg',
+            image: '/images/hero-saree.png',
             badge: badge_text || 'AUTHENTIC WEAVES & SILKS',
             button_text: 'EXPLORE COLLECTION',
             button_link: '/shop'
@@ -64,7 +64,7 @@ export default function HeroBannerSection({ sec }) {
                     const slideTitle = slide.title || title || 'Exclusive Handwoven Silks & Sarees';
                     const slideSubtitle = slide.subtitle || subtitle || 'Celebrate Timeless Indian Heritage with Masterfully Woven Drapes';
                     const slideBadge = slide.badge || slide.badge_text || badge_text || 'AUTHENTIC HANDLOOM SILKS';
-                    const slideImage = slide.image || '/uploads/media/without-watermark/CAT-C3FNP_1780653461488.jpg';
+                    const slideImage = slide.image || '/images/hero-saree.png';
                     const slideBtnText = slide.button_text || 'EXPLORE COLLECTION';
                     const slideBtnLink = slide.button_link || slide.link || '/shop';
 
@@ -145,7 +145,7 @@ export default function HeroBannerSection({ sec }) {
                                         className="hero-saree-img"
                                         onError={(e) => {
                                             e.target.onerror = null;
-                                            e.target.src = '/uploads/media/without-watermark/CAT-C3FNP_1780653461488.jpg';
+                                            e.target.src = '/images/hero-saree.png';
                                         }}
                                     />
                                     {/* Subtle Gradient Blend into the Text Side */}

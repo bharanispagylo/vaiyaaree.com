@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
-import { createAdminSessionToken } from '@/lib/auth';
+import { createAdminSessionToken, formatAdminRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -75,7 +75,8 @@ export async function POST(req) {
 
         return NextResponse.json({
             success: true,
-            role: userRole,
+            role: formatAdminRole(userRole),
+            rawRole: userRole,
             username: otpData.username,
             email: otpData.email || '',
             full_name: otpData.fullName || otpData.username || 'Admin User',

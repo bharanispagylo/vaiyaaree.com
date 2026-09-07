@@ -488,6 +488,28 @@ export default function ProductsPage() {
         });
     };
 
+    const handleToggleStatus = async (product) => {
+        try {
+            const nextStatus = (product.is_active === 0 || product.is_active === false) ? 1 : 0;
+            const { error } = await mysqlClient
+                .from('products')
+                .update({ is_active: nextStatus })
+                .eq('id', product.id);
+            if (error) throw error;
+            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_active: nextStatus } : p));
+            setAllProductsData(prev => prev.map(p => p.id === product.id ? { ...p, is_active: nextStatus } : p));
+            setSuccessModal({
+                title: nextStatus === 1 ? 'Product Published' : 'Product Set to Draft',
+                message: nextStatus === 1
+                    ? `"${product.name}" is now active and live on the storefront!`
+                    : `"${product.name}" is now saved as a draft and hidden from the storefront.`
+            });
+        } catch (err) {
+            console.error('Toggle status error:', err);
+            setErrorModal({ title: 'Status Update Failed', message: err.message || 'Could not update product status.' });
+        }
+    };
+
     const handleBulkDelete = () => {
         if (selectedProductIds.length === 0) return;
         setConfirmModal({
@@ -941,7 +963,7 @@ export default function ProductsPage() {
 
                     const { data: newProd, error: insertError } = await mysqlClient.from('products').insert({
                         ...productData,
-                        is_active: 0
+                        is_active: (productData.is_active !== undefined && productData.is_active !== null) ? (productData.is_active ? 1 : 0) : 1
                     }).select().single();
 
                     if (!insertError && newProd) {
@@ -1117,6 +1139,7 @@ export default function ProductsPage() {
                                 shareToStatus={shareToStatus}
                                 fetchHistory={fetchHistory}
                                 handleDelete={handleDelete}
+                                onToggleStatus={handleToggleStatus}
                                 currentPage={productsPage}
                                 totalPages={totalProductPages}
                                 setPage={setProductsPage}

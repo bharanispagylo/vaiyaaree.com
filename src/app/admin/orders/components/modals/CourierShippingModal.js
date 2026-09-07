@@ -41,23 +41,42 @@ export default function CourierShippingModal({
                                 setSelectedCourierId(cid);
                                 setCourierModalError('');
                                 if (onClearNotification) onClearNotification();
-                                const courier = couriers.find(c => c.id === cid);
-                                if (courier) {
-                                    const awb = shippingForm.tracking_number || '';
-                                    setShippingForm({
-                                        ...shippingForm,
-                                        courier_name: courier.name,
-                                        courier_phone: courier.phone || '',
-                                        courier_email: courier.email || '',
-                                        tracking_url: courier.tracking_url_template ? courier.tracking_url_template.replace(/\{[^}]+\}/g, awb) : ''
-                                    });
+                                if (cid === 'CUSTOM') {
+                                    const isPredefined = couriers.some(c => c.name === shippingForm.courier_name);
+                                    setShippingForm(prev => ({
+                                        ...prev,
+                                        courier_name: isPredefined ? '' : prev.courier_name,
+                                        courier_phone: '',
+                                        courier_email: '',
+                                        tracking_url: prev.tracking_url || ''
+                                    }));
+                                } else if (cid) {
+                                    const courier = couriers.find(c => c.id === cid);
+                                    if (courier) {
+                                        const awb = shippingForm.tracking_number || '';
+                                        setShippingForm({
+                                            ...shippingForm,
+                                            courier_name: courier.name,
+                                            courier_phone: courier.phone || '',
+                                            courier_email: courier.email || '',
+                                            tracking_url: courier.tracking_url_template ? courier.tracking_url_template.replace(/\{[^}]+\}/g, awb) : ''
+                                        });
+                                    }
+                                } else {
+                                    setShippingForm(prev => ({
+                                        ...prev,
+                                        courier_name: '',
+                                        courier_phone: '',
+                                        courier_email: '',
+                                        tracking_url: ''
+                                    }));
                                 }
                             }}
                             style={{
                                 width: '100%',
                                 padding: '0.75rem',
                                 background: '#f8fafc',
-                                border: (courierModalError && (!selectedCourierId || !shippingForm.courier_name?.trim())) ? '1px solid #ef4444' : '1px solid hsl(var(--border-subtle))',
+                                border: (courierModalError && !selectedCourierId) ? '1px solid #ef4444' : '1px solid hsl(var(--border-subtle))',
                                 borderRadius: '12px',
                                 color: 'hsl(var(--text-main))',
                                 fontSize: '0.9rem',
@@ -68,37 +87,57 @@ export default function CourierShippingModal({
                             {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             <option value="CUSTOM">Custom Courier</option>
                         </select>
-                        {courierModalError && (!selectedCourierId || !shippingForm.courier_name?.trim()) && (
+                        {courierModalError && !selectedCourierId && (
                             <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>Please select a courier partner</span>
                         )}
                     </div>
 
                     {selectedCourierId === 'CUSTOM' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Name <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Local Express"
-                                required
-                                value={shippingForm.courier_name}
-                                onChange={e => {
-                                    setShippingForm({ ...shippingForm, courier_name: e.target.value });
-                                    setCourierModalError('');
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    background: '#f8fafc',
-                                    border: (courierModalError && !shippingForm.courier_name?.trim()) ? '1px solid #ef4444' : '1px solid hsl(var(--border-subtle))',
-                                    borderRadius: '12px',
-                                    color: 'hsl(var(--text-main))',
-                                    fontSize: '0.9rem'
-                                }}
-                            />
-                            {courierModalError && !shippingForm.courier_name?.trim() && (
-                                <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>Courier name is required</span>
-                            )}
-                        </div>
+                        <>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Courier Name <span style={{ color: 'hsl(var(--danger))' }}>*</span></label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Local Express"
+                                    required
+                                    value={shippingForm.courier_name}
+                                    onChange={e => {
+                                        setShippingForm({ ...shippingForm, courier_name: e.target.value });
+                                        setCourierModalError('');
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        background: '#f8fafc',
+                                        border: (courierModalError && !shippingForm.courier_name?.trim()) ? '1px solid #ef4444' : '1px solid hsl(var(--border-subtle))',
+                                        borderRadius: '12px',
+                                        color: 'hsl(var(--text-main))',
+                                        fontSize: '0.9rem'
+                                    }}
+                                />
+                                {courierModalError && !shippingForm.courier_name?.trim() && (
+                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '2px' }}>Courier name is required</span>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Tracking URL (Optional)</label>
+                                <input
+                                    type="url"
+                                    placeholder="https://example.com/track"
+                                    value={shippingForm.tracking_url || ''}
+                                    onChange={e => setShippingForm({ ...shippingForm, tracking_url: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        background: '#f8fafc',
+                                        border: '1px solid hsl(var(--border-subtle))',
+                                        borderRadius: '12px',
+                                        color: 'hsl(var(--text-main))',
+                                        fontSize: '0.9rem'
+                                    }}
+                                />
+                            </div>
+                        </>
                     )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

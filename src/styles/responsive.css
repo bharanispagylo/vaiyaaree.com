@@ -23,7 +23,12 @@ html, body {
   box-sizing: border-box;
 }
 
-img, video, canvas, svg {
+img, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+svg:not([height]) {
   max-width: 100%;
   height: auto;
 }

@@ -14,7 +14,7 @@ export default function HeroSlidesEditor({
         const newSlide = {
             title: "New Silk Saree Collection",
             subtitle: "Handwoven Handloom Perfection",
-            image: "/uploads/media/without-watermark/CAT-C3FNP_1780653461488.jpg",
+            image: "/images/hero-saree.png",
             button_text: "EXPLORE NOW",
             button_link: "/shop",
             badge: "AUTHENTIC WEAVES"

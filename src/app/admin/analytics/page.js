@@ -89,14 +89,21 @@ export default function AnalyticsHub() {
             });
             trendData = Object.entries(trendMap).map(([label, value]) => ({ label, value }));
         } else if (range === 'MONTHLY' || range === 'QUARTERLY' || range === 'ALL') {
-            // Group by month
+            // Group by month with 4-digit year and chronological sorting
+            const monthMap = new Map();
             orders.forEach(o => {
                 if (['CANCELLED', 'REFUNDED'].includes(o.status)) return;
                 const d = new Date(o.created_at);
-                const month = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
-                trendMap[month] = (trendMap[month] || 0) + o.total_amount;
+                const sortKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                const month = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+                if (!monthMap.has(sortKey)) {
+                    monthMap.set(sortKey, { label: month, value: 0, sortKey });
+                }
+                monthMap.get(sortKey).value += o.total_amount;
             });
-            trendData = Object.entries(trendMap).map(([label, value]) => ({ label, value }));
+            trendData = Array.from(monthMap.values())
+                .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+                .map(({ label, value }) => ({ label, value }));
         }
 
         // 3. Top Products (By Quantity) - Only from non-cancelled orders

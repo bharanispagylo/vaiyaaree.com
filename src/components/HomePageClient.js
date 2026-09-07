@@ -178,7 +178,7 @@ export default function HomePageClient() {
                                 catCountMap.set(p.category, (catCountMap.get(p.category) || 0) + 1);
                                 if (!catMap.has(p.category)) {
                                     const rawImg = p.image_url ? p.image_url.split(',')[0].trim() : '';
-                                    catMap.set(p.category, rawImg || '/uploads/media/without-watermark/CAT-C3FNP_1780653461488.jpg');
+                                    catMap.set(p.category, rawImg || '/images/hero-saree.png');
                                 }
                             }
                         }

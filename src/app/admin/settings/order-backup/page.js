@@ -985,13 +985,15 @@ export default function OrderBackupPage() {
                                                         download={b.filename}
                                                         title="Download file"
                                                         style={{
-                                                            padding: '0.45rem', borderRadius: '8px',
+                                                            width: '34px', height: '34px', minWidth: '34px', minHeight: '34px',
+                                                            padding: 0, borderRadius: '8px',
                                                             background: '#eff6ff', color: '#2563eb',
                                                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                                            textDecoration: 'none', border: '1px solid #bfdbfe'
+                                                            textDecoration: 'none', border: '1px solid #bfdbfe', flexShrink: 0,
+                                                            cursor: 'pointer'
                                                         }}
                                                     >
-                                                        <Download size={15} />
+                                                        <Download size={16} style={{ width: 16, height: 16, strokeWidth: 2, flexShrink: 0 }} />
                                                     </a>
 
                                                     <button
@@ -1001,26 +1003,30 @@ export default function OrderBackupPage() {
                                                         }}
                                                         title="Email this backup snapshot"
                                                         style={{
-                                                            padding: '0.45rem', borderRadius: '8px',
+                                                            width: '34px', height: '34px', minWidth: '34px', minHeight: '34px',
+                                                            padding: 0, borderRadius: '8px',
                                                             background: '#fdf2f8', color: '#db2777',
                                                             border: '1px solid #fbcfe8', cursor: 'pointer',
-                                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                            flexShrink: 0
                                                         }}
                                                     >
-                                                        <Mail size={15} />
+                                                        <Mail size={16} style={{ width: 16, height: 16, strokeWidth: 2, flexShrink: 0 }} />
                                                     </button>
 
                                                     <button
                                                         onClick={() => handleViewPreview(b)}
                                                         title="Preview content"
                                                         style={{
-                                                            padding: '0.45rem', borderRadius: '8px',
+                                                            width: '34px', height: '34px', minWidth: '34px', minHeight: '34px',
+                                                            padding: 0, borderRadius: '8px',
                                                             background: '#f8fafc', color: '#475569',
                                                             border: '1px solid #cbd5e1', cursor: 'pointer',
-                                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                            flexShrink: 0
                                                         }}
                                                     >
-                                                        <Eye size={15} />
+                                                        <Eye size={16} style={{ width: 16, height: 16, strokeWidth: 2, flexShrink: 0 }} />
                                                     </button>
 
                                                     <button
@@ -1028,13 +1034,19 @@ export default function OrderBackupPage() {
                                                         disabled={deletingId === b.id}
                                                         title="Delete backup archive"
                                                         style={{
-                                                            padding: '0.45rem', borderRadius: '8px',
+                                                            width: '34px', height: '34px', minWidth: '34px', minHeight: '34px',
+                                                            padding: 0, borderRadius: '8px',
                                                             background: '#fef2f2', color: '#dc2626',
                                                             border: '1px solid #fecaca', cursor: 'pointer',
-                                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                            flexShrink: 0
                                                         }}
                                                     >
-                                                        {deletingId === b.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                                                        {deletingId === b.id ? (
+                                                            <Loader2 size={16} className="animate-spin" style={{ width: 16, height: 16, flexShrink: 0 }} />
+                                                        ) : (
+                                                            <Trash2 size={16} style={{ width: 16, height: 16, strokeWidth: 2, flexShrink: 0 }} />
+                                                        )}
                                                     </button>
                                                 </div>
                                             </td>

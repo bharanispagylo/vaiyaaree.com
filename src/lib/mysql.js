@@ -11,14 +11,6 @@ function createPool() {
     const database = process.env.DB_NAME || process.env.MYSQL_DATABASE || process.env.MYSQLDATABASE || process.env.MYSQL_DB || 'vaiyaaree_db';
     const connectionLimit = parseInt(process.env.DB_CONNECTION_LIMIT || process.env.MYSQL_CONNECTION_LIMIT || '10', 10);
 
-    console.log('[MYSQL CONFIG]', {
-        host,
-        port,
-        user,
-        database,
-        connectionLimit
-    });
-
     const newPool = mysql.createPool({
         host,
         port,

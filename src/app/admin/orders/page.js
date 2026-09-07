@@ -428,9 +428,16 @@ export default function OrdersPage() {
     const handleSaveCourier = async () => {
         if (!selectedOrder) return;
 
-        if (!selectedCourierId || !shippingForm.courier_name?.trim()) {
+        if (!selectedCourierId) {
             setCourierModalError('Please choose a courier partner.');
             setNotification({ message: 'Please select a courier partner first.', type: 'error' });
+            setTimeout(() => setNotification(null), 3500);
+            return;
+        }
+
+        if (selectedCourierId === 'CUSTOM' && !shippingForm.courier_name?.trim()) {
+            setCourierModalError('Courier name is required.');
+            setNotification({ message: 'Please enter the custom courier name.', type: 'error' });
             setTimeout(() => setNotification(null), 3500);
             return;
         }

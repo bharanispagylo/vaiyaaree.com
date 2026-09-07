@@ -136,8 +136,9 @@ export default function AdminReturnsPage() {
         const r = ret || detailReturn;
         if (!r) return;
         setNotificationTargetReturn(r);
-        const phone = r.customers?.phone || r.orders?.customer_phone || r.phone || '';
-        const email = r.customers?.email || r.orders?.customer_email || r.email || '';
+        const parsedPickup = typeof r.pickup_address === 'object' ? r.pickup_address : (typeof r.pickup_address === 'string' && r.pickup_address.startsWith('{') ? (() => { try { return JSON.parse(r.pickup_address); } catch (_) { return null; } })() : null);
+        const phone = r.customers?.phone || r.orders?.customer_phone || parsedPickup?.phone || r.phone || '';
+        const email = r.customers?.email || r.orders?.customer_email || parsedPickup?.email || r.email || '';
         setNotificationPhone(phone);
         setNotificationEmail(email);
         setSendWhatsAppChecked(Boolean(phone));
@@ -785,8 +786,9 @@ export default function AdminReturnsPage() {
                         </thead>
                         <tbody>
                             {returns.map(r => {
-                                const customerName = r.customers?.name || r.orders?.customer_name || 'Customer';
-                                const customerPhone = r.customers?.phone || r.orders?.customer_phone || '';
+                                const parsedPickup = typeof r.pickup_address === 'object' ? r.pickup_address : (typeof r.pickup_address === 'string' && r.pickup_address.startsWith('{') ? (() => { try { return JSON.parse(r.pickup_address); } catch (_) { return null; } })() : null);
+                                const customerName = r.customers?.name || r.orders?.customer_name || parsedPickup?.name || 'Customer';
+                                const customerPhone = r.customers?.phone || r.orders?.customer_phone || parsedPickup?.phone || '';
                                 const invNo = r.orders?.invoice_no
                                     ? (r.orders.invoice_no.startsWith('#') ? r.orders.invoice_no : `#${r.orders.invoice_no}`)
                                     : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
@@ -1001,9 +1003,16 @@ export default function AdminReturnsPage() {
                                                 </button>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', fontSize: '0.88rem' }}>
-                                                <div><span style={{ color: '#64748b' }}>Customer Name:</span> <strong style={{ color: '#1e293b' }}>{detailReturn.customers?.name || detailReturn.orders?.customer_name || 'Customer'}</strong></div>
-                                                <div><span style={{ color: '#64748b' }}>Phone:</span> <strong>{formatPhone(detailReturn.customers?.phone || detailReturn.orders?.customer_phone)}</strong></div>
-                                                <div><span style={{ color: '#64748b' }}>Email:</span> <strong>{detailReturn.customers?.email || detailReturn.orders?.customer_email || 'N/A'}</strong></div>
+                                                {(() => {
+                                                    const parsedPickup = typeof detailReturn.pickup_address === 'object' ? detailReturn.pickup_address : (typeof detailReturn.pickup_address === 'string' && detailReturn.pickup_address.startsWith('{') ? (() => { try { return JSON.parse(detailReturn.pickup_address); } catch (_) { return null; } })() : null);
+                                                    return (
+                                                        <>
+                                                            <div><span style={{ color: '#64748b' }}>Customer Name:</span> <strong style={{ color: '#1e293b' }}>{detailReturn.customers?.name || detailReturn.orders?.customer_name || parsedPickup?.name || 'Customer'}</strong></div>
+                                                            <div><span style={{ color: '#64748b' }}>Phone:</span> <strong>{formatPhone(detailReturn.customers?.phone || detailReturn.orders?.customer_phone || parsedPickup?.phone)}</strong></div>
+                                                            <div><span style={{ color: '#64748b' }}>Email:</span> <strong>{detailReturn.customers?.email || detailReturn.orders?.customer_email || parsedPickup?.email || 'N/A'}</strong></div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
 

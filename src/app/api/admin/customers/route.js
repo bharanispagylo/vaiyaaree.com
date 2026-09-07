@@ -12,20 +12,28 @@ function cleanMobileDigits(input) {
     return input.toString().replace(/\D/g, '');
 }
 
-let metadataChecked = false;
-async function ensureCustomerMetadataColumn() {
-    if (metadataChecked) return;
+let customerColumnsCache = null;
+async function ensureCustomerColumns() {
+    if (customerColumnsCache) return customerColumnsCache;
     try {
         const [cols] = await pool.query('DESCRIBE `customers`');
         const colNames = cols.map(c => c.Field);
         if (!colNames.includes('metadata')) {
-            await pool.query('ALTER TABLE `customers` ADD COLUMN `metadata` TEXT DEFAULT NULL');
+            await pool.query('ALTER TABLE `customers` ADD COLUMN `metadata` LONGTEXT DEFAULT NULL');
+            colNames.push('metadata');
         }
-        metadataChecked = true;
+        if (!colNames.includes('is_locked')) {
+            await pool.query('ALTER TABLE `customers` ADD COLUMN `is_locked` TINYINT(1) DEFAULT 0');
+            colNames.push('is_locked');
+        }
+        customerColumnsCache = colNames;
+        return colNames;
     } catch (e) {
-        console.error('[ENSURE-METADATA-ERROR]', e);
+        console.error('[ENSURE-CUSTOMER-COLUMNS-ERROR]', e);
+        return customerColumnsCache || [];
     }
 }
+const ensureCustomerMetadataColumn = ensureCustomerColumns;
 
 function parseAddressObject(raw, defaultName = '', defaultPhone = '', defaultEmail = '') {
     if (!raw) return null;
@@ -64,7 +72,7 @@ function parseAddressObject(raw, defaultName = '', defaultPhone = '', defaultEma
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(req) {
     try {
-        await ensureCustomerMetadataColumn();
+        const existingCols = await ensureCustomerColumns();
         await ensureCustomerAddressesTable();
 
         const { searchParams } = new URL(req.url);
@@ -85,8 +93,12 @@ export async function GET(req) {
             searchParamsList.push(wildcard, wildcard, wildcard);
         }
 
+        // Safely determine is_locked column in query
+        const hasIsLocked = (existingCols || []).includes('is_locked');
+        const isLockedField = hasIsLocked ? '`is_locked`' : '0 AS `is_locked`';
+
         // Fetch all registered customers matching search
-        let queryStr = 'SELECT `id`, `name`, `phone`, `country_code`, `email`, `address`, `city`, `state`, `pincode`, `role`, `is_locked`, `created_at`, `last_login`, `admin_notes`, `metadata` FROM `customers`';
+        let queryStr = `SELECT \`id\`, \`name\`, \`phone\`, \`country_code\`, \`email\`, \`address\`, \`city\`, \`state\`, \`pincode\`, \`role\`, ${isLockedField}, \`created_at\`, \`last_login\`, \`admin_notes\`, \`metadata\` FROM \`customers\``;
         if (searchConditions.length > 0) {
             queryStr += ' WHERE ' + searchConditions.join(' AND ');
         }
@@ -319,7 +331,7 @@ export async function GET(req) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(req) {
     try {
-        await ensureCustomerMetadataColumn();
+        await ensureCustomerColumns();
         await ensureCustomerAddressesTable();
 
         const body = await req.json();
@@ -469,7 +481,7 @@ export async function POST(req) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function PUT(req) {
     try {
-        await ensureCustomerMetadataColumn();
+        await ensureCustomerColumns();
         await ensureCustomerAddressesTable();
 
         const body = await req.json();
@@ -691,6 +703,7 @@ export async function DELETE(req) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function PATCH(req) {
     try {
+        await ensureCustomerColumns();
         const body = await req.json();
         const { id, phone, is_locked } = body;
 

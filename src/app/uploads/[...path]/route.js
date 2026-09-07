@@ -79,7 +79,12 @@ export async function GET(request, { params }) {
             console.error('[Uploads Serve DB Error]:', dbErr);
         }
 
-        return new NextResponse('File not found', { status: 404 });
+        return new NextResponse('File not found', {
+            status: 404,
+            headers: {
+                'Cache-Control': 'public, max-age=60'
+            }
+        });
 
     } catch (err) {
         console.error('[Uploads Serve Route Error]:', err);

@@ -14,14 +14,29 @@ export async function GET(request) {
             return NextResponse.json({ success: false, error: auth.error || 'Unauthorized' }, { status: 401 });
         }
 
-        // 1. Identify which username or userId is being verified
-        const reqUsername = request.headers.get('x-admin-username') || 
-                            request.headers.get('X-Admin-Username') || 
-                            auth.user?.username;
+        // 1. If signed token belongs to system master admin, resolve Super Admin
+        if (auth.user?.userId === 'master_admin') {
+            const settings = await getAdminSettings();
+            const masterUsername = settings.admin_username || process.env.ADMIN_USERNAME || 'vaiyaaree';
+            const masterEmail = settings.admin_email || process.env.ADMIN_EMAIL || 'vaiyaaree@gmail.com';
 
+            return NextResponse.json({
+                success: true,
+                admin: {
+                    id: 'master_admin',
+                    username: masterUsername,
+                    email: masterEmail,
+                    full_name: 'Super Admin',
+                    role: 'Super Admin',
+                    rawRole: 'super_admin'
+                }
+            });
+        }
+
+        // 2. Identify user from cryptographically verified token payload (never unauthenticated headers)
         const reqUserId = auth.user?.userId;
+        const reqUsername = auth.user?.username;
 
-        // 2. Query admin_users table for the specific identified user
         if (reqUserId || reqUsername) {
             let query = mysqlClient
                 .from('admin_users')
@@ -30,7 +45,7 @@ export async function GET(request) {
             if (reqUserId) {
                 query = query.eq('id', reqUserId);
             } else {
-                query = query.or(`username.eq.${reqUsername},email.eq.${reqUsername}`);
+                query = query.eq('username', reqUsername);
             }
 
             const { data: dbUser } = await query.maybeSingle();
@@ -40,6 +55,7 @@ export async function GET(request) {
                     return NextResponse.json({ success: false, error: 'Administrator account has been deactivated.' }, { status: 401 });
                 }
 
+                const resolvedRole = dbUser.role || 'admin';
                 return NextResponse.json({
                     success: true,
                     admin: {
@@ -47,14 +63,14 @@ export async function GET(request) {
                         username: dbUser.username,
                         email: dbUser.email || '',
                         full_name: dbUser.full_name || dbUser.username,
-                        role: formatAdminRole(dbUser.role),
-                        rawRole: dbUser.role || 'admin'
+                        role: formatAdminRole(resolvedRole),
+                        rawRole: resolvedRole
                     }
                 });
             }
         }
 
-        // 3. If master secret is used without specific user context, resolve system super admin
+        // 3. If master static secret is explicitly used by background tasks, resolve Super Admin
         if (auth.isMasterSecret) {
             const settings = await getAdminSettings();
             const masterUsername = settings.admin_username || process.env.ADMIN_USERNAME || 'vaiyaaree';
@@ -73,7 +89,7 @@ export async function GET(request) {
             });
         }
 
-        // 4. No valid user identified — Reject with 401 so client redirects to /admin/login
+        // 4. No valid user identified — Reject with 401 so client clears localStorage and redirects to /admin/login
         return NextResponse.json({ 
             success: false, 
             error: 'Session invalid or user not found. Please log in again.' 
