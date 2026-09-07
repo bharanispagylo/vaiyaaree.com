@@ -47,6 +47,7 @@ export function sanitizeAdminProfile(admin) {
     const {
         username,
         role,
+        rawRole,
         email,
         full_name,
         name,
@@ -56,6 +57,7 @@ export function sanitizeAdminProfile(admin) {
     return {
         username: username ? String(username).trim() : '',
         role: role ? String(role).trim() : 'Admin',
+        rawRole: rawRole ? String(rawRole).trim() : (role ? String(role).trim().toLowerCase() : 'admin'),
         email: email ? String(email).trim() : '',
         full_name: full_name ? String(full_name).trim() : (name ? String(name).trim() : (username ? String(username).trim() : 'Admin User')),
         login_at: typeof login_at === 'number' ? login_at : Date.now()

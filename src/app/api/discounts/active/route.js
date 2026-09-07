@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { parseDateToUTC } from '@/lib/dateUtils';
 
 export async function GET() {
     try {
@@ -18,10 +19,21 @@ export async function GET() {
             return NextResponse.json({ success: true, rules: [] }, { status: 200 });
         }
 
-        // Filter valid by date
+        // Filter valid by date using standardized parseDateToUTC with end-of-day handling
         const validRules = rules.filter(r => {
-            if (r.start_date && new Date(r.start_date) > now) return false;
-            if (r.end_date && new Date(r.end_date) < now) return false;
+            if (r.start_date) {
+                const start = parseDateToUTC(r.start_date);
+                if (start && start > now) return false;
+            }
+            if (r.end_date) {
+                let end = parseDateToUTC(r.end_date);
+                if (end) {
+                    if (typeof r.end_date === 'string' && !r.end_date.includes(':')) {
+                        end = new Date(end.getTime() + (23 * 3600 + 59 * 60 + 59) * 1000 + 999);
+                    }
+                    if (end < now) return false;
+                }
+            }
             return true;
         });
 

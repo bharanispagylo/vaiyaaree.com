@@ -728,11 +728,33 @@ export function ShopProvider({ children }) {
             }
 
             try {
-                const res = await calculateDiscounts({
-                    cartItems: cart,
-                    couponCode: appliedCoupon?.couponCode || null,
-                    customer: user || null
-                });
+                let res = null;
+                try {
+                    const apiRes = await fetch('/api/discounts/calculate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            cartItems: cart,
+                            subtotal: cartTotal,
+                            couponCode: appliedCoupon?.couponCode || null,
+                            customer: user || null
+                        })
+                    });
+                    if (apiRes.ok) {
+                        const json = await apiRes.json();
+                        if (json?.success) res = json;
+                    }
+                } catch (apiErr) {
+                    // Fallback to client-side calculateDiscounts
+                }
+
+                if (!res) {
+                    res = await calculateDiscounts({
+                        cartItems: cart,
+                        couponCode: appliedCoupon?.couponCode || null,
+                        customer: user || null
+                    });
+                }
 
                 setDiscountData(res || {
                     subtotal: cartTotal,

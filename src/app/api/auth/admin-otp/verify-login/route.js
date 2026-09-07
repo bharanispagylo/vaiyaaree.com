@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
+import { createAdminSessionToken } from '@/lib/auth';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -62,11 +64,18 @@ export async function POST(req) {
                 .eq('id', otpData.userId);
         }
 
-        const token = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
+        const userRole = otpData.role || 'admin';
+        const token = createAdminSessionToken({
+            id: otpData.userId,
+            username: otpData.username,
+            email: otpData.email || '',
+            role: userRole,
+            full_name: otpData.fullName || otpData.username || 'Admin User'
+        });
 
         return NextResponse.json({
             success: true,
-            role: otpData.role || 'Admin',
+            role: userRole,
             username: otpData.username,
             email: otpData.email || '',
             full_name: otpData.fullName || otpData.username || 'Admin User',

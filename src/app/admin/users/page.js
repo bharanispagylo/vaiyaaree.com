@@ -10,6 +10,17 @@ import {
 } from 'lucide-react';
 
 export default function UserManagementPage() {
+    const [currentAdmin, setCurrentAdmin] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                return JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}');
+            } catch (e) {}
+        }
+        return {};
+    });
+
+    const isManager = String(currentAdmin?.rawRole || currentAdmin?.role || '').toLowerCase().includes('manager');
+
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -27,8 +38,12 @@ export default function UserManagementPage() {
     });
 
     useEffect(() => {
+        if (isManager) {
+            setLoading(false);
+            return;
+        }
         fetchUsers();
-    }, []);
+    }, [isManager]);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -215,6 +230,42 @@ export default function UserManagementPage() {
             setNotification({ message: 'Failed to delete user', type: 'error' });
         }
     };
+
+    if (isManager) {
+        return (
+            <div className="user-management-page animate-enter" style={{ maxWidth: '640px', margin: '4rem auto', textAlign: 'center' }}>
+                <div className="card shadow-premium" style={{ padding: '3.5rem 2.5rem', borderRadius: '18px', background: 'hsl(var(--bg-panel, #ffffff))' }}>
+                    <div style={{
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        color: '#ef4444',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 1.5rem',
+                        border: '1px solid rgba(239, 68, 68, 0.25)'
+                    }}>
+                        <Shield size={32} />
+                    </div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--text-main, #0f172a))', marginBottom: '0.75rem' }}>
+                        Access Restricted
+                    </h2>
+                    <p style={{ color: 'hsl(var(--text-muted, #64748b))', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: '440px', margin: '0 auto 2rem' }}>
+                        You are signed in with <strong>Manager</strong> credentials. Administrative user management and credential controls are restricted to <strong>Super Administrators</strong>.
+                    </p>
+                    <button 
+                        onClick={() => window.location.href = '/admin'} 
+                        className="btn-primary-glow"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', margin: '0 auto' }}
+                    >
+                        Return to Dashboard
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="user-management-page animate-enter">

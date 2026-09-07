@@ -11,7 +11,10 @@ export default function DiscountCard({
 }) {
     const now = new Date();
     const startObj = rule.start_date ? parseDateToUTC(rule.start_date) : null;
-    const endObj = rule.end_date ? parseDateToUTC(rule.end_date) : null;
+    let endObj = rule.end_date ? parseDateToUTC(rule.end_date) : null;
+    if (endObj && typeof rule.end_date === 'string' && !rule.end_date.includes(':')) {
+        endObj = new Date(endObj.getTime() + (23 * 3600 + 59 * 60 + 59) * 1000 + 999);
+    }
 
     const isCurrentActive = (rule.is_active === 1 || rule.is_active === true) &&
         (!startObj || startObj <= now) &&
@@ -32,9 +35,13 @@ export default function DiscountCard({
                         <span className="status-pill expired">Expired / Inactive</span>
                     )}
 
-                    {rule.coupon_code && (
+                    {rule.coupon_code ? (
                         <span className="coupon-code-tag">
                             <Tag size={12} /> {rule.coupon_code}
+                        </span>
+                    ) : (
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: '6px', background: '#e0f2fe', color: '#0369a1' }}>
+                            Automatic
                         </span>
                     )}
 
@@ -59,7 +66,7 @@ export default function DiscountCard({
                                 : `Cart Offer (≥ ₹${parseFloat(rule.threshold_value || rule.minimum_cart_amount || 0).toLocaleString()})`
                         ) : (
                             <>
-                                {rule.target_type === 'ALL_PRODUCTS' && 'Storewide (All Products)'}
+                                {rule.target_type === 'ALL_PRODUCTS' && (rule.coupon_code ? 'Storewide (Coupon Required)' : 'Automatic Storewide (All Products)')}
                                 {rule.target_type === 'SPECIFIC_CATEGORIES' && `Categories (${rule.categories?.length || 0})`}
                                 {rule.target_type === 'SPECIFIC_PRODUCTS' && `Specific Sarees (${rule.products?.length || 0})`}
                             </>

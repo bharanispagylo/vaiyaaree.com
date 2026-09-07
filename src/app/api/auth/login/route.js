@@ -6,6 +6,8 @@ import { verifyPassword, hashPassword } from '@/lib/hash';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { sendAdminLoginOTP } from '@/lib/emailService';
 
+import { createAdminSessionToken } from '@/lib/auth';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -72,7 +74,7 @@ export async function POST(req) {
                         userId: user.id,
                         username: user.username || cleanUsername,
                         email: user.email,
-                        role: user.role || 'Admin',
+                        role: user.role || 'admin',
                         fullName: user.full_name || user.username || 'Admin User',
                         otp,
                         expiresAt,
@@ -97,12 +99,19 @@ export async function POST(req) {
                     });
                 }
 
-                const token = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
+                const userRole = user.role || 'admin';
+                const token = createAdminSessionToken({
+                    id: user.id,
+                    username: user.username || cleanUsername,
+                    email: user.email || '',
+                    role: userRole,
+                    full_name: user.full_name || user.username || 'Admin User'
+                });
                 await mysqlClient.from('admin_users').update({ last_login: new Date().toISOString() }).eq('id', user.id);
                 
                 return NextResponse.json({
                     success: true,
-                    role: user.role || 'Admin',
+                    role: userRole,
                     username: user.username || cleanUsername,
                     email: user.email || '',
                     full_name: user.full_name || user.username || 'Admin User',
@@ -116,14 +125,24 @@ export async function POST(req) {
 
         // 2. Fallback to settings mechanism
         const { admin_username, admin_password, admin_email } = await getAdminSettings();
-        if ((cleanUsername === admin_username || (admin_email && cleanUsername === admin_email)) && password === admin_password) {
-            const token = process.env.ADMIN_API_SECRET || 'fallback_secret_change_me';
+        const masterUsername = admin_username || process.env.ADMIN_USERNAME || 'vaiyaaree';
+        const masterPassword = admin_password || process.env.ADMIN_PASSWORD || 'saree2024';
+        const masterEmail = admin_email || process.env.ADMIN_EMAIL || 'vaiyaaree@gmail.com';
+
+        if ((cleanUsername === masterUsername || (masterEmail && cleanUsername === masterEmail)) && password === masterPassword) {
+            const token = createAdminSessionToken({
+                id: 'master_admin',
+                username: masterUsername,
+                email: masterEmail,
+                role: 'super_admin',
+                full_name: 'Super Admin'
+            });
             return NextResponse.json({
                 success: true,
-                role: 'Super Admin',
-                username: admin_username || 'admin',
-                email: admin_email || '',
-                full_name: 'Administrator',
+                role: 'super_admin',
+                username: masterUsername,
+                email: masterEmail,
+                full_name: 'Super Admin',
                 token,
                 source: 'db_settings'
             });

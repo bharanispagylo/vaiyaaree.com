@@ -19,7 +19,7 @@ function createPool() {
         connectionLimit
     });
 
-    return mysql.createPool({
+    const newPool = mysql.createPool({
         host,
         port,
         user,
@@ -30,9 +30,16 @@ function createPool() {
         queueLimit: 0,
         decimalNumbers: true,
         dateStrings: true,
-        timezone: 'Z',
+        timezone: '+05:30',
         connectTimeout: 10000
     });
+
+    // Enforce Indian Standard Time (IST / UTC+05:30) session timezone on every connection
+    newPool.on('connection', (connection) => {
+        connection.query("SET time_zone = '+05:30'");
+    });
+
+    return newPool;
 }
 
 // Reuse the existing pool if it exists on globalThis (hot-reload safe)
@@ -67,10 +74,17 @@ export async function query(sql, params = []) {
 
 /**
  * Get a single connection from the pool for transactions.
+ * Automatically guarantees Indian Standard Time (IST / +05:30) session timezone.
  * @returns {Promise<mysql.PoolConnection>}
  */
 export async function getConnection() {
-    return await pool.getConnection();
+    const conn = await pool.getConnection();
+    try {
+        await conn.query("SET time_zone = '+05:30'");
+    } catch (tzErr) {
+        console.warn('[MYSQL TIMEZONE SET WARNING]:', tzErr?.message);
+    }
+    return conn;
 }
 
 /**
@@ -83,7 +97,7 @@ export async function getConnection() {
  * @returns {Promise<T>}
  */
 export async function withTransaction(callback) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
         await connection.beginTransaction();
         const result = await callback(connection);

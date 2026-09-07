@@ -41,12 +41,27 @@ export default function AdminTopBar({ onMenuClick }) {
     const pageTitle = PAGE_TITLES[pathname] || 'Admin Portal';
     const { user } = useShop();
 
-    // Default admin user state so profile is ALWAYS visible
-    const [adminUser, setAdminUser] = useState({
-        full_name: '',
-        username: '',
-        role: 'Super Admin',
-        email: ''
+    // Initialize admin user state immediately from localStorage to eliminate flicker
+    const [adminUser, setAdminUser] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const stored = localStorage.getItem('cast_prince_admin_user');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    const safe = sanitizeAdminProfile(parsed);
+                    if (safe && (safe.username || safe.role || safe.full_name)) {
+                        return safe;
+                    }
+                }
+            } catch (e) {}
+        }
+        return {
+            full_name: '',
+            username: '',
+            role: '',
+            rawRole: '',
+            email: ''
+        };
     });
     const [showDropdown, setShowDropdown] = useState(false);
     const [isFlushingCache, setIsFlushingCache] = useState(false);
@@ -88,7 +103,6 @@ export default function AdminTopBar({ onMenuClick }) {
                 const safeParsed = sanitizeAdminProfile(parsed);
                 if (safeParsed && (safeParsed.full_name || safeParsed.username || safeParsed.role)) {
                     setAdminUser(prev => ({ ...prev, ...safeParsed }));
-                    localStorage.setItem('cast_prince_admin_user', JSON.stringify(safeParsed));
                 }
             }
         } catch (e) {
@@ -97,15 +111,18 @@ export default function AdminTopBar({ onMenuClick }) {
 
         // 2. Fetch fresh session info from verify-session API
         const token = typeof window !== 'undefined' ? localStorage.getItem('cast_prince_admin') : null;
-        const storedUsername = adminUser?.username || (typeof window !== 'undefined' ? (() => {
-            try { return sanitizeAdminProfile(JSON.parse(localStorage.getItem('cast_prince_admin_user')))?.username || ''; } catch(e) { return ''; }
-        })() : '');
+        let storedUsername = adminUser?.username;
+        if (!storedUsername && typeof window !== 'undefined') {
+            try {
+                storedUsername = JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}')?.username || '';
+            } catch(e) {}
+        }
 
         if (token) {
             fetch('/api/admin/verify-session', {
                 headers: { 
                     'Authorization': `Bearer ${token}`,
-                    'X-Admin-Username': storedUsername
+                    'X-Admin-Username': storedUsername || ''
                 }
             })
                 .then(res => res.json())
@@ -121,6 +138,7 @@ export default function AdminTopBar({ onMenuClick }) {
                                 ...safeAdmin,
                                 full_name: newFullName
                             };
+                            localStorage.setItem('cast_prince_admin_user', JSON.stringify(updated));
                             return updated;
                         });
                     }
@@ -161,10 +179,20 @@ export default function AdminTopBar({ onMenuClick }) {
         router.push('/admin/login');
     }
 
+    const formatRoleLabel = (r) => {
+        if (!r) return 'Admin';
+        const s = String(r).trim().toLowerCase();
+        if (s === 'super_admin' || s === 'super admin') return 'Super Admin';
+        if (s === 'manager') return 'Manager';
+        if (s === 'admin' || s === 'administrator') return 'Admin';
+        return s.split(/[\s_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    };
+
     const rawName = adminUser?.full_name || adminUser?.username || user?.full_name || user?.username;
     const displayName = (rawName && rawName !== 'Administrator') ? rawName : (adminUser?.username || user?.username || 'Admin');
     const displayUsername = adminUser?.username ? `@${adminUser.username}` : (user?.username ? `@${user.username}` : '@admin');
-    const displayRole = adminUser?.role || user?.role || 'Super Admin';
+    const displayRole = formatRoleLabel(adminUser?.role || adminUser?.rawRole || user?.role);
+    const isManager = (adminUser?.rawRole || adminUser?.role || '').toLowerCase().includes('manager');
     const displayEmail = adminUser?.email || user?.email || 'admin@vaiyaaree.com';
     const initial = displayName ? displayName.charAt(0).toUpperCase() : 'A';
 
@@ -336,15 +364,15 @@ export default function AdminTopBar({ onMenuClick }) {
                                         marginTop: '4px',
                                         padding: '2px 8px',
                                         borderRadius: '9999px',
-                                        background: 'rgba(99, 102, 241, 0.18)',
-                                        border: '1px solid rgba(99, 102, 241, 0.3)',
-                                        color: '#c7d2fe',
+                                        background: isManager ? 'rgba(234, 179, 8, 0.18)' : 'rgba(99, 102, 241, 0.18)',
+                                        border: isManager ? '1px solid rgba(234, 179, 8, 0.35)' : '1px solid rgba(99, 102, 241, 0.3)',
+                                        color: isManager ? '#fde047' : '#c7d2fe',
                                         fontSize: '0.65rem',
                                         fontWeight: 700,
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.04em'
                                     }}>
-                                        <ShieldCheck size={11} color="#818cf8" /> {displayRole}
+                                        <ShieldCheck size={11} color={isManager ? '#facc15' : '#818cf8'} /> {displayRole}
                                     </div>
                                 </div>
                             </div>
@@ -375,20 +403,22 @@ export default function AdminTopBar({ onMenuClick }) {
                                     {isFlushingCache ? 'Flushing Storefront...' : 'Flush Store Cache'}
                                 </button>
 
-                                <button
-                                    onClick={() => { setShowDropdown(false); router.push('/admin/users'); }}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: '0.65rem',
-                                        padding: '0.5rem 0.65rem', borderRadius: '8px',
-                                        background: 'transparent', border: 'none',
-                                        color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.8rem', fontWeight: 500,
-                                        cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s'
-                                    }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    <Users size={15} style={{ color: '#a5b4fc' }} /> User Management
-                                </button>
+                                {!isManager && (
+                                    <button
+                                        onClick={() => { setShowDropdown(false); router.push('/admin/users'); }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '0.65rem',
+                                            padding: '0.5rem 0.65rem', borderRadius: '8px',
+                                            background: 'transparent', border: 'none',
+                                            color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.8rem', fontWeight: 500,
+                                            cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <Users size={15} style={{ color: '#a5b4fc' }} /> User Management
+                                    </button>
+                                )}
 
                                 <button
                                     onClick={() => { setShowDropdown(false); router.push('/admin/shop-settings'); }}

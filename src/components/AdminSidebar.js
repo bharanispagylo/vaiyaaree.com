@@ -77,6 +77,18 @@ export default function AdminSidebar({ isOpen, onClose }) {
     const router = useRouter();
     const [logo, setLogo] = useState('/images/vaiyaaree-logo.png');
     const [openSubMenus, setOpenSubMenus] = useState([]); // Start collapsed, let useEffect expand the active one
+    const [userRole, setUserRole] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const stored = JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}');
+                return stored.rawRole || stored.role || 'admin';
+            } catch (e) {}
+        }
+        return 'admin';
+    });
+
+    const isManager = String(userRole).toLowerCase().includes('manager');
+
     const getLogoUrl = (url) => {
         if (!url) return '/images/vaiyaaree-logo.png';
         if (url.startsWith('http') || url.startsWith('/')) return url;
@@ -95,6 +107,18 @@ export default function AdminSidebar({ isOpen, onClose }) {
         fetchLogo();
     }, []);
 
+    // Sync user role on path navigation
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const stored = JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}');
+                if (stored.rawRole || stored.role) {
+                    setUserRole(stored.rawRole || stored.role);
+                }
+            } catch (e) {}
+        }
+    }, [pathname]);
+
     // Auto-manage sub-menus based on the current page path
     useEffect(() => {
         const activeSubMenu = menuItems.find(item => 
@@ -104,18 +128,34 @@ export default function AdminSidebar({ isOpen, onClose }) {
             // Only update if it's not already open or if we're moving between groups
             setOpenSubMenus([activeSubMenu.name]);
         } else {
-            // If we're on a top-level page, we could close others, 
-            // but usually it's better to keep the last one open until another group is picked.
-            // However, the user specifically asked for it to NOT show when going to next one.
             setOpenSubMenus([]);
         }
     }, [pathname]);
 
     async function handleLogout() {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        localStorage.clear(); // Clean up everything
-        router.push('/login');
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+        } catch (e) {}
+        localStorage.removeItem('cast_prince_admin');
+        localStorage.removeItem('cast_prince_admin_user');
+        router.push('/admin/login');
     }
+
+    const formatRoleLabel = (r) => {
+        if (!r) return 'Admin';
+        const s = String(r).trim().toLowerCase();
+        if (s === 'super_admin' || s === 'super admin') return 'Super Admin';
+        if (s === 'manager') return 'Manager';
+        if (s === 'admin' || s === 'administrator') return 'Admin';
+        return s.split(/[\s_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    };
+
+    const visibleMenuItems = menuItems.filter(item => {
+        if (isManager && item.href === '/admin/users') {
+            return false;
+        }
+        return true;
+    });
 
     return (
         <aside className={`sidebar no-print ${isOpen ? 'open' : ''}`}>
@@ -160,7 +200,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
 
             {/* Navigation — takes up available space */}
             <nav style={{ flex: 1 }}>
-                {menuItems.map((item) => {
+                {visibleMenuItems.map((item) => {
                     const hasChildren = item.children && item.children.length > 0;
                     const isSubMenuOpen = openSubMenus.includes(item.name);
                     const isActive = pathname === item.href || (hasChildren && item.children.some(child => child.href === pathname));
@@ -293,7 +333,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
 
                 {/* Admin label */}
                 <div style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.5)' }}>
-                    Logged in as <strong style={{ color: 'hsl(var(--text-on-primary))' }}>Admin</strong>
+                    Logged in as <strong style={{ color: 'hsl(var(--text-on-primary))' }}>{formatRoleLabel(userRole)}</strong>
                 </div>
             </div>
 

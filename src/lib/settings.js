@@ -1,4 +1,4 @@
-import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
+import { mysqlClient, mysqlAdmin } from './mysqlClient.js';
 
 export async function getAdminSettings() {
     try {

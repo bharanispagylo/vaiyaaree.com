@@ -1,11 +1,12 @@
 import { mysqlClient } from '../lib/mysqlClient.js';
+import { parseDateToUTC } from '../lib/dateUtils.js';
 
-function isRuleActiveByDate(startDateStr, endDateStr) {
+export function isRuleActiveByDate(startDateStr, endDateStr) {
     const now = new Date();
 
     if (startDateStr) {
-        const start = new Date(startDateStr);
-        if (!isNaN(start.getTime())) {
+        const start = parseDateToUTC(startDateStr);
+        if (start && !isNaN(start.getTime())) {
             // Allow 12-hour grace tolerance for UTC vs local timezone string parsing / clock skew
             const bufferedStart = new Date(start.getTime() - 12 * 60 * 60 * 1000);
             if (now < bufferedStart) {
@@ -15,10 +16,11 @@ function isRuleActiveByDate(startDateStr, endDateStr) {
     }
 
     if (endDateStr) {
-        let end = new Date(endDateStr);
-        if (!isNaN(end.getTime())) {
+        let end = parseDateToUTC(endDateStr);
+        if (end && !isNaN(end.getTime())) {
             if (typeof endDateStr === 'string' && !endDateStr.includes(':')) {
-                end.setHours(23, 59, 59, 999);
+                // If only date is provided (YYYY-MM-DD), set to end of day in IST (+ 23h 59m 59s 999ms)
+                end = new Date(end.getTime() + (23 * 3600 + 59 * 60 + 59) * 1000 + 999);
             }
             if (now > end) {
                 return { active: false, reason: 'EXPIRED' };

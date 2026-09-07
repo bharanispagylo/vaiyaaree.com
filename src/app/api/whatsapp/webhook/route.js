@@ -2,29 +2,38 @@ import { processIncomingMessage } from '@/services/whatsappService';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
-    const mode = searchParams.get('hub.mode');
-    const token = searchParams.get('hub.verify_token');
-    const challenge = searchParams.get('hub.challenge');
+    const mode = searchParams.get('hub.mode') || searchParams.get('hub_mode');
+    const token = searchParams.get('hub.verify_token') || searchParams.get('hub_verify_token');
+    const challenge = searchParams.get('hub.challenge') || searchParams.get('hub_challenge');
 
-    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'vaiyaaree_secret';
-    const legacyToken = 'aiswarya_secret';
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || 'VaiyaareeWhatsApp2026';
+    const allowedTokens = [
+        verifyToken,
+        'VaiyaareeWhatsApp2026',
+        'vaiyaaree_secret',
+        'aiswarya_secret'
+    ].filter(Boolean);
 
-    if (mode === 'subscribe' && (token === verifyToken || token === legacyToken)) {
-        console.log(' WEBHOOK VERIFIED SUCCESSFULLY!');
+    if (mode === 'subscribe' && allowedTokens.includes(token)) {
+        console.log('✅ WEBHOOK VERIFIED SUCCESSFULLY!');
         return new Response(challenge, {
             status: 200,
             headers: { 'Content-Type': 'text/plain' },
         });
     }
 
-    if (challenge && (!token || token === verifyToken)) {
+    if (challenge && (!token || allowedTokens.includes(token))) {
         return new Response(challenge, {
             status: 200,
             headers: { 'Content-Type': 'text/plain' },
         });
     }
 
-    console.error(' WEBHOOK VERIFICATION FAILED: Token mismatch or invalid mode');
+    console.error('❌ WEBHOOK VERIFICATION FAILED: Token mismatch or invalid mode', {
+        mode,
+        token,
+        allowedTokens
+    });
     return new Response('Forbidden', { status: 403 });
 }
 

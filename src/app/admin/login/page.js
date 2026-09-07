@@ -80,6 +80,7 @@ export default function AdminLoginPage() {
                     const adminData = sanitizeAdminProfile({
                         username: data.username,
                         role: data.role,
+                        rawRole: data.role,
                         email: data.email,
                         full_name: data.full_name,
                         login_at: Date.now()
@@ -172,6 +173,7 @@ export default function AdminLoginPage() {
                 const adminData = sanitizeAdminProfile({
                     username: data.username,
                     role: data.role,
+                    rawRole: data.role,
                     email: data.email,
                     full_name: data.full_name,
                     login_at: Date.now()

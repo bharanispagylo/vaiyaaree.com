@@ -26,27 +26,54 @@ function ProtectedAdminLayout({ children, pathname }) {
         const isAdminToken = localStorage.getItem('cast_prince_admin');
         
         const checkAuth = async () => {
+            const isAdminToken = typeof window !== 'undefined' ? localStorage.getItem('cast_prince_admin') : null;
             if (!isAdminToken) {
                 setIsAuthorized(false);
                 router.push('/admin/login');
                 return;
             }
 
+            let storedUsername = '';
             try {
-                const res = await fetch('/api/admin/verify-session', {
-                    headers: { 'Authorization': `Bearer ${isAdminToken}` }
-                });
+                const storedUser = JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}');
+                storedUsername = storedUser?.username || '';
+            } catch (e) {}
+
+            try {
+                const headers = { 'Authorization': `Bearer ${isAdminToken}` };
+                if (storedUsername) {
+                    headers['X-Admin-Username'] = storedUsername;
+                }
+
+                const res = await fetch('/api/admin/verify-session', { headers });
                 
                 if (res.ok) {
-                    setIsAuthorized(true);
-                } else {
-                    console.warn('[ADMIN-AUTH] Session invalid or expired');
-                    localStorage.removeItem('cast_prince_admin');
-                    setIsAuthorized(false);
-                    router.push('/admin/login');
+                    const data = await res.json();
+                    if (data.success && data.admin) {
+                        // Keep local profile in sync with verified database role
+                        localStorage.setItem('cast_prince_admin_user', JSON.stringify({
+                            username: data.admin.username,
+                            role: data.admin.role,
+                            rawRole: data.admin.rawRole,
+                            email: data.admin.email,
+                            full_name: data.admin.full_name,
+                            login_at: Date.now()
+                        }));
+                        setIsAuthorized(true);
+                        return;
+                    }
                 }
+                
+                console.warn('[ADMIN-AUTH] Session invalid or expired');
+                localStorage.removeItem('cast_prince_admin');
+                localStorage.removeItem('cast_prince_admin_user');
+                setIsAuthorized(false);
+                router.push('/admin/login');
             } catch (err) {
                 console.error('[ADMIN-AUTH] Check failed:', err);
+                localStorage.removeItem('cast_prince_admin');
+                localStorage.removeItem('cast_prince_admin_user');
+                setIsAuthorized(false);
                 router.push('/admin/login');
             }
         };
