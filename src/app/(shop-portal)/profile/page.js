@@ -46,10 +46,13 @@ export default function ProfilePage() {
     const [refunds, setRefunds] = useState([]);
     const [loadingRefunds, setLoadingRefunds] = useState(false);
     const [refundForm, setRefundForm] = useState({
+        selectedOrderId: '',
+        selectedItemIds: [],
         orderItemKey: '',
         reason: 'Defective Product',
         otherReason: '',
         amount: '',
+        calculationBreakdown: null,
         upiId: '',
         image_url: '',
         uploadingImage: false
@@ -551,12 +554,24 @@ export default function ProfilePage() {
     // Submit Refund Request
     async function handleSubmitRefund(e) {
         e.preventDefault();
-        if (!refundForm.orderItemKey) {
-            showToast('Please select a product to request refund', 'error');
+        
+        let orderId = refundForm.selectedOrderId;
+        let itemIds = Array.isArray(refundForm.selectedItemIds) ? refundForm.selectedItemIds : [];
+
+        // Fallback for legacy single-item key if present
+        if ((!itemIds || itemIds.length === 0) && refundForm.orderItemKey) {
+            const parts = refundForm.orderItemKey.split('::');
+            orderId = parts[0];
+            if (parts[1] && parts[1] !== 'undefined') {
+                itemIds = [parts[1]];
+            }
+        }
+
+        if (!orderId || itemIds.length === 0) {
+            showToast('Please select at least one product to request refund', 'error');
             return;
         }
 
-        const [orderId, orderItemId, productId] = refundForm.orderItemKey.split('::');
         const finalReason = refundForm.reason === 'Other' ? refundForm.otherReason : refundForm.reason;
 
         if (!finalReason) {
@@ -571,7 +586,9 @@ export default function ProfilePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     order_id: orderId,
-                    order_item_id: orderItemId && orderItemId !== 'undefined' ? orderItemId : null,
+                    order_item_ids: itemIds,
+                    order_item_id: itemIds.join(','),
+                    selected_items: refundForm.calculationBreakdown?.items || [],
                     customer_id: user.id,
                     reason: finalReason,
                     customer_note: refundForm.otherReason || null,
@@ -585,7 +602,18 @@ export default function ProfilePage() {
             }
 
             showToast('Refund request submitted successfully!');
-            setRefundForm({ orderItemKey: '', reason: 'Defective Product', otherReason: '', amount: '', upiId: '', image_url: '', uploadingImage: false });
+            setRefundForm({
+                selectedOrderId: '',
+                selectedItemIds: [],
+                orderItemKey: '',
+                reason: 'Defective Product',
+                otherReason: '',
+                amount: '',
+                calculationBreakdown: null,
+                upiId: '',
+                image_url: '',
+                uploadingImage: false
+            });
             fetchRefunds();
         } catch (err) {
             console.error('Error submitting refund:', err?.message || err);
@@ -664,28 +692,62 @@ export default function ProfilePage() {
     const billingAddresses = addresses.filter(a => (a.title || '').toLowerCase().includes('billing'));
     const shippingAddresses = addresses.filter(a => !(a.title || '').toLowerCase().includes('billing'));
 
-    // Products eligible for Refund (From user orders, excluding already requested/non-rejected products)
+    // Orders & Products eligible for Refund (From user orders, excluding already requested/non-rejected products)
+    const eligibleRefundOrders = [];
     const eligibleRefundProducts = [];
     orders.forEach(o => {
         const displayInv = o.invoice_no ? (o.invoice_no.startsWith('#') ? o.invoice_no : `#${o.invoice_no}`) : `#${String(o.id).replace(/^[A-Z]+-/, 'INV-')}`;
-        (o.order_items || []).forEach(item => {
-            const alreadyRefunded = refunds.some(ref => 
-                String(ref.order_id) === String(o.id) && 
-                (String(ref.order_item_id) === String(item.id) || !ref.order_item_id) &&
-                !['REJECTED', 'CANCELLED', 'REFUND_FAILED'].includes((ref.refund_status || ref.status || '').toUpperCase())
-            );
+        const eligibleItems = (o.order_items || []).filter(item => {
+            const alreadyRefunded = refunds.some(ref => {
+                if (String(ref.order_id) !== String(o.id)) return false;
+                const status = (ref.refund_status || ref.status || '').toUpperCase();
+                if (['REJECTED', 'CANCELLED', 'REFUND_FAILED'].includes(status)) return false;
+                if (!ref.order_item_id) return true; // whole order refunded
+                const itemIds = String(ref.order_item_id).split(',').map(s => s.trim());
+                return itemIds.includes(String(item.id)) || itemIds.includes(String(item.product_id));
+            });
+            return !alreadyRefunded;
+        }).map(item => {
+            const priceVal = Number(item.price_at_time || item.price || 0);
+            return {
+                id: String(item.id),
+                productId: item.product_id,
+                productName: item.product_name || 'Product Item',
+                price: priceVal,
+                quantity: Number(item.quantity || 1),
+                imageUrl: item.products?.image_url || item.image_url || null,
+                paidPricePerUnit: item.paid_price_per_unit != null ? Number(item.paid_price_per_unit) : null,
+                rawItem: item
+            };
+        });
 
-            if (!alreadyRefunded) {
-                const priceVal = item.price_at_time || item.price || 0;
+        if (eligibleItems.length > 0) {
+            eligibleRefundOrders.push({
+                id: String(o.id),
+                invoiceNo: displayInv,
+                createdAt: o.created_at,
+                orderDate: formatOrderDate(o.created_at, { includeTime: false }),
+                status: o.status,
+                totalAmount: Number(o.total_amount || 0),
+                subtotal: Number(o.subtotal || 0),
+                totalDiscount: Number(o.total_discount || 0),
+                cgst: Number(o.cgst || 0),
+                sgst: Number(o.sgst || 0),
+                igst: Number(o.igst || 0),
+                orderItems: o.order_items || [],
+                eligibleItems: eligibleItems
+            });
+
+            eligibleItems.forEach(item => {
                 eligibleRefundProducts.push({
-                    key: `${o.id}::${item.id}::${item.product_id}::${priceVal}`,
+                    key: `${o.id}::${item.id}::${item.productId}::${item.price}`,
                     orderId: displayInv,
-                    productName: item.product_name || 'Product Item',
-                    price: priceVal,
+                    productName: item.productName,
+                    price: item.price,
                     orderDate: formatOrderDate(o.created_at, { includeTime: false })
                 });
-            }
-        });
+            });
+        }
     });
 
     return (
@@ -834,6 +896,7 @@ export default function ProfilePage() {
 
                     {activeTab === 'refund' && (
                         <RefundsTab
+                            eligibleRefundOrders={eligibleRefundOrders}
                             eligibleRefundProducts={eligibleRefundProducts}
                             refundForm={refundForm}
                             setRefundForm={setRefundForm}

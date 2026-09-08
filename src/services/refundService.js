@@ -119,47 +119,116 @@ export async function checkReturnConflict(orderId, orderItemId = null) {
 }
 
 /**
- * Calculate eligible refund amount for an order or specific order item.
- * Calculates: product price × qty − discount (from original order snapshot).
+ * Calculate eligible refund amount for an order or specific order item(s).
+ * For each item: (unit_price × quantity) − discount_adjustment + SGST + CGST (or IGST).
+ * Supports single order_item_id or array / comma-separated list of order_item_ids.
  */
-export async function calculateEligibleRefund(orderId, orderItemId = null) {
+export async function calculateEligibleRefund(orderId, orderItemIds = null) {
     try {
-        if (orderItemId) {
+        const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
+        if (!orders || orders.length === 0) {
+            return { price: 0, discount: 0, eligibleAmount: 0, productName: 'Unknown', items: [] };
+        }
+        const order = orders[0];
+
+        let ids = [];
+        if (Array.isArray(orderItemIds)) {
+            ids = orderItemIds.filter(Boolean);
+        } else if (typeof orderItemIds === 'string' && orderItemIds.trim()) {
+            ids = orderItemIds.split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        if (ids.length > 0) {
+            const placeholders = ids.map(() => '?').join(', ');
             const [items] = await pool.query(
-                'SELECT * FROM order_items WHERE order_id = ? AND (id = ? OR product_id = ?)',
-                [orderId, orderItemId, orderItemId]
+                `SELECT * FROM order_items WHERE order_id = ? AND (id IN (${placeholders}) OR product_id IN (${placeholders}))`,
+                [orderId, ...ids, ...ids]
             );
+
             if (items && items.length > 0) {
-                const item = items[0];
-                const price = Number(item.price_at_time || item.price || 0);
-                const discount = Number(item.discount_at_time || item.discount || 0);
-                const qty = Number(item.quantity || 1);
-                const totalItemPrice = price * qty;
-                const eligibleAmount = Math.max(0, totalItemPrice - discount);
+                const orderSubtotal = Number(order.subtotal || 0);
+                const orderTotalDiscount = Number(order.total_discount || 0);
+                const orderTaxable = Math.max(1, orderSubtotal - orderTotalDiscount);
+
+                const hasOrderCGST = Number(order.cgst || 0) > 0;
+                const hasOrderSGST = Number(order.sgst || 0) > 0;
+                const hasOrderIGST = Number(order.igst || 0) > 0;
+
+                let cgstRate = 0.025;
+                let sgstRate = 0.025;
+                let igstRate = 0;
+
+                if (hasOrderIGST && !hasOrderCGST && !hasOrderSGST) {
+                    igstRate = Number(order.igst) / orderTaxable;
+                    cgstRate = 0;
+                    sgstRate = 0;
+                } else if (hasOrderCGST || hasOrderSGST) {
+                    cgstRate = hasOrderCGST ? Number(order.cgst) / orderTaxable : 0.025;
+                    sgstRate = hasOrderSGST ? Number(order.sgst) / orderTaxable : 0.025;
+                    igstRate = 0;
+                }
+
+                const breakdownItems = items.map(item => {
+                    const qty = Number(item.quantity || 1);
+                    const unitPrice = Number(item.price_at_time || item.price || 0);
+                    const grossPrice = unitPrice * qty;
+
+                    let itemDiscount = 0;
+                    if (item.paid_price_per_unit != null && Number(item.paid_price_per_unit) > 0) {
+                        const paidUnit = Number(item.paid_price_per_unit);
+                        itemDiscount = Math.max(0, Math.round((unitPrice - paidUnit) * qty * 100) / 100);
+                    } else if (orderTotalDiscount > 0 && orderSubtotal > 0) {
+                        itemDiscount = Math.round(((grossPrice / orderSubtotal) * orderTotalDiscount) * 100) / 100;
+                    }
+
+                    const taxable = Math.max(0, grossPrice - itemDiscount);
+                    const cgst = Math.round(taxable * cgstRate);
+                    const sgst = Math.round(taxable * sgstRate);
+                    const igst = Math.round(taxable * igstRate);
+                    const eligibleAmount = Math.round(taxable + cgst + sgst + igst);
+
+                    return {
+                        order_item_id: item.id,
+                        product_id: item.product_id,
+                        product_name: item.product_name || 'Product Item',
+                        unit_price: unitPrice,
+                        quantity: qty,
+                        gross_price: grossPrice,
+                        discount_adjustment: itemDiscount,
+                        taxable_amount: taxable,
+                        cgst,
+                        sgst,
+                        igst,
+                        eligible_amount: eligibleAmount
+                    };
+                });
+
+                const totalPrice = breakdownItems.reduce((sum, it) => sum + it.gross_price, 0);
+                const totalDiscount = breakdownItems.reduce((sum, it) => sum + it.discount_adjustment, 0);
+                const totalEligible = breakdownItems.reduce((sum, it) => sum + it.eligible_amount, 0);
+                const cappedEligible = Math.min(totalEligible, Number(order.total_amount || totalEligible));
+
                 return {
-                    price: totalItemPrice,
-                    discount,
-                    eligibleAmount,
-                    productName: item.product_name || 'Product Item'
+                    price: totalPrice,
+                    discount: totalDiscount,
+                    eligibleAmount: cappedEligible,
+                    productName: breakdownItems.length === 1 ? breakdownItems[0].product_name : `${breakdownItems.length} Products Selected`,
+                    items: breakdownItems
                 };
             }
         }
 
-        // Fallback: order total amount
-        const [orders] = await pool.query('SELECT total_amount FROM orders WHERE id = ?', [orderId]);
-        if (orders && orders.length > 0) {
-            const total = Number(orders[0].total_amount || 0);
-            return {
-                price: total,
-                discount: 0,
-                eligibleAmount: total,
-                productName: 'Order Total'
-            };
-        }
-
-        return { price: 0, discount: 0, eligibleAmount: 0, productName: 'Unknown' };
+        // Fallback: entire order total
+        const total = Number(order.total_amount || 0);
+        return {
+            price: total,
+            discount: Number(order.total_discount || 0),
+            eligibleAmount: total,
+            productName: 'Order Total',
+            items: []
+        };
     } catch (err) {
         console.error('[REFUND-SERVICE] Calculate refund error:', err);
-        return { price: 0, discount: 0, eligibleAmount: 0, productName: 'Unknown' };
+        return { price: 0, discount: 0, eligibleAmount: 0, productName: 'Unknown', items: [] };
     }
 }

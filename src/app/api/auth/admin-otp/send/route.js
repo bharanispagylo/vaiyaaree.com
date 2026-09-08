@@ -90,7 +90,8 @@ export async function POST(req) {
             success: true,
             message: `Verification OTP sent to specified admin email (${maskedEmail})`,
             maskedEmail,
-            email: targetEmail
+            email: targetEmail,
+            username: targetUsername
         });
     } catch (err) {
         console.error('Error in send-admin-otp:', err);

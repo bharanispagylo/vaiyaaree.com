@@ -15,15 +15,17 @@ export default function AdminLayout({ children }) {
     return <ProtectedAdminLayout pathname={pathname}>{children}</ProtectedAdminLayout>;
 }
 
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout
+
 function ProtectedAdminLayout({ children, pathname }) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const router = useRouter();
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [mounted, setMounted] = useState(false);
 
+    // Initial and Route-change Authentication Check
     useEffect(() => {
         setMounted(true);
-        const isAdminToken = localStorage.getItem('cast_prince_admin');
         
         const checkAuth = async () => {
             const isAdminToken = typeof window !== 'undefined' ? localStorage.getItem('cast_prince_admin') : null;
@@ -31,6 +33,23 @@ function ProtectedAdminLayout({ children, pathname }) {
                 setIsAuthorized(false);
                 router.push('/admin/login');
                 return;
+            }
+
+            // Check if existing session was already marked idle
+            const lastActiveStr = localStorage.getItem('cast_prince_admin_last_active');
+            if (lastActiveStr) {
+                const idleTime = Date.now() - Number(lastActiveStr);
+                if (idleTime > IDLE_TIMEOUT_MS) {
+                    console.warn('[ADMIN-AUTH] Session expired due to inactivity.');
+                    localStorage.removeItem('cast_prince_admin');
+                    localStorage.removeItem('cast_prince_admin_user');
+                    localStorage.removeItem('cast_prince_admin_last_active');
+                    setIsAuthorized(false);
+                    router.push('/admin/login?reason=idle_timeout');
+                    return;
+                }
+            } else {
+                localStorage.setItem('cast_prince_admin_last_active', String(Date.now()));
             }
 
             try {
@@ -58,20 +77,62 @@ function ProtectedAdminLayout({ children, pathname }) {
                 console.warn('[ADMIN-AUTH] Session invalid or expired');
                 localStorage.removeItem('cast_prince_admin');
                 localStorage.removeItem('cast_prince_admin_user');
+                localStorage.removeItem('cast_prince_admin_last_active');
                 setIsAuthorized(false);
-                router.push('/admin/login');
+                router.push('/admin/login?reason=session_expired');
             } catch (err) {
                 console.error('[ADMIN-AUTH] Check failed:', err);
                 localStorage.removeItem('cast_prince_admin');
                 localStorage.removeItem('cast_prince_admin_user');
+                localStorage.removeItem('cast_prince_admin_last_active');
                 setIsAuthorized(false);
-                router.push('/admin/login');
+                router.push('/admin/login?reason=session_expired');
             }
         };
 
         checkAuth();
         setSidebarOpen(false);
-    }, [pathname]);
+    }, [pathname, router]);
+
+    // Idle Inactivity Detection & Heartbeat Timer
+    useEffect(() => {
+        let lastRecorded = Date.now();
+        const updateActivity = () => {
+            const now = Date.now();
+            if (now - lastRecorded > 10000) { // Throttle localStorage writes to once every 10s
+                lastRecorded = now;
+                try {
+                    localStorage.setItem('cast_prince_admin_last_active', String(now));
+                } catch (_) {}
+            }
+        };
+
+        const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+        events.forEach(event => window.addEventListener(event, updateActivity, { passive: true }));
+
+        const timer = setInterval(() => {
+            try {
+                const token = localStorage.getItem('cast_prince_admin');
+                if (!token) return;
+
+                const lastActiveStr = localStorage.getItem('cast_prince_admin_last_active');
+                const lastActive = lastActiveStr ? Number(lastActiveStr) : Date.now();
+                if (Date.now() - lastActive > IDLE_TIMEOUT_MS) {
+                    console.warn('[ADMIN-AUTH] Idle timeout reached (30 minutes of inactivity). Redirecting to login.');
+                    localStorage.removeItem('cast_prince_admin');
+                    localStorage.removeItem('cast_prince_admin_user');
+                    localStorage.removeItem('cast_prince_admin_last_active');
+                    setIsAuthorized(false);
+                    router.push('/admin/login?reason=idle_timeout');
+                }
+            } catch (_) {}
+        }, 10000);
+
+        return () => {
+            events.forEach(event => window.removeEventListener(event, updateActivity));
+            clearInterval(timer);
+        };
+    }, [router]);
 
     if (!mounted || !isAuthorized) return null;
 

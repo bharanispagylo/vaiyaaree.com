@@ -7,6 +7,7 @@ export default function ForgotPasswordPage() {
     const router = useRouter();
     
     const [username, setUsername] = useState('');
+    const [resolvedUsername, setResolvedUsername] = useState('');
     const [otp, setOtp] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,6 +42,9 @@ export default function ForgotPasswordPage() {
             if (res.ok && data.success) {
                 setOtpSent(true);
                 setMaskedEmail(data.maskedEmail || 'configured admin email');
+                if (data.username) {
+                    setResolvedUsername(data.username);
+                }
                 setSuccess(data.message || 'Verification OTP sent to admin email!');
             } else {
                 setError(data.error || 'Failed to send verification OTP.');
@@ -79,6 +83,7 @@ export default function ForgotPasswordPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     username: username.trim(),
+                    resolvedUsername: resolvedUsername || username.trim(),
                     otp: otp.trim(), 
                     newPassword: newPassword 
                 })

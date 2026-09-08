@@ -490,7 +490,8 @@ export async function POST(request) {
                 customerName,
                 customerPhone,
                 customerEmail,
-                paymentMethod
+                paymentMethod,
+                cartItems: verifiedCartItems
             };
         });
 
@@ -516,7 +517,7 @@ export async function POST(request) {
                     status: orderResult.initialStatus,
                     shipping_address: shippingAddress,
                     billing_address: billingAddress,
-                    order_items: verifiedCartItems
+                    order_items: orderResult.cartItems || []
                 }
             });
         } catch (notifErr) {

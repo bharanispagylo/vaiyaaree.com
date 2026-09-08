@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck } from 'lucide-react';
+import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck, Calendar } from 'lucide-react';
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -28,114 +28,53 @@ export default function AdminDashboard() {
         }
         return phone;
     };
-    const [stats, setStats] = useState({ revenue: 0, orders: 0, customers: 0, pending: 0, shipped: 0, delivered: 0, whatsappOrders: 0, todayOrders: 0 });
-    const [recentOrders, setRecentOrders] = useState([]);
-    const [lowStockProducts, setLowStockProducts] = useState([]);
-    const [topProducts, setTopProducts] = useState([]);
-    const [topProductsFallback, setTopProductsFallback] = useState(false);
+
+    // Filter & raw dataset states
+    const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL' | 'TODAY' | '7D' | 'THIS_MONTH' | 'CUSTOM'
+    const [customStartDate, setCustomStartDate] = useState('');
+    const [customEndDate, setCustomEndDate] = useState('');
+
+    const [allOrders, setAllOrders] = useState([]);
+    const [allOrderItems, setAllOrderItems] = useState([]);
+    const [allProducts, setAllProducts] = useState([]);
+    const [customerCount, setCustomerCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchDashboardData = async () => {
-            const today = new Date().toISOString().split('T')[0];
-            setLoading(true);
-            try {
-                const [
-                    totalRes,
-                    activeRes,
-                    pendingRes,
-                    shippedRes,
-                    deliveredRes,
-                    refundedRes,
-                    cancelledRes,
-                    todayRes,
-                    productsRes,
-                    itemsRes,
-                    customerRes
-                ] = await Promise.all([
-                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'DRAFT'),
-                    mysqlClient.from('orders').select('total_amount').neq('status', 'DRAFT').neq('status', 'CANCELLED').neq('status', 'REFUNDED'),
-                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'PLACED', 'AWAITING_PAYMENT', 'AWAITING PAYMENT', 'awaiting_payment']),
-                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'SHIPPED'),
-                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'DELIVERED'),
-                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'REFUNDED'),
-                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'CANCELLED'),
-                    mysqlClient.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today),
-                    mysqlClient.from('products').select('id, name, stock, image_url, price, alert_threshold').order('stock', { ascending: true }),
-                    mysqlClient.from('order_items').select('product_name, quantity, price_at_time, order_id').limit(2000),
-                    mysqlClient.from('orders').select('customer_phone', { count: 'exact', head: true })
-                ]);
-
-                // Calculate Revenue
-                const totalRevenue = (activeRes.data || []).reduce((s, o) => s + (o.total_amount || 0), 0);
-
-                // Recent orders
-                const recentOrdersRes = await mysqlClient.from('orders')
-                    .select('id, status, total_amount, customer_phone, customer_name, created_at')
+    const fetchDashboardData = async () => {
+        setLoading(true);
+        try {
+            const [
+                ordersRes,
+                productsRes,
+                itemsRes,
+                customerRes
+            ] = await Promise.all([
+                mysqlClient.from('orders')
+                    .select('id, invoice_no, total_amount, subtotal, shipping_cost, refund_amount, status, created_at, source, customer_name, customer_phone')
                     .neq('status', 'DRAFT')
-                    .order('created_at', { ascending: false })
-                    .limit(6);
+                    .order('created_at', { ascending: false }),
+                mysqlClient.from('products')
+                    .select('id, name, stock, image_url, price, alert_threshold')
+                    .order('stock', { ascending: true }),
+                mysqlClient.from('order_items')
+                    .select('product_name, quantity, price_at_time, order_id')
+                    .limit(2000),
+                mysqlClient.from('orders')
+                    .select('customer_phone', { count: 'exact', head: true })
+            ]);
 
-                const lowStock = (productsRes.data || []).filter(p => (p.stock || 0) <= (p.alert_threshold || 5));
+            setAllOrders(ordersRes.data || []);
+            setAllProducts(productsRes.data || []);
+            setAllOrderItems(itemsRes.data || []);
+            setCustomerCount(customerRes.count || 0);
+        } catch (error) {
+            console.error('Dashboard error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-                // Build top selling from order_items
-                const orderItemsData = itemsRes.data || [];
-                let topSelling = [];
-                let isFallback = false;
-
-                if (orderItemsData.length > 0) {
-                    const productSales = {};
-                    const validOrderIds = new Set((activeRes.data || []).map(o => o.id)); // activeRes already filters out CANCELLED/REFUNDED
-
-                    orderItemsData.forEach(item => {
-                        if (!validOrderIds.has(item.order_id)) return;
-                        const key = item.product_name;
-                        if (!key) return;
-                        if (!productSales[key]) {
-                            productSales[key] = { name: key, sold: 0, revenue: 0 };
-                        }
-                        productSales[key].sold += (item.quantity || 1);
-                        productSales[key].revenue += ((item.price_at_time || 0) * (item.quantity || 1));
-                    });
-                    topSelling = Object.values(productSales)
-                        .sort((a, b) => b.sold - a.sold)
-                        .slice(0, 5);
-                }
-
-                // Fallback: no order data → show top 5 products by price
-                if (topSelling.length === 0) {
-                    isFallback = true;
-                    const allProducts = (productsRes.data || []);
-                    topSelling = allProducts
-                        .filter(p => p.name)
-                        .sort((a, b) => (b.price || 0) - (a.price || 0))
-                        .slice(0, 5)
-                        .map(p => ({ name: p.name, sold: 0, revenue: p.price || 0 }));
-                }
-
-                const newStats = {
-                    revenue: totalRevenue,
-                    orders: totalRes.count || 0,
-                    customers: customerRes.count || 0,
-                    pending: pendingRes.count || 0,
-                    shipped: shippedRes.count || 0,
-                    delivered: deliveredRes.count || 0,
-                    todayOrders: todayRes.count || 0,
-                    whatsappOrders: recentOrdersRes.data?.filter(o => o.source === 'WHATSAPP').length || 0
-                };
-
-                setStats(newStats);
-                setRecentOrders(recentOrdersRes.data || []);
-                setLowStockProducts(lowStock);
-                setTopProducts(topSelling);
-                setTopProductsFallback(isFallback);
-            } catch (error) {
-                console.error('Dashboard error:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
+    useEffect(() => {
         fetchDashboardData();
 
         const channel = mysqlClient
@@ -147,6 +86,166 @@ export default function AdminDashboard() {
 
         return () => mysqlClient.removeChannel(channel);
     }, []);
+
+    // Date filtering helper
+    const isOrderInDateRange = (dateStr, filter, startStr, endStr) => {
+        if (filter === 'ALL') return true;
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return false;
+
+        const now = new Date();
+        if (filter === 'TODAY') {
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+            const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+            return d >= startOfToday && d <= endOfToday;
+        }
+        if (filter === '7D') {
+            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            return d >= sevenDaysAgo && d <= now;
+        }
+        if (filter === 'THIS_MONTH') {
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+            return d >= startOfMonth && d <= now;
+        }
+        if (filter === 'CUSTOM') {
+            if (startStr) {
+                const start = new Date(startStr + 'T00:00:00');
+                if (d < start) return false;
+            }
+            if (endStr) {
+                const end = new Date(endStr + 'T23:59:59.999');
+                if (d > end) return false;
+            }
+            return true;
+        }
+        return true;
+    };
+
+    // Calculate metrics reactively based on active date filter
+    const { stats, recentOrders, topProducts, topProductsFallback, lowStockProducts } = useMemo(() => {
+        const filteredOrders = allOrders.filter(o => isOrderInDateRange(o.created_at, dateFilter, customStartDate, customEndDate));
+
+        let grossRevenue = 0;
+        let refundTotal = 0;
+        let shippingTotal = 0;
+        let netRevenue = 0;
+
+        let pending = 0;
+        let shipped = 0;
+        let delivered = 0;
+        let refunded = 0;
+        let cancelled = 0;
+        let todayOrders = 0;
+        let whatsappOrders = 0;
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const pendingStatuses = new Set(['PENDING', 'PLACED', 'AWAITING_PAYMENT', 'AWAITING PAYMENT', 'awaiting_payment', 'PACKING']);
+        const activeOrderIds = new Set();
+
+        filteredOrders.forEach(o => {
+            const status = String(o.status || '').toUpperCase();
+            const orderTotal = Number(o.total_amount) || 0;
+            const orderRefund = Number(o.refund_amount) || 0;
+            const orderShipping = Number(o.shipping_cost) || 0;
+
+            const orderDate = new Date(o.created_at);
+            if (!isNaN(orderDate.getTime()) && orderDate >= startOfToday && orderDate <= endOfToday) {
+                todayOrders++;
+            }
+
+            if (o.source === 'WHATSAPP') {
+                whatsappOrders++;
+            }
+
+            if (pendingStatuses.has(status)) {
+                pending++;
+            } else if (status === 'SHIPPED') {
+                shipped++;
+            } else if (status === 'DELIVERED') {
+                delivered++;
+            } else if (status === 'REFUNDED') {
+                refunded++;
+            } else if (status === 'CANCELLED') {
+                cancelled++;
+            }
+
+            // Active orders: exclude CANCELLED and REFUNDED and DRAFT
+            if (status !== 'CANCELLED' && status !== 'REFUNDED' && status !== 'DRAFT') {
+                activeOrderIds.add(o.id);
+                grossRevenue += orderTotal;
+                refundTotal += orderRefund;
+                shippingTotal += orderShipping;
+                // Net sales revenue deducts refunds and shipping pass-through
+                const orderNet = Math.max(0, orderTotal - orderRefund - orderShipping);
+                netRevenue += orderNet;
+            } else if (status === 'REFUNDED') {
+                refundTotal += (orderRefund > 0 ? orderRefund : orderTotal);
+            }
+        });
+
+        const computedStats = {
+            totalRevenue: netRevenue,
+            revenue: netRevenue, // backwards compatible
+            netRevenue,
+            grossRevenue,
+            refundTotal,
+            shippingTotal,
+            orders: filteredOrders.length,
+            customers: customerCount,
+            pending,
+            shipped,
+            delivered,
+            refunded,
+            cancelled,
+            todayOrders,
+            whatsappOrders
+        };
+
+        // Top Selling products for active orders in this period
+        let topSelling = [];
+        let isFallback = false;
+
+        if (allOrderItems.length > 0 && activeOrderIds.size > 0) {
+            const productSales = {};
+            allOrderItems.forEach(item => {
+                if (!activeOrderIds.has(item.order_id)) return;
+                const key = item.product_name;
+                if (!key) return;
+                if (!productSales[key]) {
+                    productSales[key] = { name: key, sold: 0, revenue: 0 };
+                }
+                productSales[key].sold += (Number(item.quantity) || 1);
+                productSales[key].revenue += ((Number(item.price_at_time) || 0) * (Number(item.quantity) || 1));
+            });
+
+            topSelling = Object.values(productSales)
+                .sort((a, b) => b.sold - a.sold)
+                .slice(0, 5);
+        }
+
+        // Fallback: if no sales data in selected range, show top products by price
+        if (topSelling.length === 0) {
+            isFallback = true;
+            topSelling = (allProducts || [])
+                .filter(p => p.name)
+                .sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0))
+                .slice(0, 5)
+                .map(p => ({ name: p.name, sold: 0, revenue: Number(p.price) || 0 }));
+        }
+
+        const lowStock = (allProducts || []).filter(p => (Number(p.stock) || 0) <= (Number(p.alert_threshold) || 5));
+
+        return {
+            stats: computedStats,
+            recentOrders: filteredOrders.slice(0, 6),
+            topProducts: topSelling,
+            topProductsFallback: isFallback,
+            lowStockProducts: lowStock
+        };
+    }, [allOrders, allOrderItems, allProducts, customerCount, dateFilter, customStartDate, customEndDate]);
 
     const getStatusReference = (status) => {
         switch (status) {
@@ -171,7 +270,7 @@ export default function AdminDashboard() {
     return (
         <div className="animate-enter">
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ marginBottom: '0.25rem' }}>Dashboard</h1>
                     <p>Business Overview • {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
@@ -183,16 +282,128 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
+            {/* Date Filter Bar */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '0.85rem',
+                marginBottom: '2rem',
+                padding: '0.85rem 1.25rem',
+                background: 'hsl(var(--bg-card))',
+                border: '1px solid hsl(var(--border-subtle))',
+                borderRadius: '12px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        color: 'hsl(var(--text-muted))',
+                        marginRight: '0.25rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                    }}>
+                        <Calendar size={15} /> Period:
+                    </span>
+                    {[
+                        { id: 'ALL', label: 'All Time' },
+                        { id: 'TODAY', label: 'Today' },
+                        { id: '7D', label: 'Last 7 Days' },
+                        { id: 'THIS_MONTH', label: 'This Month' },
+                        { id: 'CUSTOM', label: 'Custom Range' }
+                    ].map(filter => {
+                        const isActive = dateFilter === filter.id;
+                        return (
+                            <button
+                                key={filter.id}
+                                type="button"
+                                onClick={() => setDateFilter(filter.id)}
+                                style={{
+                                    padding: '0.4rem 0.85rem',
+                                    fontSize: '0.8rem',
+                                    fontWeight: isActive ? 700 : 500,
+                                    borderRadius: '8px',
+                                    border: isActive ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border-subtle))',
+                                    background: isActive ? 'hsl(var(--primary))' : 'hsl(var(--bg-app))',
+                                    color: isActive ? '#ffffff' : 'hsl(var(--text-main))',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                {filter.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {dateFilter === 'CUSTOM' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--text-muted))' }}>From:</label>
+                        <input
+                            type="date"
+                            value={customStartDate}
+                            onChange={(e) => setCustomStartDate(e.target.value)}
+                            style={{
+                                padding: '0.35rem 0.6rem',
+                                fontSize: '0.8rem',
+                                borderRadius: '6px',
+                                border: '1px solid hsl(var(--border-subtle))',
+                                background: 'hsl(var(--bg-app))',
+                                color: 'hsl(var(--text-main))'
+                            }}
+                        />
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--text-muted))' }}>To:</label>
+                        <input
+                            type="date"
+                            value={customEndDate}
+                            onChange={(e) => setCustomEndDate(e.target.value)}
+                            style={{
+                                padding: '0.35rem 0.6rem',
+                                fontSize: '0.8rem',
+                                borderRadius: '6px',
+                                border: '1px solid hsl(var(--border-subtle))',
+                                background: 'hsl(var(--bg-app))',
+                                color: 'hsl(var(--text-main))'
+                            }}
+                        />
+                        {(customStartDate || customEndDate) && (
+                            <button
+                                type="button"
+                                onClick={() => { setCustomStartDate(''); setCustomEndDate(''); }}
+                                style={{
+                                    padding: '0.35rem 0.6rem',
+                                    fontSize: '0.75rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid hsl(var(--border-subtle))',
+                                    background: 'transparent',
+                                    color: 'hsl(var(--text-muted))',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+
             {/* Stats Grid */}
             <div className="admin-grid-4" style={{ marginBottom: '3rem' }}>
                 {[
                     {
                         title: 'Total Revenue',
-                        value: `₹${stats.revenue.toLocaleString()}`,
+                        value: `₹${(stats.totalRevenue ?? stats.revenue ?? 0).toLocaleString()}`,
                         icon: IndianRupee,
                         gradient: 'linear-gradient(135deg, hsl(var(--success)), hsl(152 76% 25%))',
                         color: 'hsl(152 76% 95%)',
-                        glow: 'hsl(var(--success) / 0.3)'
+                        glow: 'hsl(var(--success) / 0.3)',
+                        sub: (stats.refundTotal > 0 || stats.shippingTotal > 0)
+                            ? `Net Sales (Gross: ₹${(stats.grossRevenue || 0).toLocaleString()})`
+                            : null
                     },
                     {
                         title: 'Total Orders',
@@ -200,7 +411,8 @@ export default function AdminDashboard() {
                         icon: ShoppingCart,
                         gradient: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)))',
                         color: 'hsl(222 47% 10%)',
-                        glow: 'hsl(var(--primary) / 0.4)'
+                        glow: 'hsl(var(--primary) / 0.4)',
+                        sub: stats.todayOrders > 0 ? `${stats.todayOrders} placed today` : null
                     },
                     {
                         title: 'Pending & Active',
@@ -302,7 +514,7 @@ export default function AdminDashboard() {
                         </thead>
                         <tbody>
                             {recentOrders.length === 0 ? (
-                                <tr><td colSpan={4} style={{ padding: '3rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No orders yet.</td></tr>
+                                <tr><td colSpan={4} style={{ padding: '3rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>{dateFilter === 'ALL' ? 'No orders yet.' : 'No orders found for this period.'}</td></tr>
                             ) : (
                                 recentOrders.map(order => {
                                     const displayInvoiceNo = order.invoice_no 

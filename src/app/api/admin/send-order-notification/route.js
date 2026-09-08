@@ -183,6 +183,32 @@ export async function POST(request) {
         let emailErrorMsg = null;
         let waErrorMsg = null;
 
+        // Fetch product images so both WhatsApp and Email have access
+        const itemsWithImages = [];
+        if (order.order_items && order.order_items.length > 0) {
+            for (const item of order.order_items) {
+                try {
+                    let imgUrl = item.image_url;
+                    if (!imgUrl && item.product_id) {
+                        const { data: product } = await mysqlClient
+                            .from('products')
+                            .select('image_url')
+                            .eq('id', item.product_id)
+                            .single();
+                        imgUrl = product?.image_url;
+                    }
+
+                    itemsWithImages.push({
+                        ...item,
+                        image_url: imgUrl || item.image_url || null
+                    });
+                } catch (err) {
+                    console.error('Error fetching product image:', err);
+                    itemsWithImages.push(item);
+                }
+            }
+        }
+
         // Send WhatsApp notification
         const finalPhone = targetPhone || order.billing_phone || order.customer_phone;
         if (sendWhatsApp && finalPhone) {
@@ -192,39 +218,15 @@ export async function POST(request) {
                 const message = statusOverride
                     ? buildStatusMessage(order, statusOverride, orderId)
                     : (
-                        ` *Order Confirmed — Vaiyaaree* \n\n` +
+                        `🌸 *Order Confirmed — Vaiyaaree* 🌸\n\n` +
                         `Dear ${order.customer_name},\n\n` +
                         `Your order ${displayInv} has been placed successfully.\n\n` +
-                        ` *Order Details:*\n` +
+                        `📦 *Order Details:*\n` +
                         `• Total Amount: ₹${order.total_amount?.toLocaleString() || '0'}\n` +
                         `• Payment Method: ${order.payment_method || 'N/A'}\n` +
                         `• Items: ${order.order_items?.length || 0} product(s)\n\n` +
-                        `Thank you for shopping with Vaiyaaree! `
+                        `Thank you for shopping with Vaiyaaree! ✨`
                     );
-
-                // Fetch product images
-                const itemsWithImages = [];
-                if (order.order_items && order.order_items.length > 0) {
-                    for (const item of order.order_items) {
-                        try {
-                            const { data: product } = await mysqlClient
-                                .from('products')
-                                .select('image_url')
-                                .eq('id', item.product_id)
-                                .single();
-                            
-                            const imgUrl = product?.image_url;
-                            if (imgUrl) {
-                                itemsWithImages.push({
-                                    ...item,
-                                    image_url: imgUrl
-                                });
-                            }
-                        } catch (err) {
-                            console.error('Error fetching product image:', err);
-                        }
-                    }
-                }
 
                 let waImageSent = false;
 
@@ -235,10 +237,10 @@ export async function POST(request) {
                     if (publicUrl) {
                         let caption = message;
                         if (order.order_items.length === 1) {
-                            caption += `\n\n *Item:* ${firstItem.product_name}\n` +
-                                (firstItem.variant_name ? ` *Option:* ${firstItem.variant_name}\n` : '') +
-                                ` *Price:* ₹${firstItem.price_at_time.toLocaleString()}\n` +
-                                ` *Quantity:* ${firstItem.quantity}`;
+                            caption += `\n\n🛍️ *Item:* ${firstItem.product_name}\n` +
+                                (firstItem.variant_name ? `🎨 *Option:* ${firstItem.variant_name}\n` : '') +
+                                `💰 *Price:* ₹${firstItem.price_at_time?.toLocaleString() || '0'}\n` +
+                                `🔢 *Quantity:* ${firstItem.quantity || 1}`;
                         }
 
                         const rawRes = await sendRawMessage(finalPhone, {
@@ -279,7 +281,20 @@ export async function POST(request) {
         }
 
         // Send Email notification
-        const finalEmail = targetEmail || order.billing_email || order.customer_email;
+        let addrEmail = null;
+        if (order.billing_address) {
+            try {
+                const parsed = typeof order.billing_address === 'string' ? JSON.parse(order.billing_address) : order.billing_address;
+                if (parsed) addrEmail = parsed.email || parsed.billing_email;
+            } catch (e) {}
+        }
+        if (!addrEmail && order.shipping_address) {
+            try {
+                const parsed = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address;
+                if (parsed) addrEmail = parsed.email || parsed.shipping_email;
+            } catch (e) {}
+        }
+        const finalEmail = targetEmail || order.billing_email || order.customer_email || addrEmail;
         if (sendEmail && finalEmail) {
             try {
                 const orderWithTarget = { 
@@ -287,12 +302,8 @@ export async function POST(request) {
                     customer_email: finalEmail,
                     order_items: (itemsWithImages && itemsWithImages.length > 0) ? itemsWithImages : order.order_items
                 };
-                let mailRes;
-                if (statusOverride) {
-                    mailRes = await sendOrderStatusEmail(orderWithTarget, statusOverride);
-                } else {
-                    mailRes = await sendOrderConfirmationEmail(orderWithTarget);
-                }
+                const effectiveStatus = statusOverride || order.status || 'PLACED';
+                const mailRes = await sendOrderStatusEmail(orderWithTarget, effectiveStatus);
 
                 if (mailRes && mailRes.success) {
                     emailSent = true;

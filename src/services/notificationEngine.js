@@ -78,9 +78,34 @@ export async function dispatchNotification({
     const customerId = order?.customer_id || returnReq?.customer_id || extraData?.customerId || null;
 
     const displayInv = formatDisplayInvoice(order);
-    const customerEmail = (order?.billing_email || order?.customer_email || extraData?.email || '').trim();
-    const customerPhone = normalizePhone(order?.billing_phone || order?.customer_phone || extraData?.phone || '');
-    const customerName = order?.customer_name || order?.billing_name || extraData?.customerName || 'Valued Customer';
+
+    let addrEmail = null;
+    let addrPhone = null;
+    let addrName = null;
+    if (order?.billing_address) {
+        try {
+            const parsed = typeof order.billing_address === 'string' ? JSON.parse(order.billing_address) : order.billing_address;
+            if (parsed) {
+                addrEmail = parsed.email || parsed.billing_email;
+                addrPhone = parsed.phone || parsed.mobile;
+                addrName = parsed.name || parsed.full_name;
+            }
+        } catch (e) {}
+    }
+    if ((!addrEmail || !addrPhone) && order?.shipping_address) {
+        try {
+            const parsed = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address;
+            if (parsed) {
+                if (!addrEmail) addrEmail = parsed.email || parsed.shipping_email;
+                if (!addrPhone) addrPhone = parsed.phone || parsed.mobile;
+                if (!addrName) addrName = parsed.name || parsed.full_name;
+            }
+        } catch (e) {}
+    }
+
+    const customerEmail = (order?.billing_email || order?.customer_email || addrEmail || extraData?.email || '').trim();
+    const customerPhone = normalizePhone(order?.billing_phone || order?.customer_phone || addrPhone || extraData?.phone || '');
+    const customerName = order?.customer_name || order?.billing_name || addrName || extraData?.customerName || 'Valued Customer';
 
     // 1. Fetch Admin Notification Contacts
     let adminEmails = [];
@@ -343,7 +368,7 @@ async function sendWithDuplicateCheck({
                 .eq('event_type', eventType)
                 .eq('channel', channel)
                 .eq('recipient', recipient)
-                .in('status', ['SENT', 'LOGGED_ONLY']);
+                .eq('status', 'SENT');
 
             if (orderId) dupQuery = dupQuery.eq('order_id', orderId);
             else if (returnId) dupQuery = dupQuery.eq('return_id', returnId);

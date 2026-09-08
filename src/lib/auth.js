@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
 const SESSION_SECRET = process.env.ADMIN_API_SECRET || process.env.META_APP_SECRET || 'vaiyaaree_secure_admin_session_key_2026';
-const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours max session TTL
 
 /**
  * Formats a raw database role into a user-friendly display string.
@@ -38,7 +38,7 @@ export function createAdminSessionToken(user) {
 }
 
 /**
- * Parses and cryptographically verifies an admin session token.
+ * Parses and cryptographically verifies an admin session token using timing-safe comparison.
  */
 export function parseAdminSessionToken(token) {
     if (!token || typeof token !== 'string' || !token.startsWith('adm_session_')) {
@@ -54,7 +54,10 @@ export function parseAdminSessionToken(token) {
         const signature = raw.slice(dotIndex + 1);
 
         const expectedSig = crypto.createHmac('sha256', SESSION_SECRET).update(b64Payload).digest('base64url');
-        if (signature !== expectedSig) {
+        const sigBuf = Buffer.from(signature);
+        const expBuf = Buffer.from(expectedSig);
+
+        if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
             return null;
         }
 
@@ -74,15 +77,16 @@ export function parseAdminSessionToken(token) {
 /**
  * Verifies if the request is from an authorized admin.
  * Checks for:
- * 1. An 'Authorization' header with Bearer user session token (signed)
- * 2. Dedicated master static secret (strictly for system crons / background tasks)
+ * 1. An 'Authorization' header with Bearer user session token (cryptographically signed)
+ * 2. An 'x-admin-token' or Bearer token strictly matching a strong ADMIN_API_SECRET (timing-safe)
+ * Rejecting any weak tokens, length >= 4 bypasses, or arbitrary x-admin-token headers.
  */
 export async function verifyAdmin(request) {
     const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
     let token = null;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.split(' ')[1]?.trim();
+        token = authHeader.slice(7).trim();
     } else {
         token = request.headers.get('x-admin-token')?.trim();
     }
@@ -100,10 +104,14 @@ export async function verifyAdmin(request) {
         return { authorized: false, error: 'Session expired or invalid signature' };
     }
 
-    // 2. Validate master static secret (used ONLY by backend system tasks/crons when ADMIN_API_SECRET is explicitly configured)
+    // 2. Validate master static secret (strictly for server-to-server crons when ADMIN_API_SECRET has >= 16 chars)
     const adminSecret = process.env.ADMIN_API_SECRET;
-    if (adminSecret && token === adminSecret) {
-        return { authorized: true, isMasterSecret: true };
+    if (adminSecret && adminSecret.length >= 16) {
+        const tokenBuf = Buffer.from(token);
+        const secretBuf = Buffer.from(adminSecret);
+        if (tokenBuf.length === secretBuf.length && crypto.timingSafeEqual(tokenBuf, secretBuf)) {
+            return { authorized: true, isMasterSecret: true };
+        }
     }
 
     return { authorized: false, error: 'Unauthorized: Invalid Token' };

@@ -1942,27 +1942,41 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
                                 ? (product.product_catalog_image_id.toUpperCase().startsWith('CAT-') ? product.product_catalog_image_id.toUpperCase() : `CAT-${product.product_catalog_image_id.toUpperCase()}`)
                                 : null;
 
-                            const imgUrl = product?.image_url;
-                            if (imgUrl) {
-                                const caption = ` *Item:* ${item.product_name}\n` +
-                                    (catNo ? ` *Product Catalogue No:* ${catNo}\n` : '') +
-                                    (item.variant_name ? ` *Option:* ${item.variant_name}\n` : '') +
-                                    ` *Price:* ₹${item.price_at_time.toLocaleString()}\n` +
-                                    ` *Quantity:* ${item.quantity}`;
+                            const validImgUrl = getPremiumImage({
+                                ...product,
+                                id: item.product_id,
+                                name: item.product_name,
+                                image_url: product?.image_url
+                            });
 
-                                await sendRawMessage(targetPhone, {
+                            const caption = `🛍️ *Item:* ${item.product_name}\n` +
+                                (catNo ? `🏷️ *Product Catalogue No:* ${catNo}\n` : '') +
+                                (item.variant_name ? `🎨 *Option:* ${item.variant_name}\n` : '') +
+                                `💰 *Price:* ₹${item.price_at_time?.toLocaleString() || '0'}\n` +
+                                `🔢 *Quantity:* ${item.quantity || 1}`;
+
+                            let sentImage = false;
+                            if (validImgUrl && (validImgUrl.startsWith('http://') || validImgUrl.startsWith('https://'))) {
+                                const res = await sendRawMessage(targetPhone, {
                                     messaging_product: "whatsapp",
                                     recipient_type: "individual",
                                     to: targetPhone,
                                     type: "image",
                                     image: {
-                                        link: imgUrl,
+                                        link: validImgUrl,
                                         caption: caption
                                     }
                                 });
-                                // Delay to guarantee ordered delivery of images
-                                await new Promise(r => setTimeout(r, 1000));
+                                if (res && !res.error) {
+                                    sentImage = true;
+                                }
                             }
+
+                            if (!sentImage) {
+                                await sendText(targetPhone, caption);
+                            }
+                            // Delay to guarantee ordered delivery of images
+                            await new Promise(r => setTimeout(r, 1000));
                         } catch (err) {
                             console.error('[WA-NOTIFY] Failed to send product image:', err);
                         }

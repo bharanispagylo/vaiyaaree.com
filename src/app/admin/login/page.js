@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
     Lock, User, ShieldCheck, Loader2, Eye, EyeOff,
     Mail, ArrowLeft, RefreshCw, Sparkles, PackageCheck,
-    Layers, ArrowRight, CheckCircle2, AlertCircle
+    Layers, ArrowRight, CheckCircle2, AlertCircle, Clock
 } from 'lucide-react';
 import { sanitizeAdminProfile } from '@/lib/authSanitizer';
 
@@ -31,8 +31,22 @@ export default function AdminLoginPage() {
     // Shared state
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [notice, setNotice] = useState('');
 
     const otpInputRefs = useRef([]);
+
+    // Check for session expiry or idle timeout redirect reasons
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const reason = params.get('reason');
+            if (reason === 'idle_timeout') {
+                setNotice('Your session has expired due to 30 minutes of inactivity. Please sign in again.');
+            } else if (reason === 'session_expired') {
+                setNotice('Your session has expired. Please sign in again.');
+            }
+        }
+    }, []);
 
     // Resend cooldown timer
     useEffect(() => {
@@ -335,6 +349,14 @@ export default function AdminLoginPage() {
                                 : `Enter the 6-digit verification code sent to ${maskedEmail}`}
                         </p>
                     </div>
+
+                    {/* Notice Alert (Idle Inactivity or Expired Session) */}
+                    {notice && (
+                        <div className="alert-box warning-alert">
+                            <Clock size={18} style={{ flexShrink: 0 }} />
+                            <span>{notice}</span>
+                        </div>
+                    )}
 
                     {/* Error Alert */}
                     {error && (
@@ -839,6 +861,12 @@ export default function AdminLoginPage() {
                     background: #f0fdf4;
                     border: 1px solid #bbf7d0;
                     color: #15803d;
+                }
+
+                .warning-alert {
+                    background: #fffbeb;
+                    border: 1px solid #fde68a;
+                    color: #b45309;
                 }
 
                 /* Form Fields */

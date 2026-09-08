@@ -183,9 +183,17 @@ class MySQLQueryBuilder {
                 }
             } else {
                 try {
+                    const reqHeaders = { 'Content-Type': 'application/json' };
+                    try {
+                        const adminToken = localStorage.getItem('cast_prince_admin');
+                        if (adminToken) {
+                            reqHeaders['Authorization'] = `Bearer ${adminToken}`;
+                        }
+                    } catch (_) {}
+
                     const response = await fetch('/api/db', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: reqHeaders,
                         body: JSON.stringify(payload)
                     });
                     if (!response.ok) {
@@ -279,9 +287,17 @@ const createClientInstance = () => ({
             return await executeMysqlRpc(fnName, params);
         } else {
             try {
+                const reqHeaders = { 'Content-Type': 'application/json' };
+                try {
+                    const adminToken = localStorage.getItem('cast_prince_admin');
+                    if (adminToken) {
+                        reqHeaders['Authorization'] = `Bearer ${adminToken}`;
+                    }
+                } catch (_) {}
+
                 const res = await fetch('/api/db-rpc', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: reqHeaders,
                     body: JSON.stringify({ fn: fnName, params })
                 });
                 if (!res.ok) {

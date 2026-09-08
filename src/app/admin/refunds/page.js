@@ -636,6 +636,43 @@ export default function RefundsPage() {
                                     </div>
                                 </div>
 
+                                {(() => {
+                                    let items = [];
+                                    if (selectedRefund.items_detail) {
+                                        try {
+                                            items = typeof selectedRefund.items_detail === 'string' ? JSON.parse(selectedRefund.items_detail) : selectedRefund.items_detail;
+                                        } catch (e) {
+                                            items = [];
+                                        }
+                                    }
+                                    if (Array.isArray(items) && items.length > 0) {
+                                        return (
+                                            <div style={{ marginTop: '1rem', borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '1rem' }}>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                                                    Products Included for Refund ({items.length})
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                    {items.map((it, idx) => (
+                                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'hsl(var(--bg-card))', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', fontSize: '0.85rem' }}>
+                                                            <div>
+                                                                <span style={{ fontWeight: 600 }}>{it.product_name || 'Product'}</span>
+                                                                <span style={{ color: 'hsl(var(--text-muted))', marginLeft: '6px' }}>× {it.quantity || 1}</span>
+                                                                {it.discount_adjustment > 0 && (
+                                                                    <span style={{ color: '#059669', fontSize: '0.75rem', marginLeft: '6px' }}>(-₹{it.discount_adjustment} discount)</span>
+                                                                )}
+                                                            </div>
+                                                            <span style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>
+                                                                ₹{Number(it.eligible_amount || (it.unit_price * (it.quantity || 1))).toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+
                                 <div style={{ marginTop: '1rem' }}>
                                     <div style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>Reason for Refund</div>
                                     <div style={{ marginTop: '0.25rem', padding: '0.75rem', background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-subtle))', borderRadius: '8px' }}>

@@ -1,14 +1,21 @@
 import { mysqlClient } from '@/lib/mysqlClient';
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
+import { verifyAdmin } from '@/lib/auth';
 
 export async function generateOrderPDFBuffer(order) {
     const arrayBuffer = await generateInvoicePDF(order);
     return Buffer.from(arrayBuffer);
 }
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
     try {
-        const { orderId } = await params;
+        const params = context?.params;
+        const resolvedParams = params && typeof params.then === 'function' ? await params : (params || {});
+        let orderId = resolvedParams?.orderId;
+        if (!orderId) {
+            const match = new URL(request.url).pathname.match(/\/api\/invoice\/([^\/\?]+)/);
+            if (match) orderId = match[1];
+        }
 
         if (!orderId) {
             return new Response('Order ID is required', { status: 400 });
@@ -17,7 +24,7 @@ export async function GET(request, { params }) {
         const { data: order, error: orderError } = await mysqlClient
             .from('orders')
             .select('*, order_items(*), order_discounts(*)')
-            .eq('id', orderId.toUpperCase())
+            .eq('id', String(orderId).toUpperCase())
             .single();
 
         if (orderError || !order) {
@@ -29,13 +36,13 @@ export async function GET(request, { params }) {
             order.invoice_no = String(order.id).replace(/^[A-Z]+-/, 'INV-');
         }
 
-        // --- SECURITY: Phone Verification ---
+        // --- SECURITY: Phone Verification or Verified Admin ---
         const url = new URL(request.url);
         const inputPhone = url.searchParams.get('phone');
-        const authHeader = request.headers.get('Authorization');
         
-        // Allow if it's an admin (has token) OR if the phone matches
-        const isAdmin = authHeader && authHeader.includes(process.env.ADMIN_API_SECRET || 'fallback_secret');
+        // Allow if it's a verified admin OR if the customer phone matches
+        const adminCheck = await verifyAdmin(request);
+        const isAdmin = adminCheck.authorized;
         const orderPhone = (order.customer_phone || order.billing_phone || '').replace(/\D/g, '');
         const normalizedInput = (inputPhone || '').replace(/\D/g, '');
 
