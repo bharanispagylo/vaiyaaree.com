@@ -159,6 +159,15 @@ export default function ShippingAdminPage() {
 
             // 4. Re-sync data from DB to guarantee state integrity
             await fetchData();
+
+            // 5. Broadcast shipping update across tabs and storefront context
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem('vaiyaaree_shipping_updated', String(Date.now()));
+                    window.dispatchEvent(new CustomEvent('vaiyaaree_shipping_updated'));
+                } catch (_) {}
+            }
+
             setSuccess('Shipping ecosystem synchronized!');
             setTimeout(() => setSuccess(null), 3000);
         } catch (err) {

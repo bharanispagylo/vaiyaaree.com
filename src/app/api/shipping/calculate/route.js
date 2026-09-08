@@ -75,7 +75,8 @@ export async function POST(request) {
         let shippingCost = 0;
         let shippingGroup = 'Default Shipping';
         let shippingType = isInternational ? 'INTERNATIONAL' : 'DOMESTIC';
-        let shippingRate = isInternational ? 1500 : 100;
+        const defaultDomesticRate = (dbZones && dbZones.find(z => !isZoneIntl(z))) ? Math.max(0, parseFloat(dbZones.find(z => !isZoneIntl(z)).rate || 0)) : 50;
+        let shippingRate = isInternational ? 1500 : defaultDomesticRate;
         let freeThreshold = null;
 
         if (activeZone) {
@@ -91,7 +92,7 @@ export async function POST(request) {
                 shippingCost = shippingRate;
             }
         } else {
-            shippingCost = isInternational ? 1500 : 100;
+            shippingCost = isInternational ? 1500 : defaultDomesticRate;
         }
 
         return NextResponse.json({

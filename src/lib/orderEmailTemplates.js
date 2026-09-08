@@ -498,17 +498,17 @@ export function buildOrderStatusEmailHtml({
                                             <td style="padding: 4px 0; font-size: 13px; color: #16a34a; font-weight: 700;">Offers & Discounts Applied</td>
                                             <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #16a34a;">-₹${totalDiscount.toLocaleString('en-IN')}.00</td>
                                         </tr>` : ''}
+                                        ${taxAmount > 0 ? `
+                                        <tr>
+                                            <td style="padding: 4px 0; font-size: 13px; color: #64748b;">GST Tax</td>
+                                            <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${taxAmount.toLocaleString('en-IN')}.00</td>
+                                        </tr>` : ''}
                                         <tr>
                                             <td style="padding: 4px 0; font-size: 13px; color: #64748b;">Shipping & Delivery</td>
                                             <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: ${shippingCost === 0 ? '#16a34a' : '#0f172a'};">
                                                 ${shippingCost === 0 ? 'FREE' : `₹${shippingCost.toLocaleString('en-IN')}.00`}
                                             </td>
                                         </tr>
-                                        ${taxAmount > 0 ? `
-                                        <tr>
-                                            <td style="padding: 4px 0; font-size: 13px; color: #64748b;">GST Tax</td>
-                                            <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${taxAmount.toLocaleString('en-IN')}.00</td>
-                                        </tr>` : ''}
                                         <tr>
                                             <td style="padding: 12px 0 0 0; border-top: 1px solid #e2e8f0; font-size: 16px; font-weight: 900; color: #0f172a;">
                                                 Total Paid / Payable

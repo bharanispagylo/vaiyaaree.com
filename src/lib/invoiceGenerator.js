@@ -395,11 +395,6 @@ export async function generateInvoicePDF(order) {
             }
         });
     }
-    if (order.shipping_cost > 0) {
-        doc.text("Shipping Cost:", 148, y + 5, { align: "right" });
-        doc.text(parseFloat(order.shipping_cost).toFixed(2), 198, y + 5, { align: "right" });
-        y += 7;
-    }
     if (order.cgst > 0) {
         doc.text("CGST:", 148, y + 5, { align: "right" });
         doc.text(parseFloat(order.cgst).toFixed(2), 198, y + 5, { align: "right" });
@@ -418,6 +413,11 @@ export async function generateInvoicePDF(order) {
     if ((!order.cgst && !order.sgst && !order.igst) && order.tax_amount > 0) {
         doc.text("Tax:", 148, y + 5, { align: "right" });
         doc.text(parseFloat(order.tax_amount).toFixed(2), 198, y + 5, { align: "right" });
+        y += 7;
+    }
+    if (order.shipping_cost > 0) {
+        doc.text("Shipping Cost:", 148, y + 5, { align: "right" });
+        doc.text(parseFloat(order.shipping_cost).toFixed(2), 198, y + 5, { align: "right" });
         y += 7;
     }
     

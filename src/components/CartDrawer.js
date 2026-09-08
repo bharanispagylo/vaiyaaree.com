@@ -174,28 +174,46 @@ export default function CartDrawer() {
                             <span className={styles.totalAmount}>₹{cartTotal.toLocaleString()}</span>
                         </div>
 
-                        {discountData?.totalDiscount > 0 && (
-                            <>
-                                <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.9rem' }}>
-                                    <span>Promotions & Savings</span>
-                                    <span>-₹{discountData.totalDiscount.toLocaleString()}</span>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '4px 0 8px', padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
-                                    {(discountData.appliedRules || []).map((r, idx) => {
-                                        const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
-                                        const savingsText = r.discountType === 'FREE_SHIPPING'
-                                            ? 'Free Shipping'
-                                            : `-₹${(r.discountAmount || 0).toLocaleString()}`;
-                                        return (
-                                            <div key={idx} style={{ fontSize: '0.78rem', color: '#15803d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span style={{ fontWeight: 600 }}>✨ {ruleDisplayName}</span>
-                                                <span style={{ fontWeight: 700 }}>{savingsText}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </>
-                        )}
+                        {discountData?.totalDiscount > 0 && (() => {
+                            const appliedRules = discountData.appliedRules || [];
+                            const singleRule = appliedRules.length === 1 ? appliedRules[0] : null;
+                            const singleRuleName = singleRule ? (singleRule.ruleName || singleRule.name || (singleRule.couponCode ? `Coupon ${singleRule.couponCode}` : 'Promotion')) : '';
+
+                            return (
+                                <>
+                                    <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.9rem', alignItems: 'flex-start' }}>
+                                        <div>
+                                            <span>Discount</span>
+                                            {singleRuleName && (
+                                                <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginTop: '1px' }}>
+                                                    ✨ {singleRuleName}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span>-₹{discountData.totalDiscount.toLocaleString()}</span>
+                                    </div>
+                                    {appliedRules.length > 1 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '4px 0 8px', padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                                                Offers Applied (Breakdown):
+                                            </span>
+                                            {appliedRules.map((r, idx) => {
+                                                const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
+                                                const savingsText = r.discountType === 'FREE_SHIPPING'
+                                                    ? 'Free Shipping'
+                                                    : `-₹${(r.discountAmount || 0).toLocaleString()}`;
+                                                return (
+                                                    <div key={idx} style={{ fontSize: '0.75rem', color: '#15803d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
+                                                        <span style={{ fontWeight: 700 }}>{savingsText}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
 
                         <div className={styles.summaryRow} style={{ borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '8px', marginTop: '4px' }}>
                             <span style={{ fontWeight: 800 }}>Estimated Total</span>

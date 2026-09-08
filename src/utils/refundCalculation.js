@@ -26,21 +26,30 @@ export function calculateOrderItemsRefund(order, selectedItemIds = []) {
     const orderTotalDiscount = Number(order.total_discount || order.totalDiscount || 0);
     const orderTaxable = Math.max(1, orderSubtotal - orderTotalDiscount);
 
-    const hasOrderCGST = Number(order.cgst || 0) > 0;
-    const hasOrderSGST = Number(order.sgst || 0) > 0;
-    const hasOrderIGST = Number(order.igst || 0) > 0;
+    // Tax type resolution: tax_type field → stored amounts (canonical logic)
+    const taxType = order.tax_type || '';
+    const hasOrderCGST = Number(order.cgst_amount || order.cgst || 0) > 0;
+    const hasOrderSGST = Number(order.sgst_amount || order.sgst || 0) > 0;
+    const hasOrderIGST = Number(order.igst_amount || order.igst || 0) > 0;
 
     let cgstRate = 0.025;
     let sgstRate = 0.025;
     let igstRate = 0;
 
-    if (hasOrderIGST && !hasOrderCGST && !hasOrderSGST) {
-        igstRate = Number(order.igst) / orderTaxable;
+    // Determine if IGST applies using tax_type as primary, then stored amounts
+    const orderIsIGST = taxType === 'IGST' || taxType === 'IGST_INTERNATIONAL'
+        ? true
+        : taxType === 'CGST_SGST'
+            ? false
+            : (hasOrderIGST && !hasOrderCGST && !hasOrderSGST);
+
+    if (orderIsIGST) {
+        igstRate = Number(order.igst_amount || order.igst || 0) / orderTaxable;
         cgstRate = 0;
         sgstRate = 0;
     } else if (hasOrderCGST || hasOrderSGST) {
-        cgstRate = hasOrderCGST ? Number(order.cgst) / orderTaxable : 0.025;
-        sgstRate = hasOrderSGST ? Number(order.sgst) / orderTaxable : 0.025;
+        cgstRate = hasOrderCGST ? Number(order.cgst_amount || order.cgst) / orderTaxable : 0.025;
+        sgstRate = hasOrderSGST ? Number(order.sgst_amount || order.sgst) / orderTaxable : 0.025;
         igstRate = 0;
     }
 
@@ -96,7 +105,7 @@ export function calculateOrderItemsRefund(order, selectedItemIds = []) {
         sgst: totalSgst,
         igst: totalIgst,
         eligibleAmount: cappedEligible,
-        isIGST: hasOrderIGST && !hasOrderCGST && !hasOrderSGST,
+        isIGST: orderIsIGST,
         cgstRatePercent: Math.round(cgstRate * 1000) / 10,
         sgstRatePercent: Math.round(sgstRate * 1000) / 10,
         igstRatePercent: Math.round(igstRate * 1000) / 10,

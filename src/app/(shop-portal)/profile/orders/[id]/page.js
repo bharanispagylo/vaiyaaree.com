@@ -425,21 +425,29 @@ export default function OrderDetailPage() {
                             </div>
                         )}
 
-                        <div className={styles.billRow}>
-                            <span>Shipping Charges</span>
-                            <span className={styles.billRowVal} style={{ color: Number(order.shipping_cost || 0) === 0 ? '#16a34a' : 'inherit' }}>
-                                {Number(order.shipping_cost || 0) === 0 ? 'FREE' : `₹${Number(order.shipping_cost).toLocaleString()}.00`}
-                            </span>
-                        </div>
-
                         {(() => {
-                            const rawCgst = Number(order.cgst || order.cgst_amount || 0);
-                            const rawSgst = Number(order.sgst || order.sgst_amount || 0);
-                            const rawIgst = Number(order.igst || order.igst_amount || 0);
+                            // Tax type resolution: tax_type field → stored amounts → state heuristic
+                            const taxType = order.tax_type || '';
+                            const rawCgst = Number(order.cgst_amount || order.cgst || 0);
+                            const rawSgst = Number(order.sgst_amount || order.sgst || 0);
+                            const rawIgst = Number(order.igst_amount || order.igst || 0);
                             const totalTax = Number(order.tax_amount || 0);
-                            const deliveryState = (order.delivery_state || order.shipping_state || order.billing_state || '').trim().toLowerCase();
 
-                            const isIgst = rawIgst > 0 || (rawCgst === 0 && rawSgst === 0 && totalTax > 0 && deliveryState && deliveryState !== 'tamil nadu');
+                            let isIgst = false;
+                            if (taxType === 'IGST' || taxType === 'IGST_INTERNATIONAL') {
+                                isIgst = true;
+                            } else if (taxType === 'CGST_SGST') {
+                                isIgst = false;
+                            } else {
+                                // Fallback: use stored amounts
+                                if (rawIgst > 0) isIgst = true;
+                                else if (rawCgst > 0 || rawSgst > 0) isIgst = false;
+                                else {
+                                    // Last resort: state heuristic
+                                    const deliveryState = (order.delivery_state || order.shipping_state || order.billing_state || '').trim().toLowerCase();
+                                    isIgst = Boolean(deliveryState && deliveryState !== 'tamil nadu');
+                                }
+                            }
 
                             if (isIgst) {
                                 const igstVal = rawIgst > 0 ? rawIgst : totalTax;
@@ -467,6 +475,13 @@ export default function OrderDetailPage() {
                             }
                             return null;
                         })()}
+
+                        <div className={styles.billRow}>
+                            <span>Shipping Charges</span>
+                            <span className={styles.billRowVal} style={{ color: Number(order.shipping_cost || 0) === 0 ? '#16a34a' : 'inherit' }}>
+                                {Number(order.shipping_cost || 0) === 0 ? 'FREE' : `₹${Number(order.shipping_cost).toLocaleString()}.00`}
+                            </span>
+                        </div>
 
                         <div className={styles.billTotalRow}>
                             <span>Total Paid</span>

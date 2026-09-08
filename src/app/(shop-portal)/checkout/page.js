@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock } from 'lucide-react';
+import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock, Sparkles } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import CheckoutAuthModal from '@/components/CheckoutAuthModal';
 import ModalPortal from '@/components/ModalPortal';
@@ -12,11 +12,26 @@ import styles from './checkout.module.css';
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, discountData, placeOrder, mysqlClient, showToast, user, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon } = useShop();
+    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, discountData, placeOrder, mysqlClient, showToast, user, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon, activeDiscountRules, fetchShippingRates } = useShop();
     const [placing, setPlacing] = useState(false);
     const [orderData, setOrderData] = useState(null);
     const [couponInput, setCouponInput] = useState('');
     const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+    // Refresh live shipping rates directly from DB on checkout mount
+    useEffect(() => {
+        if (typeof fetchShippingRates === 'function') {
+            fetchShippingRates();
+        }
+    }, []);
+
+    const availableCouponOffers = useMemo(() => {
+        return (activeDiscountRules || []).filter(r => {
+            const hasCode = Boolean(r.coupon_code && r.coupon_code.trim());
+            const isActive = r.is_active === 1 || r.is_active === true || r.is_active === '1';
+            return hasCode && isActive;
+        });
+    }, [activeDiscountRules]);
     const [paymentSettings, setPaymentSettings] = useState({
         razorpay_enabled: true,
         razorpay_key_id: '',
@@ -670,6 +685,43 @@ export default function CheckoutPage() {
                             )}
                             {couponError && <p style={{ color: '#dc2626', fontSize: '12px', fontWeight: 600, margin: '-6px 0 8px' }}>{couponError}</p>}
                             {couponMessage && <p style={{ color: '#16a34a', fontSize: '12px', fontWeight: 600, margin: '-6px 0 8px' }}>{couponMessage}</p>}
+
+                            {/* Available Offers in Checkout */}
+                            {availableCouponOffers.length > 0 && !appliedCoupon && (
+                                <div style={{ marginBottom: '12px', padding: '8px 10px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Sparkles size={12} color="#f59e0b" /> Available Offers
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        {availableCouponOffers.map(offer => {
+                                            const offerSavings = offer.discount_type === 'FREE_SHIPPING'
+                                                ? 'Free Delivery'
+                                                : (offer.discount_type === 'PERCENTAGE' ? `${offer.discount_value}% OFF` : `₹${offer.discount_value} OFF`);
+                                            return (
+                                                <div key={offer.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                        <Tag size={12} color="#64748b" />
+                                                        <strong style={{ color: '#0f172a' }}>{offer.coupon_code}</strong>
+                                                        <span style={{ color: '#16a34a', fontWeight: 600 }}>({offerSavings})</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        disabled={applyingCoupon}
+                                                        onClick={async () => {
+                                                            setApplyingCoupon(true);
+                                                            await applyCoupon(offer.coupon_code);
+                                                            setApplyingCoupon(false);
+                                                        }}
+                                                        style={{ background: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                                                    >
+                                                        Apply
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className={styles.summaryRow}>
@@ -677,28 +729,46 @@ export default function CheckoutPage() {
                             <span>₹{cartTotal.toLocaleString()}.00</span>
                         </div>
 
-                        {discountData?.totalDiscount > 0 && (
-                            <>
-                                <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700 }}>
-                                    <span>Promotions & Savings</span>
-                                    <span>-₹{discountData.totalDiscount.toLocaleString()}.00</span>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '-4px 0 10px', padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '0.78rem', color: '#15803d' }}>
-                                    {(discountData.appliedRules || []).map((r, idx) => {
-                                        const ruleDisplayName = r.name || r.ruleName || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
-                                        const savingsText = r.discountType === 'FREE_SHIPPING'
-                                            ? 'Free Shipping'
-                                            : `-₹${(r.discountAmount || 0).toLocaleString()}.00`;
-                                        return (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
-                                                <span style={{ fontWeight: 700 }}>{savingsText}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </>
-                        )}
+                        {discountData?.totalDiscount > 0 && (() => {
+                            const appliedRules = discountData.appliedRules || [];
+                            const singleRule = appliedRules.length === 1 ? appliedRules[0] : null;
+                            const singleRuleName = singleRule ? (singleRule.name || singleRule.ruleName || (singleRule.couponCode ? `Coupon ${singleRule.couponCode}` : 'Promotion')) : '';
+
+                            return (
+                                <>
+                                    <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 700, alignItems: 'flex-start' }}>
+                                        <div>
+                                            <span>Discount</span>
+                                            {singleRuleName && (
+                                                <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginTop: '2px' }}>
+                                                    ({singleRuleName})
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span>-₹{discountData.totalDiscount.toLocaleString()}.00</span>
+                                    </div>
+                                    {appliedRules.length > 1 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '-4px 0 10px', padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '0.78rem', color: '#15803d' }}>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                                                Offers Applied (Breakdown):
+                                            </span>
+                                            {appliedRules.map((r, idx) => {
+                                                const ruleDisplayName = r.name || r.ruleName || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
+                                                const savingsText = r.discountType === 'FREE_SHIPPING'
+                                                    ? 'Free Shipping'
+                                                    : `-₹${(r.discountAmount || 0).toLocaleString()}.00`;
+                                                return (
+                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
+                                                        <span style={{ fontWeight: 700 }}>{savingsText}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
 
                         {taxDetails.cgst > 0 && (
                             <div className={styles.summaryRow}>

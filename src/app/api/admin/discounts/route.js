@@ -51,6 +51,10 @@ export async function POST(request) {
             threshold_value,
             discount_type,
             discount_value,
+            product_discount_type,
+            product_discount_value,
+            cart_discount_type,
+            cart_discount_value,
             target_type,
             minimum_cart_amount,
             maximum_discount_amount,
@@ -73,30 +77,22 @@ export async function POST(request) {
         }
 
         const basis = (calculation_basis || 'PRODUCT').toUpperCase();
-        let finalThresholdType = null;
-        let finalThresholdCount = null;
-        let finalThresholdValue = null;
-        let finalTargetType = target_type || 'ALL_PRODUCTS';
+        const isCart = basis === 'CART';
+        const finalThresholdType = isCart ? (threshold_type || (target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT')).toUpperCase() : null;
+        const finalThresholdCount = isCart ? (threshold_count !== null && threshold_count !== undefined ? Math.max(1, parseInt(threshold_count, 10)) : 1) : null;
+        const finalThresholdValue = isCart ? (threshold_value !== null && threshold_value !== undefined ? Math.max(0, parseFloat(threshold_value)) : 0) : null;
+        const finalTargetType = target_type || 'ALL_PRODUCTS';
 
-        if (basis === 'CART') {
-            finalThresholdType = (threshold_type || (target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT')).toUpperCase();
-            if (finalThresholdType === 'COUNT') {
-                finalThresholdCount = threshold_count !== null && threshold_count !== undefined ? parseInt(threshold_count, 10) : 1;
-                if (isNaN(finalThresholdCount) || finalThresholdCount < 1) {
-                    return NextResponse.json({ error: 'Cart Count threshold must be at least 1' }, { status: 400 });
-                }
-                finalTargetType = 'ALL_PRODUCTS';
-            } else if (finalThresholdType === 'VALUE') {
-                finalThresholdValue = threshold_value !== null && threshold_value !== undefined ? parseFloat(threshold_value) : 0;
-                if (isNaN(finalThresholdValue) || finalThresholdValue <= 0) {
-                    return NextResponse.json({ error: 'Cart Value threshold must be greater than 0' }, { status: 400 });
-                }
-                finalTargetType = 'ALL_PRODUCTS';
-            }
-        }
+        // Decoupled types & values
+        const prodType = product_discount_type || (basis === 'PRODUCT' ? (discount_type || 'PERCENTAGE') : 'PERCENTAGE');
+        const prodVal = prodType === 'FREE_SHIPPING' ? 0 : parseFloat(product_discount_value ?? (basis === 'PRODUCT' ? (discount_value ?? 10) : 10));
 
-        const dType = discount_type || 'PERCENTAGE';
-        const dVal = dType === 'FREE_SHIPPING' ? 0 : parseFloat(discount_value || 0);
+        const cartType = cart_discount_type || (basis === 'CART' ? (discount_type || 'PERCENTAGE') : 'PERCENTAGE');
+        const cartVal = cartType === 'FREE_SHIPPING' ? 0 : parseFloat(cart_discount_value ?? (basis === 'CART' ? (discount_value ?? 10) : 10));
+
+        // Effective discount type & value for current calculation basis (for checkout compatibility)
+        const dType = basis === 'CART' ? cartType : prodType;
+        const dVal = basis === 'CART' ? cartVal : prodVal;
 
         if (dType === 'PERCENTAGE' && (dVal <= 0 || dVal > 100)) {
             return NextResponse.json({ error: 'Percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
@@ -119,11 +115,15 @@ export async function POST(request) {
             threshold_value: finalThresholdValue,
             discount_type: dType,
             discount_value: dVal,
+            product_discount_type: prodType,
+            product_discount_value: prodVal,
+            cart_discount_type: cartType,
+            cart_discount_value: cartVal,
             target_type: finalTargetType,
             minimum_cart_amount: parseFloat(minimum_cart_amount || 0),
             maximum_discount_amount: null,
             minimum_cart_products_enabled: minimum_cart_products_enabled ? 1 : 0,
-            minimum_cart_products: minimum_cart_products_enabled && minimum_cart_products ? parseInt(minimum_cart_products, 10) : null,
+            minimum_cart_products: minimum_cart_products ? parseInt(minimum_cart_products, 10) : 3,
             start_date: start_date || null,
             end_date: end_date || null,
             priority: parseInt(priority || 0, 10),
@@ -141,30 +141,28 @@ export async function POST(request) {
 
         if (insertErr) throw insertErr;
 
-        // Insert targets if applicable for product rules
-        if (basis === 'PRODUCT') {
-            if (finalTargetType === 'SPECIFIC_PRODUCTS' && Array.isArray(product_ids) && product_ids.length > 0) {
-                const prodInserts = product_ids.map(pid => ({
-                    id: `drp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                    discount_rule_id: id,
-                    product_id: pid
-                }));
-                await mysqlClient.from('discount_rule_products').insert(prodInserts);
-            } else if (finalTargetType === 'SPECIFIC_CATEGORIES' && Array.isArray(categories) && categories.length > 0) {
-                const catInserts = categories.map(cat => ({
-                    id: `drc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                    discount_rule_id: id,
-                    category: cat
-                }));
-                await mysqlClient.from('discount_rule_categories').insert(catInserts);
-            } else if (finalTargetType === 'SPECIFIC_CUSTOMERS' && Array.isArray(customer_ids) && customer_ids.length > 0) {
-                const custInserts = customer_ids.map(cid => ({
-                    id: `drcust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                    discount_rule_id: id,
-                    customer_id: cid
-                }));
-                await mysqlClient.from('discount_rule_customers').insert(custInserts);
-            }
+        // Insert targets if applicable
+        if (finalTargetType === 'SPECIFIC_PRODUCTS' && Array.isArray(product_ids) && product_ids.length > 0) {
+            const prodInserts = product_ids.map(pid => ({
+                id: `drp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                discount_rule_id: id,
+                product_id: pid
+            }));
+            await mysqlClient.from('discount_rule_products').insert(prodInserts);
+        } else if (finalTargetType === 'SPECIFIC_CATEGORIES' && Array.isArray(categories) && categories.length > 0) {
+            const catInserts = categories.map(cat => ({
+                id: `drc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                discount_rule_id: id,
+                category: cat
+            }));
+            await mysqlClient.from('discount_rule_categories').insert(catInserts);
+        } else if (finalTargetType === 'SPECIFIC_CUSTOMERS' && Array.isArray(customer_ids) && customer_ids.length > 0) {
+            const custInserts = customer_ids.map(cid => ({
+                id: `drcust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                discount_rule_id: id,
+                customer_id: cid
+            }));
+            await mysqlClient.from('discount_rule_customers').insert(custInserts);
         }
 
         return NextResponse.json({ success: true, rule: newRule }, { status: 200 });
@@ -187,18 +185,57 @@ export async function PUT(request) {
             updateFields.coupon_code = updateFields.coupon_code && updateFields.coupon_code.trim() ? updateFields.coupon_code.trim().toUpperCase() : null;
         }
 
-        if (updateFields.discount_type === 'FREE_SHIPPING') {
-            updateFields.discount_value = 0;
-        } else if (updateFields.discount_value !== undefined) {
-            updateFields.discount_value = parseFloat(updateFields.discount_value || 0);
+        const basis = (updateFields.calculation_basis || 'PRODUCT').toUpperCase();
+        updateFields.calculation_basis = basis;
+
+        // Process product discount fields
+        if (updateFields.product_discount_type !== undefined) {
+            if (updateFields.product_discount_type === 'FREE_SHIPPING') {
+                updateFields.product_discount_value = 0;
+            } else if (updateFields.product_discount_value !== undefined) {
+                updateFields.product_discount_value = parseFloat(updateFields.product_discount_value || 0);
+            }
         }
 
-        if (updateFields.calculation_basis === 'CART') {
-            if (updateFields.threshold_type === 'COUNT' && updateFields.threshold_count !== undefined) {
-                updateFields.threshold_count = parseInt(updateFields.threshold_count || 1, 10);
-            } else if (updateFields.threshold_type === 'VALUE' && updateFields.threshold_value !== undefined) {
-                updateFields.threshold_value = parseFloat(updateFields.threshold_value || 0);
+        // Process cart discount fields
+        if (updateFields.cart_discount_type !== undefined) {
+            if (updateFields.cart_discount_type === 'FREE_SHIPPING') {
+                updateFields.cart_discount_value = 0;
+            } else if (updateFields.cart_discount_value !== undefined) {
+                updateFields.cart_discount_value = parseFloat(updateFields.cart_discount_value || 0);
             }
+        }
+
+        // Sync effective discount_type & discount_value for the active basis
+        if (basis === 'CART') {
+            updateFields.discount_type = updateFields.cart_discount_type || updateFields.discount_type || 'PERCENTAGE';
+            updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
+                ? 0
+                : parseFloat(updateFields.cart_discount_value ?? updateFields.discount_value ?? 0);
+        } else {
+            updateFields.discount_type = updateFields.product_discount_type || updateFields.discount_type || 'PERCENTAGE';
+            updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
+                ? 0
+                : parseFloat(updateFields.product_discount_value ?? updateFields.discount_value ?? 0);
+        }
+
+        if (basis !== 'CART') {
+            updateFields.threshold_type = null;
+            updateFields.threshold_count = null;
+            updateFields.threshold_value = null;
+        } else {
+            if (updateFields.threshold_count !== undefined && updateFields.threshold_count !== null) {
+                updateFields.threshold_count = parseInt(updateFields.threshold_count, 10);
+            }
+            if (updateFields.threshold_value !== undefined && updateFields.threshold_value !== null) {
+                updateFields.threshold_value = parseFloat(updateFields.threshold_value);
+            }
+        }
+        if (updateFields.minimum_cart_products !== undefined && updateFields.minimum_cart_products !== null) {
+            updateFields.minimum_cart_products = parseInt(updateFields.minimum_cart_products, 10);
+        }
+        if (updateFields.minimum_cart_products_enabled !== undefined) {
+            updateFields.minimum_cart_products_enabled = updateFields.minimum_cart_products_enabled ? 1 : 0;
         }
 
         const { data: updatedRule, error: updateErr } = await mysqlClient
@@ -213,7 +250,7 @@ export async function PUT(request) {
         // Sync relationships if targets provided
         if (Array.isArray(product_ids)) {
             await mysqlClient.from('discount_rule_products').delete().eq('discount_rule_id', id);
-            if (product_ids.length > 0 && updateFields.calculation_basis !== 'CART') {
+            if (product_ids.length > 0) {
                 const prodInserts = product_ids.map(pid => ({
                     id: `drp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
                     discount_rule_id: id,
@@ -225,7 +262,7 @@ export async function PUT(request) {
 
         if (Array.isArray(categories)) {
             await mysqlClient.from('discount_rule_categories').delete().eq('discount_rule_id', id);
-            if (categories.length > 0 && updateFields.calculation_basis !== 'CART') {
+            if (categories.length > 0) {
                 const catInserts = categories.map(cat => ({
                     id: `drc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
                     discount_rule_id: id,

@@ -625,13 +625,27 @@ export default function OrderDetailView({
                                         ? itemsTotal 
                                         : Math.max(0, Number(selectedOrder.total_amount || 0) - Number(selectedOrder.tax_amount || 0) - Number(selectedOrder.shipping_cost || 0) + rawDiscount));
                                 
-                                const rawCgst = Number(selectedOrder.cgst || selectedOrder.cgst_amount || 0);
-                                const rawSgst = Number(selectedOrder.sgst || selectedOrder.sgst_amount || 0);
-                                const rawIgst = Number(selectedOrder.igst || selectedOrder.igst_amount || 0);
+                                // Tax type resolution: tax_type field → stored amounts → state heuristic
+                                const taxType = selectedOrder.tax_type || '';
+                                const rawCgst = Number(selectedOrder.cgst_amount || selectedOrder.cgst || 0);
+                                const rawSgst = Number(selectedOrder.sgst_amount || selectedOrder.sgst || 0);
+                                const rawIgst = Number(selectedOrder.igst_amount || selectedOrder.igst || 0);
                                 const rawTax = Number(selectedOrder.tax_amount || 0);
-                                const deliveryState = (selectedOrder.delivery_state || selectedOrder.shipping_state || selectedOrder.billing_state || '').trim().toLowerCase();
 
-                                const isIgst = rawIgst > 0 || (rawCgst === 0 && rawSgst === 0 && rawTax > 0 && deliveryState && deliveryState !== 'tamil nadu');
+                                let isIgst = false;
+                                if (taxType === 'IGST' || taxType === 'IGST_INTERNATIONAL') {
+                                    isIgst = true;
+                                } else if (taxType === 'CGST_SGST') {
+                                    isIgst = false;
+                                } else {
+                                    if (rawIgst > 0) isIgst = true;
+                                    else if (rawCgst > 0 || rawSgst > 0) isIgst = false;
+                                    else {
+                                        const deliveryState = (selectedOrder.delivery_state || selectedOrder.shipping_state || selectedOrder.billing_state || '').trim().toLowerCase();
+                                        isIgst = Boolean(deliveryState && deliveryState !== 'tamil nadu');
+                                    }
+                                }
+
                                 const igstVal = rawIgst > 0 ? rawIgst : rawTax;
                                 const cgstVal = rawCgst > 0 ? rawCgst : Math.round((rawTax / 2) * 100) / 100;
                                 const sgstVal = rawSgst > 0 ? rawSgst : Math.round((rawTax / 2) * 100) / 100;
@@ -644,6 +658,13 @@ export default function OrderDetailView({
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <span>Subtotal:</span>
                                             <span style={{ fontWeight: 600 }}>₹{subtotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
+                                            <span>Discount{selectedOrder.coupon_code ? ` (${selectedOrder.coupon_code})` : ''}:</span>
+                                            <span style={{ color: rawDiscount > 0 ? '#dc2626' : 'inherit', fontWeight: rawDiscount > 0 ? 600 : 400 }}>
+                                                {rawDiscount > 0 ? `- ₹${rawDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
+                                            </span>
                                         </div>
 
                                         {isIgst ? (
@@ -667,13 +688,6 @@ export default function OrderDetailView({
                                         <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
                                             <span>Shipping:</span>
                                             <span>{shippingVal > 0 ? `₹${shippingVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Free (₹0.00)'}</span>
-                                        </div>
-
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--text-muted))' }}>
-                                            <span>Discount{selectedOrder.coupon_code ? ` (${selectedOrder.coupon_code})` : ''}:</span>
-                                            <span style={{ color: rawDiscount > 0 ? '#dc2626' : 'inherit', fontWeight: rawDiscount > 0 ? 600 : 400 }}>
-                                                {rawDiscount > 0 ? `- ₹${rawDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
-                                            </span>
                                         </div>
 
                                         <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.5rem 0' }} />

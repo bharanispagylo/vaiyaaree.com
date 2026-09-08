@@ -15,7 +15,7 @@ export async function POST(request) {
         // Fetch the order and its items from MySQL
         const { data: order, error } = await mysqlClient
             .from('orders')
-            .select('id, total_amount, customer_name, customer_phone, order_items(*)')
+            .select('id, total_amount, total_discount, tax_amount, shipping_cost, customer_name, customer_phone, order_items(*)')
             .eq('id', orderId)
             .single();
 
@@ -36,8 +36,11 @@ export async function POST(request) {
             }
         }
 
-        const expectedTotal = calculatedItemsTotal + (order.tax_amount || 0) + (order.shipping_cost || 0);
-        const diff = Math.abs(expectedTotal - order.total_amount);
+        const discountTotal = parseFloat(order.total_discount || 0);
+        const taxTotal = parseFloat(order.tax_amount || 0);
+        const shippingTotal = parseFloat(order.shipping_cost || 0);
+        const expectedTotal = Math.round(Math.max(0, calculatedItemsTotal - discountTotal) + taxTotal + shippingTotal);
+        const diff = Math.abs(expectedTotal - parseFloat(order.total_amount || 0));
 
         if (diff > 5) { // Allow max ₹5 tolerance for rounding
             console.error(`[FRAUD-ALERT] Price mismatch for order ${orderId}. Expected: ${expectedTotal}, Received: ${order.total_amount}`);

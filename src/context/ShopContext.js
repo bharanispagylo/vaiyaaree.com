@@ -1,13 +1,13 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { calculateDiscounts } from '@/services/discountService';
 import { sanitizeCustomerSession } from '@/lib/authSanitizer';
 
 const defaultContextValue = {
     products: [], cart: [], loading: false, user: null, setUser: () => { }, isSessionLoading: true,
-    shippingZones: [], zoneMappings: [], businessState: 'Tamil Nadu',
+    shippingZones: [], zoneMappings: [], businessState: 'Tamil Nadu', fetchShippingRates: async () => {},
     checkoutForm: { 
         billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingCountry: 'India', billingPincode: '', billingEmail: '', billingWhatsApp: '',
         shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingCountry: 'India', shippingPincode: '',
@@ -19,7 +19,8 @@ const defaultContextValue = {
     mysqlClient: null, placeOrder: () => { },
     isCartOpen: false, setIsCartOpen: () => { }, openCart: () => { }, closeCart: () => { }, toggleCart: () => { },
     comingSoonSettings: null, setComingSoonSettings: () => { }, fetchComingSoon: () => { },
-    activeDiscountRules: [], getEffectiveProductPrice: () => ({ originalPrice: 0, discountedPrice: 0, discountPercent: 0, discountAmount: 0, activeRule: null, hasDiscount: false })
+    activeDiscountRules: [], getEffectiveProductPrice: () => ({ originalPrice: 0, discountedPrice: 0, discountPercent: 0, discountAmount: 0, activeRule: null, hasDiscount: false }),
+    appliedCoupon: null, couponMessage: null, couponError: null, applyCoupon: async () => false, removeCoupon: () => { }, discountData: null
 };
 
 const ShopContext = createContext(defaultContextValue);
@@ -38,19 +39,56 @@ export function ShopProvider({ children }) {
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [hasMounted, setHasMounted] = useState(false);
     const [isCartLoaded, setIsCartLoaded] = useState(false); // Guard for DB sync
-    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [appliedCoupon, setAppliedCoupon] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const cached = sessionStorage.getItem('vaiyaaree_applied_coupon');
+                if (cached) return JSON.parse(cached);
+            } catch (e) {}
+        }
+        return null;
+    });
     const [couponMessage, setCouponMessage] = useState(null);
     const [couponError, setCouponError] = useState(null);
-    const [discountData, setDiscountData] = useState({
-        subtotal: 0,
-        productDiscount: 0,
-        cartDiscount: 0,
-        couponDiscount: 0,
-        shippingDiscount: 0,
-        totalDiscount: 0,
-        discountedItems: [],
-        appliedRules: []
+    const [discountData, setDiscountData] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const cached = sessionStorage.getItem('vaiyaaree_applied_coupon');
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (parsed?.calculation) return parsed.calculation;
+                }
+            } catch (e) {}
+        }
+        return {
+            subtotal: 0,
+            productDiscount: 0,
+            cartDiscount: 0,
+            couponDiscount: 0,
+            shippingDiscount: 0,
+            totalDiscount: 0,
+            discountedItems: [],
+            appliedRules: []
+        };
     });
+
+    // Hydrate applied coupon from sessionStorage on mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const cached = sessionStorage.getItem('vaiyaaree_applied_coupon');
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (parsed && parsed.couponCode) {
+                        setAppliedCoupon(parsed);
+                        if (parsed.calculation) {
+                            setDiscountData(parsed.calculation);
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+    }, []);
     const [comingSoonSettings, setComingSoonSettings] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -230,6 +268,28 @@ export function ShopProvider({ children }) {
             fetchDbCategories(),
             fetchActiveDiscountRules()
         ]).catch(err => console.error('[APP INIT] Startup fetch error:', err));
+
+        // Listen for live shipping settings updates from Admin or other tabs
+        const handleShippingUpdated = () => {
+            fetchShippingRates();
+        };
+        const handleStorageChange = (e) => {
+            if (e.key === 'vaiyaaree_shipping_updated') {
+                fetchShippingRates();
+            }
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('vaiyaaree_shipping_updated', handleShippingUpdated);
+            window.addEventListener('storage', handleStorageChange);
+        }
+
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('vaiyaaree_shipping_updated', handleShippingUpdated);
+                window.removeEventListener('storage', handleStorageChange);
+            }
+        };
     }, []);
 
     const fetchComingSoon = async () => {
@@ -611,8 +671,12 @@ export function ShopProvider({ children }) {
         try {
             const { data: zones } = await mysqlClient.from('shipping_zones').select('*');
             const { data: mappings } = await mysqlClient.from('shipping_zone_states').select('*');
-            if (zones) setShippingZones(zones);
-            if (mappings) setZoneMappings(mappings);
+            if (zones && Array.isArray(zones) && zones.length > 0) {
+                setShippingZones(zones);
+            }
+            if (mappings && Array.isArray(mappings)) {
+                setZoneMappings(mappings);
+            }
         } catch (err) {
             console.error('Shipping Rates Fetch Error:', err);
         }
@@ -710,6 +774,17 @@ export function ShopProvider({ children }) {
     const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
     const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
+    const autoCouponAttemptedRef = useRef(false);
+    const prevCartItemsRef = useRef('');
+
+    useEffect(() => {
+        const cartKey = (cart || []).map(i => `${i.id}_${i.qty}_${i.price}`).join('|');
+        if (cartKey !== prevCartItemsRef.current) {
+            prevCartItemsRef.current = cartKey;
+            autoCouponAttemptedRef.current = false;
+        }
+    }, [cart]);
+
     // Sync discounts whenever cart, coupon, or user changes
     useEffect(() => {
         async function syncDiscounts() {
@@ -729,43 +804,106 @@ export function ShopProvider({ children }) {
 
             try {
                 let res = null;
-                try {
-                    const apiRes = await fetch('/api/discounts/calculate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            cartItems: cart,
-                            subtotal: cartTotal,
-                            couponCode: appliedCoupon?.couponCode || null,
-                            customer: user || null
-                        })
-                    });
-                    if (apiRes.ok) {
-                        const json = await apiRes.json();
-                        if (json?.success) res = json;
+                let activeCouponCode = appliedCoupon?.couponCode || null;
+
+                // Auto-apply best available active coupon if none applied and customer hasn't explicitly removed it
+                if (!activeCouponCode && typeof window !== 'undefined' && !autoCouponAttemptedRef.current) {
+                    const isRemovedByUser = sessionStorage.getItem('vaiyaaree_coupon_removed') === 'true';
+                    if (!isRemovedByUser) {
+                        let rulesToExamine = activeDiscountRules;
+                        if (!rulesToExamine || rulesToExamine.length === 0) {
+                            try {
+                                const rRes = await fetch('/api/discounts/active');
+                                if (rRes.ok) {
+                                    const rData = await rRes.json();
+                                    if (rData.success && Array.isArray(rData.rules)) {
+                                        rulesToExamine = rData.rules;
+                                        setActiveDiscountRules(rData.rules);
+                                    }
+                                }
+                            } catch (_) {}
+                        }
+
+                        const candidateCouponRules = (rulesToExamine || []).filter(r => 
+                            (r.is_active === 1 || r.is_active === true || r.is_active === '1') &&
+                            r.coupon_code && r.coupon_code.trim()
+                        );
+
+                        if (candidateCouponRules.length > 0) {
+                            autoCouponAttemptedRef.current = true;
+                            let bestCandidate = null;
+                            let maxSavings = 0;
+
+                            for (const candidate of candidateCouponRules) {
+                                const candidateCode = candidate.coupon_code.trim().toUpperCase();
+                                const candidateCalc = await calculateDiscounts({
+                                    cartItems: cart,
+                                    couponCode: candidateCode,
+                                    customer: user || null
+                                });
+                                const savings = Number(candidateCalc?.totalDiscount || 0) + Number(candidateCalc?.shippingDiscount || 0);
+                                const isFreeShipping = (candidateCalc?.appliedRules || []).some(r => r.discountType === 'FREE_SHIPPING');
+                                if (savings > maxSavings || (isFreeShipping && !bestCandidate)) {
+                                    maxSavings = savings;
+                                    bestCandidate = {
+                                        rule: candidate,
+                                        code: candidateCode,
+                                        calculation: candidateCalc
+                                    };
+                                }
+                            }
+
+                            if (bestCandidate && (maxSavings > 0 || bestCandidate.calculation?.appliedRules?.some(r => r.discountType === 'FREE_SHIPPING'))) {
+                                activeCouponCode = bestCandidate.code;
+                                const newCouponState = {
+                                    couponCode: bestCandidate.code,
+                                    rule: bestCandidate.rule,
+                                    couponDiscount: Number(bestCandidate.calculation?.couponDiscount || 0),
+                                    calculation: bestCandidate.calculation
+                                };
+                                setAppliedCoupon(newCouponState);
+                                setCouponMessage(`Coupon "${bestCandidate.code}" applied!`);
+                                try {
+                                    sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(newCouponState));
+                                } catch (_) {}
+                                res = bestCandidate.calculation;
+                            }
+                        }
                     }
-                } catch (apiErr) {
-                    // Fallback to client-side calculateDiscounts
                 }
 
                 if (!res) {
-                    res = await calculateDiscounts({
-                        cartItems: cart,
-                        couponCode: appliedCoupon?.couponCode || null,
-                        customer: user || null
-                    });
+                    try {
+                        const apiRes = await fetch('/api/discounts/calculate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                cartItems: cart,
+                                subtotal: cartTotal,
+                                couponCode: activeCouponCode,
+                                customer: user || null
+                            })
+                        });
+                        if (apiRes.ok) {
+                            const json = await apiRes.json();
+                            if (json?.success) res = json;
+                        }
+                    } catch (apiErr) {
+                        // Fallback to client-side calculateDiscounts
+                    }
+
+                    if (!res) {
+                        res = await calculateDiscounts({
+                            cartItems: cart,
+                            couponCode: activeCouponCode,
+                            customer: user || null
+                        });
+                    }
                 }
 
-                setDiscountData(res || {
-                    subtotal: cartTotal,
-                    productDiscount: 0,
-                    cartDiscount: 0,
-                    couponDiscount: 0,
-                    shippingDiscount: 0,
-                    totalDiscount: 0,
-                    discountedItems: [],
-                    appliedRules: []
-                });
+                if (res) {
+                    setDiscountData(res);
+                }
 
                 // Reconcile appliedCoupon with actual server calculation results
                 if (appliedCoupon) {
@@ -773,7 +911,7 @@ export function ShopProvider({ children }) {
                     const matchingCouponRule = (res?.appliedRules || []).find(
                         r => (r.isCoupon && r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper) ||
                              (r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper) ||
-                             r.isCoupon
+                             (r.isCoupon && !r.couponCode)
                     );
                     const hasAppliedCouponRule = Boolean(matchingCouponRule);
                     const totalBenefit = Number(res?.couponDiscount || 0) + Number(res?.shippingDiscount || 0) + Number(res?.totalDiscount || 0);
@@ -781,13 +919,20 @@ export function ShopProvider({ children }) {
                     if (!hasAppliedCouponRule || (totalBenefit <= 0 && matchingCouponRule?.discountType !== 'FREE_SHIPPING')) {
                         // Coupon is disabled, expired, or invalid for cart items
                         setAppliedCoupon(null);
+                        if (typeof window !== 'undefined') {
+                            try { sessionStorage.removeItem('vaiyaaree_applied_coupon'); } catch (e) {}
+                        }
                         setCouponError('The applied coupon is no longer active or valid for the items in your cart.');
                     } else {
-                        setAppliedCoupon(prev => prev ? {
-                            ...prev,
+                        const updatedCoupon = {
+                            ...appliedCoupon,
                             couponDiscount: Number(res?.couponDiscount || matchingCouponRule?.discountAmount || 0),
                             calculation: res
-                        } : null);
+                        };
+                        setAppliedCoupon(updatedCoupon);
+                        if (typeof window !== 'undefined') {
+                            try { sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(updatedCoupon)); } catch (e) {}
+                        }
                     }
                 }
             } catch (err) {
@@ -795,7 +940,7 @@ export function ShopProvider({ children }) {
             }
         }
         syncDiscounts();
-    }, [cart, appliedCoupon?.couponCode, user]);
+    }, [cart, appliedCoupon?.couponCode, user, activeDiscountRules]);
 
     const taxDetails = useMemo(() => {
         const subtotal = cartTotal;
@@ -850,17 +995,23 @@ export function ShopProvider({ children }) {
         } else {
             const domesticZones = shippingZones.filter(z => !isZoneIntl(z));
             const domesticZoneIds = new Set(domesticZones.map(z => z.id));
+            const cleanState = (shippingState || '').trim().toLowerCase();
+            const cleanCity = (shippingCity || '').trim().toLowerCase();
 
             const districtMapping = zoneMappings.find(m => 
                 domesticZoneIds.has(m.zone_id) &&
-                m.state_name === shippingState && 
-                m.district_name?.toLowerCase() === (shippingCity || '').trim().toLowerCase()
+                (m.state_name || '').trim().toLowerCase() === cleanState && 
+                (m.district_name || '').trim().toLowerCase() === cleanCity
             );
 
             if (districtMapping) {
                 activeZone = domesticZones.find(z => z.id === districtMapping.zone_id);
             } else {
-                const stateMapping = zoneMappings.find(m => domesticZoneIds.has(m.zone_id) && m.state_name === shippingState && !m.district_name);
+                const stateMapping = zoneMappings.find(m => 
+                    domesticZoneIds.has(m.zone_id) && 
+                    (m.state_name || '').trim().toLowerCase() === cleanState && 
+                    !m.district_name
+                );
                 if (stateMapping) {
                     activeZone = domesticZones.find(z => z.id === stateMapping.zone_id);
                 } else {
@@ -878,7 +1029,9 @@ export function ShopProvider({ children }) {
                 shipping = rate;
             }
         } else {
-            shipping = isInternational ? 1500 : 100;
+            const domesticZones = shippingZones.filter(z => !isZoneIntl(z));
+            const fallbackRate = domesticZones[0] ? parseFloat(domesticZones[0].rate || 0) : 50;
+            shipping = isInternational ? 1500 : fallbackRate;
         }
 
         // Apply Free Shipping discount rules or shipping discount if active
@@ -1098,6 +1251,14 @@ export function ShopProvider({ children }) {
             };
 
             setCart([]);
+            setAppliedCoupon(null);
+            setCouponMessage(null);
+            setCouponError(null);
+            if (typeof window !== 'undefined') {
+                try {
+                    sessionStorage.removeItem('vaiyaaree_applied_coupon');
+                } catch (e) {}
+            }
             setCheckoutForm({
                 billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
                 shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '', shippingEmail: '',
@@ -1140,9 +1301,13 @@ export function ShopProvider({ children }) {
     }
 
     const applyCoupon = async (code) => {
+        if (typeof window !== 'undefined') {
+            try { sessionStorage.removeItem('vaiyaaree_coupon_removed'); } catch (e) {}
+        }
         setCouponError(null);
         setCouponMessage(null);
-        if (!code || !code.trim()) {
+        const trimmedCode = (code || '').trim().toUpperCase();
+        if (!trimmedCode) {
             setCouponError('Please enter a coupon code.');
             return false;
         }
@@ -1152,7 +1317,7 @@ export function ShopProvider({ children }) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    couponCode: code,
+                    couponCode: trimmedCode,
                     subtotal: cartTotal,
                     cartItems: cart,
                     customer: user
@@ -1165,12 +1330,21 @@ export function ShopProvider({ children }) {
                 return false;
             }
 
-            setAppliedCoupon({
-                couponCode: data.couponCode,
+            const couponState = {
+                couponCode: data.couponCode || trimmedCode,
                 rule: data.rule,
                 couponDiscount: data.couponDiscount,
                 calculation: data.calculation
-            });
+            };
+            setAppliedCoupon(couponState);
+            if (data.calculation) {
+                setDiscountData(data.calculation);
+            }
+            if (typeof window !== 'undefined') {
+                try {
+                    sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(couponState));
+                } catch (e) {}
+            }
             setCouponMessage(data.message);
             showToast(data.message, 'success');
             return true;
@@ -1180,16 +1354,65 @@ export function ShopProvider({ children }) {
         }
     };
 
-    const removeCoupon = () => {
+    const removeCoupon = async () => {
         setAppliedCoupon(null);
         setCouponMessage(null);
         setCouponError(null);
+        autoCouponAttemptedRef.current = true;
+        if (typeof window !== 'undefined') {
+            try {
+                sessionStorage.removeItem('vaiyaaree_applied_coupon');
+                sessionStorage.setItem('vaiyaaree_coupon_removed', 'true');
+            } catch (e) {}
+        }
         showToast('Coupon removed', 'info');
+
+        // Recalculate discounts without the coupon
+        if (cart && cart.length > 0) {
+            try {
+                const apiRes = await fetch('/api/discounts/calculate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cartItems: cart,
+                        subtotal: cartTotal,
+                        couponCode: null,
+                        customer: user || null
+                    })
+                });
+                if (apiRes.ok) {
+                    const json = await apiRes.json();
+                    if (json?.success) {
+                        setDiscountData(json);
+                        return;
+                    }
+                }
+            } catch (e) {}
+            try {
+                const fallbackRes = await calculateDiscounts({
+                    cartItems: cart,
+                    couponCode: null,
+                    customer: user || null
+                });
+                setDiscountData(fallbackRes);
+            } catch (e) {}
+        } else {
+            setDiscountData({
+                subtotal: 0,
+                productDiscount: 0,
+                cartDiscount: 0,
+                couponDiscount: 0,
+                shippingDiscount: 0,
+                totalDiscount: 0,
+                discountedItems: [],
+                appliedRules: []
+            });
+        }
     };
 
     return (
         <ShopContext.Provider value={{
-            products, cart, loading, user, setUser, isSessionLoading, shippingZones, zoneMappings, businessState,
+            products, cart, loading, user, setUser, isSessionLoading, shippingZones, zoneMappings, businessState, fetchShippingRates,
             checkoutForm, setCheckoutForm, addToCart, removeFromCart, updateQty,
             handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, discountData, mysqlClient, placeOrder,
             isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart,

@@ -172,7 +172,18 @@ export async function POST(request) {
                 });
             }
 
-            // 3. Shipping Calculation from DB
+            // 3. Server-Side Discount Calculation (Calculates product/cart/coupon discounts & true taxableSubtotal)
+            const discountResult = await calculateDiscounts({
+                cartItems: verifiedCartItems,
+                subtotal,
+                shippingCost: typeof shippingCost === 'number' ? shippingCost : 0,
+                couponCode: couponCode || null,
+                customer: customerId ? { id: customerId } : null
+            });
+
+            const taxableSubtotal = discountResult.taxableAmount;
+
+            // 4. Shipping Calculation from DB
             const effectiveCountry = (rawShippingCountry || shippingAddress?.country || billingAddress?.country || 'India').trim();
             const isInternational = effectiveCountry.toLowerCase() !== 'india' && effectiveCountry.toLowerCase() !== 'in';
             const shippingCity = (shippingAddress?.city || '').trim().toLowerCase();
@@ -186,7 +197,10 @@ export async function POST(request) {
             let validatedZoneId = shippingZoneId || null;
             let activeZone = null;
 
-            if (dbZones && dbZones.length > 0) {
+            if (source === 'MANUAL' && typeof shippingCost === 'number') {
+                // Respect manual shipping cost set by admin
+                calculatedShippingCost = Math.max(0, shippingCost);
+            } else if (dbZones && dbZones.length > 0) {
                 const isZoneIntl = (z) => z.is_international === 1 || z.is_international === true || String(z.is_international).toLowerCase() === 'true';
 
                 if (isInternational) {
@@ -205,16 +219,23 @@ export async function POST(request) {
                     const domesticZoneIds = new Set(domesticZones.map(z => z.id));
                     const mappings = dbMappings || [];
 
+                    const cleanShippingState = normShippingState.toLowerCase();
+                    const cleanShippingCity = shippingCity.toLowerCase();
+
                     const districtMapping = mappings.find(m => 
                         domesticZoneIds.has(m.zone_id) &&
-                        m.state_name === normShippingState && 
-                        m.district_name?.toLowerCase() === shippingCity
+                        m.state_name?.trim().toLowerCase() === cleanShippingState && 
+                        m.district_name?.trim().toLowerCase() === cleanShippingCity
                     );
 
                     if (districtMapping) {
                         activeZone = domesticZones.find(z => z.id === districtMapping.zone_id);
                     } else {
-                        const stateMapping = mappings.find(m => domesticZoneIds.has(m.zone_id) && m.state_name === normShippingState && !m.district_name);
+                        const stateMapping = mappings.find(m => 
+                            domesticZoneIds.has(m.zone_id) && 
+                            m.state_name?.trim().toLowerCase() === cleanShippingState && 
+                            !m.district_name
+                        );
                         activeZone = stateMapping ? domesticZones.find(z => z.id === stateMapping.zone_id) : (domesticZones[0] || null);
                     }
                 }
@@ -223,25 +244,27 @@ export async function POST(request) {
                     validatedZoneId = activeZone.id;
                     const rate = parseFloat(activeZone.rate || 0);
                     const threshold = parseFloat(activeZone.free_threshold || 0);
-                    calculatedShippingCost = (threshold > 0 && subtotal >= threshold) ? 0 : rate;
+                    // Free shipping threshold applies to taxableSubtotal (net cart subtotal after discounts), matching Checkout calculation
+                    calculatedShippingCost = (threshold > 0 && taxableSubtotal >= threshold) ? 0 : rate;
                 } else {
-                    calculatedShippingCost = isInternational ? 1500 : 100;
+                    const defaultDomesticRate = (dbZones && dbZones.find(z => !isZoneIntl(z))) ? parseFloat(dbZones.find(z => !isZoneIntl(z)).rate || 0) : 50;
+                    calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 1500 : defaultDomesticRate);
                 }
             } else {
-                calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 1500 : 100);
+                calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 1500 : 50);
             }
 
-            // 4. Server-Side Discount Calculation
-            const discountResult = await calculateDiscounts({
-                cartItems: verifiedCartItems,
-                subtotal,
-                shippingCost: calculatedShippingCost,
-                couponCode: couponCode || null,
-                customer: customerId ? { id: customerId } : null
-            });
+            // Check if Free Shipping discount rule or shipping discount is active
+            const hasFreeShippingRule = (discountResult.appliedRules || []).some(r => r.discountType === 'FREE_SHIPPING');
+            let shippingDiscountAmount = discountResult.shippingDiscount || 0;
+            let finalShippingCost = calculatedShippingCost;
 
-            const finalShippingCost = discountResult.shipping;
-            const taxableSubtotal = discountResult.taxableAmount;
+            if (hasFreeShippingRule || shippingDiscountAmount > 0) {
+                shippingDiscountAmount = calculatedShippingCost;
+                finalShippingCost = 0;
+            } else {
+                finalShippingCost = Math.max(0, calculatedShippingCost - shippingDiscountAmount);
+            }
 
             // 5. Tax Recalculation (CGST/SGST vs IGST)
             let cgst = 0, sgst = 0, igst = 0;
@@ -254,6 +277,7 @@ export async function POST(request) {
                 igst = Math.round(taxableSubtotal * 0.05);
             }
             const taxAmount = cgst + sgst + igst;
+            const taxType = isInternational ? 'IGST_INTERNATIONAL' : (igst > 0 ? 'IGST' : 'CGST_SGST');
             const totalAmount = Math.round(taxableSubtotal + taxAmount + finalShippingCost);
 
             // 6. Atomic Inventory Deduction & History Logging
@@ -331,7 +355,7 @@ export async function POST(request) {
                     \`id\`, \`invoice_no\`, \`customer_id\`, \`customer_phone\`, \`customer_name\`, \`customer_email\`,
                     \`delivery_address\`, \`billing_address\`, \`shipping_address\`, \`status\`, \`subtotal\`,
                     \`product_discount\`, \`cart_discount\`, \`coupon_discount\`, \`shipping_discount\`, \`total_discount\`,
-                    \`coupon_code\`, \`total_amount\`, \`tax_amount\`, \`cgst\`, \`sgst\`, \`igst\`,
+                    \`coupon_code\`, \`total_amount\`, \`tax_amount\`, \`tax_type\`, \`cgst\`, \`sgst\`, \`igst\`,
                     \`cgst_amount\`, \`sgst_amount\`, \`igst_amount\`,
                     \`payment_method\`, \`source\`, \`shipping_cost\`, \`shipping_zone_id\`, \`shipping_state\`,
                     \`customer_notes\`, \`admin_notes\`, \`created_at\`, \`updated_at\`
@@ -339,7 +363,7 @@ export async function POST(request) {
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, NOW(), NOW()
@@ -359,11 +383,12 @@ export async function POST(request) {
                     discountResult.productDiscount,
                     discountResult.cartDiscount,
                     discountResult.couponDiscount,
-                    discountResult.shippingDiscount,
+                    shippingDiscountAmount,
                     discountResult.totalDiscount,
                     discountResult.appliedCouponCode || null,
                     totalAmount,
                     taxAmount,
+                    taxType,
                     cgst,
                     sgst,
                     igst > 0 ? String(igst) : null,

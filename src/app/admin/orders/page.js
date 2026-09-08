@@ -195,7 +195,7 @@ export default function OrdersPage() {
                 .neq('status', 'DRAFT');
 
             // 1. Status Filter
-            if (statusFilter !== 'ALL') {
+            if (statusFilter !== 'ALL' && statusFilter !== 'TOTAL') {
                 if (statusFilter === 'AWAITING_PAYMENT') {
                     query = query.or('status.eq.AWAITING_PAYMENT,status.eq.PENDING,status.eq.PENDING_VERIFICATION');
                 } else if (statusFilter === 'PENDING') {

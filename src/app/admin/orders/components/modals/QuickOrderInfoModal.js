@@ -35,12 +35,26 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
             ? itemsTotal 
             : Math.max(0, grandTotal - rawTax - shippingCost + discountAmount));
 
-    const rawCgst = Number(infoModalOrder.cgst || infoModalOrder.cgst_amount || 0);
-    const rawSgst = Number(infoModalOrder.sgst || infoModalOrder.sgst_amount || 0);
-    const rawIgst = Number(infoModalOrder.igst || infoModalOrder.igst_amount || 0);
-    const deliveryState = (infoModalOrder.delivery_state || infoModalOrder.shipping_state || infoModalOrder.billing_state || '').trim().toLowerCase();
+    // Tax type resolution: tax_type field → stored amounts → state heuristic
+    const taxType = infoModalOrder.tax_type || '';
+    const rawCgst = Number(infoModalOrder.cgst_amount || infoModalOrder.cgst || 0);
+    const rawSgst = Number(infoModalOrder.sgst_amount || infoModalOrder.sgst || 0);
+    const rawIgst = Number(infoModalOrder.igst_amount || infoModalOrder.igst || 0);
 
-    const isIgst = rawIgst > 0 || (rawCgst === 0 && rawSgst === 0 && rawTax > 0 && deliveryState && deliveryState !== 'tamil nadu');
+    let isIgst = false;
+    if (taxType === 'IGST' || taxType === 'IGST_INTERNATIONAL') {
+        isIgst = true;
+    } else if (taxType === 'CGST_SGST') {
+        isIgst = false;
+    } else {
+        if (rawIgst > 0) isIgst = true;
+        else if (rawCgst > 0 || rawSgst > 0) isIgst = false;
+        else {
+            const deliveryState = (infoModalOrder.delivery_state || infoModalOrder.shipping_state || infoModalOrder.billing_state || '').trim().toLowerCase();
+            isIgst = Boolean(deliveryState && deliveryState !== 'tamil nadu');
+        }
+    }
+
     const igstVal = rawIgst > 0 ? rawIgst : rawTax;
     const cgst = rawCgst > 0 ? rawCgst : Math.round((rawTax / 2) * 100) / 100;
     const sgst = rawSgst > 0 ? rawSgst : Math.round((rawTax / 2) * 100) / 100;
@@ -129,6 +143,14 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                                 <span style={{ fontWeight: 700, color: 'hsl(var(--text-main))' }}>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>
+                                    Discount{couponCode ? ` (${couponCode})` : ''}:
+                                </span>
+                                <span style={{ fontWeight: 600, color: discountAmount > 0 ? '#dc2626' : 'hsl(var(--text-muted))' }}>
+                                    {discountAmount > 0 ? `- ₹${discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>CGST (2.5%):</span>
                                 <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
@@ -146,14 +168,6 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                                 <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Shipping:</span>
                                 <span style={{ fontWeight: 600, color: shippingCost > 0 ? 'hsl(var(--text-main))' : '#16a34a' }}>
                                     {shippingCost > 0 ? `₹${shippingCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Free (₹0.00)'}
-                                </span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>
-                                    Discount{couponCode ? ` (${couponCode})` : ''}:
-                                </span>
-                                <span style={{ fontWeight: 600, color: discountAmount > 0 ? '#dc2626' : 'hsl(var(--text-muted))' }}>
-                                    {discountAmount > 0 ? `- ₹${discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
                                 </span>
                             </div>
                             <div style={{ height: '1px', background: 'hsl(var(--border-subtle))', margin: '0.4rem 0' }} />

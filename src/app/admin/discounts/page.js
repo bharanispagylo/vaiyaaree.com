@@ -103,10 +103,14 @@ export default function AdminDiscountsPage() {
                 threshold_type: threshType,
                 threshold_count: rule.threshold_count !== null && rule.threshold_count !== undefined ? String(rule.threshold_count) : '5',
                 threshold_value: rule.threshold_value !== null && rule.threshold_value !== undefined ? String(rule.threshold_value) : '5000',
-                product_discount_type: basis === 'PRODUCT' ? (rule.discount_type || 'PERCENTAGE') : 'PERCENTAGE',
-                product_discount_value: rule.discount_value !== undefined && rule.discount_value !== null ? String(rule.discount_value) : '10',
-                cart_discount_type: basis === 'CART' ? (rule.discount_type || 'PERCENTAGE') : 'PERCENTAGE',
-                cart_discount_value: rule.discount_value !== undefined && rule.discount_value !== null ? String(rule.discount_value) : '10',
+                product_discount_type: rule.product_discount_type || (basis === 'PRODUCT' ? (rule.discount_type || 'PERCENTAGE') : 'PERCENTAGE'),
+                product_discount_value: (rule.product_discount_value !== undefined && rule.product_discount_value !== null)
+                    ? String(rule.product_discount_value)
+                    : (basis === 'PRODUCT' && rule.discount_value !== undefined && rule.discount_value !== null ? String(rule.discount_value) : '10'),
+                cart_discount_type: rule.cart_discount_type || (basis === 'CART' ? (rule.discount_type || 'PERCENTAGE') : 'PERCENTAGE'),
+                cart_discount_value: (rule.cart_discount_value !== undefined && rule.cart_discount_value !== null)
+                    ? String(rule.cart_discount_value)
+                    : (basis === 'CART' && rule.discount_value !== undefined && rule.discount_value !== null ? String(rule.discount_value) : '10'),
                 target_type: rule.target_type || 'ALL_PRODUCTS',
                 minimum_cart_amount: rule.minimum_cart_amount !== undefined ? String(rule.minimum_cart_amount) : '0',
                 minimum_cart_products_enabled: rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true,
@@ -169,6 +173,9 @@ export default function AdminDiscountsPage() {
             const rawDiscountValue = isCartBasis ? formData.cart_discount_value : formData.product_discount_value;
             const effectiveDiscountValue = effectiveDiscountType === 'FREE_SHIPPING' ? 0 : parseFloat(rawDiscountValue || 0);
 
+            const prodDiscountVal = formData.product_discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(formData.product_discount_value || 0);
+            const cartDiscountVal = formData.cart_discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(formData.cart_discount_value || 0);
+
             const cleanStartDate = formData.start_date?.trim() ? formData.start_date.trim().replace('T', ' ') : null;
             const cleanEndDate = formData.end_date?.trim() ? formData.end_date.trim().replace('T', ' ') : null;
             const formattedStartDate = cleanStartDate ? (cleanStartDate.length === 16 ? `${cleanStartDate}:00` : cleanStartDate) : null;
@@ -179,18 +186,22 @@ export default function AdminDiscountsPage() {
                 description: formData.description,
                 coupon_code: formData.coupon_code,
                 calculation_basis: formData.calculation_basis,
-                threshold_type: isCartBasis ? formData.threshold_type : null,
-                threshold_count: isCartBasis && formData.threshold_type === 'COUNT' ? parseInt(formData.threshold_count || '1', 10) : null,
-                threshold_value: isCartBasis && formData.threshold_type === 'VALUE' ? parseFloat(formData.threshold_value || '0') : null,
+                threshold_type: isCartBasis ? (formData.threshold_type || 'COUNT') : null,
+                threshold_count: isCartBasis ? parseInt(formData.threshold_count || '1', 10) : null,
+                threshold_value: isCartBasis ? parseFloat(formData.threshold_value || '0') : null,
                 discount_type: effectiveDiscountType,
                 discount_value: effectiveDiscountValue,
-                target_type: isCartBasis ? 'ALL_PRODUCTS' : formData.target_type,
+                product_discount_type: formData.product_discount_type,
+                product_discount_value: prodDiscountVal,
+                cart_discount_type: formData.cart_discount_type,
+                cart_discount_value: cartDiscountVal,
+                target_type: formData.target_type || 'ALL_PRODUCTS',
                 minimum_cart_amount: parseFloat(formData.minimum_cart_amount || 0),
                 maximum_discount_amount: null,
-                minimum_cart_products_enabled: !isCartBasis && formData.minimum_cart_products_enabled ? 1 : 0,
-                minimum_cart_products: !isCartBasis && formData.minimum_cart_products_enabled ? parseInt(formData.minimum_cart_products || '1', 10) : null,
-                categories: isCartBasis ? [] : formData.categories,
-                product_ids: isCartBasis ? [] : formData.product_ids,
+                minimum_cart_products_enabled: formData.minimum_cart_products_enabled ? 1 : 0,
+                minimum_cart_products: formData.minimum_cart_products ? parseInt(formData.minimum_cart_products, 10) : 3,
+                categories: formData.categories || [],
+                product_ids: formData.product_ids || [],
                 start_date: formattedStartDate,
                 end_date: formattedEndDate,
                 priority: parseInt(formData.priority || '10', 10),

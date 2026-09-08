@@ -127,8 +127,18 @@ export async function calculateDiscounts({
         const normalizedCoupon = (couponCode || '').trim().toUpperCase();
         let nonStackableApplied = false;
 
-        // 3. Evaluate rules in order of priority
-        for (const rule of rulesData) {
+        // Prioritize explicit customer-applied coupon rule so it is evaluated first
+        // and never skipped by preceding non-stackable automatic store promotions.
+        const sortedRules = [...rulesData].sort((a, b) => {
+            const aIsCoupon = Boolean(normalizedCoupon && a.coupon_code && a.coupon_code.trim().toUpperCase() === normalizedCoupon);
+            const bIsCoupon = Boolean(normalizedCoupon && b.coupon_code && b.coupon_code.trim().toUpperCase() === normalizedCoupon);
+            if (aIsCoupon && !bIsCoupon) return -1;
+            if (!aIsCoupon && bIsCoupon) return 1;
+            return (b.priority || 0) - (a.priority || 0);
+        });
+
+        // 3. Evaluate rules in order of priority (coupon rules first if applicable)
+        for (const rule of sortedRules) {
             // Check start/end dates with clock-skew tolerance
             const dateCheck = isRuleActiveByDate(rule.start_date, rule.end_date);
             if (!dateCheck.active) continue;
@@ -155,7 +165,16 @@ export async function calculateDiscounts({
             }
 
             let ruleDiscount = 0;
-            const val = parseFloat(rule.discount_value || 0);
+            // Resolve effective discount type & value honoring decoupled product vs cart fields
+            const effDiscountType = calculationBasis === 'CART'
+                ? (rule.cart_discount_type || rule.discount_type || 'PERCENTAGE')
+                : (rule.product_discount_type || rule.discount_type || 'PERCENTAGE');
+            const val = parseFloat(
+                (calculationBasis === 'CART'
+                    ? (rule.cart_discount_value !== null && rule.cart_discount_value !== undefined ? rule.cart_discount_value : rule.discount_value)
+                    : (rule.product_discount_value !== null && rule.product_discount_value !== undefined ? rule.product_discount_value : rule.discount_value)
+                ) || 0
+            );
 
             // ==========================================
             // BRANCH 1: CART-LEVEL CONDITIONAL DISCOUNT
@@ -186,18 +205,18 @@ export async function calculateDiscounts({
                 }
 
                 // Cart-level discount applies to the entire cart subtotal
-                if (rule.discount_type === 'PERCENTAGE') {
+                if (effDiscountType === 'PERCENTAGE') {
                     ruleDiscount = (val / 100) * subtotal;
-                } else if (rule.discount_type === 'FIXED' || rule.discount_type === 'FIXED_AMOUNT') {
+                } else if (effDiscountType === 'FIXED' || effDiscountType === 'FIXED_AMOUNT') {
                     ruleDiscount = Math.min(val, subtotal);
-                } else if (rule.discount_type === 'FREE_SHIPPING') {
+                } else if (effDiscountType === 'FREE_SHIPPING') {
                     shippingDiscount = shippingCost;
                     ruleDiscount = 0;
                 }
 
                 ruleDiscount = Math.round(ruleDiscount * 100) / 100;
 
-                if (ruleDiscount > 0 || rule.discount_type === 'FREE_SHIPPING') {
+                if (ruleDiscount > 0 || effDiscountType === 'FREE_SHIPPING') {
                     if (isCouponRule) {
                         couponDiscount += ruleDiscount;
                     } else {
@@ -208,8 +227,8 @@ export async function calculateDiscounts({
                         id: rule.id,
                         name: rule.name,
                         ruleName: rule.name,
-                        couponCode: rule.coupon_code || null,
-                        discountType: rule.discount_type,
+                        couponCode: rule.coupon_code ? rule.coupon_code.trim().toUpperCase() : null,
+                        discountType: effDiscountType,
                         discountValue: val,
                         discountAmount: ruleDiscount,
                         isCoupon: isCouponRule,
@@ -257,18 +276,18 @@ export async function calculateDiscounts({
                 }
             }
 
-            if (rule.discount_type === 'PERCENTAGE') {
+            if (effDiscountType === 'PERCENTAGE') {
                 ruleDiscount = (val / 100) * targetSubtotal;
-            } else if (rule.discount_type === 'FIXED' || rule.discount_type === 'FIXED_AMOUNT') {
+            } else if (effDiscountType === 'FIXED' || effDiscountType === 'FIXED_AMOUNT') {
                 ruleDiscount = Math.min(val, targetSubtotal);
-            } else if (rule.discount_type === 'FREE_SHIPPING') {
+            } else if (effDiscountType === 'FREE_SHIPPING') {
                 shippingDiscount = shippingCost;
                 ruleDiscount = 0;
             }
 
             ruleDiscount = Math.round(ruleDiscount * 100) / 100;
 
-            if (ruleDiscount > 0 || rule.discount_type === 'FREE_SHIPPING') {
+            if (ruleDiscount > 0 || effDiscountType === 'FREE_SHIPPING') {
                 if (isCouponRule) {
                     couponDiscount += ruleDiscount;
                 } else if (rule.target_type === 'SPECIFIC_PRODUCTS' || rule.target_type === 'SPECIFIC_CATEGORIES') {
@@ -281,8 +300,8 @@ export async function calculateDiscounts({
                     id: rule.id,
                     name: rule.name,
                     ruleName: rule.name,
-                    couponCode: rule.coupon_code || null,
-                    discountType: rule.discount_type,
+                    couponCode: rule.coupon_code ? rule.coupon_code.trim().toUpperCase() : null,
+                    discountType: effDiscountType,
                     discountValue: val,
                     discountAmount: ruleDiscount,
                     isCoupon: isCouponRule,

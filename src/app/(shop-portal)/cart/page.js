@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X, ShoppingCart, ArrowRight, Tag, Check, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
@@ -9,12 +9,21 @@ import styles from './cart.module.css';
 export default function CartPage() {
     const {
         cart, removeFromCart, updateQty, cartTotal, showToast,
-        discountData, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon
+        discountData, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon,
+        activeDiscountRules
     } = useShop();
 
     const [isDirty, setIsDirty] = useState(false);
     const [couponInput, setCouponInput] = useState('');
     const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+    const availableCouponOffers = useMemo(() => {
+        return (activeDiscountRules || []).filter(r => {
+            const hasCode = Boolean(r.coupon_code && r.coupon_code.trim());
+            const isActive = r.is_active === 1 || r.is_active === true || r.is_active === '1';
+            return hasCode && isActive;
+        });
+    }, [activeDiscountRules]);
 
     const handleQtyChange = (idx, delta) => {
         updateQty(idx, delta);
@@ -34,6 +43,13 @@ export default function CartPage() {
         if (success) {
             setCouponInput('');
         }
+        setApplyingCoupon(false);
+    };
+
+    const handleApplySpecificCoupon = async (code) => {
+        if (!code || applyingCoupon) return;
+        setApplyingCoupon(true);
+        await applyCoupon(code);
         setApplyingCoupon(false);
     };
 
@@ -165,6 +181,68 @@ export default function CartPage() {
                                 )}
                                 {couponMessage && <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, marginTop: '4px' }}>{couponMessage}</div>}
                                 {couponError && <div style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 600, marginTop: '4px' }}>{couponError}</div>}
+
+                                {/* Available Offers / Active Coupon Badges */}
+                                {availableCouponOffers.length > 0 && (
+                                    <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px dashed hsl(var(--border-subtle, #e2e8f0))' }}>
+                                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Sparkles size={12} color="#f59e0b" /> Available Offers
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            {availableCouponOffers.map((offer) => {
+                                                const isThisApplied = appliedCoupon?.couponCode === offer.coupon_code?.trim().toUpperCase();
+                                                const offerSavings = offer.discount_type === 'FREE_SHIPPING'
+                                                    ? 'Free Delivery'
+                                                    : (offer.discount_type === 'PERCENTAGE' ? `${offer.discount_value}% OFF` : `₹${offer.discount_value} OFF`);
+
+                                                return (
+                                                    <div
+                                                        key={offer.id}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            padding: '6px 10px',
+                                                            background: isThisApplied ? '#f0fdf4' : '#f8fafc',
+                                                            border: `1px dashed ${isThisApplied ? '#86efac' : '#cbd5e1'}`,
+                                                            borderRadius: '8px',
+                                                            fontSize: '0.78rem'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <Tag size={13} color={isThisApplied ? '#16a34a' : '#64748b'} />
+                                                            <span style={{ fontWeight: 800, color: '#0f172a', letterSpacing: '0.03em' }}>{offer.coupon_code}</span>
+                                                            <span style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.75rem' }}>({offerSavings})</span>
+                                                        </div>
+                                                        {isThisApplied ? (
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#16a34a', fontWeight: 800, fontSize: '0.72rem' }}>
+                                                                <Check size={12} /> Applied
+                                                            </span>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleApplySpecificCoupon(offer.coupon_code)}
+                                                                disabled={applyingCoupon}
+                                                                style={{
+                                                                    background: 'hsl(var(--primary))',
+                                                                    color: '#ffffff',
+                                                                    border: 'none',
+                                                                    borderRadius: '5px',
+                                                                    padding: '3px 8px',
+                                                                    fontSize: '0.72rem',
+                                                                    fontWeight: 700,
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                Apply
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className={styles.summaryLine}>
@@ -172,30 +250,49 @@ export default function CartPage() {
                                 <span>₹{(cartTotal || 0).toLocaleString()}.00</span>
                             </div>
 
-                            {totalDiscount > 0 && (
-                                <>
-                                    <div className={styles.summaryLine} style={{ color: '#16a34a', fontWeight: 700 }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <Sparkles size={14} /> Promotional Savings
-                                        </span>
-                                        <span>-₹{totalDiscount.toLocaleString()}.00</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '-2px 0 10px', padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '0.78rem', color: '#15803d' }}>
-                                        {(discountData.appliedRules || []).map((r, i) => {
-                                            const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
-                                            const savingsText = r.discountType === 'FREE_SHIPPING' 
-                                                ? 'Free Shipping' 
-                                                : `-₹${(r.discountAmount || 0).toLocaleString()}.00`;
-                                            return (
-                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
-                                                    <span style={{ fontWeight: 700 }}>{savingsText}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </>
-                            )}
+                            {totalDiscount > 0 && (() => {
+                                const appliedRules = discountData?.appliedRules || [];
+                                const singleRule = appliedRules.length === 1 ? appliedRules[0] : null;
+                                const singleRuleName = singleRule ? (singleRule.ruleName || singleRule.name || (singleRule.couponCode ? `Coupon ${singleRule.couponCode}` : 'Promotion')) : '';
+
+                                return (
+                                    <>
+                                        <div className={styles.summaryLine} style={{ color: '#16a34a', fontWeight: 700, alignItems: 'flex-start' }}>
+                                            <div>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Sparkles size={14} /> Discount
+                                                </span>
+                                                {singleRuleName && (
+                                                    <span style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#15803d', marginTop: '2px' }}>
+                                                        ({singleRuleName})
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span>-₹{totalDiscount.toLocaleString()}.00</span>
+                                        </div>
+
+                                        {appliedRules.length > 1 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '-2px 0 10px', padding: '8px 10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '0.78rem', color: '#15803d' }}>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                                    Offers Applied (Breakdown):
+                                                </span>
+                                                {appliedRules.map((r, i) => {
+                                                    const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
+                                                    const savingsText = r.discountType === 'FREE_SHIPPING' 
+                                                        ? 'Free Shipping' 
+                                                        : `-₹${(r.discountAmount || 0).toLocaleString()}.00`;
+                                                    return (
+                                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
+                                                            <span style={{ fontWeight: 700 }}>{savingsText}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
 
                             <div className={styles.summaryLine}>
                                 <span>Shipping</span>

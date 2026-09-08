@@ -632,7 +632,22 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
     switch (eventType) {
         case EVENT_TYPES.ORDER_PLACED:
         case EVENT_TYPES.ORDER_CONFIRMED:
-            customerWhatsApp = `🌸 *Order Confirmed!* 🌸\n\nDear ${customerName},\nYour order *${displayInv}* has been placed successfully!\nTotal Amount: *${totalAmount}*\n\nWe are preparing your saree collection for dispatch. Thank you for shopping with ${brand}! ✨`;
+            const notifSubtotal = Number(order?.subtotal || 0);
+            const notifDiscount = Number(order?.total_discount || order?.cart_discount || 0);
+            const notifTax = Number(order?.tax_amount || 0);
+            const notifShipping = Number(order?.shipping_cost || 0);
+
+            let notifSummaryText = '';
+            if (notifSubtotal > 0) {
+                notifSummaryText = `\n\n🧾 *Order Summary:*\n` +
+                    `• Subtotal: ₹${notifSubtotal.toLocaleString('en-IN')}\n` +
+                    (notifDiscount > 0 ? `• Discount: -₹${notifDiscount.toLocaleString('en-IN')}\n` : '') +
+                    (notifTax > 0 ? `• GST: ₹${notifTax.toLocaleString('en-IN')}\n` : '') +
+                    `• Shipping: ${notifShipping > 0 ? `₹${notifShipping.toLocaleString('en-IN')}` : 'Free (₹0.00)'}\n` +
+                    `• *Grand Total: ${totalAmount}*`;
+            }
+
+            customerWhatsApp = `🌸 *Order Confirmed!* 🌸\n\nDear ${customerName},\nYour order *${displayInv}* has been placed successfully!${notifSummaryText ? notifSummaryText : `\nTotal Amount: *${totalAmount}*`}\n\nWe are preparing your saree collection for dispatch. Thank you for shopping with ${brand}! ✨`;
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'PLACED', shopName: brand }),
@@ -645,7 +660,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
                 };
             }
             isAdminEvent = true;
-            adminWhatsApp = `🔔 *NEW ORDER ALERT* 🔔\n\nOrder: *${displayInv}*\nCustomer: ${customerName} (${order?.customer_phone || ''})\nTotal: *${totalAmount}*\nPayment Method: ${order?.payment_method || 'COD'}`;
+            adminWhatsApp = `🔔 *NEW ORDER ALERT* 🔔\n\nOrder: *${displayInv}*\nCustomer: ${customerName} (${order?.customer_phone || ''})\nPayment Method: ${order?.payment_method || 'COD'}${notifSummaryText ? notifSummaryText : `\nTotal: *${totalAmount}*`}`;
             adminEmail = {
                 subject: `[ADMIN ALERT] New Order Received - ${displayInv}`,
                 html: renderAdminAlertHtml({

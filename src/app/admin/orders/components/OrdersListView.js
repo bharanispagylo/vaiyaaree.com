@@ -49,8 +49,8 @@ export default function OrdersListView({
             icon: ShoppingBag,
             color: '#4f46e5',
             bgTint: 'rgba(79, 70, 229, 0.08)',
-            isActive: statusFilter === 'ALL',
-            onClick: () => setStatusFilter('ALL')
+            isActive: statusFilter === 'ALL' || statusFilter === 'TOTAL',
+            onClick: () => setStatusFilter('TOTAL')
         },
         {
             key: 'PENDING',
@@ -197,15 +197,29 @@ export default function OrdersListView({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                         <label style={{ fontSize: '0.82rem', fontWeight: 700, color: 'hsl(var(--text-muted))' }}>Status:</label>
                         <select
-                            value={statusFilter}
+                            value={statusFilter === 'ALL' ? 'TOTAL' : statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
                             style={{ padding: '0.5rem 2rem 0.5rem 0.85rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle))', backgroundColor: 'hsl(var(--bg-app))', color: 'hsl(var(--text-main))', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
                         >
-                            {Object.entries(orderCounts).map(([status, count]) => (
-                                <option key={status} value={status}>
-                                    {status === 'ALL' ? 'All Orders' : status === 'PENDING' ? 'Pending (All)' : status === 'RETURN_ORDERS' ? 'Return Orders' : status.replace(/_/g, ' ')} ({count})
-                                </option>
-                            ))}
+                            {(() => {
+                                const displayStatuses = [
+                                    { key: 'TOTAL', label: 'Total', count: orderCounts.TOTAL ?? orderCounts.ALL ?? 0 },
+                                    { key: 'PENDING', label: 'Pending (All)', count: orderCounts.PENDING ?? 0 },
+                                    { key: 'PLACED', label: 'Placed', count: orderCounts.PLACED ?? 0 },
+                                    { key: 'AWAITING_PAYMENT', label: 'Awaiting Payment', count: orderCounts.AWAITING_PAYMENT ?? 0 },
+                                    { key: 'PAID', label: 'Paid', count: orderCounts.PAID ?? 0 },
+                                    { key: 'PACKING', label: 'Packing', count: orderCounts.PACKING ?? 0 },
+                                    { key: 'SHIPPED', label: 'Shipped', count: orderCounts.SHIPPED ?? 0 },
+                                    { key: 'DELIVERED', label: 'Delivered', count: orderCounts.DELIVERED ?? 0 },
+                                    { key: 'CANCELLED', label: 'Cancelled', count: orderCounts.CANCELLED ?? 0 },
+                                    { key: 'RETURN_ORDERS', label: 'Return Orders', count: orderCounts.RETURN_ORDERS ?? orderCounts.REFUNDED ?? 0 }
+                                ];
+                                return displayStatuses.map(item => (
+                                    <option key={item.key} value={item.key}>
+                                        {item.label} ({item.count})
+                                    </option>
+                                ));
+                            })()}
                         </select>
                     </div>
 
