@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Upload, Check, Loader2, Image as ImageIcon, X, Grid, AlertTriangle, FileDown, Plus, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { parseUploadResponse } from '@/lib/uploadHelper';
 import ImageZoom from './ImageZoom';
 import MediaPicker from './MediaPicker';
 
@@ -250,7 +251,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: checkFormData
             });
-            const detData = await detRes.json();
+            const detData = await parseUploadResponse(detRes);
 
             const onProceedWithUpload = async (catId) => {
                 setOcrLoading(true);
@@ -271,11 +272,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                         headers: { 'Authorization': `Bearer ${token}` },
                         body: uploadFormData
                     });
-                    const data = await uploadRes.json();
-
-                    if (!uploadRes.ok) {
-                        throw new Error(data.error || 'Digital scan / watermark application failed.');
-                    }
+                    const data = await parseUploadResponse(uploadRes);
 
                     const finalUrl = data.watermarkedUrl || data.url;
                     

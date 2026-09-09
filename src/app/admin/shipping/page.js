@@ -35,6 +35,12 @@ export default function ShippingAdminPage() {
         "Jammu and Kashmir", "Ladakh"
     ].sort(), []);
 
+    // Helper to check if a shipping zone is international regardless of MySQL data type (boolean vs number vs string)
+    const isZoneIntl = (z) => {
+        if (!z) return false;
+        return z.is_international === true || z.is_international === 1 || z.is_international === '1' || String(z.is_international).toLowerCase() === 'true';
+    };
+
     useEffect(() => {
         setHasMounted(true);
         fetchData();
@@ -50,7 +56,10 @@ export default function ShippingAdminPage() {
 
             if (zonesRes.data) {
                 setZones(zonesRes.data);
-                const matchingZone = zonesRes.data.find(z => activeTab === 'INTERNATIONAL' ? z.is_international : !z.is_international) || zonesRes.data[0] || null;
+                const matchingZone = zonesRes.data.find(z => activeTab === 'INTERNATIONAL' ? isZoneIntl(z) : !isZoneIntl(z)) 
+                    || (activeTab === 'INTERNATIONAL' ? zonesRes.data.find(z => isZoneIntl(z)) : zonesRes.data.find(z => !isZoneIntl(z))) 
+                    || zonesRes.data[0] 
+                    || null;
                 setSelectedZone(matchingZone);
             }
             if (mappingRes.data) setMappings(mappingRes.data);
@@ -64,11 +73,11 @@ export default function ShippingAdminPage() {
     };
 
     const currentTabZones = useMemo(() => {
-        return zones.filter(z => activeTab === 'INTERNATIONAL' ? z.is_international : !z.is_international);
+        return zones.filter(z => activeTab === 'INTERNATIONAL' ? isZoneIntl(z) : !isZoneIntl(z));
     }, [zones, activeTab]);
 
     const activeZone = useMemo(() => {
-        if (selectedZone && ((activeTab === 'INTERNATIONAL' && selectedZone.is_international) || (activeTab === 'DOMESTIC' && !selectedZone.is_international))) {
+        if (selectedZone && ((activeTab === 'INTERNATIONAL' && isZoneIntl(selectedZone)) || (activeTab === 'DOMESTIC' && !isZoneIntl(selectedZone)))) {
             return selectedZone;
         }
         return currentTabZones[0] || null;
@@ -77,7 +86,7 @@ export default function ShippingAdminPage() {
     const handleTabSwitch = async (tab) => {
         setActiveTab(tab);
         const targetIsIntl = tab === 'INTERNATIONAL';
-        const matchingZone = zones.find(z => targetIsIntl ? z.is_international : !z.is_international);
+        const matchingZone = zones.find(z => targetIsIntl ? isZoneIntl(z) : !isZoneIntl(z));
         if (matchingZone) {
             setSelectedZone(matchingZone);
         } else {
@@ -129,7 +138,7 @@ export default function ShippingAdminPage() {
                         name: zone.name.trim(),
                         rate: parseFloat(zone.rate || 0),
                         free_threshold: parseFloat(zone.free_threshold || 0),
-                        is_international: zone.is_international ? 1 : 0
+                        is_international: isZoneIntl(zone) ? 1 : 0
                     })
                     .eq('id', zone.id);
                 if (updateError) throw new Error(updateError.message || updateError.details || JSON.stringify(updateError));
@@ -137,7 +146,7 @@ export default function ShippingAdminPage() {
 
             // 3. Update region mappings (only for domestic zones)
             const zoneIds = zones.map(z => z.id);
-            const domesticZoneIds = new Set(zones.filter(z => !z.is_international).map(z => z.id));
+            const domesticZoneIds = new Set(zones.filter(z => !isZoneIntl(z)).map(z => z.id));
             if (zoneIds.length > 0) {
                 await mysqlClient.from('shipping_zone_states').delete().in('zone_id', zoneIds);
                 const validMappings = mappings.filter(m => domesticZoneIds.has(m.zone_id));
@@ -198,7 +207,7 @@ export default function ShippingAdminPage() {
                 .from('shipping_zones')
                 .insert([{
                     name: newTitle,
-                    rate: isIntl ? 1500 : 100,
+                    rate: isIntl ? 100 : 50,
                     free_threshold: isIntl ? 10000 : 5000,
                     is_international: isIntl ? 1 : 0
                 }])
@@ -231,7 +240,7 @@ export default function ShippingAdminPage() {
                     setZones(remaining);
                     setMappings(mappings.filter(m => m.zone_id !== id));
                     if (selectedZone?.id === id) {
-                        const nextInTab = remaining.find(z => activeTab === 'INTERNATIONAL' ? z.is_international : !z.is_international);
+                        const nextInTab = remaining.find(z => activeTab === 'INTERNATIONAL' ? isZoneIntl(z) : !isZoneIntl(z));
                         setSelectedZone(nextInTab || null);
                     }
                     setSuccess('Zone removed.');
@@ -295,11 +304,11 @@ export default function ShippingAdminPage() {
                                 onClick={() => setSelectedZone(zone)}
                             >
                                 <div className="zone-icon">
-                                    {zone.is_international ? <Globe size={18} /> : <MapPin size={18} />}
+                                    {isZoneIntl(zone) ? <Globe size={18} /> : <MapPin size={18} />}
                                 </div>
                                 <div className="zone-info">
                                     <div className="title">{zone.name}</div>
-                                    <div className="meta">₹{zone.rate} • {zone.is_international ? 'Global' : `${mappings.filter(m => m.zone_id === zone.id).length} regions`}</div>
+                                    <div className="meta">₹{zone.rate} • {isZoneIntl(zone) ? 'Global' : `${mappings.filter(m => m.zone_id === zone.id).length} regions`}</div>
                                 </div>
                                 <button onClick={(e) => { e.stopPropagation(); deleteZone(zone.id); }} className="btn-delete"><Trash2 size={14} /></button>
                             </div>
@@ -347,6 +356,7 @@ export default function ShippingAdminPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    step="any"
                                                     value={activeZone.rate}
                                                     onChange={e => handleUpdateZone(activeZone.id, 'rate', e.target.value)}
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
@@ -360,6 +370,7 @@ export default function ShippingAdminPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    step="any"
                                                     value={activeZone.free_threshold}
                                                     onChange={e => handleUpdateZone(activeZone.id, 'free_threshold', e.target.value)}
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
@@ -433,9 +444,10 @@ export default function ShippingAdminPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    step="any"
                                                     value={activeZone.rate}
                                                     onChange={e => handleUpdateZone(activeZone.id, 'rate', e.target.value)}
-                                                    placeholder="e.g. 1500"
+                                                    placeholder="e.g. 100"
                                                     onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                                                 />
                                             </div>
@@ -447,6 +459,7 @@ export default function ShippingAdminPage() {
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    step="any"
                                                     value={activeZone.free_threshold}
                                                     onChange={e => handleUpdateZone(activeZone.id, 'free_threshold', e.target.value)}
                                                     placeholder="e.g. 10000"

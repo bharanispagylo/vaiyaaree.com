@@ -14,8 +14,25 @@ const RESTRICTED_TABLES = new Set([
     'notification_logs',
     'order_backups',
     'scheduled_posts',
-    'customers'
+    'customers',
+    'payments',
+    'transactions',
+    'whatsapp_cart'
 ]);
+
+/**
+ * Checks if an unauthenticated request to orders has a specific order lookup filter.
+ */
+function hasSpecificOrderLookup(payload) {
+    if (!payload) return false;
+    if (payload.orCondition && typeof payload.orCondition === 'string' && payload.orCondition.length > 5) {
+        return true;
+    }
+    if (Array.isArray(payload.filters)) {
+        return payload.filters.some(f => f && (f.col === 'id' || f.col === 'invoice_no') && f.val);
+    }
+    return false;
+}
 
 // Sensitive keys in app_settings that must never be exposed to public/unauthenticated callers
 const SENSITIVE_SETTING_PATTERN = /(password|secret|salt|token|otp|pin|smtp|wa_access|access_token|private)/i;
@@ -93,12 +110,37 @@ export async function POST(request) {
                 );
             }
 
-            // 3. Block queries specifically asking for sensitive app_settings keys
+            // 3. Prevent unauthorized bulk dumps of orders or order items
+            if (table === 'orders' && !hasSpecificOrderLookup(payload)) {
+                return NextResponse.json(
+                    { data: null, error: { message: 'Unauthorized: Listing orders requires administrator credentials' } },
+                    { status: 403 }
+                );
+            }
+
+            if (table === 'order_items') {
+                const hasOrderId = Array.isArray(payload.filters) && payload.filters.some(f => f && (f.col === 'order_id' || f.col === '`order_id`') && f.val);
+                if (!hasOrderId) {
+                    return NextResponse.json(
+                        { data: null, error: { message: 'Unauthorized: Access to order items requires specific order_id or administrator credentials' } },
+                        { status: 403 }
+                    );
+                }
+            }
+
+            // 4. Block queries specifically asking for sensitive app_settings keys
             if (table === 'app_settings' && hasSensitiveFilter(payload.filters)) {
                 return NextResponse.json(
                     { data: null, error: { message: 'Unauthorized: Access to sensitive system settings requires administrator credentials' } },
                     { status: 403 }
                 );
+            }
+
+            // 4. Enforce is_active = 1 for public products queries to prevent exposure of disabled items
+            if (table === 'products') {
+                if (!Array.isArray(payload.filters)) payload.filters = [];
+                payload.filters = payload.filters.filter(f => !(f && (f.col === 'is_active' || f.col === '`is_active`')));
+                payload.filters.push({ type: 'eq', col: 'is_active', val: 1 });
             }
 
             // Execute read query and sanitize if app_settings

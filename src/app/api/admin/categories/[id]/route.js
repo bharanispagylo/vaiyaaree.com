@@ -142,20 +142,23 @@ export async function PATCH(request, { params }) {
             return NextResponse.json({ error: 'Another category with this slug already exists' }, { status: 400 });
         }
 
-        // Prevent setting status to 'inactive' if category has assigned products
+        // Prevent setting status to 'inactive' if category has ACTIVE assigned products
         if (status === 'inactive') {
             const [[{ assignedCount }]] = await pool.query(`
                 SELECT COUNT(DISTINCT p.id) as assignedCount
                 FROM products p
                 LEFT JOIN category_products cp ON cp.product_id = p.id
-                WHERE cp.category_id = ?
-                   OR LOWER(TRIM(p.category)) = LOWER(TRIM(?))
-                   OR LOWER(TRIM(p.category)) = LOWER(TRIM(?))
+                WHERE p.is_active = 1
+                  AND (
+                    cp.category_id = ?
+                    OR LOWER(TRIM(p.category)) = LOWER(TRIM(?))
+                    OR LOWER(TRIM(p.category)) = LOWER(TRIM(?))
+                  )
             `, [categoryId, existingCat[0].name, existingCat[0].slug]);
 
             if (assignedCount > 0) {
                 return NextResponse.json({
-                    error: `Cannot set category "${existingCat[0].name}" to Inactive. It has ${assignedCount} assigned ${assignedCount === 1 ? 'product' : 'products'}. Please reassign these products on the Product Add/Edit page first.`
+                    error: `Cannot set category "${existingCat[0].name}" to Inactive. It has ${assignedCount} active ${assignedCount === 1 ? 'product' : 'products'}. Please reassign these products on the Product Add/Edit page first.`
                 }, { status: 400 });
             }
         }
@@ -242,7 +245,38 @@ export async function DELETE(request, { params }) {
         connection = await getConnection();
         await connection.beginTransaction();
 
-        // Delete relationships & category (Foreign Key ON DELETE CASCADE handles category_products automatically, but explicit delete is safe)
+        const [catRows] = await connection.query('SELECT name, slug FROM categories WHERE id = ? LIMIT 1', [categoryId]);
+        if (catRows.length === 0) {
+            await connection.rollback();
+            return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+        }
+        const catName = catRows[0].name;
+        const catSlug = catRows[0].slug || catName;
+
+
+        // Check if ACTIVE products are currently assigned to this category.
+        // Only active (is_active = 1) products block deletion — disabled/archived products are ignored.
+        const [assignedProducts] = await connection.query(`
+            SELECT COUNT(DISTINCT p.id) as count
+            FROM products p
+            LEFT JOIN category_products cp ON cp.product_id = p.id
+            WHERE p.is_active = 1
+              AND (
+                cp.category_id = ?
+                OR LOWER(TRIM(p.category)) = LOWER(TRIM(?))
+                OR LOWER(TRIM(p.category)) = LOWER(TRIM(?))
+              )
+        `, [categoryId, catName, catSlug]);
+
+        if (assignedProducts[0]?.count > 0) {
+            await connection.rollback();
+            return NextResponse.json(
+                { error: `Cannot delete category "${catName}" because ${assignedProducts[0].count} active products are assigned to it. Please reassign these products to another category first.` },
+                { status: 400 }
+            );
+        }
+
+        // Delete relationships & category
         await connection.query('DELETE FROM category_products WHERE category_id = ?', [categoryId]);
         const [delResult] = await connection.query('DELETE FROM categories WHERE id = ?', [categoryId]);
 

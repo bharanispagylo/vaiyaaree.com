@@ -7,9 +7,7 @@ export function isRuleActiveByDate(startDateStr, endDateStr) {
     if (startDateStr) {
         const start = parseDateToUTC(startDateStr);
         if (start && !isNaN(start.getTime())) {
-            // Allow 12-hour grace tolerance for UTC vs local timezone string parsing / clock skew
-            const bufferedStart = new Date(start.getTime() - 12 * 60 * 60 * 1000);
-            if (now < bufferedStart) {
+            if (now < start) {
                 return { active: false, reason: 'NOT_STARTED' };
             }
         }
@@ -60,6 +58,7 @@ export async function calculateDiscounts({
     let couponDiscount = 0;
     let shippingDiscount = 0;
     const appliedRules = [];
+    const itemProductDiscounts = new Array(cart.length).fill(0);
 
     if (cart.length === 0 || subtotal <= 0) {
         return {
@@ -88,14 +87,14 @@ export async function calculateDiscounts({
             .order('priority', { ascending: false });
 
         if (rulesError || !allRules || allRules.length === 0) {
-            return buildResult({ subtotal, shippingCost, cart, productDiscount: 0, cartDiscount: 0, couponDiscount: 0, shippingDiscount: 0, appliedRules: [], appliedCouponCode: null });
+            return buildResult({ subtotal, shippingCost, cart, productDiscount: 0, cartDiscount: 0, couponDiscount: 0, shippingDiscount: 0, appliedRules: [], appliedCouponCode: null, itemProductDiscounts });
         }
 
         // Strictly filter for active rules
         const rulesData = allRules.filter(r => r.is_active === 1 || r.is_active === true || r.is_active === '1');
 
         if (rulesData.length === 0) {
-            return buildResult({ subtotal, shippingCost, cart, productDiscount: 0, cartDiscount: 0, couponDiscount: 0, shippingDiscount: 0, appliedRules: [], appliedCouponCode: null });
+            return buildResult({ subtotal, shippingCost, cart, productDiscount: 0, cartDiscount: 0, couponDiscount: 0, shippingDiscount: 0, appliedRules: [], appliedCouponCode: null, itemProductDiscounts });
         }
 
         // Fetch targets & conditions for all active rules concurrently
@@ -296,6 +295,25 @@ export async function calculateDiscounts({
                     cartDiscount += ruleDiscount;
                 }
 
+                // Specifically allocate this rule discount across eligible items
+                if (ruleDiscount > 0) {
+                    let allocatedSum = 0;
+                    eligibleCartItems.forEach((elItem, elIdx) => {
+                        const origIdx = cart.findIndex(c => c === elItem || (c.id && c.id === elItem.id && (!c.variantId || c.variantId === elItem.variantId)));
+                        if (origIdx !== -1) {
+                            const itemLine = parseFloat(elItem.price || 0) * parseInt(elItem.qty || 1, 10);
+                            let itemPart = 0;
+                            if (elIdx === eligibleCartItems.length - 1) {
+                                itemPart = Math.round((ruleDiscount - allocatedSum) * 100) / 100;
+                            } else {
+                                itemPart = Math.round((ruleDiscount * (itemLine / targetSubtotal)) * 100) / 100;
+                                allocatedSum += itemPart;
+                            }
+                            itemProductDiscounts[origIdx] = Math.round(((itemProductDiscounts[origIdx] || 0) + itemPart) * 100) / 100;
+                        }
+                    });
+                }
+
                 appliedRules.push({
                     id: rule.id,
                     name: rule.name,
@@ -314,11 +332,11 @@ export async function calculateDiscounts({
             }
         }
 
-        return buildResult({ subtotal, shippingCost, cart, productDiscount, cartDiscount, couponDiscount, shippingDiscount, appliedRules, appliedCouponCode: normalizedCoupon });
+        return buildResult({ subtotal, shippingCost, cart, productDiscount, cartDiscount, couponDiscount, shippingDiscount, appliedRules, appliedCouponCode: normalizedCoupon, itemProductDiscounts });
 
     } catch (err) {
         console.error('[DISCOUNT SERVICE ERROR]', err);
-        return buildResult({ subtotal, shippingCost, cart, productDiscount: 0, cartDiscount: 0, couponDiscount: 0, shippingDiscount: 0, appliedRules: [], appliedCouponCode: null });
+        return buildResult({ subtotal, shippingCost, cart, productDiscount: 0, cartDiscount: 0, couponDiscount: 0, shippingDiscount: 0, appliedRules: [], appliedCouponCode: null, itemProductDiscounts: [] });
     }
 }
 
@@ -434,16 +452,77 @@ export async function validateCouponCode(couponCode, { subtotal = 0, cartItems =
 /**
  * Helper to build result object and proportionally allocate discounts across items.
  */
-function buildResult({ subtotal, shippingCost, cart, productDiscount, cartDiscount, couponDiscount, shippingDiscount, appliedRules, appliedCouponCode }) {
+function buildResult({
+    subtotal,
+    shippingCost,
+    cart,
+    productDiscount,
+    cartDiscount,
+    couponDiscount,
+    shippingDiscount,
+    appliedRules,
+    appliedCouponCode,
+    itemProductDiscounts = []
+}) {
     const totalDiscount = Math.min(subtotal, Math.round((productDiscount + cartDiscount + couponDiscount) * 100) / 100);
     const finalShipping = Math.max(0, shippingCost - shippingDiscount);
 
-    // Proportional item discount allocation (vital for accurate return refunds!)
-    const discountedItems = cart.map(item => {
-        const itemLineSubtotal = parseFloat(item.price || 0) * parseInt(item.qty || 1, 10);
-        const itemShare = subtotal > 0 ? (itemLineSubtotal / subtotal) : 0;
-        const itemTotalDiscount = Math.round((totalDiscount * itemShare) * 100) / 100;
-        const itemEffectiveSubtotal = Math.max(0, itemLineSubtotal - itemTotalDiscount);
+    // 1. Initial allocation from specific product discounts (ensuring cap at line subtotal)
+    const specificAllocations = cart.map((item, idx) => {
+        const lineSubtotal = Math.round(parseFloat(item.price || 0) * parseInt(item.qty || 1, 10) * 100) / 100;
+        const specific = Math.max(0, Math.min(lineSubtotal, itemProductDiscounts[idx] || 0));
+        return {
+            lineSubtotal,
+            specific,
+            remaining: Math.max(0, Math.round((lineSubtotal - specific) * 100) / 100)
+        };
+    });
+
+    const totalSpecificAllocated = Math.round(specificAllocations.reduce((sum, a) => sum + a.specific, 0) * 100) / 100;
+    const remainingDiscountToAllocate = Math.max(0, Math.round((totalDiscount - totalSpecificAllocated) * 100) / 100);
+    const totalRemainingSubtotal = Math.round(specificAllocations.reduce((sum, a) => sum + a.remaining, 0) * 100) / 100;
+
+    // 2. Allocate general cart/coupon discounts across items with remaining value
+    let generalAllocatedSum = 0;
+    const itemsWithRemaining = specificAllocations.filter(a => a.remaining > 0);
+
+    const finalAllocated = specificAllocations.map(a => {
+        if (remainingDiscountToAllocate > 0 && totalRemainingSubtotal > 0 && a.remaining > 0) {
+            const isLastRemaining = itemsWithRemaining.length > 0 && a === itemsWithRemaining[itemsWithRemaining.length - 1];
+            let generalShare = 0;
+            if (isLastRemaining) {
+                generalShare = Math.round((remainingDiscountToAllocate - generalAllocatedSum) * 100) / 100;
+            } else {
+                generalShare = Math.round(((a.remaining / totalRemainingSubtotal) * remainingDiscountToAllocate) * 100) / 100;
+                generalAllocatedSum = Math.round((generalAllocatedSum + generalShare) * 100) / 100;
+            }
+            return Math.min(a.lineSubtotal, Math.round((a.specific + generalShare) * 100) / 100);
+        }
+        return a.specific;
+    });
+
+    // 3. Reconcile any rounding drift so sum(finalAllocated) === totalDiscount exactly
+    const currentSum = Math.round(finalAllocated.reduce((sum, d) => sum + d, 0) * 100) / 100;
+    const diff = Math.round((totalDiscount - currentSum) * 100) / 100;
+    if (diff !== 0 && finalAllocated.length > 0) {
+        let adjusted = false;
+        for (let i = 0; i < finalAllocated.length; i++) {
+            const newDiscount = Math.round((finalAllocated[i] + diff) * 100) / 100;
+            if (newDiscount >= 0 && newDiscount <= specificAllocations[i].lineSubtotal) {
+                finalAllocated[i] = newDiscount;
+                adjusted = true;
+                break;
+            }
+        }
+        if (!adjusted) {
+            finalAllocated[0] = Math.max(0, Math.min(specificAllocations[0].lineSubtotal, Math.round((finalAllocated[0] + diff) * 100) / 100));
+        }
+    }
+
+    const discountedItems = cart.map((item, idx) => {
+        const itemLineSubtotal = specificAllocations[idx].lineSubtotal;
+        const itemTotalDiscount = Math.round(finalAllocated[idx] * 100) / 100;
+        const itemEffectiveSubtotal = Math.max(0, Math.round((itemLineSubtotal - itemTotalDiscount) * 100) / 100);
         const itemPaidUnitPrice = item.qty > 0 ? Math.round((itemEffectiveSubtotal / item.qty) * 100) / 100 : 0;
 
         return {
@@ -455,8 +534,8 @@ function buildResult({ subtotal, shippingCost, cart, productDiscount, cartDiscou
         };
     });
 
-    const taxableAmount = Math.max(0, subtotal - totalDiscount);
-    const finalTotal = taxableAmount + finalShipping;
+    const taxableAmount = Math.max(0, Math.round((subtotal - totalDiscount) * 100) / 100);
+    const finalTotal = Math.round((taxableAmount + finalShipping) * 100) / 100;
 
     return {
         subtotal,

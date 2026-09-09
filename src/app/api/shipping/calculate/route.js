@@ -4,17 +4,17 @@ import { mysqlClient } from '@/lib/mysqlClient';
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { subtotal: rawSubtotal, cart, shippingCountry, shippingState, shippingCity } = body;
+        const { subtotal: rawSubtotal, cart, shippingCountry, shippingState, shippingCity, country: rawCountry, state: rawState, city: rawCity } = body;
 
         let subtotal = typeof rawSubtotal === 'number' ? rawSubtotal : 0;
         if (cart && Array.isArray(cart) && cart.length > 0) {
             subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * (parseInt(item.qty || 1, 10))), 0);
         }
 
-        const country = (shippingCountry || 'India').trim();
+        const country = (shippingCountry || rawCountry || 'India').trim();
         const isInternational = country.toLowerCase() !== 'india' && country.toLowerCase() !== 'in';
-        const state = (shippingState || 'Tamil Nadu').trim();
-        const city = (shippingCity || '').trim().toLowerCase();
+        const state = (shippingState || rawState || 'Tamil Nadu').trim();
+        const city = (shippingCity || rawCity || '').trim().toLowerCase();
 
         // Helper for international zone check
         const isZoneIntl = (z) => {
@@ -76,7 +76,8 @@ export async function POST(request) {
         let shippingGroup = 'Default Shipping';
         let shippingType = isInternational ? 'INTERNATIONAL' : 'DOMESTIC';
         const defaultDomesticRate = (dbZones && dbZones.find(z => !isZoneIntl(z))) ? Math.max(0, parseFloat(dbZones.find(z => !isZoneIntl(z)).rate || 0)) : 50;
-        let shippingRate = isInternational ? 1500 : defaultDomesticRate;
+        const defaultIntlRate = (dbZones && dbZones.find(z => isZoneIntl(z))) ? Math.max(0, parseFloat(dbZones.find(z => isZoneIntl(z)).rate || 0)) : 100;
+        let shippingRate = isInternational ? defaultIntlRate : defaultDomesticRate;
         let freeThreshold = null;
 
         if (activeZone) {
@@ -92,7 +93,7 @@ export async function POST(request) {
                 shippingCost = shippingRate;
             }
         } else {
-            shippingCost = isInternational ? 1500 : defaultDomesticRate;
+            shippingCost = isInternational ? defaultIntlRate : defaultDomesticRate;
         }
 
         return NextResponse.json({

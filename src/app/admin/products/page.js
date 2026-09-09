@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Upload, FileDown, Plus } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { parseUploadResponse } from '@/lib/uploadHelper';
 import { useRouter } from 'next/navigation';
 import MediaPicker from '@/components/MediaPicker';
 import ProductImageAssigner from '@/components/ProductImageAssigner';
@@ -1260,9 +1261,7 @@ export default function ProductsPage() {
                                                     headers: { 'Authorization': `Bearer ${token}` },
                                                     body: formData
                                                 });
-                                                const uploadData = await uploadRes.json();
-
-                                                if (!uploadRes.ok) throw new Error(uploadData.error || 'Watermarking failed');
+                                                const uploadData = await parseUploadResponse(uploadRes);
                                                 onConfirmSelection(uploadData.watermarkedUrl || uploadData.url, newCatId);
                                             } catch (err) {
                                                 setErrorModal({ title: 'Watermark Error', message: err.message });

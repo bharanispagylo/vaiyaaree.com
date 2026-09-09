@@ -412,7 +412,7 @@ export default function ProductVariantBuilder({
                                         placeholder="0.00"
                                         value={v.price !== undefined ? v.price : ''}
                                         min="0"
-                                        step="0.01"
+                                        step="any"
                                         required
                                         onChange={e => updateVariant(i, 'price', e.target.value !== '' ? parseFloat(e.target.value) : '')}
                                         className="admin-input"
@@ -427,7 +427,7 @@ export default function ProductVariantBuilder({
                                         placeholder="0.00"
                                         value={v.compare_price || ''}
                                         min="0"
-                                        step="0.01"
+                                        step="any"
                                         required
                                         onChange={e => updateVariant(i, 'compare_price', e.target.value !== '' ? parseFloat(e.target.value) : '')}
                                         className="admin-input"

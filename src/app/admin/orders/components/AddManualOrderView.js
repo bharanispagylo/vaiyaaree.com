@@ -279,6 +279,8 @@ export default function AddManualOrderView({
                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Manual Shipping Rate (Optional)</label>
                             <input 
                                 type="number" 
+                                step="any"
+                                min="0"
                                 placeholder="Calculate Automatically" 
                                 value={newOrder.manual_shipping_cost} 
                                 onChange={e => setNewOrder({ ...newOrder, manual_shipping_cost: e.target.value })} 

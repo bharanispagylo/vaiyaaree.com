@@ -61,6 +61,7 @@ export function findProductBySlugOrId(param, productsList = []) {
     // 4. Extract trailing identifier after last hyphen
     const lastHyphenIdx = rawParam.lastIndexOf('-');
     if (lastHyphenIdx !== -1) {
+        const identifier = rawParam.substring(lastHyphenIdx + 1);
         found = productsList.find(p =>
             String(p.id).toLowerCase() === identifier ||
             String(p.product_no).toLowerCase() === identifier ||
@@ -69,10 +70,7 @@ export function findProductBySlugOrId(param, productsList = []) {
         if (found) return found;
     }
 
-    // 5. Prefix match on slug name
-    const namePart = rawParam.replace(/-[^-]+$/, '');
-    found = productsList.find(p => getProductSlug(p).toLowerCase().startsWith(namePart));
-    return found || null;
+    return null;
 }
 
 /**

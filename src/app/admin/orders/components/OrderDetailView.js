@@ -242,6 +242,7 @@ export default function OrderDetailView({
                                                     <input 
                                                         type="number" 
                                                         min="0" 
+                                                        step="any"
                                                         value={item.price_at_time}
                                                         onChange={e => onUpdateItem(idx, 'price_at_time', parseFloat(e.target.value) || 0)}
                                                         style={{ width: '110px', padding: '0.4rem 0.6rem', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', borderRadius: '6px', color: 'hsl(var(--text-main))', textAlign: 'center', fontSize: '0.9rem' }} 

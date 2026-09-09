@@ -33,7 +33,10 @@ export function ShopProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
     const [isSessionLoading, setIsSessionLoading] = useState(true);
-    const [shippingZones, setShippingZones] = useState([]);
+    const [shippingZones, setShippingZones] = useState([
+        { id: 'intl_default', name: 'International Standard', rate: 100, free_threshold: 10000, is_international: 1 },
+        { id: 'dom_default', name: 'Domestic Group', rate: 50, free_threshold: 2005, is_international: 0 }
+    ]);
     const [zoneMappings, setZoneMappings] = useState([]);
     const [businessState, setBusinessState] = useState('Tamil Nadu');
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -1029,9 +1032,11 @@ export function ShopProvider({ children }) {
                 shipping = rate;
             }
         } else {
+            const intlZones = shippingZones.filter(z => isZoneIntl(z));
             const domesticZones = shippingZones.filter(z => !isZoneIntl(z));
+            const fallbackIntlRate = intlZones[0] ? parseFloat(intlZones[0].rate || 0) : 100;
             const fallbackRate = domesticZones[0] ? parseFloat(domesticZones[0].rate || 0) : 50;
-            shipping = isInternational ? 1500 : fallbackRate;
+            shipping = isInternational ? fallbackIntlRate : fallbackRate;
         }
 
         // Apply Free Shipping discount rules or shipping discount if active
@@ -1040,7 +1045,7 @@ export function ShopProvider({ children }) {
             shipping = 0;
         }
 
-        const totalOrder = taxableSubtotal + cgst + sgst + igst + shipping;
+        const totalOrder = Math.round(taxableSubtotal + cgst + sgst + igst + shipping);
         return { cgst, sgst, igst, shipping, totalOrder, activeZone, isInternational, totalDiscount, taxableSubtotal };
     }, [cartTotal, discountData, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.billingCountry, checkoutForm.shippingCountry, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
 
@@ -1242,8 +1247,8 @@ export function ShopProvider({ children }) {
                 billingName: checkoutForm.billingName,
                 billingPhone: checkoutForm.billingPhone,
                 customerName: checkoutForm.billingName,
-                total: taxDetails.totalOrder,
-                subtotal: taxDetails.subtotal || (taxDetails.totalOrder - taxDetails.shipping - ((taxDetails.cgst || 0) + (taxDetails.sgst || 0) + (taxDetails.igst || 0))),
+                total: createData?.totalAmount !== undefined ? createData.totalAmount : Math.round(taxDetails.totalOrder),
+                subtotal: taxDetails.taxableSubtotal !== undefined ? taxDetails.taxableSubtotal : (taxDetails.subtotal || Math.max(0, taxDetails.totalOrder - taxDetails.shipping - ((taxDetails.cgst || 0) + (taxDetails.sgst || 0) + (taxDetails.igst || 0)))),
                 cgst: taxDetails.cgst,
                 sgst: taxDetails.sgst,
                 igst: taxDetails.igst,

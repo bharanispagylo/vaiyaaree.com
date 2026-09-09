@@ -21,7 +21,13 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
     const searchParams = useSearchParams();
     const { products, addToCart, loading: productsLoading, mysqlClient, getEffectiveProductPrice } = useShop();
 
-    const [product, setProduct] = useState(initialProduct);
+    const [product, setProduct] = useState(() => {
+        if (!initialProduct) return null;
+        if (initialProduct.is_active === 0 || initialProduct.is_active === false || String(initialProduct.is_active) === '0' || !initialProduct.is_active) {
+            return null;
+        }
+        return initialProduct;
+    });
     const [variants, setVariants] = useState(initialVariants || []);
     const [selectedVariant, setSelectedVariant] = useState(() => {
         if (!initialVariants || initialVariants.length === 0) return null;
@@ -47,7 +53,11 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
     // Sync state whenever initialProduct or initialVariants change from server
     useEffect(() => {
         if (initialProduct) {
-            setProduct(initialProduct);
+            if (initialProduct.is_active === 0 || initialProduct.is_active === false || String(initialProduct.is_active) === '0' || !initialProduct.is_active) {
+                setProduct(null);
+            } else {
+                setProduct(initialProduct);
+            }
             loadedProductIdRef.current = id;
             setLoading(false);
         }

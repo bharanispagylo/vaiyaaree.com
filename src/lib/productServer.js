@@ -9,17 +9,31 @@ export async function getProductServer(param) {
     try {
         const rawParam = decodeURIComponent(String(param)).trim().replace(/\/$/, '').toLowerCase();
 
-        // 1. Direct Slug or ID query (active published products only)
+        // 1. Direct Slug, ID, product_no, or SKU query
         const [rows] = await pool.query(
-            'SELECT * FROM `products` WHERE (`slug` = ? OR `id` = ? OR `product_no` = ? OR `sku` = ?) AND `is_active` = 1 LIMIT 1',
+            'SELECT * FROM `products` WHERE (`slug` = ? OR `id` = ? OR `product_no` = ? OR `sku` = ?) LIMIT 1',
             [rawParam, rawParam, rawParam, rawParam]
         );
-        if (rows && rows.length > 0) return rows[0];
+        if (rows && rows.length > 0) {
+            const product = rows[0];
+            // If product exists but is disabled or draft, strictly return null
+            if (product.is_active === 0 || product.is_active === false || String(product.is_active) === '0' || !product.is_active) {
+                return null;
+            }
+            return product;
+        }
 
-        // 2. Fetch active products and match via findProductBySlugOrId
-        const [allRows] = await pool.query('SELECT * FROM `products` WHERE `is_active` = 1');
+        // 2. Fetch all products to match via findProductBySlugOrId
+        const [allRows] = await pool.query('SELECT * FROM `products`');
         if (allRows && allRows.length > 0) {
-            return findProductBySlugOrId(param, allRows);
+            const matched = findProductBySlugOrId(param, allRows);
+            if (matched) {
+                // If matched product is disabled or draft, strictly return null
+                if (matched.is_active === 0 || matched.is_active === false || String(matched.is_active) === '0' || !matched.is_active) {
+                    return null;
+                }
+                return matched;
+            }
         }
     } catch (e) {
         console.error('[GET-PRODUCT-SERVER-ERROR]:', e);

@@ -64,6 +64,29 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
         setCurrentPage(1);
     }, [selectedCategory, selectedBrand, selectedType, searchQuery, priceRange.min, priceRange.max, showInStockOnly, sortBy]);
 
+    // Active categories state initialized from SSR categories database table
+    const [activeCategories, setActiveCategories] = useState(() => {
+        if (Array.isArray(initialCategories) && initialCategories.length > 0) {
+            return initialCategories;
+        }
+        return [];
+    });
+
+    useEffect(() => {
+        if (Array.isArray(initialCategories) && initialCategories.length > 0) {
+            setActiveCategories(initialCategories);
+        } else {
+            fetch('/api/categories')
+                .then(res => res.json())
+                .then(data => {
+                    if (data?.success && Array.isArray(data.categories)) {
+                        setActiveCategories(data.categories);
+                    }
+                })
+                .catch(err => console.error('Error loading active categories:', err));
+        }
+    }, [initialCategories]);
+
     // Scroll to top when page changes (only on user pagination click)
     const handlePageChange = (newPage) => {
         setCurrentPage(newPage);
@@ -72,12 +95,11 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
         }
     };
 
-    //  OPTIONS 
+    //  OPTIONS - Categories derived PURELY from the active categories database table
     const categories = useMemo(() => {
-        const productCategories = products.map(p => p.category).filter(Boolean);
-        const serverCategories = initialCategories.map(c => c.name).filter(Boolean);
-        return ['All', ...new Set([...productCategories, ...serverCategories])];
-    }, [products, initialCategories]);
+        const activeNames = (activeCategories || []).map(c => c.name).filter(Boolean);
+        return ['All', ...new Set(activeNames)];
+    }, [activeCategories]);
 
     const availableBrands = useMemo(() => ['All', ...new Set(products.map(p => p.product_group).filter(Boolean))], [products]);
     const availableSareeTypes = ['All', 'Pure Silk', 'Soft Silk', 'Cotton', 'Georgette', 'Banarasi', 'Handloom', 'Chiffon', 'Net'];
@@ -88,7 +110,23 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
 
         if (selectedCategory !== 'All') {
             const catLower = selectedCategory.toLowerCase().trim();
-            filtered = filtered.filter(p => (p.category || '').toLowerCase().trim() === catLower);
+            const matchedCat = (activeCategories || []).find(c =>
+                (c.name && c.name.toLowerCase().trim() === catLower) ||
+                (c.slug && c.slug.toLowerCase().trim() === catLower)
+            );
+
+            // If the category is not active in the database table, do not show any products for it
+            if (!matchedCat && activeCategories.length > 0) {
+                filtered = [];
+            } else {
+                const targetName = matchedCat ? matchedCat.name.toLowerCase().trim() : catLower;
+                const targetSlug = matchedCat?.slug ? matchedCat.slug.toLowerCase().trim() : '';
+
+                filtered = filtered.filter(p => {
+                    const prodCat = (p.category || '').toLowerCase().trim();
+                    return prodCat === targetName || (targetSlug && prodCat === targetSlug);
+                });
+            }
         }
 
         if (selectedBrand !== 'All') {
@@ -223,7 +261,11 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                                     {cat}
                                     {cat !== 'All' && (
                                         <span className={styles.categoryCount}>
-                                            {products.filter(p => p.category === cat).length}
+                                            {products.filter(p => {
+                                                const prodCat = (p.category || '').toLowerCase().trim();
+                                                const catObj = (activeCategories || []).find(c => c.name === cat);
+                                                return prodCat === cat.toLowerCase().trim() || (catObj?.slug && prodCat === catObj.slug.toLowerCase().trim());
+                                            }).length}
                                         </span>
                                     )}
                                 </li>
@@ -365,9 +407,10 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                                             <input
                                                 type="number"
                                                 min="0"
+                                                step="any"
                                                 value={tempPriceRange.min}
                                                 onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
-                                                onChange={e => setTempPriceRange({ ...tempPriceRange, min: parseInt(e.target.value) || 0 })}
+                                                onChange={e => setTempPriceRange({ ...tempPriceRange, min: e.target.value !== '' ? parseFloat(e.target.value) : 0 })}
                                             />
                                         </div>
                                         <div className={styles.priceSeparator} />
@@ -376,9 +419,10 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                                             <input
                                                 type="number"
                                                 min="0"
+                                                step="any"
                                                 value={tempPriceRange.max}
                                                 onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
-                                                onChange={e => setTempPriceRange({ ...tempPriceRange, max: parseInt(e.target.value) || 0 })}
+                                                onChange={e => setTempPriceRange({ ...tempPriceRange, max: e.target.value !== '' ? parseFloat(e.target.value) : 0 })}
                                             />
                                         </div>
                                     </div>

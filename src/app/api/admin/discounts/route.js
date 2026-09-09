@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { verifyAdmin } from '@/lib/auth';
 
 export async function GET(request) {
     try {
@@ -40,6 +41,11 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
+        const auth = await verifyAdmin(request);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: auth.error || 'Unauthorized: Admin privileges required' }, { status: 401 });
+        }
+
         const body = await request.json();
         const {
             name,
@@ -174,6 +180,11 @@ export async function POST(request) {
 
 export async function PUT(request) {
     try {
+        const auth = await verifyAdmin(request);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: auth.error || 'Unauthorized: Admin privileges required' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { id, product_ids, categories, customer_ids, ...updateFields } = body;
 
@@ -217,6 +228,24 @@ export async function PUT(request) {
             updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
                 ? 0
                 : parseFloat(updateFields.product_discount_value ?? updateFields.discount_value ?? 0);
+        }
+
+        // Validation for discount values (prevent >100% discount or invalid fixed discount)
+        if (updateFields.product_discount_type === 'PERCENTAGE' && updateFields.product_discount_value !== undefined) {
+            if (updateFields.product_discount_value <= 0 || updateFields.product_discount_value > 100) {
+                return NextResponse.json({ error: 'Product percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+            }
+        }
+        if (updateFields.cart_discount_type === 'PERCENTAGE' && updateFields.cart_discount_value !== undefined) {
+            if (updateFields.cart_discount_value <= 0 || updateFields.cart_discount_value > 100) {
+                return NextResponse.json({ error: 'Cart percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+            }
+        }
+        if (updateFields.discount_type === 'PERCENTAGE' && (updateFields.discount_value <= 0 || updateFields.discount_value > 100)) {
+            return NextResponse.json({ error: 'Percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+        }
+        if (updateFields.discount_type === 'FIXED_AMOUNT' && updateFields.discount_value <= 0) {
+            return NextResponse.json({ error: 'Fixed amount discount must be greater than 0' }, { status: 400 });
         }
 
         if (basis !== 'CART') {
@@ -282,6 +311,11 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
     try {
+        const auth = await verifyAdmin(request);
+        if (!auth.authorized) {
+            return NextResponse.json({ error: auth.error || 'Unauthorized: Admin privileges required' }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 

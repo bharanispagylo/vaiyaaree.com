@@ -6,6 +6,7 @@ import {
     X, Check, Plus, Grid, List as ListIcon, RefreshCw
 } from 'lucide-react';
 import { mysqlClient } from '@/lib/mysqlClient'; // still needed for getPublicUrl
+import { parseUploadResponse } from '@/lib/uploadHelper';
 
 export default function MediaPicker({ onSelect, onClose, currentImage, catalogId, multiple = false }) {
     const [files, setFiles] = useState([]);
@@ -152,16 +153,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                 body: formData,
             });
 
-            const data = await res.json();
-            
-            if (!res.ok) {
-                if (data.error === 'Watermark already present') {
-                    alert('Watermark detected! This image already has a CAT code and cannot be processed again.');
-                } else {
-                    throw new Error(data.error || 'Upload failed');
-                }
-                return;
-            }
+            const data = await parseUploadResponse(res);
 
             // Refresh the list and select the new image
             await fetchFiles();

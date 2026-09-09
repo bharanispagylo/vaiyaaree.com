@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
 import ProductDetailsClient from '@/components/ProductDetailsClient';
 import { getProductSlug, extractProductGalleryImages, normalizeImageUrl } from '@/lib/productUrl';
 import { getProductServer, getProductVariantsServer } from '@/lib/productServer';
@@ -26,19 +27,36 @@ function cleanDescription(text, fallbackText = '', maxLength = 160) {
     return cleaned.substring(0, maxLength - 3) + '...';
 }
 
+const METADATA_NOT_FOUND = {
+    title: 'Product Not Found | Vaiyaaree Sarees',
+    description: 'The requested product is currently unavailable or does not exist.',
+    robots: { index: false, follow: false }
+};
+
 /**
  * Generate Dynamic SEO Metadata for Product Detail Page
  */
 export async function generateMetadata({ params }) {
+    try {
     const resolvedParams = await params;
     const rawId = resolvedParams?.id;
-    const product = await getProductServer(rawId);
+    let product = null;
+    try {
+        product = await getProductServer(rawId);
+    } catch (productErr) {
+        console.error('[generateMetadata] getProductServer error:', productErr?.message);
+        return METADATA_NOT_FOUND;
+    }
     const baseUrl = getBaseUrl();
 
-    if (!product) {
+    if (!product || product.is_active === 0 || product.is_active === false || String(product.is_active) === '0' || !product.is_active) {
         return {
-            title: 'Product Details | Vaiyaaree Sarees',
-            description: 'Explore handcrafted premium sarees at Vaiyaaree online boutique.'
+            title: 'Product Not Found | Vaiyaaree Sarees',
+            description: 'The requested product is currently unavailable or does not exist.',
+            robots: {
+                index: false,
+                follow: false
+            }
         };
     }
 
@@ -92,20 +110,26 @@ export async function generateMetadata({ params }) {
             images: [imageUrl]
         }
     };
+    } catch (outerErr) {
+        console.error('[generateMetadata] Unexpected error:', outerErr?.message);
+        return METADATA_NOT_FOUND;
+    }
 }
 
 export default async function ProductPage({ params }) {
     const resolvedParams = await params;
     const rawId = resolvedParams?.id;
-    const product = await getProductServer(rawId);
+    let product = null;
+    try {
+        product = await getProductServer(rawId);
+    } catch (e) {
+        console.error('[ProductPage] getProductServer error:', e?.message);
+        notFound();
+    }
     const baseUrl = getBaseUrl();
 
-    if (!product) {
-        return (
-            <Suspense fallback={null}>
-                <ProductDetailsClient initialProduct={null} initialVariants={[]} />
-            </Suspense>
-        );
+    if (!product || product.is_active === 0 || product.is_active === false || String(product.is_active) === '0' || !product.is_active) {
+        notFound();
     }
 
     const variants = (product.type === 'variant' || product.type === 'variable')

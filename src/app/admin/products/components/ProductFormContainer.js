@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { parseUploadResponse } from '@/lib/uploadHelper';
 import MediaPicker from '@/components/MediaPicker';
 import ImageZoom from '@/components/ImageZoom';
 import ProductForm from './ProductForm';
@@ -656,9 +657,7 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                                                 headers: { 'Authorization': `Bearer ${token}` },
                                                 body: formData
                                             });
-                                            const uploadData = await uploadRes.json();
-
-                                            if (!uploadRes.ok) throw new Error(uploadData.error || 'Watermarking failed');
+                                            const uploadData = await parseUploadResponse(uploadRes);
                                             await onConfirmSelection(uploadData.watermarkedUrl || uploadData.url, newCatId);
                                         } catch (err) {
                                             setErrorModal({ title: 'Watermark Error', message: err.message });

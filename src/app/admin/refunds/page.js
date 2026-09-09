@@ -847,6 +847,8 @@ export default function RefundsPage() {
                                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>APPROVED REFUND AMOUNT (₹)</label>
                                     <input 
                                         type="number"
+                                        step="any"
+                                        min="0"
                                         value={approvedAmountInput}
                                         onChange={(e) => setApprovedAmountInput(e.target.value)}
                                         className="admin-input"

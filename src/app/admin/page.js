@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck, Calendar } from 'lucide-react';
+import { IndianRupee, ShoppingCart, Users, Package, TrendingUp, Loader2, ArrowUpRight, MessageCircle, Eye, Smartphone, AlertTriangle, Trophy, Truck, Calendar, RotateCcw } from 'lucide-react';
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -37,6 +37,7 @@ export default function AdminDashboard() {
     const [allOrders, setAllOrders] = useState([]);
     const [allOrderItems, setAllOrderItems] = useState([]);
     const [allProducts, setAllProducts] = useState([]);
+    const [allReturnRequests, setAllReturnRequests] = useState([]);
     const [customerCount, setCustomerCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
@@ -47,7 +48,8 @@ export default function AdminDashboard() {
                 ordersRes,
                 productsRes,
                 itemsRes,
-                customerRes
+                customerRes,
+                returnsRes
             ] = await Promise.all([
                 mysqlClient.from('orders')
                     .select('id, invoice_no, total_amount, subtotal, shipping_cost, refund_amount, status, created_at, source, customer_name, customer_phone')
@@ -60,12 +62,15 @@ export default function AdminDashboard() {
                     .select('product_name, quantity, price_at_time, order_id')
                     .limit(2000),
                 mysqlClient.from('orders')
-                    .select('customer_phone', { count: 'exact', head: true })
+                    .select('customer_phone', { count: 'exact', head: true }),
+                mysqlClient.from('return_requests')
+                    .select('id, order_id, status, created_at')
             ]);
 
             setAllOrders(ordersRes.data || []);
             setAllProducts(productsRes.data || []);
             setAllOrderItems(itemsRes.data || []);
+            setAllReturnRequests(returnsRes.data || []);
             setCustomerCount(customerRes.count || 0);
         } catch (error) {
             console.error('Dashboard error:', error);
@@ -135,6 +140,7 @@ export default function AdminDashboard() {
         let shipped = 0;
         let delivered = 0;
         let refunded = 0;
+        let returned = 0;
         let cancelled = 0;
         let todayOrders = 0;
         let whatsappOrders = 0;
@@ -170,10 +176,12 @@ export default function AdminDashboard() {
                 refunded++;
             } else if (status === 'CANCELLED') {
                 cancelled++;
+            } else if (status.includes('RETURN')) {
+                returned++;
             }
 
-            // Active orders: exclude CANCELLED and REFUNDED and DRAFT
-            if (status !== 'CANCELLED' && status !== 'REFUNDED' && status !== 'DRAFT') {
+            // Active orders: exclude CANCELLED, REFUNDED, RETURNED, and DRAFT
+            if (status !== 'CANCELLED' && status !== 'REFUNDED' && !status.includes('RETURN') && status !== 'DRAFT') {
                 activeOrderIds.add(o.id);
                 grossRevenue += orderTotal;
                 refundTotal += orderRefund;
@@ -181,10 +189,13 @@ export default function AdminDashboard() {
                 // Net sales revenue deducts refunds and shipping pass-through
                 const orderNet = Math.max(0, orderTotal - orderRefund - orderShipping);
                 netRevenue += orderNet;
-            } else if (status === 'REFUNDED') {
+            } else if (status === 'REFUNDED' || status.includes('RETURN')) {
                 refundTotal += (orderRefund > 0 ? orderRefund : orderTotal);
             }
         });
+
+        const dateFilteredReturns = (allReturnRequests || []).filter(r => isOrderInDateRange(r.created_at, dateFilter, customStartDate, customEndDate));
+        const totalReturns = Math.max(returned, dateFilteredReturns.length);
 
         const computedStats = {
             totalRevenue: netRevenue,
@@ -199,6 +210,7 @@ export default function AdminDashboard() {
             shipped,
             delivered,
             refunded,
+            returned: totalReturns,
             cancelled,
             todayOrders,
             whatsappOrders
@@ -245,7 +257,7 @@ export default function AdminDashboard() {
             topProductsFallback: isFallback,
             lowStockProducts: lowStock
         };
-    }, [allOrders, allOrderItems, allProducts, customerCount, dateFilter, customStartDate, customEndDate]);
+    }, [allOrders, allOrderItems, allProducts, allReturnRequests, customerCount, dateFilter, customStartDate, customEndDate]);
 
     const getStatusReference = (status) => {
         switch (status) {
@@ -392,7 +404,12 @@ export default function AdminDashboard() {
             </div>
 
             {/* Stats Grid */}
-            <div className="admin-grid-4" style={{ marginBottom: '3rem' }}>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                gap: '1.25rem',
+                marginBottom: '3rem'
+            }}>
                 {[
                     {
                         title: 'Total Revenue',
@@ -428,8 +445,18 @@ export default function AdminDashboard() {
                         icon: Truck,
                         gradient: 'linear-gradient(135deg, hsl(var(--secondary)), hsl(265 50% 40%))',
                         color: 'hsl(265 50% 95%)',
-                        glow: 'hsl(var(--secondary) / 0.3)'
+                        glow: 'hsl(var(--secondary) / 0.3)',
+                        sub: stats.delivered > 0 ? `${stats.delivered} delivered` : null
                     },
+                    {
+                        title: 'Returns & Refunds',
+                        value: stats.returned + stats.refunded,
+                        icon: RotateCcw,
+                        gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+                        color: '#fef2f2',
+                        glow: 'rgba(239, 68, 68, 0.3)',
+                        sub: stats.refundTotal > 0 ? `₹${stats.refundTotal.toLocaleString()} refunded` : (stats.returned > 0 ? `${stats.returned} returns` : null)
+                    }
                 ].map((stat, i) => (
                     <div key={i} className="card" style={{
                         position: 'relative',

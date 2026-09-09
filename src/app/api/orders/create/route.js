@@ -248,10 +248,11 @@ export async function POST(request) {
                     calculatedShippingCost = (threshold > 0 && taxableSubtotal >= threshold) ? 0 : rate;
                 } else {
                     const defaultDomesticRate = (dbZones && dbZones.find(z => !isZoneIntl(z))) ? parseFloat(dbZones.find(z => !isZoneIntl(z)).rate || 0) : 50;
-                    calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 1500 : defaultDomesticRate);
+                    const defaultIntlRate = (dbZones && dbZones.find(z => isZoneIntl(z))) ? parseFloat(dbZones.find(z => isZoneIntl(z)).rate || 0) : 100;
+                    calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? defaultIntlRate : defaultDomesticRate);
                 }
             } else {
-                calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 1500 : 50);
+                calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 100 : 50);
             }
 
             // Check if Free Shipping discount rule or shipping discount is active

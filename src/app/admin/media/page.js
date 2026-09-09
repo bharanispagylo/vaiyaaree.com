@@ -8,6 +8,7 @@ import {
     AlertTriangle
 } from 'lucide-react';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { parseUploadResponse, validateImageFile } from '@/lib/uploadHelper';
 
 export default function MediaLibraryPage() {
     const [files, setFiles] = useState([]);
@@ -176,6 +177,15 @@ export default function MediaLibraryPage() {
         const uploadedFiles = Array.from(e.target.files || []);
         if (uploadedFiles.length === 0) return;
 
+        for (const file of uploadedFiles) {
+            const val = validateImageFile(file);
+            if (!val.valid) {
+                setNotification({ message: val.error, type: 'error' });
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                return;
+            }
+        }
+
         setUploading(true);
         let successCount = 0;
         const token = localStorage.getItem('cast_prince_admin') || '';
@@ -192,8 +202,8 @@ export default function MediaLibraryPage() {
                     body: formData,
                 });
 
-                const data = await res.json();
-                if (res.ok) {
+                const data = await parseUploadResponse(res);
+                if (data.url) {
                     successCount++;
                 }
             }

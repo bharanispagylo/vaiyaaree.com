@@ -149,7 +149,26 @@ export async function POST(request) {
         await ensureDirs();
         await initMediaTable();
 
-        const formData = await request.formData();
+        const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+        const contentLength = parseInt(request.headers.get('content-length') || '0', 10);
+        if (contentLength > MAX_BYTES) {
+            return NextResponse.json(
+                { error: `Upload size (${(contentLength / (1024 * 1024)).toFixed(1)}MB) exceeds the maximum allowed limit of 10MB.` },
+                { status: 413 }
+            );
+        }
+
+        let formData;
+        try {
+            formData = await request.formData();
+        } catch (formErr) {
+            console.error('[UPLOAD formData error]:', formErr?.message);
+            return NextResponse.json(
+                { error: 'Uploaded file is too large or request was interrupted. Maximum file size is 10MB.' },
+                { status: 413 }
+            );
+        }
+
         const file = formData.get('file');
         const imageUrlParam = formData.get('imageUrl');
         const catalogId = formData.get('catalogId');
@@ -158,6 +177,14 @@ export async function POST(request) {
         const alreadyWatermarked = formData.get('alreadyWatermarked') === 'true';
         const requireClean = formData.get('requireClean') === 'true';
         const saveClean = formData.get('saveClean') !== 'false';
+
+        // Pre-allocation file size check to protect memory
+        if (file && typeof file === 'object' && typeof file.size === 'number' && file.size > MAX_BYTES) {
+            return NextResponse.json(
+                { error: `File "${file.name || 'image'}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 10MB limit.` },
+                { status: 413 }
+            );
+        }
 
         let buffer;
         let fileExt = 'jpg';
@@ -169,6 +196,10 @@ export async function POST(request) {
             fileExt = file.name ? (file.name.split('.').pop() || 'jpg') : 'jpg';
             fileNameHint = file.name || 'image.jpg';
         } else if (imageUrlParam) {
+            if (typeof imageUrlParam === 'string' && imageUrlParam.length > MAX_BYTES * 1.4) {
+                return NextResponse.json({ error: 'Image data exceeds the maximum allowed limit of 10MB.' }, { status: 413 });
+            }
+
             const cleanUrl = String(imageUrlParam).split('?')[0].trim();
             fileExt = cleanUrl.split('.').pop() || 'jpg';
             fileNameHint = cleanUrl.split('/').pop() || 'image.jpg';
@@ -216,10 +247,9 @@ export async function POST(request) {
             return NextResponse.json({ error: 'No valid image data provided' }, { status: 400 });
         }
 
-        // 1. Max size validation: 10MB limit
-        const maxBytes = 10 * 1024 * 1024;
-        if (buffer.length > maxBytes) {
-            return NextResponse.json({ error: 'File exceeds maximum upload size of 10MB.' }, { status: 400 });
+        // Post-buffer check to guarantee safety
+        if (buffer.length > MAX_BYTES) {
+            return NextResponse.json({ error: `File exceeds maximum upload size of 10MB (${(buffer.length / (1024 * 1024)).toFixed(1)}MB).` }, { status: 413 });
         }
 
         // 2. Format validation: JPEG, PNG, SVG only

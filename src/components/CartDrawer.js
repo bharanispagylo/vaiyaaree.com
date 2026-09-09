@@ -190,7 +190,7 @@ export default function CartDrawer() {
                                                 </span>
                                             )}
                                         </div>
-                                        <span>-₹{discountData.totalDiscount.toLocaleString()}</span>
+                                        <span>-₹{Math.round(discountData.totalDiscount).toLocaleString('en-IN')}</span>
                                     </div>
                                     {appliedRules.length > 1 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '4px 0 8px', padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
@@ -201,7 +201,7 @@ export default function CartDrawer() {
                                                 const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
                                                 const savingsText = r.discountType === 'FREE_SHIPPING'
                                                     ? 'Free Shipping'
-                                                    : `-₹${(r.discountAmount || 0).toLocaleString()}`;
+                                                    : `-₹${Math.round(r.discountAmount || 0).toLocaleString('en-IN')}`;
                                                 return (
                                                     <div key={idx} style={{ fontSize: '0.75rem', color: '#15803d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
@@ -218,7 +218,7 @@ export default function CartDrawer() {
                         <div className={styles.summaryRow} style={{ borderTop: '1px solid hsl(var(--border-subtle))', paddingTop: '8px', marginTop: '4px' }}>
                             <span style={{ fontWeight: 800 }}>Estimated Total</span>
                             <span className={styles.totalAmount} style={{ color: 'hsl(var(--primary))', fontSize: '1.25rem' }}>
-                                ₹{Math.max(0, cartTotal - (discountData?.totalDiscount || 0)).toLocaleString()}
+                                ₹{Math.max(0, Math.round(cartTotal - (discountData?.totalDiscount || 0))).toLocaleString('en-IN')}
                             </span>
                         </div>
 

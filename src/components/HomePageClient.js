@@ -170,15 +170,32 @@ export default function HomePageClient() {
                         const explore = sortedProds.filter(p => p.product_group === 'EXPLORE');
                         setExploreProducts(explore.length > 0 ? explore : sortedProds.slice(0, 8));
 
+                        // Fetch active categories to ensure only active categories are displayed
+                        let activeCategoryNames = new Set();
+                        try {
+                            const { data: dbCategories } = await mysqlClient
+                                .from('categories')
+                                .select('name, slug, status')
+                                .eq('status', 'active');
+                            if (Array.isArray(dbCategories)) {
+                                activeCategoryNames = new Set(dbCategories.map(c => c.name.toLowerCase().trim()));
+                            }
+                        } catch (catErr) {
+                            console.error('Active Categories Fetch Error:', catErr);
+                        }
+
                         const uniqueCats = [];
                         const catMap = new Map();
                         const catCountMap = new Map();
                         for (const p of prods) {
-                            if (p.category) {
-                                catCountMap.set(p.category, (catCountMap.get(p.category) || 0) + 1);
-                                if (!catMap.has(p.category)) {
-                                    const rawImg = p.image_url ? p.image_url.split(',')[0].trim() : '';
-                                    catMap.set(p.category, rawImg || '/images/hero-saree.png');
+                            if (p.category && String(p.category).trim()) {
+                                const catName = String(p.category).trim();
+                                if (activeCategoryNames.size === 0 || activeCategoryNames.has(catName.toLowerCase())) {
+                                    catCountMap.set(catName, (catCountMap.get(catName) || 0) + 1);
+                                    if (!catMap.has(catName)) {
+                                        const rawImg = p.image_url ? p.image_url.split(',')[0].trim() : '';
+                                        catMap.set(catName, rawImg || '/images/hero-saree.png');
+                                    }
                                 }
                             }
                         }

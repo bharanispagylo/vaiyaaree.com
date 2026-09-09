@@ -1,6 +1,7 @@
 'use client';
 
 import { Image as ImageIcon, Upload } from 'lucide-react';
+import { parseUploadResponse, validateImageFile } from '@/lib/uploadHelper';
 
 export default function ProductMediaCard({
     useExistingWatermark,
@@ -94,19 +95,10 @@ export default function ProductMediaCard({
                                 const files = Array.from(e.target.files || []);
                                 if (!files.length) return;
 
-                                const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
-                                const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg'];
-                                const maxBytes = 10 * 1024 * 1024; // 10MB
-
                                 for (const file of files) {
-                                    const ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
-                                    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
-                                        setErrorModal({ title: 'Invalid File Format', message: `File "${file.name}" is not supported. Only JPEG, PNG, and SVG formats are allowed.` });
-                                        e.target.value = '';
-                                        return;
-                                    }
-                                    if (file.size > maxBytes) {
-                                        setErrorModal({ title: 'File Too Large', message: `File "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 10MB limit.` });
+                                    const val = validateImageFile(file);
+                                    if (!val.valid) {
+                                        setErrorModal({ title: 'Invalid File', message: val.error });
                                         e.target.value = '';
                                         return;
                                     }
@@ -129,7 +121,7 @@ export default function ProductMediaCard({
                                                         headers: { 'Authorization': `Bearer ${token}` },
                                                         body: formData
                                                     });
-                                                    const detData = await detRes.json();
+                                                    const detData = await parseUploadResponse(detRes);
 
                                                     const onProceedWithUpload = async (catId) => {
                                                         setLoadingOverlayText("Generating High-Res Watermark & Catalog ID..."); setOcrLoading(true);
@@ -144,8 +136,8 @@ export default function ProductMediaCard({
                                                             headers: { 'Authorization': `Bearer ${token}` },
                                                             body: uploadData
                                                         });
-                                                        const upData = await upRes.json();
-                                                        if (upRes.ok && upData.url) {
+                                                        const upData = await parseUploadResponse(upRes);
+                                                        if (upData.url) {
                                                             setProductImageUrl(prev => {
                                                                 const existingArray = prev ? prev.split(',').filter(Boolean) : [];
                                                                 return [...existingArray, upData.url].join(',');
@@ -236,19 +228,10 @@ export default function ProductMediaCard({
                                 const files = Array.from(e.target.files || []);
                                 if (!files.length) return;
 
-                                const allowedTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
-                                const allowedExtensions = ['jpg', 'jpeg', 'png', 'svg'];
-                                const maxBytes = 10 * 1024 * 1024; // 10MB
-
                                 for (const file of files) {
-                                    const ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
-                                    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
-                                        setErrorModal({ title: 'Invalid File Format', message: `File "${file.name}" is not supported. Only JPEG, PNG, and SVG formats are allowed.` });
-                                        e.target.value = '';
-                                        return;
-                                    }
-                                    if (file.size > maxBytes) {
-                                        setErrorModal({ title: 'File Too Large', message: `File "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds the 10MB limit.` });
+                                    const val = validateImageFile(file);
+                                    if (!val.valid) {
+                                        setErrorModal({ title: 'Invalid File', message: val.error });
                                         e.target.value = '';
                                         return;
                                     }
@@ -269,8 +252,8 @@ export default function ProductMediaCard({
                                             headers: { 'Authorization': `Bearer ${token}` },
                                             body: formData
                                         });
-                                        const data = await res.json();
-                                        if (res.ok) uploadedUrls.push(data.url);
+                                        const data = await parseUploadResponse(res);
+                                        if (data.url) uploadedUrls.push(data.url);
                                     }
                                     setGalleryImageUrl(prev => [...uploadedUrls, ...prev]);
                                 } catch (err) {

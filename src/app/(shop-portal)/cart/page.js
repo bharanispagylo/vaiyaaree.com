@@ -53,8 +53,8 @@ export default function CartPage() {
         setApplyingCoupon(false);
     };
 
-    const totalDiscount = discountData?.totalDiscount || 0;
-    const finalCartTotal = Math.max(0, cartTotal - totalDiscount);
+    const totalDiscount = Math.round(discountData?.totalDiscount || 0);
+    const finalCartTotal = Math.max(0, Math.round(cartTotal - (discountData?.totalDiscount || 0)));
 
     return (
         <div className={styles.cartContainer}>
@@ -280,7 +280,7 @@ export default function CartPage() {
                                                     const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
                                                     const savingsText = r.discountType === 'FREE_SHIPPING' 
                                                         ? 'Free Shipping' 
-                                                        : `-₹${(r.discountAmount || 0).toLocaleString()}.00`;
+                                                        : `-₹${Math.round(r.discountAmount || 0).toLocaleString('en-IN')}.00`;
                                                     return (
                                                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>

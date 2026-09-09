@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
+import { parseUploadResponse, validateImageFile } from '@/lib/uploadHelper';
 import styles from '../page.module.css';
 import { MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings, Upload, Trash2, FileImage, Link as LinkIcon, Paperclip } from 'lucide-react';
 
@@ -20,6 +21,14 @@ export default function WhatsAppSettingsPage() {
 
     async function handleImageUpload(key, file) {
         if (!file) return;
+
+        const val = validateImageFile(file);
+        if (!val.valid) {
+            setNotification({ message: val.error, type: 'error' });
+            setTimeout(() => setNotification(null), 4000);
+            return;
+        }
+
         setUploadingKey(key);
         try {
             const formData = new FormData();
@@ -33,9 +42,9 @@ export default function WhatsAppSettingsPage() {
                 body: formData,
             });
 
-            const data = await res.json();
-            if (!res.ok || !data.url) {
-                throw new Error(data.error || 'Upload failed');
+            const data = await parseUploadResponse(res);
+            if (!data.url) {
+                throw new Error('Upload failed: Missing image URL');
             }
 
             handleChange(key, data.url);

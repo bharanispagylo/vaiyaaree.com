@@ -745,7 +745,7 @@ export default function CheckoutPage() {
                                                 </span>
                                             )}
                                         </div>
-                                        <span>-₹{discountData.totalDiscount.toLocaleString()}.00</span>
+                                        <span>-₹{Math.round(discountData.totalDiscount).toLocaleString('en-IN')}.00</span>
                                     </div>
                                     {appliedRules.length > 1 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '-4px 0 10px', padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '0.78rem', color: '#15803d' }}>
@@ -756,7 +756,7 @@ export default function CheckoutPage() {
                                                 const ruleDisplayName = r.name || r.ruleName || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
                                                 const savingsText = r.discountType === 'FREE_SHIPPING'
                                                     ? 'Free Shipping'
-                                                    : `-₹${(r.discountAmount || 0).toLocaleString()}.00`;
+                                                    : `-₹${Math.round(r.discountAmount || 0).toLocaleString('en-IN')}.00`;
                                                 return (
                                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <span style={{ fontWeight: 600 }}>• {ruleDisplayName}</span>
@@ -773,33 +773,33 @@ export default function CheckoutPage() {
                         {taxDetails.cgst > 0 && (
                             <div className={styles.summaryRow}>
                                 <span>CGST (2.5%)</span>
-                                <span>₹{taxDetails.cgst.toLocaleString()}.00</span>
+                                <span>₹{taxDetails.cgst.toLocaleString('en-IN')}.00</span>
                             </div>
                         )}
                         {taxDetails.sgst > 0 && (
                             <div className={styles.summaryRow}>
                                 <span>SGST (2.5%)</span>
-                                <span>₹{taxDetails.sgst.toLocaleString()}.00</span>
+                                <span>₹{taxDetails.sgst.toLocaleString('en-IN')}.00</span>
                             </div>
                         )}
                         {taxDetails.igst > 0 && (
                             <div className={styles.summaryRow}>
                                 <span>IGST (5%)</span>
-                                <span>₹{taxDetails.igst.toLocaleString()}.00</span>
+                                <span>₹{taxDetails.igst.toLocaleString('en-IN')}.00</span>
                             </div>
                         )}
 
                         <div className={styles.summaryRow}>
                             <span>Shipping</span>
                             <span className={taxDetails.shipping === 0 ? styles.freeText : ''}>
-                                {taxDetails.shipping === 0 ? 'FREE' : `₹${taxDetails.shipping.toLocaleString()}.00`}
+                                {taxDetails.shipping === 0 ? 'FREE' : `₹${taxDetails.shipping.toLocaleString('en-IN')}.00`}
                             </span>
                         </div>
 
                         <div className={styles.summaryTotalRow}>
                             <span>Total</span>
                             <span className={styles.totalPrice}>
-                                ₹{Math.max(0, taxDetails.totalOrder).toLocaleString()}.00
+                                ₹{Math.max(0, Math.round(taxDetails.totalOrder)).toLocaleString('en-IN')}.00
                             </span>
                         </div>
                     </div>

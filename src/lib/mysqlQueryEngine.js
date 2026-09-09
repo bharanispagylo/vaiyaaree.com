@@ -26,6 +26,16 @@ export async function executeMysqlQuery(payload) {
     }
 
     try {
+        if (table === 'shipping_zones') {
+            const { ensureShippingTablesAndZones } = await import('./dbInit.js');
+            await ensureShippingTablesAndZones(pool);
+        }
+
+        if (table === 'products' || table === 'product_variants') {
+            const { ensureProductPriceDecimal } = await import('./dbInit.js');
+            await ensureProductPriceDecimal(pool);
+        }
+
         if (operation === 'select') {
             return await handleSelect({
                 table,

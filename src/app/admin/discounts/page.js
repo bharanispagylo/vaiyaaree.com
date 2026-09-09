@@ -54,6 +54,11 @@ export default function AdminDiscountsPage() {
         product_ids: []
     });
 
+    const getAuthHeaders = () => {
+        const token = typeof window !== 'undefined' ? (localStorage.getItem('cast_prince_admin') || '') : '';
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    };
+
     useEffect(() => {
         fetchDiscounts();
         fetchProductsAndCategories();
@@ -63,7 +68,9 @@ export default function AdminDiscountsPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch('/api/admin/discounts');
+            const res = await fetch('/api/admin/discounts', {
+                headers: getAuthHeaders()
+            });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to fetch discounts');
             setRules(data.rules || []);
@@ -176,6 +183,17 @@ export default function AdminDiscountsPage() {
             const prodDiscountVal = formData.product_discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(formData.product_discount_value || 0);
             const cartDiscountVal = formData.cart_discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(formData.cart_discount_value || 0);
 
+            if (effectiveDiscountType === 'PERCENTAGE' && (effectiveDiscountValue <= 0 || effectiveDiscountValue > 100)) {
+                setError('Percentage discount must be greater than 0 and up to 100%');
+                setSaving(false);
+                return;
+            }
+            if (effectiveDiscountType === 'FIXED_AMOUNT' && effectiveDiscountValue <= 0) {
+                setError('Fixed amount discount must be greater than 0');
+                setSaving(false);
+                return;
+            }
+
             const cleanStartDate = formData.start_date?.trim() ? formData.start_date.trim().replace('T', ' ') : null;
             const cleanEndDate = formData.end_date?.trim() ? formData.end_date.trim().replace('T', ' ') : null;
             const formattedStartDate = cleanStartDate ? (cleanStartDate.length === 16 ? `${cleanStartDate}:00` : cleanStartDate) : null;
@@ -216,7 +234,7 @@ export default function AdminDiscountsPage() {
 
             const res = await fetch('/api/admin/discounts', {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
                 body: JSON.stringify(payload)
             });
 
@@ -237,7 +255,10 @@ export default function AdminDiscountsPage() {
     const handleDeleteRule = async (id, name) => {
         if (!confirm(`Are you sure you want to delete discount rule "${name}"?`)) return;
         try {
-            const res = await fetch(`/api/admin/discounts?id=${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/discounts?id=${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to delete discount rule');
             setSuccess(`Rule "${name}" deleted.`);
@@ -253,7 +274,7 @@ export default function AdminDiscountsPage() {
             const newActive = !(rule.is_active === 1 || rule.is_active === true);
             const res = await fetch('/api/admin/discounts', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
                 body: JSON.stringify({ id: rule.id, is_active: newActive ? 1 : 0 })
             });
             if (!res.ok) throw new Error('Failed to toggle status');

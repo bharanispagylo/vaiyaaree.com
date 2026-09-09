@@ -95,3 +95,89 @@ export async function ensureCategoryTables() {
         console.error('[DB INIT] Error creating and syncing category tables:', err);
     }
 }
+
+let shippingInitialized = false;
+
+/**
+ * Ensures required database tables for Shipping exist in MySQL and guarantees that both
+ * a default Domestic Group and International Standard zone exist with valid rates.
+ */
+export async function ensureShippingTablesAndZones(poolInstance = pool) {
+    if (shippingInitialized) return;
+
+    try {
+        await poolInstance.query(`
+            CREATE TABLE IF NOT EXISTS shipping_zones (
+                id VARCHAR(100) PRIMARY KEY,
+                name VARCHAR(255) NULL,
+                rate BIGINT(20) DEFAULT 0,
+                free_threshold BIGINT(20) DEFAULT 0,
+                is_international TINYINT(1) DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                cod_charge BIGINT(20) DEFAULT 0
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        await poolInstance.query(`
+            CREATE TABLE IF NOT EXISTS shipping_zone_states (
+                id VARCHAR(100) PRIMARY KEY,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                zone_id VARCHAR(100) NULL,
+                state_name VARCHAR(255) NULL,
+                district_name VARCHAR(255) NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        // Check if an international zone exists
+        const [intlRows] = await poolInstance.query(
+            "SELECT id, rate FROM shipping_zones WHERE is_international = 1 OR is_international = '1' LIMIT 1"
+        );
+
+        if (!intlRows || intlRows.length === 0) {
+            const { randomUUID } = await import('crypto');
+            await poolInstance.query(
+                "INSERT INTO shipping_zones (id, name, rate, free_threshold, is_international, cod_charge) VALUES (?, ?, ?, ?, 1, 0)",
+                [randomUUID(), 'International Standard', 100, 10000]
+            );
+        }
+
+        // Check if a domestic zone exists
+        const [domRows] = await poolInstance.query(
+            "SELECT id, rate FROM shipping_zones WHERE is_international = 0 OR is_international = '0' OR is_international IS NULL LIMIT 1"
+        );
+
+        if (!domRows || domRows.length === 0) {
+            const { randomUUID } = await import('crypto');
+            await poolInstance.query(
+                "INSERT INTO shipping_zones (id, name, rate, free_threshold, is_international, cod_charge) VALUES (?, ?, ?, ?, 0, 0)",
+                [randomUUID(), 'Domestic Group', 50, 2005]
+            );
+        }
+
+        shippingInitialized = true;
+    } catch (err) {
+        console.error('[DB INIT] Error ensuring shipping tables and zones:', err);
+    }
+}
+
+let productPriceDecimalEnsured = false;
+
+/**
+ * Ensures products and product_variants price columns in MySQL are DECIMAL(12,2)
+ * so that decimal prices like 99.99 are accurately stored without integer truncation.
+ */
+export async function ensureProductPriceDecimal(poolInstance = pool) {
+    if (productPriceDecimalEnsured) return;
+
+    try {
+        await poolInstance.query(`ALTER TABLE products MODIFY COLUMN price DECIMAL(12,2) DEFAULT 0.00`);
+        await poolInstance.query(`ALTER TABLE product_variants MODIFY COLUMN price DECIMAL(12,2) DEFAULT 0.00`);
+        productPriceDecimalEnsured = true;
+    } catch (err) {
+        // Suppress if columns already updated or tables not present yet
+        productPriceDecimalEnsured = true;
+    }
+}
+
+

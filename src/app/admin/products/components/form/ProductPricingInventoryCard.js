@@ -19,7 +19,7 @@ export default function ProductPricingInventoryCard({
                         defaultValue={currentProduct?.price ?? ''}
                         required
                         min="0"
-                        step="0.01"
+                        step="any"
                         placeholder="0.00"
                         className="admin-input"
                         style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}
@@ -42,7 +42,7 @@ export default function ProductPricingInventoryCard({
                         })()}
                         required
                         min="0"
-                        step="0.01"
+                        step="any"
                         placeholder="0.00"
                         className="admin-input"
                         onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}

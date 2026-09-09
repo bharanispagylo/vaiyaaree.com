@@ -167,7 +167,8 @@ export default function DiscountForm({
                                     <input
                                         type={formData.product_discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
                                         step="0.01"
-                                        min="0"
+                                        min="0.01"
+                                        max={formData.product_discount_type === 'PERCENTAGE' ? '100' : undefined}
                                         placeholder={formData.product_discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
                                         value={formData.product_discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : (formData.product_discount_value ?? '')}
                                         onChange={e => setFormData({ ...formData, product_discount_value: e.target.value })}
@@ -364,7 +365,8 @@ export default function DiscountForm({
                                     <input
                                         type={formData.cart_discount_type === 'FREE_SHIPPING' ? 'text' : 'number'}
                                         step="0.01"
-                                        min="0"
+                                        min="0.01"
+                                        max={formData.cart_discount_type === 'PERCENTAGE' ? '100' : undefined}
                                         placeholder={formData.cart_discount_type === 'FREE_SHIPPING' ? 'Free Delivery' : 'e.g. 20'}
                                         value={formData.cart_discount_type === 'FREE_SHIPPING' ? 'Free Delivery (100% Shipping Off)' : (formData.cart_discount_value ?? '')}
                                         onChange={e => setFormData({ ...formData, cart_discount_value: e.target.value })}
