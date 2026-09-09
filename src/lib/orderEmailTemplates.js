@@ -395,7 +395,7 @@ export function buildOrderStatusEmailHtml({
             <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
             <title>${config.title} - ${shopName}</title>
             <style type="text/css">
-                body { margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+                body { margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Cabrito Flare', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
                 table { border-collapse: collapse; }
                 img { border: 0; outline: none; text-decoration: none; }
                 @media only screen and (max-width: 620px) {
@@ -498,11 +498,44 @@ export function buildOrderStatusEmailHtml({
                                             <td style="padding: 4px 0; font-size: 13px; color: #16a34a; font-weight: 700;">Offers & Discounts Applied</td>
                                             <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #16a34a;">-₹${totalDiscount.toLocaleString('en-IN')}.00</td>
                                         </tr>` : ''}
-                                        ${taxAmount > 0 ? `
-                                        <tr>
-                                            <td style="padding: 4px 0; font-size: 13px; color: #64748b;">GST Tax</td>
-                                            <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${taxAmount.toLocaleString('en-IN')}.00</td>
-                                        </tr>` : ''}
+                                        ${(() => {
+                                            if (taxAmount <= 0) return '';
+                                            const emailTaxType = order.tax_type || '';
+                                            const emailRawCgst = Number(order.cgst_amount || order.cgst || 0);
+                                            const emailRawSgst = Number(order.sgst_amount || order.sgst || 0);
+                                            const emailRawIgst = Number(order.igst_amount || order.igst || 0);
+                                            let emailIsIgst = false;
+                                            if (emailTaxType === 'IGST' || emailTaxType === 'IGST_INTERNATIONAL') {
+                                                emailIsIgst = true;
+                                            } else if (emailTaxType === 'CGST_SGST') {
+                                                emailIsIgst = false;
+                                            } else if (emailRawIgst > 0) {
+                                                emailIsIgst = true;
+                                            } else if (emailRawCgst > 0 || emailRawSgst > 0) {
+                                                emailIsIgst = false;
+                                            } else {
+                                                const delivState = (order.delivery_state || order.shipping_state || order.billing_state || '').trim().toLowerCase();
+                                                emailIsIgst = Boolean(delivState && delivState !== 'tamil nadu');
+                                            }
+                                            if (emailIsIgst) {
+                                                const igstDisplay = emailRawIgst > 0 ? emailRawIgst : taxAmount;
+                                                return `<tr>
+                                                    <td style="padding: 4px 0; font-size: 13px; color: #64748b;">IGST (5%)</td>
+                                                    <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${igstDisplay.toLocaleString('en-IN')}.00</td>
+                                                </tr>`;
+                                            } else {
+                                                const cgstDisplay = emailRawCgst > 0 ? emailRawCgst : Math.round(taxAmount / 2);
+                                                const sgstDisplay = emailRawSgst > 0 ? emailRawSgst : Math.round(taxAmount / 2);
+                                                return `<tr>
+                                                    <td style="padding: 4px 0; font-size: 13px; color: #64748b;">CGST (2.5%)</td>
+                                                    <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${cgstDisplay.toLocaleString('en-IN')}.00</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 4px 0; font-size: 13px; color: #64748b;">SGST (2.5%)</td>
+                                                    <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${sgstDisplay.toLocaleString('en-IN')}.00</td>
+                                                </tr>`;
+                                            }
+                                        })()}
                                         <tr>
                                             <td style="padding: 4px 0; font-size: 13px; color: #64748b;">Shipping & Delivery</td>
                                             <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: ${shippingCost === 0 ? '#16a34a' : '#0f172a'};">

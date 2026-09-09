@@ -345,7 +345,7 @@ export function ShopProvider({ children }) {
 
     //  CART PERSISTENCE 
     useEffect(() => {
-        if (!hasMounted || !isCartLoaded) return; // Wait until we've loaded the real cart
+        localStorage.setItem('vaiyaaree_cart', JSON.stringify(cart));
         localStorage.setItem('cast_prince_cart', JSON.stringify(cart));
 
         const syncCart = async () => {
@@ -437,7 +437,7 @@ export function ShopProvider({ children }) {
 
     // Initial local cart load on mount
     useEffect(() => {
-        const saved = localStorage.getItem('cast_prince_cart');
+        const saved = localStorage.getItem('vaiyaaree_cart') || localStorage.getItem('cast_prince_cart');
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
@@ -451,7 +451,7 @@ export function ShopProvider({ children }) {
             setIsSessionLoading(false);
             return;
         }
-        const storedUser = localStorage.getItem('cast_prince_user');
+        const storedUser = localStorage.getItem('vaiyaaree_user') || localStorage.getItem('cast_prince_user');
         if (!storedUser) {
             setIsSessionLoading(false);
             return;
@@ -466,6 +466,7 @@ export function ShopProvider({ children }) {
 
             // If stored user is an admin account, do not load it as a shop customer user
             if (localUser.role === 'admin' || localUser.role === 'Super Admin' || localUser.username || localUser.source === 'db_users' || localUser.source === 'db_settings') {
+                localStorage.removeItem('vaiyaaree_user');
                 localStorage.removeItem('cast_prince_user');
                 setUser(null);
                 setIsSessionLoading(false);
@@ -483,6 +484,7 @@ export function ShopProvider({ children }) {
                 }
             } else {
                 localUser.login_at = Date.now();
+                localStorage.setItem('vaiyaaree_user', JSON.stringify(localUser));
                 localStorage.setItem('cast_prince_user', JSON.stringify(localUser));
             }
 
@@ -497,6 +499,7 @@ export function ShopProvider({ children }) {
             // Sanitize existing localUser immediately to strip any legacy sensitive fields
             const cleanLocalUser = sanitizeCustomerSession(localUser);
             if (!cleanLocalUser) {
+                localStorage.removeItem('vaiyaaree_user');
                 localStorage.removeItem('cast_prince_user');
                 setUser(null);
                 setIsSessionLoading(false);
@@ -505,6 +508,7 @@ export function ShopProvider({ children }) {
 
             // Set sanitized local user immediately so UI remains logged in on page refresh
             setUser(cleanLocalUser);
+            localStorage.setItem('vaiyaaree_user', JSON.stringify(cleanLocalUser));
             localStorage.setItem('cast_prince_user', JSON.stringify(cleanLocalUser));
 
             // Fetch latest user profile from DB to sync changes if valid ID exists
@@ -519,6 +523,7 @@ export function ShopProvider({ children }) {
                     if (!dbError && dbUser) {
                         if (Boolean(dbUser.is_locked)) {
                             console.warn('[SESSION] Customer account has been locked by admin.');
+                            localStorage.removeItem('vaiyaaree_user');
                             localStorage.removeItem('cast_prince_user');
                             setUser(null);
                             setIsSessionLoading(false);
@@ -526,6 +531,7 @@ export function ShopProvider({ children }) {
                         }
                         const activeUser = sanitizeCustomerSession({ ...cleanLocalUser, ...dbUser });
                         setUser(activeUser);
+                        localStorage.setItem('vaiyaaree_user', JSON.stringify(activeUser));
                         localStorage.setItem('cast_prince_user', JSON.stringify(activeUser));
 
                         setCheckoutForm(prev => ({
@@ -549,6 +555,7 @@ export function ShopProvider({ children }) {
             }
         } catch (error) {
             console.error('[SESSION] Error parsing stored user session:', error);
+            localStorage.removeItem('vaiyaaree_user');
             localStorage.removeItem('cast_prince_user');
             setUser(null);
         } finally {
@@ -578,7 +585,9 @@ export function ShopProvider({ children }) {
 
     async function handleLogout() {
         if (typeof window !== 'undefined') {
+            localStorage.removeItem('vaiyaaree_user');
             localStorage.removeItem('cast_prince_user');
+            localStorage.removeItem('vaiyaaree_cart');
             localStorage.removeItem('cast_prince_cart');
         }
         setUser(null);
@@ -1139,7 +1148,7 @@ export function ShopProvider({ children }) {
                         state: checkoutForm.billingState || existingCustomer.state,
                         pincode: checkoutForm.billingPincode || existingCustomer.pincode,
                         phone: cleanDigits,
-                        country_code: existingCustomer.country_code || billingCountryCode
+                        country_code: existingCustomer.country_code || checkoutForm.billingCountryCode || '+91'
                     };
 
                     const { data: updatedExisting } = await mysqlClient
@@ -1157,7 +1166,7 @@ export function ShopProvider({ children }) {
                         .from('customers')
                         .insert({
                             phone: cleanDigits,
-                            country_code: billingCountryCode,
+                            country_code: checkoutForm.billingCountryCode || '+91',
                             name: checkoutForm.billingName,
                             email: checkoutForm.billingEmail || null,
                             address: checkoutForm.billingAddress,
@@ -1179,6 +1188,7 @@ export function ShopProvider({ children }) {
                 const safeCustomer = sanitizeCustomerSession(currentCustomer);
                 if (safeCustomer) {
                     setUser(safeCustomer);
+                    localStorage.setItem('vaiyaaree_user', JSON.stringify(safeCustomer));
                     localStorage.setItem('cast_prince_user', JSON.stringify(safeCustomer));
                 }
             } else {
@@ -1202,6 +1212,7 @@ export function ShopProvider({ children }) {
                         const safeUpdated = sanitizeCustomerSession(updatedUser);
                         if (safeUpdated) {
                             setUser(safeUpdated);
+                            localStorage.setItem('vaiyaaree_user', JSON.stringify(safeUpdated));
                             localStorage.setItem('cast_prince_user', JSON.stringify(safeUpdated));
                         }
                     }

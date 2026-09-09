@@ -1,12 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Cormorant+Infant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 @import '../styles/responsive.css';
 
+@font-face {
+  font-family: 'Cabrito Flare';
+  src: local('Cabrito Flare'), local('CabritoFlare'), local('Cabrito-Flare'), local('Cabrito Flare Regular');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Cabrito Flare';
+  src: local('Cabrito Flare Italic'), local('CabritoFlare-Italic'), local('Cabrito-Flare-Italic');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
-  /* Typography - Cultural Heritage & Modern Luxury */
-  --font-serif-royal: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
-  --font-heading: 'Outfit', 'Cinzel', 'Plus Jakarta Sans', sans-serif;
-  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-roboto: 'Plus Jakarta Sans', sans-serif;
+  /* Typography - Primary Global Brand Font: Cabrito Flare */
+  --font-primary: "Cabrito Flare", sans-serif;
+  --font-serif-royal: "Cabrito Flare", serif;
+  --font-heading: "Cabrito Flare", sans-serif;
+  --font-body: "Cabrito Flare", sans-serif;
+  --font-roboto: "Cabrito Flare", sans-serif;
+  /* Brand display font — web-loaded, matches logo editorial serif style */
+  --font-brand: "Cormorant Infant", "Cormorant Garamond", "Playfair Display", serif;
 
   /* ── 5-Tone Indian Cultural Color Schema (Matches Logo & User Palette) ── */
   --clr-sage: #86a397;
@@ -165,7 +184,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: var(--font-roboto), sans-serif;
+  font-family: "Cabrito Flare", sans-serif;
 }
 
 /* Hide scrollbar utility for modals and carousels while maintaining scroll functionality */
@@ -180,8 +199,9 @@
   scrollbar-width: none !important;
 }
 
+html,
 body {
-  font-family: var(--font-body);
+  font-family: "Cabrito Flare", sans-serif;
   background-color: hsl(var(--bg-app));
   color: hsl(var(--text-main));
   -webkit-font-smoothing: antialiased;
@@ -202,7 +222,7 @@ select,
 textarea {
   cursor: pointer;
   border: none;
-  font-family: inherit;
+  font-family: "Cabrito Flare", sans-serif;
   background: none;
 }
 
@@ -219,7 +239,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-heading);
+  font-family: "Cabrito Flare", sans-serif;
   font-weight: 700;
   /* Regular Bold for Serif */
   line-height: 1.2;
@@ -242,7 +262,7 @@ h3 {
 
 h4 {
   font-size: 1.25rem;
-  font-family: var(--font-body);
+  font-family: "Cabrito Flare", sans-serif;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -255,7 +275,7 @@ p {
 /* ── Premium CMS Content Styling & Font Enforcement ── */
 .cms-content,
 .cms-content * {
-  font-family: var(--font-body) !important;
+  font-family: "Cabrito Flare", sans-serif !important;
 }
 
 .cms-content {
@@ -275,7 +295,7 @@ p {
 .cms-content h4,
 .cms-content h5,
 .cms-content h6 {
-  font-family: var(--font-heading) !important;
+  font-family: "Cabrito Flare", sans-serif !important;
   color: hsl(var(--text-main));
   font-weight: 700;
   margin-top: 2.5rem;
@@ -289,7 +309,7 @@ p {
 .cms-content h4 *,
 .cms-content h5 *,
 .cms-content h6 * {
-  font-family: var(--font-heading) !important;
+  font-family: "Cabrito Flare", sans-serif !important;
 }
 
 .cms-content h1 {
@@ -537,7 +557,7 @@ th {
   text-align: left;
   padding: 0.65rem 1rem;
   color: hsl(var(--text-muted));
-  font-family: var(--font-body);
+  font-family: "Cabrito Flare", sans-serif;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -856,7 +876,7 @@ tr:hover td {
   padding: 0.75rem 1rem;
   border-radius: 8px;
   color: hsl(var(--text-main));
-  font-family: var(--font-roboto);
+  font-family: "Cabrito Flare", sans-serif;
   font-size: 0.9rem;
   outline: none;
   transition: all 0.2s;

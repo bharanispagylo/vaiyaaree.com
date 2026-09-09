@@ -6,7 +6,7 @@
     background: hsl(var(--bg-app));
     position: relative;
     overflow: hidden;
-    font-family: var(--font-body);
+    font-family: "Cabrito Flare", var(--font-body), sans-serif;
 }
 
 /* Animated background blobs with pink/rose tones */

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { useShop } from '@/context/ShopContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ModalPortal from '@/components/ModalPortal';
@@ -29,7 +28,7 @@ export default function RefundsPage() {
     };
 
     const router = useRouter();
-    const { shopSettings } = useShop();
+
     const [refunds, setRefunds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -220,7 +219,7 @@ export default function RefundsPage() {
                     refundRequestId: selectedRefund.id,
                     approvedAmount: parseFloat(approvedAmountInput) || selectedRefund.requested_amount,
                     adminNote: processNote,
-                    returnRequired: true
+                    returnRequired: selectedRefund.return_status !== 'NOT_REQUIRED'
                 };
             } else if (processAction === 'reject') {
                 endpoint = '/api/refund-requests/reject';
@@ -480,7 +479,7 @@ export default function RefundsPage() {
                                                             className="btn btn-primary"
                                                             style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', background: '#2563eb' }}
                                                         >
-                                                            Approve Return
+                                                            {refund.return_status === 'NOT_REQUIRED' ? 'Approve Refund' : 'Approve Return'}
                                                         </button>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleProcessClick(refund, 'reject'); }}
@@ -509,6 +508,16 @@ export default function RefundsPage() {
                                                         style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', background: '#854d0e' }}
                                                     >
                                                         Inspect & Approve Payout
+                                                    </button>
+                                                )}
+
+                                                {(refStatus === 'APPROVED' && refund.return_status === 'NOT_REQUIRED') && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleProcessClick(refund, 'complete'); }}
+                                                        className="btn btn-primary"
+                                                        style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', background: '#059669' }}
+                                                    >
+                                                        Mark Refunded
                                                     </button>
                                                 )}
 
@@ -778,9 +787,19 @@ export default function RefundsPage() {
                                             className="btn btn-primary"
                                             style={{ background: '#2563eb' }}
                                         >
-                                            <CheckCircle size={18} /> Approve Return
+                                            <CheckCircle size={18} /> {selectedRefund.return_status === 'NOT_REQUIRED' ? 'Approve Refund Payout' : 'Approve Return'}
                                         </button>
                                     </>
+                                )}
+
+                                {(selectedRefund.refund_status || selectedRefund.status || '').toUpperCase() === 'APPROVED' && selectedRefund.return_status === 'NOT_REQUIRED' && (
+                                    <button
+                                        onClick={() => { handleProcessClick(selectedRefund, 'complete'); }}
+                                        className="btn btn-primary"
+                                        style={{ background: '#059669' }}
+                                    >
+                                        <IndianRupee size={18} /> Mark Refund Completed
+                                    </button>
                                 )}
 
                                 {(selectedRefund.refund_status || selectedRefund.status || '').toUpperCase() === 'CUSTOMER_SHIPPED' && (

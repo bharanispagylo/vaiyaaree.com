@@ -106,7 +106,7 @@ export default function ActiveOrdersTab({
                                                     >
                                                         <Eye size={12} /> Details
                                                     </Link>
-                                                    {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
+                                                    {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PROCESSING'].includes((order.status || '').toUpperCase()) && (
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -188,7 +188,7 @@ export default function ActiveOrdersTab({
                                         >
                                             <Eye size={13} /> Details
                                         </Link>
-                                        {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT'].includes((order.status || '').toUpperCase()) && (
+                                        {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PROCESSING'].includes((order.status || '').toUpperCase()) && (
                                             <button
                                                 type="button"
                                                 onClick={() => {

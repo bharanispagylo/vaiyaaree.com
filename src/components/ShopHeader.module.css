@@ -15,7 +15,7 @@
     padding: 7px 1.5rem;
     text-align: center;
     border-bottom: 1px solid rgba(212, 122, 6, 0.35);
-    font-family: var(--font-body);
+    font-family: "Cabrito Flare", var(--font-body), sans-serif;
 }
 
 .topBarInner {
@@ -109,6 +109,7 @@
     height: 48px;
     width: auto;
     object-fit: contain;
+    border-radius: 8px;
 }
 
 .logoBrandBlock {
@@ -117,16 +118,17 @@
 }
 
 .logoBrandName {
-    font-family: var(--font-serif-royal), serif;
-    font-size: 1.35rem;
-    font-weight: 800;
+    font-family: var(--font-brand);
+    font-size: 1.45rem;
+    font-weight: 500;
     color: #27302b;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.18em;
     line-height: 1;
+    text-transform: uppercase;
 }
 
 .logoTagline {
-    font-family: var(--font-body);
+    font-family: "Cabrito Flare", var(--font-body), sans-serif;
     font-size: 0.58rem;
     font-weight: 800;
     color: #a06650;

@@ -129,7 +129,7 @@ function getHeaderHtml(title = 'Vaiyaaree Sarees', shopLogo = '', subtitle = 'Pr
                     <div style="display: inline-block; background: #ffffff; padding: 6px 14px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.18);">
                         <img src="cid:vaiyaaree_email_logo_cid" alt="Vaiyaaree Sarees" style="max-height: 54px; width: auto; display: block; margin: 0 auto;" />
                     </div>
-                    <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 0; font-family: 'Outfit', Arial, sans-serif; letter-spacing: 0.5px;">${title}</h1>
+                    <h1 style="color: #ffffff; font-size: 24px; font-weight: 700; margin: 0; font-family: 'Cabrito Flare', 'Outfit', Arial, sans-serif; letter-spacing: 0.5px;">${title}</h1>
                     ${subtitle ? `<p style="color: #f3e5c8; font-size: 11px; margin: 6px 0 0 0; text-transform: uppercase; letter-spacing: 2px; font-weight: 600;">${subtitle}</p>` : ''}
                 </td>
             </tr>
@@ -389,7 +389,7 @@ export async function sendAdminPasswordResetOTP(toEmail, otp) {
                 <title>Admin Password Reset - Vaiyaaree Sarees</title>
                 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
             </head>
-            <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Outfit', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+            <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Cabrito Flare', 'Outfit', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; padding: 30px 10px;">
                     <tr>
                         <td align="center">
@@ -477,7 +477,7 @@ export async function sendAdminLoginOTP(toEmail, otp, username = 'Administrator'
                 <title>Admin Login OTP - Vaiyaaree Sarees</title>
                 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
             </head>
-            <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Outfit', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+            <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Cabrito Flare', 'Outfit', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; padding: 30px 10px;">
                     <tr>
                         <td align="center">
@@ -584,7 +584,7 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
                 <title>Password Reset Successful - Vaiyaaree Sarees</title>
                 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
             </head>
-            <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Outfit', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+            <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Cabrito Flare', 'Outfit', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6; padding: 30px 10px;">
                     <tr>
                         <td align="center">

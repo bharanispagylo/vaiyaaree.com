@@ -176,7 +176,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
                     />
                 </div>
                 <div>
-                    <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#fff', letterSpacing: '0.05em', fontFamily: 'var(--font-roboto)' }}>VAIYAAREE</h2>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 500, color: '#fff', letterSpacing: '0.18em', fontFamily: 'var(--font-brand)', textTransform: 'uppercase' }}>VAIYAAREE</h2>
                 </div>
             </div>
 

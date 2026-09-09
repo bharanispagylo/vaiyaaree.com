@@ -666,16 +666,26 @@
     top: 2rem;
 }
 
-.sidebarCard {
-    background: hsl(var(--card-bg, #fff));
-    border: 1px solid hsl(var(--text-main) / 0.08);
+.sidebarCard,
+.profileSupportCard {
+    background: #ffffff;
+    border: 1px solid hsl(var(--border-subtle, #e2e8f0));
     border-radius: 20px;
-    padding: 2rem;
+    padding: 1.75rem;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+    transition: all 0.25s ease;
 }
 
-.helpIconWrapper {
+.sidebarCard:hover,
+.profileSupportCard:hover {
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.07);
+}
+
+.helpIconWrapper,
+.supportIconWrap {
     width: 48px;
     height: 48px;
     border-radius: 14px;
@@ -687,40 +697,45 @@
     margin-bottom: 1.25rem;
 }
 
-.sidebarCard h4 {
-    margin-bottom: 0.5rem;
+.sidebarCard h4,
+.profileSupportCard h4 {
+    margin: 0 0 0.5rem 0;
     font-size: 1.2rem;
     font-weight: 800;
-    color: hsl(var(--text-main));
+    color: hsl(var(--text-main, #0f172a));
+    letter-spacing: -0.01em;
 }
 
-.sidebarCard p {
-    font-size: 0.9rem;
-    color: hsl(var(--text-muted));
+.sidebarCard p,
+.profileSupportCard p {
+    font-size: 0.88rem;
+    color: hsl(var(--text-muted, #64748b));
     line-height: 1.6;
-    margin-bottom: 1.75rem;
+    margin: 0 0 1.5rem 0;
 }
 
 .supportBtn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
-    color: hsl(var(--text-on-primary));
+    color: hsl(var(--text-on-primary, #ffffff));
     text-decoration: none;
-    padding: 0.9rem 1.5rem;
+    padding: 0.85rem 1.25rem;
     border-radius: 12px;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     white-space: nowrap;
     transition: all 0.25s ease;
-    box-shadow: 0 4px 15px hsl(var(--primary) / 0.3);
+    box-shadow: 0 4px 15px hsl(var(--primary) / 0.25);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .supportBtn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.35);
 }
 
 .loginPrompt {
@@ -761,6 +776,8 @@
     .profileSidebar {
         width: 100%;
         position: static;
+        margin-top: 2rem;
+        margin-bottom: 2.5rem;
     }
 
     .profileHeader {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
     User, ShoppingBag, History, RotateCcw, IndianRupee, Truck, MessageCircle 
@@ -73,26 +73,8 @@ export default function ProfilePage() {
     const [cancelReason, setCancelReason] = useState('Changed my mind');
     const [cancellingOrder, setCancellingOrder] = useState(false);
 
-    // Synchronize tab with URL query parameter
-    useEffect(() => {
-        const tab = searchParams.get('tab');
-        const trackId = searchParams.get('id') || searchParams.get('orderId');
-        if (tab && ['orders', 'track', 'history', 'account', 'refund', 'return'].includes(tab)) {
-            setActiveTab(tab);
-        }
-        if (trackId) {
-            const formattedInv = String(trackId).replace(/^[A-Z]+-/, 'INV-');
-            setTrackSearchId(formattedInv);
-            handleTrackSearch(trackId);
-        }
-    }, [searchParams]);
-
-    const handleTabChange = (tab) => {
-        setActiveTab(tab);
-        router.push(`/profile?tab=${tab}`, { scroll: false });
-    };
-
-    async function handleTrackSearch(searchIdToUse) {
+    // handleTrackSearch — defined before useEffect so it can be safely referenced
+    const handleTrackSearch = useCallback(async function(searchIdToUse) {
         const idToSearch = searchIdToUse || trackSearchId;
         if (!idToSearch) return;
         setLoadingTrack(true);
@@ -139,7 +121,26 @@ export default function ProfilePage() {
         } finally {
             setLoadingTrack(false);
         }
-    }
+    }, [mysqlClient, showToast, trackSearchId]);
+
+    // Synchronize tab with URL query parameter
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        const trackId = searchParams.get('id') || searchParams.get('orderId');
+        if (tab && ['orders', 'track', 'history', 'account', 'refund', 'return'].includes(tab)) {
+            setActiveTab(tab);
+        }
+        if (trackId) {
+            const formattedInv = String(trackId).replace(/^[A-Z]+-/, 'INV-');
+            setTrackSearchId(formattedInv);
+            handleTrackSearch(trackId);
+        }
+    }, [searchParams, handleTrackSearch]);
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        router.push(`/profile?tab=${tab}`, { scroll: false });
+    };
 
     // Load data on user ready
     useEffect(() => {
@@ -635,7 +636,9 @@ export default function ProfilePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     orderId: cancelModalOrder.id,
-                    customerId: user.id,
+                    customerId: user?.id,
+                    customerPhone: user?.phone || cancelModalOrder.customer_phone,
+                    customerEmail: user?.email || cancelModalOrder.customer_email,
                     reason: cancelReason
                 })
             });
@@ -645,10 +648,14 @@ export default function ProfilePage() {
                 throw new Error(data.error || 'Failed to cancel order');
             }
 
-            showToast('Order cancelled successfully!');
+            const successMsg = data.message || (data.isCod 
+                ? 'Order cancelled successfully! (Cash on Delivery)' 
+                : 'Order cancelled! Refund request submitted.');
+            showToast(successMsg, 'success');
             setCancelModalOrder(null);
             setCancelReason('Changed my mind');
             await fetchUserOrders();
+            await fetchRefunds();
         } catch (err) {
             console.error('Cancel order error:', err);
             showToast(err?.message || 'Failed to cancel order', 'error');
@@ -679,8 +686,16 @@ export default function ProfilePage() {
     }
 
     // Filter Active vs History Orders
-    const activeOrders = orders.filter(o => ['PLACED', 'PAID', 'PROCESSING', 'SHIPPED'].includes(o.status));
-    const pastOrders = orders.filter(o => ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(o.status));
+    const activeOrders = orders.filter(o =>
+        ['PLACED', 'PAID', 'PROCESSING', 'SHIPPED', 'CONFIRMED', 'PENDING', 'AWAITING_PAYMENT', 'OUT_FOR_DELIVERY'].includes(
+            (o.status || '').toUpperCase()
+        )
+    );
+    const pastOrders = orders.filter(o =>
+        ['DELIVERED', 'CANCELLED', 'REFUNDED', 'RETURN_REQUESTED', 'RETURN_APPROVED'].includes(
+            (o.status || '').toUpperCase()
+        )
+    );
 
     const totalActivePages = Math.ceil(activeOrders.length / ORDERS_PER_PAGE);
     const paginatedActiveOrders = activeOrders.slice((activeOrdersPage - 1) * ORDERS_PER_PAGE, activeOrdersPage * ORDERS_PER_PAGE);

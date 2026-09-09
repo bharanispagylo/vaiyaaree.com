@@ -141,6 +141,10 @@ export default function CheckoutPage() {
             showToast('Please enter a valid 6-digit Pincode', 'error');
             return;
         }
+        if (!checkoutForm.billingState?.trim()) {
+            showToast('Please select your State', 'error');
+            return;
+        }
 
         // Validate shipping if different from billing
         if (!checkoutForm.sameAsBilling && (!checkoutForm.shippingName || !checkoutForm.shippingPhone || !checkoutForm.shippingAddress)) {

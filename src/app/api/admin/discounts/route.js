@@ -84,17 +84,17 @@ export async function POST(request) {
 
         const basis = (calculation_basis || 'PRODUCT').toUpperCase();
         const isCart = basis === 'CART';
-        const finalThresholdType = isCart ? (threshold_type || (target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT')).toUpperCase() : null;
-        const finalThresholdCount = isCart ? (threshold_count !== null && threshold_count !== undefined ? Math.max(1, parseInt(threshold_count, 10)) : 1) : null;
-        const finalThresholdValue = isCart ? (threshold_value !== null && threshold_value !== undefined ? Math.max(0, parseFloat(threshold_value)) : 0) : null;
+        const finalThresholdType = (threshold_type || (target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT')).toUpperCase();
+        const finalThresholdCount = threshold_count !== null && threshold_count !== undefined ? Math.max(1, parseInt(threshold_count, 10)) : 5;
+        const finalThresholdValue = threshold_value !== null && threshold_value !== undefined ? Math.max(0, parseFloat(threshold_value)) : 0;
         const finalTargetType = target_type || 'ALL_PRODUCTS';
 
-        // Decoupled types & values
+        // Decoupled types & values - completely independent between Product and Cart Level
         const prodType = product_discount_type || (basis === 'PRODUCT' ? (discount_type || 'PERCENTAGE') : 'PERCENTAGE');
-        const prodVal = prodType === 'FREE_SHIPPING' ? 0 : parseFloat(product_discount_value ?? (basis === 'PRODUCT' ? (discount_value ?? 10) : 10));
+        const prodVal = prodType === 'FREE_SHIPPING' ? 0 : parseFloat(product_discount_value !== undefined && product_discount_value !== null ? product_discount_value : (basis === 'PRODUCT' ? (discount_value ?? 10) : 10));
 
         const cartType = cart_discount_type || (basis === 'CART' ? (discount_type || 'PERCENTAGE') : 'PERCENTAGE');
-        const cartVal = cartType === 'FREE_SHIPPING' ? 0 : parseFloat(cart_discount_value ?? (basis === 'CART' ? (discount_value ?? 10) : 10));
+        const cartVal = cartType === 'FREE_SHIPPING' ? 0 : parseFloat(cart_discount_value !== undefined && cart_discount_value !== null ? cart_discount_value : (basis === 'CART' ? (discount_value ?? 10) : 10));
 
         // Effective discount type & value for current calculation basis (for checkout compatibility)
         const dType = basis === 'CART' ? cartType : prodType;
@@ -201,33 +201,31 @@ export async function PUT(request) {
 
         // Process product discount fields
         if (updateFields.product_discount_type !== undefined) {
-            if (updateFields.product_discount_type === 'FREE_SHIPPING') {
-                updateFields.product_discount_value = 0;
-            } else if (updateFields.product_discount_value !== undefined) {
-                updateFields.product_discount_value = parseFloat(updateFields.product_discount_value || 0);
-            }
+            updateFields.product_discount_type = updateFields.product_discount_type || 'PERCENTAGE';
+        }
+        if (updateFields.product_discount_value !== undefined && updateFields.product_discount_value !== null) {
+            updateFields.product_discount_value = updateFields.product_discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(updateFields.product_discount_value);
         }
 
         // Process cart discount fields
         if (updateFields.cart_discount_type !== undefined) {
-            if (updateFields.cart_discount_type === 'FREE_SHIPPING') {
-                updateFields.cart_discount_value = 0;
-            } else if (updateFields.cart_discount_value !== undefined) {
-                updateFields.cart_discount_value = parseFloat(updateFields.cart_discount_value || 0);
-            }
+            updateFields.cart_discount_type = updateFields.cart_discount_type || 'PERCENTAGE';
+        }
+        if (updateFields.cart_discount_value !== undefined && updateFields.cart_discount_value !== null) {
+            updateFields.cart_discount_value = updateFields.cart_discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(updateFields.cart_discount_value);
         }
 
-        // Sync effective discount_type & discount_value for the active basis
+        // Sync effective discount_type & discount_value for the active basis (for checkout)
         if (basis === 'CART') {
-            updateFields.discount_type = updateFields.cart_discount_type || updateFields.discount_type || 'PERCENTAGE';
+            updateFields.discount_type = updateFields.cart_discount_type || 'PERCENTAGE';
             updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
                 ? 0
-                : parseFloat(updateFields.cart_discount_value ?? updateFields.discount_value ?? 0);
+                : parseFloat(updateFields.cart_discount_value !== undefined && updateFields.cart_discount_value !== null ? updateFields.cart_discount_value : (updateFields.discount_value ?? 0));
         } else {
-            updateFields.discount_type = updateFields.product_discount_type || updateFields.discount_type || 'PERCENTAGE';
+            updateFields.discount_type = updateFields.product_discount_type || 'PERCENTAGE';
             updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
                 ? 0
-                : parseFloat(updateFields.product_discount_value ?? updateFields.discount_value ?? 0);
+                : parseFloat(updateFields.product_discount_value !== undefined && updateFields.product_discount_value !== null ? updateFields.product_discount_value : (updateFields.discount_value ?? 0));
         }
 
         // Validation for discount values (prevent >100% discount or invalid fixed discount)
@@ -248,18 +246,18 @@ export async function PUT(request) {
             return NextResponse.json({ error: 'Fixed amount discount must be greater than 0' }, { status: 400 });
         }
 
-        if (basis !== 'CART') {
-            updateFields.threshold_type = null;
-            updateFields.threshold_count = null;
-            updateFields.threshold_value = null;
-        } else {
-            if (updateFields.threshold_count !== undefined && updateFields.threshold_count !== null) {
-                updateFields.threshold_count = parseInt(updateFields.threshold_count, 10);
-            }
-            if (updateFields.threshold_value !== undefined && updateFields.threshold_value !== null) {
-                updateFields.threshold_value = parseFloat(updateFields.threshold_value);
-            }
+        // Permanently preserve threshold settings regardless of basis
+        if (updateFields.threshold_type !== undefined && updateFields.threshold_type !== null) {
+            updateFields.threshold_type = String(updateFields.threshold_type).toUpperCase();
         }
+        if (updateFields.threshold_count !== undefined && updateFields.threshold_count !== null) {
+            updateFields.threshold_count = parseInt(updateFields.threshold_count, 10);
+        }
+        if (updateFields.threshold_value !== undefined && updateFields.threshold_value !== null) {
+            updateFields.threshold_value = parseFloat(updateFields.threshold_value);
+        }
+
+        // Permanently preserve minimum cart products settings regardless of basis
         if (updateFields.minimum_cart_products !== undefined && updateFields.minimum_cart_products !== null) {
             updateFields.minimum_cart_products = parseInt(updateFields.minimum_cart_products, 10);
         }

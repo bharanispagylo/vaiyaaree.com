@@ -32,19 +32,30 @@ export async function GET(request, { params }) {
         const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
         const mimeType = MIME_TYPES[ext] || 'image/jpeg';
 
-        // 1. Try serving from local disk first if exists
+        // 1. Try serving from exact local disk path or candidate alternative upload directories
         try {
-            const diskPath = path.join(process.cwd(), 'public', 'uploads', ...pathSegments);
-            if (existsSync(diskPath)) {
-                const fileBuffer = await fs.readFile(diskPath);
-                return new NextResponse(fileBuffer, {
-                    status: 200,
-                    headers: {
-                        'Content-Type': mimeType,
-                        'Cache-Control': 'public, max-age=31536000, immutable',
-                        'Content-Length': String(fileBuffer.length)
-                    }
-                });
+            const candidatePaths = [
+                path.join(process.cwd(), 'public', 'uploads', ...pathSegments),
+                path.join(process.cwd(), 'public', 'uploads', 'media', 'without-watermark', filename),
+                path.join(process.cwd(), 'public', 'uploads', 'media', 'with-watermark', filename),
+                path.join(process.cwd(), 'public', 'uploads', 'media', filename),
+                path.join(process.cwd(), 'public', 'uploads', 'products', filename),
+                path.join(process.cwd(), 'public', 'uploads', filename),
+                path.join(process.cwd(), 'public', 'images', filename)
+            ];
+
+            for (const diskPath of candidatePaths) {
+                if (existsSync(diskPath)) {
+                    const fileBuffer = await fs.readFile(diskPath);
+                    return new NextResponse(fileBuffer, {
+                        status: 200,
+                        headers: {
+                            'Content-Type': mimeType,
+                            'Cache-Control': 'public, max-age=31536000, immutable',
+                            'Content-Length': String(fileBuffer.length)
+                        }
+                    });
+                }
             }
         } catch (_) {}
 
@@ -77,6 +88,40 @@ export async function GET(request, { params }) {
             }
         } catch (dbErr) {
             console.error('[Uploads Serve DB Error]:', dbErr);
+        }
+
+        // 3. Graceful fallback for images to permanently prevent broken UI and 404 console errors
+        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext);
+        if (isImage) {
+            try {
+                const fallbackImgPath = path.join(process.cwd(), 'public', 'images', 'about-us-saree.jpg');
+                if (existsSync(fallbackImgPath)) {
+                    const fallbackBuffer = await fs.readFile(fallbackImgPath);
+                    return new NextResponse(fallbackBuffer, {
+                        status: 200,
+                        headers: {
+                            'Content-Type': 'image/jpeg',
+                            'Cache-Control': 'public, max-age=300',
+                            'X-Fallback-Image': 'default-saree-placeholder'
+                        }
+                    });
+                }
+            } catch (_) {}
+
+            const placeholderSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+                <rect width="100%" height="100%" fill="#fdfbf7"/>
+                <rect x="20" y="20" width="560" height="560" rx="16" fill="#f8f4ee" stroke="#ebdcd0" stroke-width="2"/>
+                <text x="50%" y="48%" dominant-baseline="middle" text-anchor="middle" font-family="'Cabrito Flare', sans-serif" font-size="28" font-weight="700" fill="#a06650" letter-spacing="4">VAIYAAREE</text>
+                <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="'Cabrito Flare', sans-serif" font-size="13" font-weight="500" fill="#6e645e" letter-spacing="1">AUTHENTIC HANDLOOM SAREES</text>
+            </svg>`;
+            return new NextResponse(Buffer.from(placeholderSvg), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'image/svg+xml',
+                    'Cache-Control': 'public, max-age=300',
+                    'X-Fallback-Image': 'true'
+                }
+            });
         }
 
         return new NextResponse('File not found', {

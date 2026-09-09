@@ -171,6 +171,9 @@ export default function OrderDetailPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     orderId: order.id,
+                    customerId: user?.id,
+                    customerPhone: user?.phone || order.customer_phone,
+                    customerEmail: user?.email || order.customer_email,
                     reason: cancelReason,
                     requestedBy: user?.name || order.customer_name || 'Customer'
                 })
@@ -182,7 +185,7 @@ export default function OrderDetailPage() {
                 setOrder(prev => ({
                     ...prev,
                     status: 'CANCELLED',
-                    payment_status: data.refundProcessed ? 'REFUNDED' : prev.payment_status
+                    refund_status: data.refundStatus || (data.isCod ? 'NOT_APPLICABLE' : 'REFUND_REQUESTED')
                 }));
                 setShowCancelModal(false);
             } else {

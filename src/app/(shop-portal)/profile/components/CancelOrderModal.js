@@ -68,19 +68,33 @@ export default function CancelOrderModal({
                         </select>
                     </div>
 
-                    {/* Razorpay Refund Notice for Paid Orders */}
-                    {(cancelModalOrder.status === 'PAID' || cancelModalOrder.payment_method === 'Razorpay') ? (
-                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#166534', lineHeight: 1.45 }}>
-                            <div style={{ fontWeight: 800, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                💳 Instant Razorpay Refund
+                    {/* Payment & Refund Notice based on COD vs Online Paid */}
+                    {(() => {
+                        const payMethod = String(cancelModalOrder.payment_method || '').toUpperCase();
+                        const isCod = payMethod === 'COD' || 
+                                      payMethod.includes('CASH') || 
+                                      (!cancelModalOrder.razorpay_payment_id && cancelModalOrder.status !== 'PAID' && !['RAZORPAY', 'UPI', 'PHONEPE'].some(m => payMethod.includes(m)));
+
+                        if (isCod) {
+                            return (
+                                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#475569', lineHeight: 1.45 }}>
+                                    <div style={{ fontWeight: 800, marginBottom: '3px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        💵 Cash on Delivery Order
+                                    </div>
+                                    No payment was deducted for this order. Cancelling will immediately void the order and restore product stock with no refund needed.
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#1e40af', lineHeight: 1.45 }}>
+                                <div style={{ fontWeight: 800, marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '6px', color: '#1d4ed8' }}>
+                                    💳 Online Payment ({cancelModalOrder.payment_method || 'Razorpay / UPI'})
+                                </div>
+                                A full refund request of <strong>₹{Number(cancelModalOrder.total_amount || 0).toLocaleString('en-IN')}</strong> will be created upon cancellation. Our admin team will process and send your refund to your original payment method. You can track this in the <strong>Refunds</strong> tab.
                             </div>
-                            A full refund of <strong>₹{Number(cancelModalOrder.total_amount || 0).toLocaleString('en-IN')}</strong> will be automatically credited back to your original payment method (UPI / Bank Account / Card) via Razorpay.
-                        </div>
-                    ) : (
-                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#64748b' }}>
-                            ℹ️ Cash on Delivery / Unpaid Order. No payment deduction was made.
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     <p style={{ fontSize: '0.76rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.45 }}>
                         🔒 <strong>Dispatch Protection:</strong> Orders can only be cancelled while in pre-dispatch status. Once packed or handed over to our courier partners, cancellation is locked.

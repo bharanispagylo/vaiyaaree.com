@@ -150,20 +150,23 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                                     {discountAmount > 0 ? `- ₹${discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '₹0.00'}
                                 </span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>CGST (2.5%):</span>
-                                <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>SGST (2.5%):</span>
-                                <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            {rawIgst > 0 && (
+                            {isIgst ? (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>IGST (5%):</span>
-                                    <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{rawIgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{igstVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
-                            )}
+                            ) : (rawTax > 0 || cgst > 0 || sgst > 0) ? (
+                                <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>CGST (2.5%):</span>
+                                        <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>SGST (2.5%):</span>
+                                        <span style={{ fontWeight: 600, color: 'hsl(var(--text-main))' }}>₹{sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                </>
+                            ) : null}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Shipping:</span>
                                 <span style={{ fontWeight: 600, color: shippingCost > 0 ? 'hsl(var(--text-main))' : '#16a34a' }}>
