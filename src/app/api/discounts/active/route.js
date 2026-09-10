@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { parseDateToUTC } from '@/lib/dateUtils';
+import { isRuleActiveByDate } from '@/services/discountService';
 
 export async function GET() {
     try {
-        const now = new Date();
-
-        // 1. Fetch active automatic rules (coupon_code is null or empty, or general rules)
+        // 1. Fetch discount rules ordered by priority
         const { data: rules, error: rulesError } = await mysqlClient
             .from('discount_rules')
             .select('*')
-            .eq('is_active', true)
             .order('priority', { ascending: false });
 
         if (rulesError) throw rulesError;
@@ -19,22 +16,13 @@ export async function GET() {
             return NextResponse.json({ success: true, rules: [] }, { status: 200 });
         }
 
-        // Filter valid by date using standardized parseDateToUTC with end-of-day handling
-        const validRules = rules.filter(r => {
-            if (r.start_date) {
-                const start = parseDateToUTC(r.start_date);
-                if (start && start > now) return false;
-            }
-            if (r.end_date) {
-                let end = parseDateToUTC(r.end_date);
-                if (end) {
-                    if (typeof r.end_date === 'string' && !r.end_date.includes(':')) {
-                        end = new Date(end.getTime() + (23 * 3600 + 59 * 60 + 59) * 1000 + 999);
-                    }
-                    if (end < now) return false;
-                }
-            }
-            return true;
+        // Filter active rules with tolerant check (1, true, '1')
+        const activeRules = rules.filter(r => r.is_active === 1 || r.is_active === true || r.is_active === '1');
+
+        // Filter valid by date using standardized isRuleActiveByDate
+        const validRules = activeRules.filter(r => {
+            const check = isRuleActiveByDate(r.start_date, r.end_date);
+            return check.active;
         });
 
         if (validRules.length === 0) {

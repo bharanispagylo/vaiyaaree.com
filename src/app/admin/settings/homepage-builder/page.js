@@ -10,11 +10,12 @@ import {
     Check,
     X,
     ArrowUpRight,
-    Sparkles
+    Sparkles,
+    Layers
 } from 'lucide-react';
 import SectionItemRow from './components/SectionItemRow';
 import AddSectionModal from './components/AddSectionModal';
-import EditSectionModal from './components/EditSectionModal';
+import SectionContentEditor from './components/SectionContentEditor';
 
 export default function HomepageBuilderPage() {
     const [sections, setSections] = useState([]);
@@ -25,8 +26,8 @@ export default function HomepageBuilderPage() {
     const [draggedIdx, setDraggedIdx] = useState(null);
     const [dragOverIdx, setDragOverIdx] = useState(null);
 
-    // Modal state
-    const [editingSection, setEditingSection] = useState(null);
+    // Selected section for inline 70% content editor
+    const [selectedSectionId, setSelectedSectionId] = useState(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [mediaPickerCallback, setMediaPickerCallback] = useState(null);
 
@@ -68,6 +69,12 @@ export default function HomepageBuilderPage() {
             const json = await res.json();
             if (json.success && Array.isArray(json.data)) {
                 setSections(json.data);
+                if (json.data.length > 0) {
+                    setSelectedSectionId(prev => {
+                        const exists = json.data.some(s => s.id === prev);
+                        return exists ? prev : json.data[0].id;
+                    });
+                }
             } else {
                 showToast(json.error || 'Failed to load sections.', 'error');
             }
@@ -150,9 +157,13 @@ export default function HomepageBuilderPage() {
 
     const deleteSection = (id) => {
         if (!confirm('Are you sure you want to remove this section from the homepage?')) return;
-        const updated = sections.filter(s => s.id !== id).map((s, idx) => ({ ...s, display_order: idx + 1 }));
-        setSections(updated);
-        saveSectionsToServer(updated, true);
+        const remaining = sections.filter(s => s.id !== id).map((s, idx) => ({ ...s, display_order: idx + 1 }));
+        setSections(remaining);
+        saveSectionsToServer(remaining, true);
+        if (selectedSectionId === id) {
+            setSelectedSectionId(remaining[0]?.id || null);
+        }
+        showToast('Section removed.');
     };
 
     const duplicateSection = (sec) => {
@@ -164,8 +175,9 @@ export default function HomepageBuilderPage() {
         };
         const updated = [...sections, newSec];
         setSections(updated);
+        setSelectedSectionId(newSec.id);
         saveSectionsToServer(updated, true);
-        showToast('Section duplicated and saved!');
+        showToast('Section duplicated and selected!');
     };
 
     const addNewSectionFromTemplate = (tmpl) => {
@@ -182,10 +194,10 @@ export default function HomepageBuilderPage() {
         };
         const updated = [...sections, newSec];
         setSections(updated);
+        setSelectedSectionId(newSec.id);
         saveSectionsToServer(updated, true);
         setShowAddModal(false);
-        setEditingSection(newSec);
-        showToast(`Added ${tmpl.name}! Customize its details below.`);
+        showToast(`Added ${tmpl.name}! Customize its content on the right panel.`);
     };
 
     const resetToDefaults = async () => {
@@ -208,18 +220,29 @@ export default function HomepageBuilderPage() {
         }
     };
 
-    const saveEditingSectionModal = (updatedSection) => {
+    // Save handler called from SectionContentEditor
+    const handleSaveSectionContent = (updatedSection) => {
         if (!updatedSection) return;
         const updated = sections.map(s => s.id === updatedSection.id ? updatedSection : s);
         setSections(updated);
         saveSectionsToServer(updated, false);
-        setEditingSection(null);
     };
+
+    // Current active section for the 70% editor pane
+    const activeSection = sections.find(s => s.id === selectedSectionId) || sections[0] || null;
 
     return (
         <div className="animate-enter" style={{ padding: '0.5rem' }}>
+            <style jsx global>{`
+                @media (max-width: 1024px) {
+                    .hp-builder-grid-layout {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+            `}</style>
+
             {/* Header Row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
                         <div style={{ background: '#5d0821', color: '#ffffff', width: '38px', height: '38px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -230,7 +253,7 @@ export default function HomepageBuilderPage() {
                         </h1>
                     </div>
                     <p style={{ color: '#64748b', margin: 0, fontSize: '0.92rem' }}>
-                        Drag and reorder sections, customize text and settings, or add dynamic product carousels & banners to your storefront.
+                        Select a block on the left (30%) and edit its full content & media directly on the right (70%).
                     </p>
                 </div>
 
@@ -325,7 +348,7 @@ export default function HomepageBuilderPage() {
                 </div>
             )}
 
-            {/* Section Blocks Drag-and-Drop Container */}
+            {/* Loading State */}
             {loading ? (
                 <div style={{ background: '#ffffff', padding: '4rem 2rem', textAlign: 'center', borderRadius: '16px', border: '1px solid #e2e8f0', color: '#64748b' }}>
                     <div style={{ width: '32px', height: '32px', border: '3px solid #cbd5e1', borderTopColor: '#5d0821', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
@@ -348,25 +371,110 @@ export default function HomepageBuilderPage() {
                     </div>
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                    {sections.map((sec, index) => (
-                        <SectionItemRow
-                            key={sec.id}
-                            sec={sec}
-                            index={index}
-                            totalCount={sections.length}
-                            isDragging={draggedIdx === index}
-                            isDragOver={dragOverIdx === index}
-                            onDragStart={handleDragStart}
-                            onDragOver={handleDragOver}
-                            onDragEnd={handleDragEnd}
-                            onMove={moveSection}
+                /* 30% / 70% Split Screen Layout */
+                <div
+                    className="hp-builder-grid-layout"
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(290px, 30%) minmax(0, 70%)',
+                        gap: '1.5rem',
+                        alignItems: 'start'
+                    }}
+                >
+                    {/* LEFT SIDE: 30% Width Block Items */}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.85rem'
+                    }}>
+                        {/* Blocks Panel Header */}
+                        <div style={{
+                            background: '#ffffff',
+                            padding: '1rem 1.25rem',
+                            borderRadius: '14px',
+                            border: '1px solid #e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Layers size={18} style={{ color: '#5d0821' }} />
+                                <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>
+                                    Homepage Blocks
+                                </span>
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    background: '#f1f5f9',
+                                    color: '#475569',
+                                    padding: '0.15rem 0.5rem',
+                                    borderRadius: '6px'
+                                }}>
+                                    {sections.length}
+                                </span>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowAddModal(true)}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '0.45rem 0.8rem',
+                                    borderRadius: '8px',
+                                    background: '#5d0821',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Plus size={14} /> Add Block
+                            </button>
+                        </div>
+
+                        {/* Block Items List */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                            {sections.map((sec, index) => (
+                                <SectionItemRow
+                                    key={sec.id}
+                                    sec={sec}
+                                    index={index}
+                                    totalCount={sections.length}
+                                    isSelected={selectedSectionId === sec.id}
+                                    isDragging={draggedIdx === index}
+                                    isDragOver={dragOverIdx === index}
+                                    onSelect={(section) => setSelectedSectionId(section.id)}
+                                    onDragStart={handleDragStart}
+                                    onDragOver={handleDragOver}
+                                    onDragEnd={handleDragEnd}
+                                    onMove={moveSection}
+                                    onToggleVisibility={toggleSectionVisibility}
+                                    onDuplicate={duplicateSection}
+                                    onDelete={deleteSection}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* RIGHT SIDE: 70% Width Content Update Pane */}
+                    <div style={{
+                        minWidth: 0,
+                        position: 'sticky',
+                        top: '1rem'
+                    }}>
+                        <SectionContentEditor
+                            section={activeSection}
+                            onSave={handleSaveSectionContent}
                             onToggleVisibility={toggleSectionVisibility}
                             onDuplicate={duplicateSection}
-                            onCustomize={(section) => setEditingSection(JSON.parse(JSON.stringify(section)))}
                             onDelete={deleteSection}
+                            openMediaPicker={(cb) => setMediaPickerCallback(() => cb)}
                         />
-                    ))}
+                    </div>
                 </div>
             )}
 
@@ -376,16 +484,6 @@ export default function HomepageBuilderPage() {
                     isOpen={showAddModal}
                     onClose={() => setShowAddModal(false)}
                     onSelectTemplate={addNewSectionFromTemplate}
-                />
-            )}
-
-            {/* EDIT SECTION MODAL */}
-            {editingSection && (
-                <EditSectionModal
-                    editingSection={editingSection}
-                    onClose={() => setEditingSection(null)}
-                    onSave={saveEditingSectionModal}
-                    openMediaPicker={(cb) => setMediaPickerCallback(() => cb)}
                 />
             )}
 

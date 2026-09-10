@@ -4,18 +4,27 @@ import { parseDateToUTC } from '../lib/dateUtils.js';
 export function isRuleActiveByDate(startDateStr, endDateStr) {
     const now = new Date();
 
-    if (startDateStr) {
-        const start = parseDateToUTC(startDateStr);
-        if (start && !isNaN(start.getTime())) {
+    const isZeroOrEmpty = (val) => {
+        if (!val) return true;
+        if (val instanceof Date) {
+            return isNaN(val.getTime()) || val.getFullYear() <= 1970;
+        }
+        const s = String(val).trim();
+        return s === '' || s === '0' || s.startsWith('0000-00-00') || s.startsWith('1970-01-01');
+    };
+
+    if (startDateStr && !isZeroOrEmpty(startDateStr)) {
+        const start = startDateStr instanceof Date ? startDateStr : parseDateToUTC(startDateStr);
+        if (start && !isNaN(start.getTime()) && start.getFullYear() > 1970) {
             if (now < start) {
                 return { active: false, reason: 'NOT_STARTED' };
             }
         }
     }
 
-    if (endDateStr) {
-        let end = parseDateToUTC(endDateStr);
-        if (end && !isNaN(end.getTime())) {
+    if (endDateStr && !isZeroOrEmpty(endDateStr)) {
+        let end = endDateStr instanceof Date ? endDateStr : parseDateToUTC(endDateStr);
+        if (end && !isNaN(end.getTime()) && end.getFullYear() > 1970) {
             if (typeof endDateStr === 'string' && !endDateStr.includes(':')) {
                 // If only date is provided (YYYY-MM-DD), set to end of day in IST (+ 23h 59m 59s 999ms)
                 end = new Date(end.getTime() + (23 * 3600 + 59 * 60 + 59) * 1000 + 999);
@@ -142,18 +151,33 @@ export async function calculateDiscounts({
             const dateCheck = isRuleActiveByDate(rule.start_date, rule.end_date);
             if (!dateCheck.active) continue;
 
-            const calculationBasis = (rule.calculation_basis || 'PRODUCT').toUpperCase();
+            const rawBasis = String(rule.calculation_basis || '').toUpperCase();
+            const rawThresholdType = String(
+                rule.threshold_type || 
+                (rule.target_type === 'CART_COUNT' ? 'COUNT' : (rule.target_type === 'CART_VALUE' ? 'VALUE' : ''))
+            ).toUpperCase();
+            const hasCartThreshold = rawThresholdType === 'COUNT' || rawThresholdType.includes('COUNT') || rawThresholdType.includes('QTY') || rawThresholdType.includes('UNIT') ||
+                rawThresholdType === 'VALUE' || rawThresholdType.includes('VALUE') ||
+                Boolean(rule.minimum_cart_products_enabled);
+
+            const calculationBasis = (rawBasis === 'CART' || hasCartThreshold) ? 'CART' : (rawBasis || 'PRODUCT');
 
             // Check stackability guard
             if (nonStackableApplied && (!rule.stackable || rule.stackable === 0 || rule.stackable === false)) {
                 continue;
             }
 
-            // Check if rule is a coupon rule
-            const isCouponRule = Boolean(rule.coupon_code && rule.coupon_code.trim() !== '');
-            if (isCouponRule) {
-                if (!normalizedCoupon || rule.coupon_code.trim().toUpperCase() !== normalizedCoupon) {
-                    continue; // Skip coupon rule if coupon code doesn't match
+            // Coupon matching logic:
+            // Cart-level rules based on units or subtotal apply AUTOMATICALLY.
+            // Applying a coupon is NOT needed for cart-level rules.
+            // Only product-level rules that have a coupon code require the coupon to match.
+            const hasCouponCode = Boolean(rule.coupon_code && rule.coupon_code.trim() !== '');
+            const isCouponMatch = Boolean(hasCouponCode && normalizedCoupon && rule.coupon_code.trim().toUpperCase() === normalizedCoupon);
+            const isCouponRule = isCouponMatch;
+
+            if (calculationBasis !== 'CART' && hasCouponCode) {
+                if (!isCouponMatch) {
+                    continue; // Skip product coupon rule if coupon code doesn't match
                 }
             }
 
@@ -164,28 +188,30 @@ export async function calculateDiscounts({
             }
 
             let ruleDiscount = 0;
-            // Resolve effective discount type & value honoring decoupled product vs cart fields
+            // Resolve effective discount type & value honoring decoupled product vs cart fields with reliable fallbacks
             const effDiscountType = calculationBasis === 'CART'
-                ? (rule.cart_discount_type || rule.discount_type || 'PERCENTAGE')
-                : (rule.product_discount_type || rule.discount_type || 'PERCENTAGE');
-            const val = parseFloat(
-                (calculationBasis === 'CART'
-                    ? (rule.cart_discount_value !== null && rule.cart_discount_value !== undefined ? rule.cart_discount_value : rule.discount_value)
-                    : (rule.product_discount_value !== null && rule.product_discount_value !== undefined ? rule.product_discount_value : rule.discount_value)
-                ) || 0
-            );
+                ? (rule.cart_discount_type && String(rule.cart_discount_type).trim() !== '' ? rule.cart_discount_type : (rule.discount_type || 'PERCENTAGE'))
+                : (rule.product_discount_type && String(rule.product_discount_type).trim() !== '' ? rule.product_discount_type : (rule.discount_type || 'PERCENTAGE'));
+
+            const rawVal = calculationBasis === 'CART'
+                ? (Number(rule.cart_discount_value) > 0 ? rule.cart_discount_value : (rule.discount_value !== null && rule.discount_value !== undefined && Number(rule.discount_value) > 0 ? rule.discount_value : (rule.cart_discount_value ?? rule.discount_value)))
+                : (Number(rule.product_discount_value) > 0 ? rule.product_discount_value : (rule.discount_value !== null && rule.discount_value !== undefined && Number(rule.discount_value) > 0 ? rule.discount_value : (rule.product_discount_value ?? rule.discount_value)));
+
+            const val = parseFloat(rawVal || 0);
 
             // ==========================================
             // BRANCH 1: CART-LEVEL CONDITIONAL DISCOUNT
             // ==========================================
             if (calculationBasis === 'CART') {
-                const thresholdType = (
+                const rawThresholdType = String(
                     rule.threshold_type || 
                     (rule.target_type === 'CART_COUNT' ? 'COUNT' : (rule.target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT'))
                 ).toUpperCase();
 
-                if (thresholdType === 'COUNT') {
-                    const minCount = (rule.threshold_count !== null && rule.threshold_count !== undefined)
+                const isCountTrigger = rawThresholdType === 'COUNT' || rawThresholdType.includes('COUNT') || rawThresholdType.includes('QTY') || rawThresholdType.includes('UNIT');
+
+                if (isCountTrigger) {
+                    const minCount = (rule.threshold_count !== null && rule.threshold_count !== undefined && !isNaN(Number(rule.threshold_count)))
                         ? parseInt(rule.threshold_count, 10)
                         : (rule.minimum_cart_products ? parseInt(rule.minimum_cart_products, 10) : 1);
                     
@@ -193,14 +219,19 @@ export async function calculateDiscounts({
                     if (totalCartQuantity < minCount) {
                         continue; // Cart does not meet total quantity threshold
                     }
-                } else if (thresholdType === 'VALUE') {
-                    const minValue = (rule.threshold_value !== null && rule.threshold_value !== undefined)
+                } else {
+                    // VALUE Trigger (Subtotal Spend)
+                    const minValue = (rule.threshold_value !== null && rule.threshold_value !== undefined && !isNaN(Number(rule.threshold_value)))
                         ? parseFloat(rule.threshold_value)
-                        : parseFloat(rule.minimum_cart_amount || 0);
+                        : (rule.minimum_cart_amount ? parseFloat(rule.minimum_cart_amount) : 0);
 
                     if (subtotal < minValue) {
                         continue; // Cart subtotal does not meet value threshold
                     }
+                }
+
+                if (val <= 0 && effDiscountType !== 'FREE_SHIPPING') {
+                    continue;
                 }
 
                 // Cart-level discount applies to the entire cart subtotal
@@ -232,7 +263,7 @@ export async function calculateDiscounts({
                         discountAmount: ruleDiscount,
                         isCoupon: isCouponRule,
                         calculationBasis: 'CART',
-                        thresholdType
+                        thresholdType: isCountTrigger ? 'COUNT' : 'VALUE'
                     });
 
                     if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {

@@ -1158,19 +1158,15 @@ export default function CheckoutPage() {
                         <div className="coupon-box-section">
                             <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', display: 'block' }}>Have a Coupon / Promo Code?</label>
                             {appliedCoupon ? (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', background: '#fef3c7', border: '1px dashed #f59e0b', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: '#b45309' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: '#15803d' }}>
                                         <Tag size={14} />
                                         <span>{appliedCoupon.couponCode}</span>
-                                        {appliedCoupon.couponDiscount > 0 && <small>(Save ₹{appliedCoupon.couponDiscount})</small>}
+                                        {appliedCoupon.couponDiscount > 0 && <small style={{ fontWeight: 700 }}>(Save ₹{appliedCoupon.couponDiscount.toLocaleString('en-IN')})</small>}
                                     </div>
-                                    <button 
-                                        type="button" 
-                                        onClick={removeCoupon}
-                                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '12px', fontWeight: 800, marginLeft: 'auto' }}
-                                    >
-                                        Remove
-                                    </button>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#16a34a', fontWeight: 800, fontSize: '11px', background: '#dcfce7', padding: '3px 8px', borderRadius: '6px', marginLeft: 'auto' }}>
+                                        <Check size={12} strokeWidth={2.5} /> Applied
+                                    </span>
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>

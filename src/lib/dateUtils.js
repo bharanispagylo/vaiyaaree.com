@@ -22,7 +22,7 @@ export function parseDateToUTC(dateInput) {
     }
 
     const str = String(dateInput).trim();
-    if (!str) return null;
+    if (!str || str.startsWith('0000-00-00') || str.startsWith('1970-01-01 00:00:00') || str === '0') return null;
 
     // Case 1: Standard ISO with timezone (e.g. "2026-09-03T13:00:00.000Z" or "...+05:30")
     if (str.includes('Z') || /[+-]\d{2}:\d{2}$/.test(str)) {

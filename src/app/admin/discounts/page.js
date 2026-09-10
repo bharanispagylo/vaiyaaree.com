@@ -277,10 +277,13 @@ export default function AdminDiscountsPage() {
                 headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
                 body: JSON.stringify({ id: rule.id, is_active: newActive ? 1 : 0 })
             });
-            if (!res.ok) throw new Error('Failed to toggle status');
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to toggle status');
             fetchDiscounts();
         } catch (err) {
             console.error('Toggle status error:', err);
+            setError(err.message || 'Failed to toggle status');
+            setTimeout(() => setError(null), 4000);
         }
     };
 

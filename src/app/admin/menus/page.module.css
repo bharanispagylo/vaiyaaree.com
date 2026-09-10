@@ -1,0 +1,582 @@
+.container {
+    padding: 1.75rem 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    color: #27302b;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.titleArea h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #27302b;
+    margin: 0 0 4px;
+    font-family: var(--font-heading), sans-serif;
+}
+
+.subtitle {
+    font-size: 0.9rem;
+    color: #7c8675;
+    margin: 0;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.saveBtn {
+    background: #a06650;
+    color: #ffffff;
+    border: none;
+    padding: 0.65rem 1.4rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px rgba(160, 102, 80, 0.25);
+}
+
+.saveBtn:hover:not(:disabled) {
+    background: #8b533e;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(160, 102, 80, 0.35);
+}
+
+.saveBtn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.resetBtn {
+    background: #ffffff;
+    color: #5a524c;
+    border: 1px solid #ebdcd0;
+    padding: 0.65rem 1.15rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.resetBtn:hover {
+    background: #fbf7f2;
+    color: #27302b;
+    border-color: #d8c2b0;
+}
+
+/* Menu Switcher Bar */
+.menuSelectorBar {
+    background: #fdfbf7;
+    border: 1px solid #ebdcd0;
+    border-radius: 10px;
+    padding: 0.85rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.selectorLabel {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #4a423d;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.menuSelect {
+    padding: 0.45rem 1rem;
+    border-radius: 6px;
+    border: 1px solid #ebdcd0;
+    background: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #27302b;
+    outline: none;
+    cursor: pointer;
+}
+
+/* 2-Column WordPress Layout */
+.layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 1.75rem;
+    align-items: start;
+}
+
+/* Left Column: Add Menu Items */
+.leftColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.columnHeading {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #27302b;
+    margin: 0 0 0.25rem;
+    font-family: var(--font-heading), sans-serif;
+}
+
+.accordionCard {
+    background: #ffffff;
+    border: 1px solid #ebdcd0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(43, 38, 35, 0.03);
+}
+
+.accordionHeader {
+    width: 100%;
+    padding: 0.95rem 1.25rem;
+    background: #ffffff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #27302b;
+    text-align: left;
+    transition: background 0.15s ease;
+}
+
+.accordionHeader:hover {
+    background: #fdfbf7;
+}
+
+.accordionTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.accordionBody {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #ebdcd0;
+    background: #fdfbf7;
+}
+
+.itemList {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    padding-right: 4px;
+}
+
+.checkboxRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.86rem;
+    color: #4a423d;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkboxRow input {
+    cursor: pointer;
+    accent-color: #a06650;
+}
+
+.selectActions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f0e6dd;
+}
+
+.selectToggleBtn {
+    background: none;
+    border: none;
+    color: #a06650;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+.addBtn {
+    background: #27302b;
+    color: #ffffff;
+    border: none;
+    padding: 0.45rem 0.95rem;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.addBtn:hover {
+    background: #3e4c44;
+}
+
+/* Custom Link Inputs */
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 0.75rem;
+}
+
+.formGroup label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #5a524c;
+}
+
+.inputField {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ebdcd0;
+    border-radius: 6px;
+    font-size: 0.86rem;
+    color: #27302b;
+    background: #ffffff;
+    outline: none;
+    transition: border 0.15s ease;
+}
+
+.inputField:focus {
+    border-color: #a06650;
+}
+
+/* Right Column: Menu Structure */
+.rightColumn {
+    background: #ffffff;
+    border: 1px solid #ebdcd0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 18px rgba(43, 38, 35, 0.04);
+}
+
+.menuMetaHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #ebdcd0;
+    margin-bottom: 1.25rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.menuNameInputWrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.menuNameLabel {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #27302b;
+    white-space: nowrap;
+}
+
+.menuNameInput {
+    padding: 0.5rem 0.85rem;
+    border: 1px solid #ebdcd0;
+    border-radius: 6px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #27302b;
+    flex: 1;
+    max-width: 380px;
+    outline: none;
+}
+
+.menuNameInput:focus {
+    border-color: #a06650;
+}
+
+.structureHelp {
+    font-size: 0.84rem;
+    color: #7c8675;
+    line-height: 1.5;
+    margin-bottom: 1.25rem;
+    background: #fdfbf7;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border-left: 3px solid #d47a06;
+}
+
+/* Menu Items Tree */
+.treeList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    border: 2px dashed #ebdcd0;
+    border-radius: 10px;
+    color: #7c8675;
+}
+
+.emptyState p {
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+}
+
+/* Single Menu Item Box */
+.menuItemCard {
+    border: 1px solid #ebdcd0;
+    border-radius: 8px;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(43, 38, 35, 0.03);
+}
+
+.menuItemCard.isSubItem {
+    margin-left: 2.25rem;
+    border-left: 3px solid #a06650;
+    background: #faf8f5;
+}
+
+.itemHeaderRow {
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.itemHeaderRow:hover {
+    background: #fdfbf7;
+}
+
+.itemLeftInfo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.dragHandle {
+    color: #a89d91;
+    cursor: grab;
+}
+
+.dragHandle:active {
+    cursor: grabbing;
+}
+
+.itemTitle {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #27302b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.typeBadge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: #f0e8e0;
+    color: #5a524c;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.subItemPill {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #fde8e4;
+    color: #901424;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.itemPillBadge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: #d47a06;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.itemActions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.iconBtn {
+    background: none;
+    border: none;
+    color: #7c8675;
+    padding: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.iconBtn:hover:not(:disabled) {
+    background: #f0e8e0;
+    color: #27302b;
+}
+
+.iconBtn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Expanded Item Settings Drawer */
+.itemDrawer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #ebdcd0;
+    background: #ffffff;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.drawerSpan2 {
+    grid-column: span 2;
+}
+
+.drawerActions {
+    grid-column: span 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f0e6dd;
+}
+
+.deleteBtn {
+    background: none;
+    border: none;
+    color: #e11d48;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: background 0.15s ease;
+}
+
+.deleteBtn:hover {
+    background: #ffe4e6;
+}
+
+.toggleWrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4a423d;
+    cursor: pointer;
+}
+
+/* Bottom Actions Bar */
+.bottomActionBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1.25rem;
+    border-top: 1px solid #ebdcd0;
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 0.85rem 1.4rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toastSuccess {
+    background: #065f46;
+    color: #ffffff;
+}
+
+.toastError {
+    background: #991b1b;
+    color: #ffffff;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 991px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+    .itemDrawer {
+        grid-template-columns: 1fr;
+    }
+    .drawerSpan2 {
+        grid-column: span 1;
+    }
+}

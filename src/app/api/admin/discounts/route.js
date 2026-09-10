@@ -196,10 +196,14 @@ export async function PUT(request) {
             updateFields.coupon_code = updateFields.coupon_code && updateFields.coupon_code.trim() ? updateFields.coupon_code.trim().toUpperCase() : null;
         }
 
-        const basis = (updateFields.calculation_basis || 'PRODUCT').toUpperCase();
-        updateFields.calculation_basis = basis;
+        // Only process calculation_basis if provided
+        let basis = undefined;
+        if (updateFields.calculation_basis !== undefined) {
+            basis = (updateFields.calculation_basis || 'PRODUCT').toUpperCase();
+            updateFields.calculation_basis = basis;
+        }
 
-        // Process product discount fields
+        // Process product discount fields only if provided
         if (updateFields.product_discount_type !== undefined) {
             updateFields.product_discount_type = updateFields.product_discount_type || 'PERCENTAGE';
         }
@@ -207,7 +211,7 @@ export async function PUT(request) {
             updateFields.product_discount_value = updateFields.product_discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(updateFields.product_discount_value);
         }
 
-        // Process cart discount fields
+        // Process cart discount fields only if provided
         if (updateFields.cart_discount_type !== undefined) {
             updateFields.cart_discount_type = updateFields.cart_discount_type || 'PERCENTAGE';
         }
@@ -215,35 +219,57 @@ export async function PUT(request) {
             updateFields.cart_discount_value = updateFields.cart_discount_type === 'FREE_SHIPPING' ? 0 : parseFloat(updateFields.cart_discount_value);
         }
 
-        // Sync effective discount_type & discount_value for the active basis (for checkout)
-        if (basis === 'CART') {
-            updateFields.discount_type = updateFields.cart_discount_type || 'PERCENTAGE';
-            updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
-                ? 0
-                : parseFloat(updateFields.cart_discount_value !== undefined && updateFields.cart_discount_value !== null ? updateFields.cart_discount_value : (updateFields.discount_value ?? 0));
-        } else {
-            updateFields.discount_type = updateFields.product_discount_type || 'PERCENTAGE';
-            updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
-                ? 0
-                : parseFloat(updateFields.product_discount_value !== undefined && updateFields.product_discount_value !== null ? updateFields.product_discount_value : (updateFields.discount_value ?? 0));
-        }
+        // Only sync effective discount_type & discount_value if basis or discount fields were provided in the payload
+        const hasDiscountFields = basis !== undefined ||
+            updateFields.product_discount_type !== undefined ||
+            updateFields.product_discount_value !== undefined ||
+            updateFields.cart_discount_type !== undefined ||
+            updateFields.cart_discount_value !== undefined ||
+            updateFields.discount_type !== undefined ||
+            updateFields.discount_value !== undefined;
 
-        // Validation for discount values (prevent >100% discount or invalid fixed discount)
-        if (updateFields.product_discount_type === 'PERCENTAGE' && updateFields.product_discount_value !== undefined) {
-            if (updateFields.product_discount_value <= 0 || updateFields.product_discount_value > 100) {
-                return NextResponse.json({ error: 'Product percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+        if (hasDiscountFields) {
+            const effectiveBasis = basis || (updateFields.cart_discount_type !== undefined || updateFields.cart_discount_value !== undefined ? 'CART' : 'PRODUCT');
+
+            if (effectiveBasis === 'CART') {
+                if (updateFields.cart_discount_type !== undefined || updateFields.discount_type !== undefined) {
+                    updateFields.discount_type = updateFields.cart_discount_type || updateFields.discount_type || 'PERCENTAGE';
+                }
+                if (updateFields.cart_discount_value !== undefined || updateFields.discount_value !== undefined) {
+                    updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
+                        ? 0
+                        : parseFloat(updateFields.cart_discount_value !== undefined && updateFields.cart_discount_value !== null ? updateFields.cart_discount_value : (updateFields.discount_value ?? 0));
+                }
+            } else {
+                if (updateFields.product_discount_type !== undefined || updateFields.discount_type !== undefined) {
+                    updateFields.discount_type = updateFields.product_discount_type || updateFields.discount_type || 'PERCENTAGE';
+                }
+                if (updateFields.product_discount_value !== undefined || updateFields.discount_value !== undefined) {
+                    updateFields.discount_value = updateFields.discount_type === 'FREE_SHIPPING'
+                        ? 0
+                        : parseFloat(updateFields.product_discount_value !== undefined && updateFields.product_discount_value !== null ? updateFields.product_discount_value : (updateFields.discount_value ?? 0));
+                }
             }
-        }
-        if (updateFields.cart_discount_type === 'PERCENTAGE' && updateFields.cart_discount_value !== undefined) {
-            if (updateFields.cart_discount_value <= 0 || updateFields.cart_discount_value > 100) {
-                return NextResponse.json({ error: 'Cart percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+
+            // Validation for discount values (prevent >100% discount or invalid fixed discount)
+            if (updateFields.product_discount_type === 'PERCENTAGE' && updateFields.product_discount_value !== undefined) {
+                if (updateFields.product_discount_value <= 0 || updateFields.product_discount_value > 100) {
+                    return NextResponse.json({ error: 'Product percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+                }
             }
-        }
-        if (updateFields.discount_type === 'PERCENTAGE' && (updateFields.discount_value <= 0 || updateFields.discount_value > 100)) {
-            return NextResponse.json({ error: 'Percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
-        }
-        if (updateFields.discount_type === 'FIXED_AMOUNT' && updateFields.discount_value <= 0) {
-            return NextResponse.json({ error: 'Fixed amount discount must be greater than 0' }, { status: 400 });
+            if (updateFields.cart_discount_type === 'PERCENTAGE' && updateFields.cart_discount_value !== undefined) {
+                if (updateFields.cart_discount_value <= 0 || updateFields.cart_discount_value > 100) {
+                    return NextResponse.json({ error: 'Cart percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+                }
+            }
+            if (updateFields.discount_type === 'PERCENTAGE' && updateFields.discount_value !== undefined) {
+                if (updateFields.discount_value <= 0 || updateFields.discount_value > 100) {
+                    return NextResponse.json({ error: 'Percentage discount must be greater than 0 and up to 100%' }, { status: 400 });
+                }
+            }
+            if (updateFields.discount_type === 'FIXED_AMOUNT' && updateFields.discount_value !== undefined && updateFields.discount_value <= 0) {
+                return NextResponse.json({ error: 'Fixed amount discount must be greater than 0' }, { status: 400 });
+            }
         }
 
         // Permanently preserve threshold settings regardless of basis
@@ -306,6 +332,8 @@ export async function PUT(request) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }
+
+export const PATCH = PUT;
 
 export async function DELETE(request) {
     try {

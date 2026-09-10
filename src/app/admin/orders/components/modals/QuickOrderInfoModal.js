@@ -93,6 +93,14 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                                 <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Payment Method :</div>
                                 <div style={{ fontWeight: 700, color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}>{infoModalOrder.payment_method || '—'}</div>
                             </div>
+                            {infoModalOrder.razorpay_payment_id && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Razorpay ID :</div>
+                                    <div style={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                                        {infoModalOrder.razorpay_payment_id}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                     

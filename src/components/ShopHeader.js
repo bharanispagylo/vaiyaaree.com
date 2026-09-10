@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck, Heart, Activity, Search, Sparkles, Phone } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck, Heart, Activity, Search, Sparkles, Phone, ChevronDown } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import { useCompare } from '@/context/CompareContext';
 import styles from './ShopHeader.module.css';
@@ -32,11 +32,34 @@ export default function ShopHeader() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isCartAlerting, setIsCartAlerting] = useState(false);
+    const [navItems, setNavItems] = useState([
+        { id: 'item_home', title: 'Home', url: '/', target: '_self', children: [] },
+        { id: 'item_shop', title: 'Shop Collections', url: '/shop', target: '_self', children: [] },
+        { id: 'item_heritage', title: 'Our Heritage', url: '/about-us', target: '_self', children: [] },
+        { id: 'item_contact', title: 'Contact', url: '/contact', target: '_self', children: [] }
+    ]);
+    const [openMobileSubmenus, setOpenMobileSubmenus] = useState({});
     const prevCartCountRef = useRef(cartCount);
     const profileRef = useRef(null);
 
     useEffect(() => {
         setMounted(true);
+        let isMounted = true;
+        async function fetchMenu() {
+            try {
+                const res = await fetch('/api/navigation/menu?location=primary');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (isMounted && data.success && Array.isArray(data.items) && data.items.length > 0) {
+                        setNavItems(data.items);
+                    }
+                }
+            } catch (err) {
+                console.warn('[SHOP-HEADER] Dynamic menu fetch failed, using default:', err);
+            }
+        }
+        fetchMenu();
+        return () => { isMounted = false; };
     }, []);
 
     const handleOpenCart = (e) => {
@@ -124,10 +147,92 @@ export default function ShopHeader() {
                     </div>
 
                     <nav className={`${styles.navbar} ${isMobileMenuOpen ? styles.navbarOpen : ''}`}>
-                        <Link href="/" className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Home</Link>
-                        <Link href="/shop" className={`${styles.navLink} ${pathname === '/shop' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Shop Collections</Link>
-                        <Link href="/about-us" className={`${styles.navLink} ${pathname === '/about-us' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Our Heritage</Link>
-                        <Link href="/contact" className={`${styles.navLink} ${pathname === '/contact' ? styles.active : ''}`} onClick={() => setIsMobileMenuOpen(false)}>Contact</Link>
+                        {navItems.map((item) => {
+                            const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+                            const isActive = pathname === item.url || (item.url !== '/' && pathname.startsWith(item.url));
+                            const isSubOpen = Boolean(openMobileSubmenus[item.id]);
+
+                            return (
+                                <div key={item.id} className={styles.navItem}>
+                                    <Link
+                                        href={item.url || '#'}
+                                        target={item.target || '_self'}
+                                        rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                                        className={`${styles.navLink} ${isActive ? styles.active : ''}`}
+                                        onClick={() => {
+                                            if (!hasChildren || (typeof window !== 'undefined' && window.innerWidth > 991)) {
+                                                setIsMobileMenuOpen(false);
+                                            }
+                                        }}
+                                    >
+                                        <span>{item.title}</span>
+                                        {item.badge_text && (
+                                            <span className={`${styles.navBadge} ${String(item.badge_text).toLowerCase() === 'hot' ? styles.badgeHot : String(item.badge_text).toLowerCase() === 'sale' ? styles.badgeSale : styles.badgeNew}`}>
+                                                {item.badge_text}
+                                            </span>
+                                        )}
+                                        {hasChildren && (
+                                            <span
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setOpenMobileSubmenus(p => ({ ...p, [item.id]: !p[item.id] }));
+                                                }}
+                                                style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
+                                            >
+                                                <ChevronDown size={14} className={styles.navChevron} />
+                                            </span>
+                                        )}
+                                    </Link>
+
+                                    {/* Desktop Dropdown Submenu */}
+                                    {hasChildren && (
+                                        <div className={styles.navDropdown}>
+                                            {item.children.map((child) => (
+                                                <Link
+                                                    key={child.id}
+                                                    href={child.url || '#'}
+                                                    target={child.target || '_self'}
+                                                    rel={child.target === '_blank' ? 'noopener noreferrer' : undefined}
+                                                    className={styles.navDropdownItem}
+                                                    onClick={() => setIsMobileMenuOpen(false)}
+                                                >
+                                                    <span>{child.title}</span>
+                                                    {child.badge_text && (
+                                                        <span className={`${styles.navBadge} ${String(child.badge_text).toLowerCase() === 'hot' ? styles.badgeHot : String(child.badge_text).toLowerCase() === 'sale' ? styles.badgeSale : styles.badgeNew}`}>
+                                                            {child.badge_text}
+                                                        </span>
+                                                    )}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Mobile Submenu Accordion */}
+                                    {hasChildren && isSubOpen && (
+                                        <div className={styles.mobileSubmenu}>
+                                            {item.children.map((child) => (
+                                                <Link
+                                                    key={child.id}
+                                                    href={child.url || '#'}
+                                                    target={child.target || '_self'}
+                                                    rel={child.target === '_blank' ? 'noopener noreferrer' : undefined}
+                                                    className={styles.mobileSubItem}
+                                                    onClick={() => setIsMobileMenuOpen(false)}
+                                                >
+                                                    <span>{child.title}</span>
+                                                    {child.badge_text && (
+                                                        <span className={`${styles.navBadge} ${String(child.badge_text).toLowerCase() === 'hot' ? styles.badgeHot : String(child.badge_text).toLowerCase() === 'sale' ? styles.badgeSale : styles.badgeNew}`}>
+                                                            {child.badge_text}
+                                                        </span>
+                                                    )}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </nav>
 
                     <form

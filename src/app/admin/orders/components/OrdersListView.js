@@ -402,6 +402,11 @@ export default function OrdersListView({
                                                     <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'hsl(var(--text-main))' }}>
                                                         {order.payment_method || '—'}
                                                     </span>
+                                                    {order.razorpay_payment_id && (
+                                                        <div style={{ fontSize: '0.68rem', color: '#1d4ed8', fontFamily: 'monospace', fontWeight: 600, marginTop: '2px' }}>
+                                                            {order.razorpay_payment_id}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <span className={`badge ${getStatusReference(order.status)}`}>

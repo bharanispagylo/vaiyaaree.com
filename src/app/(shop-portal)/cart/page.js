@@ -157,9 +157,9 @@ export default function CartPage() {
                                             <span>{appliedCoupon.couponCode}</span>
                                             {appliedCoupon.couponDiscount > 0 && <span>(-₹{appliedCoupon.couponDiscount.toLocaleString()})</span>}
                                         </div>
-                                        <button onClick={removeCoupon} style={{ background: 'transparent', border: 'none', color: '#000000', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                                            <X size={15} />
-                                        </button>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#16a34a', fontWeight: 700, fontSize: '0.78rem', background: '#dcfce7', padding: '3px 8px', borderRadius: '6px' }}>
+                                            <Check size={13} strokeWidth={2.5} /> Applied
+                                        </span>
                                     </div>
                                 ) : (
                                     <form onSubmit={handleApplyCoupon} style={{ display: 'flex', gap: '6px' }}>

@@ -89,6 +89,8 @@ export function ShopProvider({ children }) {
     useEffect(() => {
         if (typeof window !== 'undefined') {
             try {
+                setCouponError(null);
+                setCouponMessage(null);
                 const cached = sessionStorage.getItem('vaiyaaree_applied_coupon');
                 if (cached) {
                     const parsed = JSON.parse(cached);
@@ -1000,101 +1002,33 @@ export function ShopProvider({ children }) {
 
             try {
                 let res = null;
-                let activeCouponCode = appliedCoupon?.couponCode || null;
+                const activeCouponCode = appliedCoupon?.couponCode || null;
 
-                // Auto-apply best available active coupon if none applied and customer hasn't explicitly removed it
-                if (!activeCouponCode && typeof window !== 'undefined' && !autoCouponAttemptedRef.current) {
-                    const isRemovedByUser = sessionStorage.getItem('vaiyaaree_coupon_removed') === 'true';
-                    if (!isRemovedByUser) {
-                        let rulesToExamine = activeDiscountRules;
-                        if (!rulesToExamine || rulesToExamine.length === 0) {
-                            try {
-                                const rRes = await fetch('/api/discounts/active');
-                                if (rRes.ok) {
-                                    const rData = await rRes.json();
-                                    if (rData.success && Array.isArray(rData.rules)) {
-                                        rulesToExamine = rData.rules;
-                                        setActiveDiscountRules(rData.rules);
-                                    }
-                                }
-                            } catch (_) {}
-                        }
-
-                        const candidateCouponRules = (rulesToExamine || []).filter(r => 
-                            (r.is_active === 1 || r.is_active === true || r.is_active === '1') &&
-                            r.coupon_code && r.coupon_code.trim()
-                        );
-
-                        if (candidateCouponRules.length > 0) {
-                            autoCouponAttemptedRef.current = true;
-                            let bestCandidate = null;
-                            let maxSavings = 0;
-
-                            for (const candidate of candidateCouponRules) {
-                                const candidateCode = candidate.coupon_code.trim().toUpperCase();
-                                const candidateCalc = await calculateDiscounts({
-                                    cartItems: cart,
-                                    couponCode: candidateCode,
-                                    customer: user || null
-                                });
-                                const savings = Number(candidateCalc?.totalDiscount || 0) + Number(candidateCalc?.shippingDiscount || 0);
-                                const isFreeShipping = (candidateCalc?.appliedRules || []).some(r => r.discountType === 'FREE_SHIPPING');
-                                if (savings > maxSavings || (isFreeShipping && !bestCandidate)) {
-                                    maxSavings = savings;
-                                    bestCandidate = {
-                                        rule: candidate,
-                                        code: candidateCode,
-                                        calculation: candidateCalc
-                                    };
-                                }
-                            }
-
-                            if (bestCandidate && (maxSavings > 0 || bestCandidate.calculation?.appliedRules?.some(r => r.discountType === 'FREE_SHIPPING'))) {
-                                activeCouponCode = bestCandidate.code;
-                                const newCouponState = {
-                                    couponCode: bestCandidate.code,
-                                    rule: bestCandidate.rule,
-                                    couponDiscount: Number(bestCandidate.calculation?.couponDiscount || 0),
-                                    calculation: bestCandidate.calculation
-                                };
-                                setAppliedCoupon(newCouponState);
-                                setCouponMessage(`Coupon "${bestCandidate.code}" applied!`);
-                                try {
-                                    sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(newCouponState));
-                                } catch (_) {}
-                                res = bestCandidate.calculation;
-                            }
-                        }
+                try {
+                    const apiRes = await fetch('/api/discounts/calculate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            cartItems: cart,
+                            subtotal: cartTotal,
+                            couponCode: activeCouponCode,
+                            customer: user || null
+                        })
+                    });
+                    if (apiRes.ok) {
+                        const json = await apiRes.json();
+                        if (json?.success) res = json;
                     }
+                } catch (apiErr) {
+                    // Fallback to client-side calculateDiscounts
                 }
 
                 if (!res) {
-                    try {
-                        const apiRes = await fetch('/api/discounts/calculate', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                cartItems: cart,
-                                subtotal: cartTotal,
-                                couponCode: activeCouponCode,
-                                customer: user || null
-                            })
-                        });
-                        if (apiRes.ok) {
-                            const json = await apiRes.json();
-                            if (json?.success) res = json;
-                        }
-                    } catch (apiErr) {
-                        // Fallback to client-side calculateDiscounts
-                    }
-
-                    if (!res) {
-                        res = await calculateDiscounts({
-                            cartItems: cart,
-                            couponCode: activeCouponCode,
-                            customer: user || null
-                        });
-                    }
+                    res = await calculateDiscounts({
+                        cartItems: cart,
+                        couponCode: activeCouponCode,
+                        customer: user || null
+                    });
                 }
 
                 if (res) {
@@ -1106,19 +1040,19 @@ export function ShopProvider({ children }) {
                     const couponCodeUpper = (appliedCoupon.couponCode || '').trim().toUpperCase();
                     const matchingCouponRule = (res?.appliedRules || []).find(
                         r => (r.isCoupon && r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper) ||
-                             (r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper) ||
-                             (r.isCoupon && !r.couponCode)
+                             (r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper)
                     );
                     const hasAppliedCouponRule = Boolean(matchingCouponRule);
-                    const totalBenefit = Number(res?.couponDiscount || 0) + Number(res?.shippingDiscount || 0) + Number(res?.totalDiscount || 0);
+                    const totalBenefit = Number(res?.couponDiscount || 0) + Number(res?.shippingDiscount || 0);
 
                     if (!hasAppliedCouponRule || (totalBenefit <= 0 && matchingCouponRule?.discountType !== 'FREE_SHIPPING')) {
-                        // Coupon is disabled, expired, or invalid for cart items
+                        // Silently remove invalid/expired coupon from storage and state
                         setAppliedCoupon(null);
+                        setCouponMessage(null);
+                        setCouponError(null);
                         if (typeof window !== 'undefined') {
                             try { sessionStorage.removeItem('vaiyaaree_applied_coupon'); } catch (e) {}
                         }
-                        setCouponError('The applied coupon is no longer active or valid for the items in your cart.');
                     } else {
                         const updatedCoupon = {
                             ...appliedCoupon,
@@ -1130,6 +1064,8 @@ export function ShopProvider({ children }) {
                             try { sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(updatedCoupon)); } catch (e) {}
                         }
                     }
+                } else {
+                    setCouponError(null);
                 }
             } catch (err) {
                 console.error('Error calculating storewide discounts:', err);
@@ -1654,10 +1590,18 @@ export function ShopProvider({ children }) {
     };
 
     const removeCoupon = async () => {
+        // Non-removal if discount criteria is met
+        const isCriteriaMet = (discountData?.appliedRules || []).some(
+            r => r.isCoupon || (appliedCoupon?.couponCode && r.couponCode === appliedCoupon.couponCode)
+        );
+        if (isCriteriaMet && (discountData?.totalDiscount > 0 || (discountData?.appliedRules || []).some(r => r.discountType === 'FREE_SHIPPING'))) {
+            showToast('This offer is active and cannot be removed while cart criteria is met.', 'info');
+            return;
+        }
+
         setAppliedCoupon(null);
         setCouponMessage(null);
         setCouponError(null);
-        autoCouponAttemptedRef.current = true;
         if (typeof window !== 'undefined') {
             try {
                 sessionStorage.removeItem('vaiyaaree_applied_coupon');

@@ -140,18 +140,29 @@
 .navbar {
     display: flex;
     align-items: center;
-    gap: 2rem;
+    gap: 1.85rem;
+}
+
+.navItem {
+    position: relative;
+    display: flex;
+    align-items: center;
 }
 
 .navLink {
     color: #4a423d;
     text-decoration: none;
-    font-size: 0.92rem;
+    font-family: var(--font-heading), var(--font-primary), -apple-system, sans-serif;
+    font-size: 0.94rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     transition: all 0.2s ease;
     position: relative;
-    padding: 4px 0;
+    padding: 6px 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
 }
 
 .navLink:hover, .navLink.active {
@@ -167,6 +178,119 @@
     height: 2px;
     background: #a06650;
     border-radius: 2px;
+}
+
+.navChevron {
+    color: #7c8675;
+    transition: transform 0.2s ease;
+}
+
+.navItem:hover .navChevron {
+    transform: rotate(180deg);
+    color: #a06650;
+}
+
+/* Desktop Dropdown Submenu */
+.navDropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 230px;
+    background: #ffffff;
+    border: 1px solid #ebdcd0;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(43, 38, 35, 0.12);
+    padding: 0.5rem 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(6px);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1050;
+}
+
+.navItem:hover .navDropdown,
+.navItem:focus-within .navDropdown {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.navDropdownItem {
+    padding: 0.65rem 1.25rem;
+    color: #4a423d;
+    text-decoration: none;
+    font-family: var(--font-heading), var(--font-primary), -apple-system, sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-left: 2px solid transparent;
+}
+
+.navDropdownItem:hover {
+    background: #fbf7f2;
+    color: #a06650;
+    border-left-color: #a06650;
+    padding-left: 1.45rem;
+}
+
+/* Mobile Submenu Accordion */
+.mobileSubmenu {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding-left: 0.85rem;
+    margin-top: 0.25rem;
+    margin-bottom: 0.5rem;
+    border-left: 2px solid #ebdcd0;
+}
+
+.mobileSubItem {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.86rem;
+    font-weight: 500;
+    color: #5a524c;
+    text-decoration: none;
+    font-family: var(--font-heading), var(--font-primary), -apple-system, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: color 0.15s ease;
+}
+
+.mobileSubItem:hover {
+    color: #a06650;
+}
+
+/* Badge Styles */
+.navBadge {
+    display: inline-block;
+    font-family: var(--font-body), sans-serif;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    background: #d47a06;
+    color: #ffffff;
+    margin-left: 4px;
+}
+
+.badgeHot {
+    background: #901424;
+}
+
+.badgeSale {
+    background: #c2410c;
+}
+
+.badgeNew {
+    background: #d47a06;
 }
 
 .searchForm {

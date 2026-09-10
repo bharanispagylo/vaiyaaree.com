@@ -62,12 +62,6 @@ export default function CartDrawer() {
                     </button>
                 </div>
 
-                {/* Free Shipping Alert Bar (Optional Perk) */}
-                <div className={styles.shippingBar}>
-                    <ShieldCheck size={16} />
-                    <span>Free shipping on all prepaid saree orders across India!</span>
-                </div>
-
                 {/* Body Content */}
                 <div className={styles.drawerBody}>
                     {cartCount === 0 ? (
@@ -120,7 +114,7 @@ export default function CartDrawer() {
 
                                             {isOutOfStock ? (
                                                 <div className={styles.notAvailableText}>
-                                                     Saree Not Available (Out of Stock)
+                                                    Saree Not Available (Out of Stock)
                                                 </div>
                                             ) : isStockLimitReached ? (
                                                 <div className={styles.stockLimitText}>
@@ -226,8 +220,8 @@ export default function CartDrawer() {
                         <p className={styles.taxNotice}>Taxes and shipping calculated at checkout.</p>
 
                         <div className={styles.footerBtnGroup}>
-                            <button 
-                                className={styles.checkoutBtn} 
+                            <button
+                                className={styles.checkoutBtn}
                                 onClick={() => handleNavigate(user?.id ? '/checkout' : '/checkout/auth')}
                                 disabled={hasUnavailableItems}
                                 style={hasUnavailableItems ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
