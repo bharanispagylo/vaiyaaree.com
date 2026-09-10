@@ -275,7 +275,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                     const data = await parseUploadResponse(uploadRes);
 
                     const finalUrl = data.watermarkedUrl || data.url;
-                    
+
                     // Build product payload including Product No & SKU
                     const dbData = {
                         name: item.name,
@@ -554,7 +554,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                                                         <img src={item.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setZoomedImage(item.previewUrl)} />
                                                     ) : (
                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                                                            <ImageIcon size={22} style={{ color: '#94a3b8', opacity: 0.5 }} />
+                                                            <ImageIcon size={22} style={{ color: '#000000', opacity: 0.5 }} />
                                                         </div>
                                                     )}
 
@@ -685,7 +685,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', fontSize: '0.85rem', fontWeight: 500 }}>
                         <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            
+
                         </div>
                         <span>Sequential Product Nos are preserved. Failed scans remain in Image Upload until re-uploaded.</span>
                     </div>
@@ -698,7 +698,7 @@ export default function ProductImageAssigner({ products = [], onClose, onDone, i
                             disabled={doneCount === 0}
                             style={{ padding: '0.7rem 2rem', background: '#0f172a' }}
                         >
-                             Complete ({doneCount} Processed)
+                            Complete ({doneCount} Processed)
                         </button>
                     </div>
                 </div>

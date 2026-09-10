@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, ShoppingCart, ArrowRight, Tag, Check, Sparkles, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
@@ -103,10 +103,10 @@ export default function CartPage() {
                             return (
                                 <div key={itemKey} className={styles.cartItem}>
                                     <div className={styles.productCell}>
-                                        <img 
-                                            src={item.image_url?.split(',')[0]} 
-                                            className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder} 
-                                            alt={item.name} 
+                                        <img
+                                            src={item.image_url?.split(',')[0]}
+                                            className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder}
+                                            alt={item.name}
                                             onError={(e) => {
                                                 e.target.onerror = null;
                                                 e.target.src = 'https://placehold.co/100x125?text=No+Image';
@@ -124,8 +124,8 @@ export default function CartPage() {
                                         <div className={styles.qtyControl}>
                                             <button onClick={() => handleQtyChange(targetIdentifier, -1)} aria-label="Decrease quantity">-</button>
                                             <span>{item.qty}</span>
-                                            <button 
-                                                onClick={() => handleQtyChange(targetIdentifier, 1)} 
+                                            <button
+                                                onClick={() => handleQtyChange(targetIdentifier, 1)}
                                                 disabled={item.stock !== undefined && item.stock !== null && item.qty >= item.stock}
                                                 aria-label="Increase quantity"
                                             >+</button>
@@ -147,7 +147,7 @@ export default function CartPage() {
                     <div className={styles.cartSummary}>
                         <div className={styles.summaryCard}>
                             <h3>Cart Totals</h3>
-                            
+
                             {/* Promo Coupon Form */}
                             <div style={{ marginBottom: '1.25rem', paddingBottom: '1rem', borderBottom: '1px solid hsl(var(--border-subtle, #e2e8f0))' }}>
                                 {appliedCoupon ? (
@@ -157,7 +157,7 @@ export default function CartPage() {
                                             <span>{appliedCoupon.couponCode}</span>
                                             {appliedCoupon.couponDiscount > 0 && <span>(-₹{appliedCoupon.couponDiscount.toLocaleString()})</span>}
                                         </div>
-                                        <button onClick={removeCoupon} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                        <button onClick={removeCoupon} style={{ background: 'transparent', border: 'none', color: '#000000', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                                             <X size={15} />
                                         </button>
                                     </div>
@@ -296,8 +296,8 @@ export default function CartPage() {
                                                 </span>
                                                 {appliedRules.map((r, i) => {
                                                     const ruleDisplayName = r.ruleName || r.name || (r.couponCode ? `Coupon ${r.couponCode}` : 'Promotion');
-                                                    const savingsText = r.discountType === 'FREE_SHIPPING' 
-                                                        ? 'Free Shipping' 
+                                                    const savingsText = r.discountType === 'FREE_SHIPPING'
+                                                        ? 'Free Shipping'
                                                         : `-₹${Math.round(r.discountAmount || 0).toLocaleString('en-IN')}.00`;
                                                     return (
                                                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

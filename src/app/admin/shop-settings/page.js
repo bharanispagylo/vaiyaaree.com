@@ -68,8 +68,8 @@ export default function ShopSettingsPage() {
                 let val = item.value;
                 if (typeof val === 'string') {
                     val = val.replaceAll('vaiyaaree.official@gmail.com', 'vaiyaaree@gmail.com')
-                             .replaceAll('vaiyaaree.cbe@gmail.com', 'vaiyaaree@gmail.com')
-                             .replaceAll('info@vaiyaaree.com', 'vaiyaaree@gmail.com');
+                        .replaceAll('vaiyaaree.cbe@gmail.com', 'vaiyaaree@gmail.com')
+                        .replaceAll('info@vaiyaaree.com', 'vaiyaaree@gmail.com');
                 }
                 settingsMap[item.key] = val;
             });
@@ -181,7 +181,7 @@ export default function ShopSettingsPage() {
                     {/* Mode Selector Cards */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginTop: '1.25rem' }}>
                         {/* Option 1: WhatsApp Only */}
-                        <div 
+                        <div
                             onClick={() => handleUpdate('communication_channel', 'whatsapp')}
                             style={{
                                 cursor: 'pointer',
@@ -209,7 +209,7 @@ export default function ShopSettingsPage() {
                         </div>
 
                         {/* Option 2: Email Only */}
-                        <div 
+                        <div
                             onClick={() => handleUpdate('communication_channel', 'email')}
                             style={{
                                 cursor: 'pointer',
@@ -237,7 +237,7 @@ export default function ShopSettingsPage() {
                         </div>
 
                         {/* Option 3: Both (Customer Choice) */}
-                        <div 
+                        <div
                             onClick={() => handleUpdate('communication_channel', 'both')}
                             style={{
                                 cursor: 'pointer',
@@ -558,7 +558,7 @@ export default function ShopSettingsPage() {
                 </section>
 
                 {/* Coming Soon Mode Card */}
-                <section className="settings-card card shadow-premium full-width" style={{ borderLeft: `6px solid ${settings.coming_soon_enabled === 'true' ? '#16a34a' : '#94a3b8'}` }}>
+                <section className="settings-card card shadow-premium full-width" style={{ borderLeft: `6px solid ${settings.coming_soon_enabled === 'true' ? '#16a34a' : '#000000'}` }}>
                     <div className="card-header" style={{ justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             <Clock size={20} color="hsl(var(--primary))" />
@@ -653,7 +653,7 @@ export default function ShopSettingsPage() {
                 .toast-success { background: #10b981; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
                 .toast-error { background: #ef4444; color: white; }
             `}</style>
-            
+
 
         </div>
     );

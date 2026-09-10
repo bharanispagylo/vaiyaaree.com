@@ -161,12 +161,33 @@ export function ShopProvider({ children }) {
         if (typeof window !== 'undefined') {
             try {
                 const saved = sessionStorage.getItem('vaiyaaree_checkout_form') || localStorage.getItem('vaiyaaree_checkout_form');
+                let parsed = null;
                 if (saved) {
-                    const parsed = JSON.parse(saved);
-                    if (parsed && typeof parsed === 'object') {
-                        return { ...defaultForm, ...parsed };
-                    }
+                    try { parsed = JSON.parse(saved); } catch (e) {}
                 }
+                const savedLast = localStorage.getItem('vaiyaaree_last_billing_address');
+                let parsedLast = null;
+                if (savedLast) {
+                    try { parsedLast = JSON.parse(savedLast); } catch (e) {}
+                }
+
+                const merged = { ...defaultForm, ...(parsedLast || {}), ...(parsed || {}) };
+                if ((!merged.billingAddress || !merged.billingAddress.trim()) && parsedLast?.billingAddress) {
+                    merged.billingAddress = parsedLast.billingAddress;
+                    merged.billingCity = parsedLast.billingCity || merged.billingCity;
+                    merged.billingState = parsedLast.billingState || merged.billingState;
+                    merged.billingPincode = parsedLast.billingPincode || merged.billingPincode;
+                    merged.billingCountry = parsedLast.billingCountry || merged.billingCountry;
+                    merged.billingName = parsedLast.billingName || merged.billingName;
+                    merged.billingPhone = parsedLast.billingPhone || merged.billingPhone;
+                    merged.billingWhatsApp = parsedLast.billingWhatsApp || merged.billingWhatsApp;
+                    merged.shippingAddress = parsedLast.shippingAddress || merged.shippingAddress;
+                    merged.shippingCity = parsedLast.shippingCity || merged.shippingCity;
+                    merged.shippingState = parsedLast.shippingState || merged.shippingState;
+                    merged.shippingPincode = parsedLast.shippingPincode || merged.shippingPincode;
+                    merged.shippingCountry = parsedLast.shippingCountry || merged.shippingCountry;
+                }
+                return merged;
             } catch (e) {}
         }
         return defaultForm;
@@ -332,11 +353,33 @@ export function ShopProvider({ children }) {
             // 2. Synchronously hydrate checkoutForm from storage on mount
             try {
                 const savedForm = sessionStorage.getItem('vaiyaaree_checkout_form') || localStorage.getItem('vaiyaaree_checkout_form');
+                let parsed = null;
                 if (savedForm) {
-                    const parsed = JSON.parse(savedForm);
-                    if (parsed && typeof parsed === 'object') {
-                        setCheckoutForm(prev => ({ ...prev, ...parsed }));
-                    }
+                    try { parsed = JSON.parse(savedForm); } catch (e) {}
+                }
+                const savedLast = localStorage.getItem('vaiyaaree_last_billing_address');
+                let parsedLast = null;
+                if (savedLast) {
+                    try { parsedLast = JSON.parse(savedLast); } catch (e) {}
+                }
+                const merged = { ...(parsedLast || {}), ...(parsed || {}) };
+                if ((!merged.billingAddress || !merged.billingAddress.trim()) && parsedLast?.billingAddress) {
+                    merged.billingAddress = parsedLast.billingAddress;
+                    merged.billingCity = parsedLast.billingCity || merged.billingCity;
+                    merged.billingState = parsedLast.billingState || merged.billingState;
+                    merged.billingPincode = parsedLast.billingPincode || merged.billingPincode;
+                    merged.billingCountry = parsedLast.billingCountry || merged.billingCountry;
+                    merged.billingName = parsedLast.billingName || merged.billingName;
+                    merged.billingPhone = parsedLast.billingPhone || merged.billingPhone;
+                    merged.billingWhatsApp = parsedLast.billingWhatsApp || merged.billingWhatsApp;
+                    merged.shippingAddress = parsedLast.shippingAddress || merged.shippingAddress;
+                    merged.shippingCity = parsedLast.shippingCity || merged.shippingCity;
+                    merged.shippingState = parsedLast.shippingState || merged.shippingState;
+                    merged.shippingPincode = parsedLast.shippingPincode || merged.shippingPincode;
+                    merged.shippingCountry = parsedLast.shippingCountry || merged.shippingCountry;
+                }
+                if (merged && Object.keys(merged).length > 0) {
+                    setCheckoutForm(prev => ({ ...prev, ...merged }));
                 }
             } catch (e) {
                 console.error('[CHECKOUT HYDRATION ERROR]', e);
@@ -662,7 +705,12 @@ export function ShopProvider({ children }) {
                             billingPincode: prev.billingPincode || activeUser.pincode || '',
                             shippingName: prev.shippingName || activeUser.name || '',
                             shippingPhone: prev.shippingPhone || (activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : ''),
-                            shippingWhatsApp: prev.shippingWhatsApp || (activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : '')
+                            shippingWhatsApp: prev.shippingWhatsApp || (activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : ''),
+                            shippingAddress: prev.shippingAddress || activeUser.address || '',
+                            shippingCity: prev.shippingCity || activeUser.city || '',
+                            shippingState: prev.shippingState || activeUser.state || 'Tamil Nadu',
+                            shippingPincode: prev.shippingPincode || activeUser.pincode || '',
+                            shippingCountry: prev.shippingCountry || 'India'
                         }));
                     }
                 } catch (dbErr) {
@@ -1202,16 +1250,43 @@ export function ShopProvider({ children }) {
         if (typeof window !== 'undefined') {
             try {
                 sessionStorage.removeItem('vaiyaaree_applied_coupon');
-                sessionStorage.removeItem('vaiyaaree_checkout_form');
                 localStorage.removeItem('vaiyaaree_cart');
                 localStorage.removeItem('cast_prince_cart');
+                // Preserve customer's previous billing & shipping address so ordering new products is seamless
+                if (checkoutForm.billingAddress || checkoutForm.billingPhone) {
+                    const lastAddressData = {
+                        billingName: checkoutForm.billingName,
+                        billingCountryCode: checkoutForm.billingCountryCode || '+91',
+                        billingPhone: checkoutForm.billingPhone,
+                        billingWhatsApp: checkoutForm.billingWhatsApp,
+                        billingEmail: checkoutForm.billingEmail,
+                        billingAddress: checkoutForm.billingAddress,
+                        billingCity: checkoutForm.billingCity,
+                        billingState: checkoutForm.billingState || 'Tamil Nadu',
+                        billingCountry: checkoutForm.billingCountry || 'India',
+                        billingPincode: checkoutForm.billingPincode,
+                        shippingName: checkoutForm.shippingName,
+                        shippingPhone: checkoutForm.shippingPhone,
+                        shippingWhatsApp: checkoutForm.shippingWhatsApp,
+                        shippingAddress: checkoutForm.shippingAddress,
+                        shippingCity: checkoutForm.shippingCity,
+                        shippingState: checkoutForm.shippingState || 'Tamil Nadu',
+                        shippingCountry: checkoutForm.shippingCountry || 'India',
+                        shippingPincode: checkoutForm.shippingPincode,
+                        shippingEmail: checkoutForm.shippingEmail,
+                        sameAsBilling: checkoutForm.sameAsBilling
+                    };
+                    localStorage.setItem('vaiyaaree_last_billing_address', JSON.stringify(lastAddressData));
+                    localStorage.setItem('vaiyaaree_checkout_form', JSON.stringify(lastAddressData));
+                    sessionStorage.setItem('vaiyaaree_checkout_form', JSON.stringify(lastAddressData));
+                }
             } catch (e) {}
         }
-        setCheckoutForm({
-            billingName: '', billingCountryCode: '+91', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingCountry: 'India', billingPincode: '', billingEmail: '', billingWhatsApp: '',
-            shippingName: '', shippingPhone: '', shippingWhatsApp: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingCountry: 'India', shippingPincode: '', shippingEmail: '',
-            sameAsBilling: true, paymentMethod: 'COD'
-        });
+        // Retain address details in form state so customer doesn't have to re-enter
+        setCheckoutForm(prev => ({
+            ...prev,
+            paymentMethod: 'COD'
+        }));
     };
 
     async function placeOrder(explicitMethod = null) {
@@ -1384,10 +1459,10 @@ export function ShopProvider({ children }) {
                         name: checkoutForm.billingName || user.name,
                         email: checkoutForm.billingEmail || user.email,
                         phone: user.phone || checkoutForm.billingPhone,
-                        address: checkoutForm.shippingAddress || checkoutForm.billingAddress || user.address,
-                        city: checkoutForm.shippingCity || checkoutForm.billingCity || user.city,
-                        state: checkoutForm.shippingState || checkoutForm.billingState || user.state,
-                        pincode: checkoutForm.shippingPincode || checkoutForm.billingPincode || user.pincode,
+                        address: checkoutForm.billingAddress || checkoutForm.shippingAddress || user.address,
+                        city: checkoutForm.billingCity || checkoutForm.shippingCity || user.city,
+                        state: checkoutForm.billingState || checkoutForm.shippingState || user.state,
+                        pincode: checkoutForm.billingPincode || checkoutForm.shippingPincode || user.pincode,
                         metadata: {
                             ...(user.metadata || {}),
                             last_billing_address: billingAddressObj,
@@ -1401,6 +1476,26 @@ export function ShopProvider({ children }) {
                             localStorage.setItem('vaiyaaree_user', JSON.stringify(safeUpdated));
                             localStorage.setItem('cast_prince_user', JSON.stringify(safeUpdated));
                         }
+                    }
+
+                    // Also save address record into customer_addresses table for profile & future checkouts
+                    if (checkoutForm.billingAddress) {
+                        try {
+                            const newAddr = {
+                                id: `addr_${Date.now()}`,
+                                customer_id: user.id,
+                                name: checkoutForm.billingName || user.name || 'Default Address',
+                                phone: checkoutForm.billingPhone || user.phone || '',
+                                address: checkoutForm.billingAddress,
+                                address_line: checkoutForm.billingAddress,
+                                city: checkoutForm.billingCity || '',
+                                state: checkoutForm.billingState || 'Tamil Nadu',
+                                pincode: checkoutForm.billingPincode || '',
+                                country: checkoutForm.billingCountry || 'India',
+                                is_default: 1
+                            };
+                            await mysqlClient.from('customer_addresses').insert(newAddr);
+                        } catch (aErr) {}
                     }
                 } catch (syncErr) {
                     console.error('[PROFILE-SYNC] Failed to update customer profile:', syncErr);

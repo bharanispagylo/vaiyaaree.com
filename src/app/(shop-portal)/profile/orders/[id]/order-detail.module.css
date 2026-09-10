@@ -34,7 +34,7 @@
 .backBtn:hover {
     background: #f8fafc;
     color: #0f172a;
-    border-color: #94a3b8;
+    border-color: #000000;
     transform: translateX(-2px);
 }
 
@@ -62,7 +62,7 @@
 
 .invoiceBtn:hover {
     background: #f8fafc;
-    border-color: #94a3b8;
+    border-color: #000000;
 }
 
 .whatsappBtn {
@@ -162,7 +162,7 @@
     border-radius: 20px;
     border: 1px solid hsl(var(--border-subtle, #e2e8f0));
     padding: 1.75rem 1.5rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
 .sectionHeaderTitle {
@@ -206,7 +206,7 @@
 
 .stepPending {
     background: #f1f5f9;
-    color: #94a3b8;
+    color: #000000;
 }
 
 .stepLabel {
@@ -442,24 +442,30 @@
     .container {
         padding: 1.25rem 1rem 3rem;
     }
+
     .orderCard {
         padding: 1.25rem;
         border-radius: 18px;
     }
+
     .headerBanner {
         padding: 1.25rem;
     }
+
     .invoiceNumber {
         font-size: 1.4rem;
     }
+
     .statusBadgesGroup {
         align-items: flex-start;
     }
+
     .itemRow {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.75rem;
     }
+
     .itemTotal {
         align-self: flex-end;
     }

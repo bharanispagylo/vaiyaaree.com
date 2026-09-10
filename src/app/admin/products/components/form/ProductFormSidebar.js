@@ -92,8 +92,8 @@ export default function ProductFormSidebar({
                 </div>
 
                 <p style={{ fontSize: '0.74rem', color: '#64748b', lineHeight: 1.4, margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {productStatus === 'active' 
-                        ? <><Eye size={14} style={{ color: '#16a34a', flexShrink: 0 }} /> This product will be publicly published and searchable on the store.</> 
+                    {productStatus === 'active'
+                        ? <><Eye size={14} style={{ color: '#16a34a', flexShrink: 0 }} /> This product will be publicly published and searchable on the store.</>
                         : <><Lock size={14} style={{ color: '#d97706', flexShrink: 0 }} /> This product is saved as a private draft and will not appear in the store.</>}
                 </p>
 
@@ -229,7 +229,7 @@ export default function ProductFormSidebar({
                         style={{ fontSize: '0.84rem', fontWeight: 700 }}
                         onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
                     />
-                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                    <span style={{ fontSize: '0.7rem', color: '#000000', marginTop: '4px', display: 'block' }}>
                         Triggers low stock badge when quantity falls below this value.
                     </span>
                 </div>

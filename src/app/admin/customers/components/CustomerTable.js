@@ -1,6 +1,6 @@
 'use client';
-import { 
-    Search, Filter, ChevronDown, ChevronLeft, ChevronRight, 
+import {
+    Search, Filter, ChevronDown, ChevronLeft, ChevronRight,
     MessageCircle, Trash2, Mail, Phone, ExternalLink, Users, CheckSquare, Square, KeyRound,
     Lock, Unlock
 } from 'lucide-react';
@@ -211,16 +211,16 @@ export default function CustomerTable({
                                 const uniqueKey = customer.id || `${customer.phone}-${index}`;
 
                                 return (
-                                    <tr 
-                                        key={uniqueKey} 
-                                        onClick={() => onCustomerClick && onCustomerClick(customer)} 
-                                        style={{ 
-                                            cursor: 'pointer', 
+                                    <tr
+                                        key={uniqueKey}
+                                        onClick={() => onCustomerClick && onCustomerClick(customer)}
+                                        style={{
+                                            cursor: 'pointer',
                                             transition: 'background 0.15s',
                                             background: isSelected ? 'hsl(var(--primary) / 0.04)' : 'transparent',
                                             borderBottom: '1px solid #f1f5f9'
-                                        }} 
-                                        onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }} 
+                                        }}
+                                        onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
                                         onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
                                     >
                                         {/* Row Checkbox */}
@@ -286,14 +286,14 @@ export default function CustomerTable({
                                                     {customer.email}
                                                 </span>
                                             ) : (
-                                                <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.78rem' }}>
+                                                <span style={{ color: '#000000', fontStyle: 'italic', fontSize: '0.78rem' }}>
                                                     Not provided
                                                 </span>
                                             )}
                                         </td>
 
                                         {/* Orders */}
-                                        <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: customer.totalOrders > 0 ? '#0f172a' : '#94a3b8' }}>
+                                        <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: customer.totalOrders > 0 ? '#0f172a' : '#000000' }}>
                                             {customer.totalOrders}
                                         </td>
 
@@ -317,9 +317,9 @@ export default function CustomerTable({
                                         {/* Actions */}
                                         <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                                                <a 
-                                                    href={`https://wa.me/${(customer.country_code || '+91').replace('+', '')}${customer.phone}`} 
-                                                    target="_blank" 
+                                                <a
+                                                    href={`https://wa.me/${(customer.country_code || '+91').replace('+', '')}${customer.phone}`}
+                                                    target="_blank"
                                                     rel="noreferrer"
                                                     title="Chat on WhatsApp"
                                                     style={{
@@ -420,10 +420,10 @@ export default function CustomerTable({
                     flexWrap: 'wrap',
                     background: '#ffffff'
                 }}>
-                    <button 
-                        onClick={() => onPageChange && onPageChange(Math.max(1, currentPage - 1))} 
-                        disabled={currentPage === 1} 
-                        className="btn btn-secondary" 
+                    <button
+                        onClick={() => onPageChange && onPageChange(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="btn btn-secondary"
                         style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: currentPage === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}
                     >
                         <ChevronLeft size={16} /> Previous
@@ -445,24 +445,24 @@ export default function CustomerTable({
                                 page === '...' ? (
                                     <span key={`dots-${i}`} style={{ color: 'hsl(var(--text-muted))', padding: '0 0.4rem', fontWeight: 600 }}>...</span>
                                 ) : (
-                                    <button 
-                                        key={page} 
-                                        onClick={() => onPageChange && onPageChange(page)} 
-                                        style={{ 
-                                            minWidth: '36px', 
-                                            height: '36px', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            justifyContent: 'center', 
-                                            padding: '0', 
-                                            fontSize: '0.85rem', 
-                                            fontWeight: 700, 
-                                            borderRadius: '8px', 
-                                            background: currentPage === page ? 'hsl(var(--primary))' : '#ffffff', 
-                                            color: currentPage === page ? '#ffffff' : '#0f172a', 
-                                            border: currentPage === page ? 'none' : '1px solid #e2e8f0', 
-                                            cursor: 'pointer', 
-                                            transition: 'all 0.2s' 
+                                    <button
+                                        key={page}
+                                        onClick={() => onPageChange && onPageChange(page)}
+                                        style={{
+                                            minWidth: '36px',
+                                            height: '36px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '0',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 700,
+                                            borderRadius: '8px',
+                                            background: currentPage === page ? 'hsl(var(--primary))' : '#ffffff',
+                                            color: currentPage === page ? '#ffffff' : '#0f172a',
+                                            border: currentPage === page ? 'none' : '1px solid #e2e8f0',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
                                         }}
                                     >
                                         {page}
@@ -472,10 +472,10 @@ export default function CustomerTable({
                         })()}
                     </div>
 
-                    <button 
-                        onClick={() => onPageChange && onPageChange(Math.min(totalPages, currentPage + 1))} 
-                        disabled={currentPage === totalPages} 
-                        className="btn btn-secondary" 
+                    <button
+                        onClick={() => onPageChange && onPageChange(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="btn btn-secondary"
                         style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', opacity: currentPage === totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}
                     >
                         Next <ChevronRight size={16} />

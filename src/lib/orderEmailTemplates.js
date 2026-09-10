@@ -18,7 +18,7 @@ export const ORDER_EMAIL_STATUSES = [
 
 export function getOrderEmailSubject({ order = {}, status = 'PLACED', shopName = 'Vaiyaaree Sarees' }) {
     const s = String(status || order.status || 'PLACED').toUpperCase();
-    const invNo = order.invoice_no 
+    const invNo = order.invoice_no
         ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
         : `#${String(order.id || 'WEB-1001').replace(/^[A-Z]+-/, 'INV-')}`;
 
@@ -205,11 +205,11 @@ export function buildOrderStatusEmailHtml({
         ? rawShopAddress
         : rawShopAddress.replace(/Uppili Palayam,\s*/i, 'Uppili Palayam,<br/>');
 
-    const invoiceNo = order.invoice_no 
+    const invoiceNo = order.invoice_no
         ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
         : `#${String(order.id || 'WEB-1001').replace(/^[A-Z]+-/, 'INV-')}`;
 
-    const orderDateStr = order.created_at 
+    const orderDateStr = order.created_at
         ? new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
         : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -255,7 +255,7 @@ export function buildOrderStatusEmailHtml({
             try {
                 const parsed = typeof item.products.images === 'string' ? JSON.parse(item.products.images) : item.products.images;
                 if (Array.isArray(parsed) && parsed.length > 0) imgUrl = parsed[0];
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // Never display sample/stock images for real customer orders
@@ -285,7 +285,7 @@ export function buildOrderStatusEmailHtml({
             ? `<img src="${imgUrl}" alt="${itemName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 10px; object-fit: cover; border: 1px solid #e2e8f0; display: block;" />`
             : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="width: 64px; height: 64px; background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px;">
                 <tr>
-                    <td align="center" valign="middle" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; line-height: 1.2;">
+                    <td align="center" valign="middle" style="font-size: 11px; font-weight: 700; color: #000000; text-transform: uppercase; line-height: 1.2;">
                         No<br/>Image
                     </td>
                 </tr>
@@ -332,13 +332,13 @@ export function buildOrderStatusEmailHtml({
                         <table cellpadding="0" cellspacing="0" border="0" width="100%">
                             <tr>
                                 ${steps.map(step => {
-                                    const isDone = step.idx <= config.timelineStep;
-                                    const circleBg = isDone ? '#5d0821' : '#e2e8f0';
-                                    const circleColor = isDone ? '#ffffff' : '#94a3b8';
-                                    const textColor = isDone ? '#5d0821' : '#94a3b8';
-                                    const fontWeight = isDone ? '800' : '600';
+            const isDone = step.idx <= config.timelineStep;
+            const circleBg = isDone ? '#5d0821' : '#e2e8f0';
+            const circleColor = isDone ? '#ffffff' : '#000000';
+            const textColor = isDone ? '#5d0821' : '#000000';
+            const fontWeight = isDone ? '800' : '600';
 
-                                    return `
+            return `
                                         <td align="center" style="vertical-align: top; width: 25%;">
                                             <div style="width: 28px; height: 28px; line-height: 28px; border-radius: 50%; background-color: ${circleBg}; color: ${circleColor}; font-size: 12px; font-weight: 800; margin: 0 auto 6px auto; text-align: center;">
                                                 ${isDone ? '✓' : (step.idx + 1)}
@@ -348,7 +348,7 @@ export function buildOrderStatusEmailHtml({
                                             </div>
                                         </td>
                                     `;
-                                }).join('')}
+        }).join('')}
                             </tr>
                         </table>
                     </td>
@@ -499,34 +499,34 @@ export function buildOrderStatusEmailHtml({
                                             <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #16a34a;">-₹${totalDiscount.toLocaleString('en-IN')}.00</td>
                                         </tr>` : ''}
                                         ${(() => {
-                                            if (taxAmount <= 0) return '';
-                                            const emailTaxType = order.tax_type || '';
-                                            const emailRawCgst = Number(order.cgst_amount || order.cgst || 0);
-                                            const emailRawSgst = Number(order.sgst_amount || order.sgst || 0);
-                                            const emailRawIgst = Number(order.igst_amount || order.igst || 0);
-                                            let emailIsIgst = false;
-                                            if (emailTaxType === 'IGST' || emailTaxType === 'IGST_INTERNATIONAL') {
-                                                emailIsIgst = true;
-                                            } else if (emailTaxType === 'CGST_SGST') {
-                                                emailIsIgst = false;
-                                            } else if (emailRawIgst > 0) {
-                                                emailIsIgst = true;
-                                            } else if (emailRawCgst > 0 || emailRawSgst > 0) {
-                                                emailIsIgst = false;
-                                            } else {
-                                                const delivState = (order.delivery_state || order.shipping_state || order.billing_state || '').trim().toLowerCase();
-                                                emailIsIgst = Boolean(delivState && delivState !== 'tamil nadu');
-                                            }
-                                            if (emailIsIgst) {
-                                                const igstDisplay = emailRawIgst > 0 ? emailRawIgst : taxAmount;
-                                                return `<tr>
+            if (taxAmount <= 0) return '';
+            const emailTaxType = order.tax_type || '';
+            const emailRawCgst = Number(order.cgst_amount || order.cgst || 0);
+            const emailRawSgst = Number(order.sgst_amount || order.sgst || 0);
+            const emailRawIgst = Number(order.igst_amount || order.igst || 0);
+            let emailIsIgst = false;
+            if (emailTaxType === 'IGST' || emailTaxType === 'IGST_INTERNATIONAL') {
+                emailIsIgst = true;
+            } else if (emailTaxType === 'CGST_SGST') {
+                emailIsIgst = false;
+            } else if (emailRawIgst > 0) {
+                emailIsIgst = true;
+            } else if (emailRawCgst > 0 || emailRawSgst > 0) {
+                emailIsIgst = false;
+            } else {
+                const delivState = (order.delivery_state || order.shipping_state || order.billing_state || '').trim().toLowerCase();
+                emailIsIgst = Boolean(delivState && delivState !== 'tamil nadu');
+            }
+            if (emailIsIgst) {
+                const igstDisplay = emailRawIgst > 0 ? emailRawIgst : taxAmount;
+                return `<tr>
                                                     <td style="padding: 4px 0; font-size: 13px; color: #64748b;">IGST (5%)</td>
                                                     <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${igstDisplay.toLocaleString('en-IN')}.00</td>
                                                 </tr>`;
-                                            } else {
-                                                const cgstDisplay = emailRawCgst > 0 ? emailRawCgst : Math.round(taxAmount / 2);
-                                                const sgstDisplay = emailRawSgst > 0 ? emailRawSgst : Math.round(taxAmount / 2);
-                                                return `<tr>
+            } else {
+                const cgstDisplay = emailRawCgst > 0 ? emailRawCgst : Math.round(taxAmount / 2);
+                const sgstDisplay = emailRawSgst > 0 ? emailRawSgst : Math.round(taxAmount / 2);
+                return `<tr>
                                                     <td style="padding: 4px 0; font-size: 13px; color: #64748b;">CGST (2.5%)</td>
                                                     <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${cgstDisplay.toLocaleString('en-IN')}.00</td>
                                                 </tr>
@@ -534,8 +534,8 @@ export function buildOrderStatusEmailHtml({
                                                     <td style="padding: 4px 0; font-size: 13px; color: #64748b;">SGST (2.5%)</td>
                                                     <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${sgstDisplay.toLocaleString('en-IN')}.00</td>
                                                 </tr>`;
-                                            }
-                                        })()}
+            }
+        })()}
                                         <tr>
                                             <td style="padding: 4px 0; font-size: 13px; color: #64748b;">Shipping & Delivery</td>
                                             <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: ${shippingCost === 0 ? '#16a34a' : '#0f172a'};">
@@ -603,7 +603,7 @@ export function buildOrderStatusEmailHtml({
                                     <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
                                         Email: <a href="mailto:${shopEmail}" style="color: #5d0821; font-weight: 700; text-decoration: none;">${shopEmail}</a> | Phone: <strong style="color: #0f172a;">+91 ${shopPhone}</strong>
                                     </div>
-                                    <div style="font-size: 11px; color: #94a3b8; margin-top: 14px; border-top: 1px solid #f0e6d2; padding-top: 12px;">
+                                    <div style="font-size: 11px; color: #000000; margin-top: 14px; border-top: 1px solid #f0e6d2; padding-top: 12px;">
                                         &copy; ${new Date().getFullYear()} ${shopName}. All rights reserved. Handcrafted with pride in India.
                                     </div>
                                 </td>

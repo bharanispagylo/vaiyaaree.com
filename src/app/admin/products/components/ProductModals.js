@@ -226,7 +226,7 @@ export function WatermarkModal({ watermarkModal, onClose }) {
                                         flex: 1.6, height: '48px', borderRadius: '14px',
                                         fontSize: '0.88rem', fontWeight: 800, border: 'none',
                                         color: '#ffffff',
-                                        background: confirmChecked ? '#16a34a' : '#94a3b8',
+                                        background: confirmChecked ? '#16a34a' : '#000000',
                                         boxShadow: confirmChecked ? '0 4px 14px rgba(22, 163, 74, 0.3)' : 'none',
                                         cursor: confirmChecked ? 'pointer' : 'not-allowed',
                                         opacity: confirmChecked ? 1 : 0.6,

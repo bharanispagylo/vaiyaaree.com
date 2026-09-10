@@ -107,7 +107,7 @@ export default function ProductVariantBuilder({
                                     </label>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', alignItems: 'center', background: '#ffffff', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', minHeight: '40px' }}>
                                         {opt.values.length === 0 && (
-                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                            <span style={{ fontSize: '0.75rem', color: '#000000', fontStyle: 'italic' }}>
                                                 No values added yet. Type below and press Enter.
                                             </span>
                                         )}
@@ -352,7 +352,7 @@ export default function ProductVariantBuilder({
                                     background: isChecked ? '#f8fafc' : '#ffffff',
                                     padding: '0.65rem 0.75rem',
                                     borderRadius: '8px',
-                                    border: isChecked ? '1px solid #94a3b8' : '1px solid #e2e8f0',
+                                    border: isChecked ? '1px solid #000000' : '1px solid #e2e8f0',
                                     transition: 'all 0.15s'
                                 }}
                             >
@@ -391,7 +391,7 @@ export default function ProductVariantBuilder({
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             />
                                         ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '2px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#000000', gap: '2px' }}>
                                                 <ImageIcon size={16} />
                                             </div>
                                         )}

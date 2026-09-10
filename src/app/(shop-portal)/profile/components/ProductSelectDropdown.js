@@ -32,7 +32,7 @@ export default function ProductSelectDropdown({ products, selectedKey, onSelect,
 
     return (
         <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
-            <div 
+            <div
                 onClick={() => setIsOpen(!isOpen)}
                 style={{
                     background: 'hsl(var(--text-main) / 0.03)',
@@ -51,12 +51,12 @@ export default function ProductSelectDropdown({ products, selectedKey, onSelect,
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontSize: '1.15rem', fontWeight: 800, color: selectedProduct ? 'hsl(var(--primary))' : '#94a3b8' }}>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 800, color: selectedProduct ? 'hsl(var(--primary))' : '#000000' }}>
                         {selectedProduct ? '✓' : '•'}
                     </span>
                     <span style={{ fontWeight: selectedProduct ? 700 : 500, color: selectedProduct ? 'hsl(var(--text-main))' : 'hsl(var(--text-muted))' }}>
-                        {selectedProduct 
-                            ? `Order #${selectedProduct.orderId} - ${selectedProduct.productName}${selectedProduct.price ? ` (₹${Number(selectedProduct.price).toLocaleString('en-IN')})` : ''}` 
+                        {selectedProduct
+                            ? `Order #${selectedProduct.orderId} - ${selectedProduct.productName}${selectedProduct.price ? ` (₹${Number(selectedProduct.price).toLocaleString('en-IN')})` : ''}`
                             : placeholder}
                     </span>
                 </div>
@@ -84,7 +84,7 @@ export default function ProductSelectDropdown({ products, selectedKey, onSelect,
                         </div>
                     ) : (
                         <>
-                            <div 
+                            <div
                                 onClick={() => { onSelect(null); setIsOpen(false); }}
                                 style={{
                                     padding: '0.65rem 0.9rem',
@@ -102,7 +102,7 @@ export default function ProductSelectDropdown({ products, selectedKey, onSelect,
                                 onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
                                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                             >
-                                <span style={{ fontSize: '1.1rem', color: '#94a3b8' }}>•</span>
+                                <span style={{ fontSize: '1.1rem', color: '#000000' }}>•</span>
                                 <span>{placeholder}</span>
                             </div>
 

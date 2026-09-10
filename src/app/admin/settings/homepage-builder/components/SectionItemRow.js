@@ -52,7 +52,7 @@ export default function SectionItemRow({
         >
             {/* Left Side: Drag Handle & Meta */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#94a3b8', cursor: 'grab', display: 'flex', alignItems: 'center', padding: '0.25rem' }}>
+                <div style={{ color: '#000000', cursor: 'grab', display: 'flex', alignItems: 'center', padding: '0.25rem' }}>
                     <GripVertical size={20} />
                 </div>
 
@@ -61,7 +61,7 @@ export default function SectionItemRow({
                     height: '42px',
                     borderRadius: '10px',
                     background: sec.is_enabled ? 'rgba(93, 8, 33, 0.08)' : '#f1f5f9',
-                    color: sec.is_enabled ? '#5d0821' : '#94a3b8',
+                    color: sec.is_enabled ? '#5d0821' : '#000000',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

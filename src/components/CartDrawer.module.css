@@ -147,7 +147,7 @@
     height: 90px;
     border-radius: 50%;
     background: #f8fafc;
-    color: #94a3b8;
+    color: #000000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -247,7 +247,7 @@
 .removeBtn {
     background: none;
     border: none;
-    color: #94a3b8;
+    color: #000000;
     cursor: pointer;
     padding: 4px;
     transition: color 0.2s ease;

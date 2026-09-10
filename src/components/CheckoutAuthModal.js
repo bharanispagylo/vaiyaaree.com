@@ -127,7 +127,7 @@ export default function CheckoutAuthModal({ onSuccess, onClose, onContinueAsGues
             const res = await fetch('/api/auth/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     phone: cleanDigits,
                     country_code: otpCountryCode
                 })
@@ -191,9 +191,9 @@ export default function CheckoutAuthModal({ onSuccess, onClose, onContinueAsGues
                 setUser(customerData);
                 syncCustomerToForm(customerData);
                 showToast(
-                    customerData.name 
-                        ? `Welcome back, ${customerData.name}! Continuing Checkout.` 
-                        : `${otpMode === 'email' ? 'Email' : 'WhatsApp'} Verified! Continuing Checkout.`, 
+                    customerData.name
+                        ? `Welcome back, ${customerData.name}! Continuing Checkout.`
+                        : `${otpMode === 'email' ? 'Email' : 'WhatsApp'} Verified! Continuing Checkout.`,
                     'success'
                 );
                 if (onSuccess) onSuccess(customerData);
@@ -323,7 +323,7 @@ export default function CheckoutAuthModal({ onSuccess, onClose, onContinueAsGues
                 padding: '1.5rem',
                 fontFamily: 'var(--font-roboto), sans-serif'
             }}>
-                <div 
+                <div
                     className="no-scrollbar"
                     style={{
                         maxWidth: '480px',
@@ -565,7 +565,7 @@ export default function CheckoutAuthModal({ onSuccess, onClose, onContinueAsGues
                                         style={{
                                             width: '100%',
                                             padding: '0.9rem',
-                                            background: (otpMode === 'email' ? otpEmail : otpPhone) ? (otpMode === 'email' ? '#2563eb' : '#16a34a') : '#94a3b8',
+                                            background: (otpMode === 'email' ? otpEmail : otpPhone) ? (otpMode === 'email' ? '#2563eb' : '#16a34a') : '#000000',
                                             color: '#ffffff',
                                             border: 'none',
                                             borderRadius: '12px',
@@ -648,7 +648,7 @@ export default function CheckoutAuthModal({ onSuccess, onClose, onContinueAsGues
                                         style={{
                                             width: '100%',
                                             padding: '0.9rem',
-                                            background: otpCode.length === 6 ? '#5d0821' : '#94a3b8',
+                                            background: otpCode.length === 6 ? '#5d0821' : '#000000',
                                             color: '#ffffff',
                                             border: 'none',
                                             borderRadius: '12px',

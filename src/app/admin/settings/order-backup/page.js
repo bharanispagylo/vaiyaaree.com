@@ -1,9 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-    Download, Database, Calendar, FileSpreadsheet, FileCode, FileText, 
-    RefreshCw, Trash2, Clock, ShieldCheck, CheckCircle2, AlertCircle, 
+import {
+    Download, Database, Calendar, FileSpreadsheet, FileCode, FileText,
+    RefreshCw, Trash2, Clock, ShieldCheck, CheckCircle2, AlertCircle,
     UploadCloud, SlidersHorizontal, Layers, Eye, X, Loader2, ArrowLeft,
     Check, PlayCircle, Settings, Mail, Send, Bell, Sparkles, CheckCheck
 } from 'lucide-react';
@@ -397,7 +397,7 @@ export default function OrderBackupPage() {
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', color: '#1e293b' }}>
-            
+
             {/* ── TOP HEADER ── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
                 <div>
@@ -518,7 +518,7 @@ export default function OrderBackupPage() {
                 <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                         <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Auto-Backup Status</span>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: autoConfig.enabled ? '#ecfdf5' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: autoConfig.enabled ? '#059669' : '#94a3b8' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: autoConfig.enabled ? '#ecfdf5' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: autoConfig.enabled ? '#059669' : '#000000' }}>
                             <Clock size={18} />
                         </div>
                     </div>
@@ -533,7 +533,7 @@ export default function OrderBackupPage() {
                 <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                         <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>New Order Alerts</span>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: notifConfig.enabled ? '#fdf2f8' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: notifConfig.enabled ? '#db2777' : '#94a3b8' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: notifConfig.enabled ? '#fdf2f8' : '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: notifConfig.enabled ? '#db2777' : '#000000' }}>
                             <Bell size={18} />
                         </div>
                     </div>
@@ -548,7 +548,7 @@ export default function OrderBackupPage() {
 
             {/* ── DUAL CONFIGURATION CARDS ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
-                
+
                 {/* 1. AUTOMATIC BACKUP CONFIGURATION CARD */}
                 <div style={{
                     background: '#ffffff',
@@ -590,8 +590,8 @@ export default function OrderBackupPage() {
                                 <div style={{ fontSize: '0.78rem', color: '#64748b' }}>When enabled, system generates order dumps and emails them automatically.</div>
                             </div>
                             <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: 'pointer' }}>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={autoConfig.enabled}
                                     onChange={(e) => setAutoConfig(prev => ({ ...prev, enabled: e.target.checked }))}
                                     style={{ opacity: 0, width: 0, height: 0 }}
@@ -759,8 +759,8 @@ export default function OrderBackupPage() {
                                 <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Deliver an immediate order summary email whenever a customer checks out.</div>
                             </div>
                             <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: 'pointer' }}>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={notifConfig.enabled}
                                     onChange={(e) => setNotifConfig(prev => ({ ...prev, enabled: e.target.checked }))}
                                     style={{ opacity: 0, width: 0, height: 0 }}
@@ -938,7 +938,7 @@ export default function OrderBackupPage() {
                                         <tr key={b.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }}>
                                             <td style={{ padding: '1rem 1.25rem' }}>
                                                 <div style={{ fontWeight: 700, color: '#0f172a' }}>{b.filename}</div>
-                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', fontFamily: 'monospace' }}>ID: {b.id}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#000000', marginTop: '2px', fontFamily: 'monospace' }}>ID: {b.id}</div>
                                                 {b.notes && (
                                                     <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic' }}>
                                                         {b.notes}

@@ -1,22 +1,22 @@
 'use client';
 import { useState } from 'react';
-import { 
-    Users, Mail, Phone, MapPin, Lock, X, Check, Loader2, 
+import {
+    Users, Mail, Phone, MapPin, Lock, X, Check, Loader2,
     Globe, MessageCircle, Receipt, Truck, CheckSquare, Square, Building
 } from 'lucide-react';
 import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
 
 const INDIAN_STATES = [
-    "Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", 
-    "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", 
-    "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", 
-    "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", 
-    "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", 
+    "Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
+    "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh",
+    "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra",
+    "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+    "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh",
     "Uttarakhand", "West Bengal", "Delhi", "Puducherry", "Chandigarh", "Other"
 ];
 
 const COUNTRIES = [
-    "India", "United States", "United Kingdom", "United Arab Emirates", 
+    "India", "United States", "United Kingdom", "United Arab Emirates",
     "Singapore", "Malaysia", "Australia", "Canada", "Germany", "France", "Other"
 ];
 
@@ -149,8 +149,8 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
             padding: '1rem',
             animation: 'fadeIn 0.2s ease'
         }}>
-            <div 
-                className="card shadow-premium animate-enter" 
+            <div
+                className="card shadow-premium animate-enter"
                 style={{
                     width: '100%',
                     maxWidth: '680px',
@@ -203,7 +203,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                 )}
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    
+
                     {/* SECTION: BILLING / CUSTOMER INFO */}
                     <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                         <h4 style={{ fontSize: '0.88rem', fontWeight: 800, margin: '0 0 1rem', color: 'hsl(var(--primary))', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -368,7 +368,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                         </div>
 
                         {/* Same as billing checkbox */}
-                        <label 
+                        <label
                             onClick={() => setSameAsBilling(!sameAsBilling)}
                             style={{
                                 display: 'flex',
@@ -386,7 +386,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                                 marginBottom: sameAsBilling ? 0 : '1rem'
                             }}
                         >
-                            {sameAsBilling ? <CheckSquare size={18} color="#0284c7" /> : <Square size={18} color="#94a3b8" />}
+                            {sameAsBilling ? <CheckSquare size={18} color="#0284c7" /> : <Square size={18} color="#000000" />}
                             Shipping address is same as billing address
                         </label>
 
@@ -516,7 +516,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                             Account Password (Optional)
                         </label>
                         <div style={{ position: 'relative' }}>
-                            <Lock size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            <Lock size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#000000' }} />
                             <input
                                 type="text"
                                 value={billingData.password}
@@ -533,29 +533,29 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
-                        <button 
-                            type="button" 
-                            onClick={onClose} 
-                            className="btn btn-secondary" 
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="btn btn-secondary"
                             disabled={loading}
                             style={{ padding: '0.8rem 1.5rem', borderRadius: '12px' }}
                         >
                             Cancel
                         </button>
-                        <button 
-                            type="submit" 
-                            className="btn btn-primary" 
+                        <button
+                            type="submit"
+                            className="btn btn-primary"
                             disabled={loading}
-                            style={{ 
-                                padding: '0.8rem 1.75rem', 
+                            style={{
+                                padding: '0.8rem 1.75rem',
                                 borderRadius: '12px',
-                                display: 'flex', 
-                                alignItems: 'center', 
+                                display: 'flex',
+                                alignItems: 'center',
                                 gap: '6px',
                                 background: 'hsl(var(--primary))'
                             }}
                         >
-                            {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} 
+                            {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                             {loading ? 'Saving Customer...' : 'Save Customer Profile'}
                         </button>
                     </div>

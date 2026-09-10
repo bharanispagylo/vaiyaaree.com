@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
+import {
     Package, Truck, CheckCircle, MapPin, Download, ArrowLeft,
     XCircle, Tag, MessageCircle, RotateCcw, Globe, Loader2, AlertTriangle, ShieldCheck
 } from 'lucide-react';
@@ -129,7 +129,7 @@ export default function OrderDetailPage() {
                             try {
                                 const parsed = typeof prod.images === 'string' ? JSON.parse(prod.images) : prod.images;
                                 if (Array.isArray(parsed) && parsed.length > 0) finalImg = parsed[0];
-                            } catch (e) {}
+                            } catch (e) { }
                         }
 
                         return {
@@ -214,7 +214,7 @@ export default function OrderDetailPage() {
         return (
             <div className={styles.container}>
                 <div className={styles.notFoundBox}>
-                    <Package size={54} color="#94a3b8" style={{ marginBottom: '1rem' }} />
+                    <Package size={54} color="#000000" style={{ marginBottom: '1rem' }} />
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--text-main))' }}>Order Not Found</h2>
                     <p style={{ color: 'hsl(var(--text-muted))', margin: '0.5rem 0 1.5rem' }}>{error || "We couldn't find the requested order."}</p>
                     <Link href="/profile?tab=orders" className={styles.backBtn}>
@@ -232,7 +232,7 @@ export default function OrderDetailPage() {
 
     const shipping = parseAddressObject(order.shipping_address) || parseAddressObject(order.billing_address) || {};
 
-    const invoiceNo = order.invoice_no 
+    const invoiceNo = order.invoice_no
         ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
         : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
 
@@ -326,7 +326,7 @@ export default function OrderDetailPage() {
                                         <div className={`${styles.stepIconWrap} ${isDone ? styles.stepDone : styles.stepPending}`}>
                                             {step.icon}
                                         </div>
-                                        <div className={styles.stepLabel} style={{ color: isDone ? 'hsl(var(--text-main, #0f172a))' : '#94a3b8' }}>
+                                        <div className={styles.stepLabel} style={{ color: isDone ? 'hsl(var(--text-main, #0f172a))' : '#000000' }}>
                                             {step.label}
                                         </div>
                                         <div className={styles.stepStatusText} style={{ color: isDone ? 'hsl(var(--primary, #5d0821))' : '#cbd5e1' }}>
@@ -372,7 +372,7 @@ export default function OrderDetailPage() {
                                 try {
                                     const parsedImgs = typeof item.products.images === 'string' ? JSON.parse(item.products.images) : item.products.images;
                                     if (Array.isArray(parsedImgs) && parsedImgs.length > 0) imgUrl = parsedImgs[0];
-                                } catch (e) {}
+                                } catch (e) { }
                             }
                             const noImageSvg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f8fafc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="%2394a3b8">NO IMAGE</text></svg>';
                             if (imgUrl && imgUrl.includes('images.unsplash.com')) imgUrl = '';
@@ -495,7 +495,7 @@ export default function OrderDetailPage() {
                     {/* Delivery Address Card */}
                     <div className={styles.cardSection}>
                         <h4 className={styles.sectionHeaderTitle}>Delivery Address</h4>
-                        
+
                         <div className={styles.addressContent}>
                             <div className={styles.addressName}>
                                 {shipping.name || order.customer_name || 'Valued Customer'}

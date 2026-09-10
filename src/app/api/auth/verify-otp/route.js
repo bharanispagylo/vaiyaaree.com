@@ -110,6 +110,7 @@ export async function POST(req) {
                 success: true,
                 message: 'Logged in successfully via Email',
                 user: customerProfile,
+                customer: customerProfile,
                 channel: 'email'
             });
 
@@ -242,6 +243,7 @@ export async function POST(req) {
             success: true,
             message: 'Logged in successfully via WhatsApp',
             user: customerProfile,
+            customer: customerProfile,
             channel: 'whatsapp'
         });
 

@@ -94,14 +94,14 @@ export default function OrderHistoryTab({
                                             </td>
                                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
-                                                    <Link 
+                                                    <Link
                                                         href={`/profile/orders/${order.id}`}
                                                         className={styles.actionBtnOutline}
                                                         style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap', background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce', textDecoration: 'none' }}
                                                     >
                                                         <Eye size={12} /> Details
                                                     </Link>
-                                                    <button 
+                                                    <button
                                                         onClick={() => {
                                                             const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
                                                             setTrackSearchId(inv);
@@ -161,14 +161,14 @@ export default function OrderHistoryTab({
                                     </div>
 
                                     <div className={styles.mobileCardActions}>
-                                        <Link 
+                                        <Link
                                             href={`/profile/orders/${order.id}`}
                                             className={styles.mobileTrackBtn}
                                             style={{ background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                                         >
                                             <Eye size={13} /> Details
                                         </Link>
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
                                                 setTrackSearchId(inv);
@@ -194,7 +194,7 @@ export default function OrderHistoryTab({
                             <button
                                 onClick={() => setHistoryOrdersPage(p => Math.max(1, p - 1))}
                                 disabled={historyOrdersPage === 1}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: historyOrdersPage === 1 ? '#f1f5f9' : '#ffffff', color: historyOrdersPage === 1 ? '#94a3b8' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: historyOrdersPage === 1 ? 'not-allowed' : 'pointer' }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: historyOrdersPage === 1 ? '#f1f5f9' : '#ffffff', color: historyOrdersPage === 1 ? '#000000' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: historyOrdersPage === 1 ? 'not-allowed' : 'pointer' }}
                             >
                                 <ChevronLeft size={15} /> Previous
                             </button>
@@ -212,7 +212,7 @@ export default function OrderHistoryTab({
                             <button
                                 onClick={() => setHistoryOrdersPage(p => Math.min(Math.max(1, totalHistoryPages), p + 1))}
                                 disabled={historyOrdersPage >= Math.max(1, totalHistoryPages)}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: historyOrdersPage >= Math.max(1, totalHistoryPages) ? '#f1f5f9' : '#ffffff', color: historyOrdersPage >= Math.max(1, totalHistoryPages) ? '#94a3b8' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: historyOrdersPage >= Math.max(1, totalHistoryPages) ? 'not-allowed' : 'pointer' }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: historyOrdersPage >= Math.max(1, totalHistoryPages) ? '#f1f5f9' : '#ffffff', color: historyOrdersPage >= Math.max(1, totalHistoryPages) ? '#000000' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: historyOrdersPage >= Math.max(1, totalHistoryPages) ? 'not-allowed' : 'pointer' }}
                             >
                                 Next <ChevronRight size={15} />
                             </button>

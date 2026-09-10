@@ -123,7 +123,7 @@ export default function ActiveOrdersTab({
                                                             <XCircle size={12} /> Cancel
                                                         </button>
                                                     )}
-                                                    <button 
+                                                    <button
                                                         onClick={() => {
                                                             const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
                                                             setTrackSearchId(inv);
@@ -183,7 +183,7 @@ export default function ActiveOrdersTab({
                                     </div>
 
                                     <div className={styles.mobileCardActions}>
-                                        <Link 
+                                        <Link
                                             href={`/profile/orders/${order.id}`}
                                             className={styles.mobileTrackBtn}
                                             style={{ background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
@@ -202,7 +202,7 @@ export default function ActiveOrdersTab({
                                                 <XCircle size={13} /> Cancel Order
                                             </button>
                                         )}
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
                                                 setTrackSearchId(inv);
@@ -228,7 +228,7 @@ export default function ActiveOrdersTab({
                             <button
                                 onClick={() => setActiveOrdersPage(p => Math.max(1, p - 1))}
                                 disabled={activeOrdersPage === 1}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: activeOrdersPage === 1 ? '#f1f5f9' : '#ffffff', color: activeOrdersPage === 1 ? '#94a3b8' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: activeOrdersPage === 1 ? 'not-allowed' : 'pointer' }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: activeOrdersPage === 1 ? '#f1f5f9' : '#ffffff', color: activeOrdersPage === 1 ? '#000000' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: activeOrdersPage === 1 ? 'not-allowed' : 'pointer' }}
                             >
                                 <ChevronLeft size={15} /> Previous
                             </button>
@@ -246,7 +246,7 @@ export default function ActiveOrdersTab({
                             <button
                                 onClick={() => setActiveOrdersPage(p => Math.min(Math.max(1, totalActivePages), p + 1))}
                                 disabled={activeOrdersPage >= Math.max(1, totalActivePages)}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: activeOrdersPage >= Math.max(1, totalActivePages) ? '#f1f5f9' : '#ffffff', color: activeOrdersPage >= Math.max(1, totalActivePages) ? '#94a3b8' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: activeOrdersPage >= Math.max(1, totalActivePages) ? 'not-allowed' : 'pointer' }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.35rem 0.75rem', borderRadius: '8px', border: '1px solid hsl(var(--border-subtle, #e2e8f0))', background: activeOrdersPage >= Math.max(1, totalActivePages) ? '#f1f5f9' : '#ffffff', color: activeOrdersPage >= Math.max(1, totalActivePages) ? '#000000' : 'hsl(var(--text-main))', fontWeight: 700, fontSize: '0.82rem', cursor: activeOrdersPage >= Math.max(1, totalActivePages) ? 'not-allowed' : 'pointer' }}
                             >
                                 Next <ChevronRight size={15} />
                             </button>

@@ -2,8 +2,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { 
-    MessageCircle, Lock, KeyRound, CheckCircle2, ArrowLeft, Eye, EyeOff, 
+import {
+    MessageCircle, Lock, KeyRound, CheckCircle2, ArrowLeft, Eye, EyeOff,
     Loader2, Phone, ShieldCheck, RefreshCw, UserCheck, Mail, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
@@ -292,7 +292,7 @@ function ForgotPasswordContent() {
         }
     };
 
-    const isStep1Valid = channelMode === 'email' 
+    const isStep1Valid = channelMode === 'email'
         ? (identifier.trim().length > 3 && identifier.includes('@'))
         : (identifier.replace(/\D/g, '').length === 10);
 
@@ -333,19 +333,19 @@ function ForgotPasswordContent() {
                             alignItems: 'center',
                             justifyContent: 'center'
                         }}>
-                            <img 
-                                src="/images/vaiyaaree-logo.png" 
-                                alt="Vaiyaaree" 
-                                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
+                            <img
+                                src="/images/vaiyaaree-logo.png"
+                                alt="Vaiyaaree"
+                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
                             />
                         </div>
                     </div>
-                    
+
                     <h1 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#1a1a1a', margin: '0 0 0.4rem' }}>
                         Reset Password
                     </h1>
-                    
+
                     {/* Stepper Indicator Badge */}
                     <div style={{
                         display: 'inline-flex',
@@ -502,7 +502,7 @@ function ForgotPasswordContent() {
                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 {channelMode === 'email' ? 'Registered Email Address' : 'WhatsApp Mobile Number'} <span style={{ color: '#5d0821' }}>*</span>
                             </label>
-                            
+
                             {channelMode === 'email' ? (
                                 <div style={{ position: 'relative' }}>
                                     <input
@@ -523,15 +523,15 @@ function ForgotPasswordContent() {
                                             background: '#faf9f6'
                                         }}
                                     />
-                                    <Mail 
-                                        size={18} 
-                                        style={{ 
-                                            position: 'absolute', 
-                                            left: '0.9rem', 
-                                            top: '50%', 
-                                            transform: 'translateY(-50%)', 
-                                            color: '#5d0821' 
-                                        }} 
+                                    <Mail
+                                        size={18}
+                                        style={{
+                                            position: 'absolute',
+                                            left: '0.9rem',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: '#5d0821'
+                                        }}
                                     />
                                 </div>
                             ) : (
@@ -571,24 +571,24 @@ function ForgotPasswordContent() {
                                                 letterSpacing: '0.04em'
                                             }}
                                         />
-                                        <MessageCircle 
-                                            size={18} 
-                                            style={{ 
-                                                position: 'absolute', 
-                                                left: '0.9rem', 
-                                                top: '50%', 
-                                                transform: 'translateY(-50%)', 
-                                                color: '#25D366' 
-                                            }} 
+                                        <MessageCircle
+                                            size={18}
+                                            style={{
+                                                position: 'absolute',
+                                                left: '0.9rem',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                color: '#25D366'
+                                            }}
                                         />
                                     </div>
                                 </div>
                             )}
 
                             <p style={{ fontSize: '0.78rem', color: '#777', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <ShieldCheck size={14} style={{ color: '#2563eb' }} /> 
-                                {channelMode === 'email' 
-                                    ? 'A 6-digit verification code will be sent to your email inbox.' 
+                                <ShieldCheck size={14} style={{ color: '#2563eb' }} />
+                                {channelMode === 'email'
+                                    ? 'A 6-digit verification code will be sent to your email inbox.'
                                     : 'A 6-digit OTP will be sent to your WhatsApp account.'}
                             </p>
                         </div>
@@ -599,7 +599,7 @@ function ForgotPasswordContent() {
                             style={{
                                 width: '100%',
                                 padding: '1rem',
-                                background: isStep1Valid ? '#5d0821' : '#94a3b8',
+                                background: isStep1Valid ? '#5d0821' : '#000000',
                                 color: '#ffffff',
                                 border: 'none',
                                 borderRadius: '12px',
@@ -634,7 +634,7 @@ function ForgotPasswordContent() {
                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 {channelMode === 'email' ? '6-Digit Email Verification Code' : '6-Digit WhatsApp Verification OTP'}
                             </label>
-                            
+
                             <div style={{ position: 'relative' }}>
                                 <KeyRound size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#5d0821' }} />
                                 <input
@@ -667,7 +667,7 @@ function ForgotPasswordContent() {
                                 <span style={{ fontSize: '0.8rem', color: '#666' }}>
                                     Sent to <strong>{maskedDisplay || identifier}</strong>
                                 </span>
-                                
+
                                 <button
                                     type="button"
                                     onClick={handleResendOTP}
@@ -675,7 +675,7 @@ function ForgotPasswordContent() {
                                     style={{
                                         background: 'none',
                                         border: 'none',
-                                        color: resendCooldown > 0 ? '#94a3b8' : (channelMode === 'email' ? '#5d0821' : '#25D366'),
+                                        color: resendCooldown > 0 ? '#000000' : (channelMode === 'email' ? '#5d0821' : '#25D366'),
                                         fontSize: '0.8rem',
                                         fontWeight: 700,
                                         cursor: resendCooldown > 0 ? 'default' : 'pointer',
@@ -719,7 +719,7 @@ function ForgotPasswordContent() {
                                 style={{
                                     flex: 1,
                                     padding: '0.9rem',
-                                    background: otp.length === 6 ? '#5d0821' : '#94a3b8',
+                                    background: otp.length === 6 ? '#5d0821' : '#000000',
                                     color: '#ffffff',
                                     border: 'none',
                                     borderRadius: '12px',
@@ -813,7 +813,7 @@ function ForgotPasswordContent() {
                             style={{
                                 width: '100%',
                                 padding: '1rem',
-                                background: (newPassword.length >= 6 && newPassword === confirmPassword) ? '#5d0821' : '#94a3b8',
+                                background: (newPassword.length >= 6 && newPassword === confirmPassword) ? '#5d0821' : '#000000',
                                 color: '#ffffff',
                                 border: 'none',
                                 borderRadius: '12px',
@@ -850,8 +850,8 @@ function ForgotPasswordContent() {
                         <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1.75rem', lineHeight: '1.5' }}>
                             Your password has been changed. Redirecting you to login...
                         </p>
-                        <Link 
-                            href="/login" 
+                        <Link
+                            href="/login"
                             style={{
                                 display: 'inline-block',
                                 padding: '0.85rem 2.25rem',

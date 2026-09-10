@@ -86,7 +86,7 @@ export default function BroadcastPage() {
             case 'VIP': return { bg: 'hsl(var(--primary))', color: 'white', label: 'VIP' };
             case 'Gold': return { bg: 'hsl(var(--success))', color: 'white', label: 'Gold' };
             case 'Silver': return { bg: 'hsl(var(--warning))', color: 'white', label: 'Silver' };
-            default: return { bg: '#94a3b8', color: 'white', label: 'Regular' };
+            default: return { bg: '#000000', color: 'white', label: 'Regular' };
         }
     };
 
@@ -191,7 +191,7 @@ export default function BroadcastPage() {
                                 } else {
                                     mergedMsg += `\n\n*${product.name}*`;
                                     mergedMsg += `\nPrice: ₹${product.price}`;
-                                    
+
                                     let variantText = '';
                                     if (Array.isArray(product.variants) && product.variants.length > 0) {
                                         variantText = `\nVariants: ${product.variants.join(', ')}`;
@@ -201,7 +201,7 @@ export default function BroadcastPage() {
                                             if (Array.isArray(parsed) && parsed.length > 0) {
                                                 variantText = `\nVariants: ${parsed.join(', ')}`;
                                             }
-                                        } catch(e) {}
+                                        } catch (e) { }
                                     }
                                     mergedMsg += variantText;
                                     // mergedMsg += `\n\nView & Buy Here: ${productUrl}`;
@@ -212,9 +212,9 @@ export default function BroadcastPage() {
                                 const token = localStorage.getItem('cast_prince_admin') || '';
                                 const res = await fetch('/api/admin/whatsapp/chat', {
                                     method: 'POST',
-                                    headers: { 
+                                    headers: {
                                         'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${token}` 
+                                        'Authorization': `Bearer ${token}`
                                     },
                                     body: JSON.stringify({ phone: customerPhone, message: mergedMsg, mediaUrl, productId: product.id })
                                 });
@@ -228,9 +228,9 @@ export default function BroadcastPage() {
                             const token = localStorage.getItem('cast_prince_admin') || '';
                             const res = await fetch('/api/admin/whatsapp/chat', {
                                 method: 'POST',
-                                headers: { 
+                                headers: {
                                     'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}` 
+                                    'Authorization': `Bearer ${token}`
                                 },
                                 body: JSON.stringify({ phone: customerPhone, message: mergedMsg })
                             });
@@ -292,12 +292,12 @@ export default function BroadcastPage() {
 
     return (
         <>
-                <div style={{ marginBottom: '2rem' }}>
-                    <h1 style={{ marginBottom: '0.25rem' }}>Broadcast Center</h1>
-                    <p style={{ margin: 0, color: 'hsl(var(--text-muted))' }}>Sequence your campaign: Select Products → Target Customers → Compose Message → Send</p>
-                </div>
+            <div style={{ marginBottom: '2rem' }}>
+                <h1 style={{ marginBottom: '0.25rem' }}>Broadcast Center</h1>
+                <p style={{ margin: 0, color: 'hsl(var(--text-muted))' }}>Sequence your campaign: Select Products → Target Customers → Compose Message → Send</p>
+            </div>
 
-                {/* Quick Stats */}
+            {/* Quick Stats */}
             <div className="admin-grid-3" style={{ marginBottom: '2rem' }}>
                 {[
                     { label: 'Products', value: selectedProducts.size, total: products.length, icon: <Package size={18} />, color: 'hsl(var(--primary))' },
@@ -316,48 +316,48 @@ export default function BroadcastPage() {
                 ))}
             </div>
 
-                {/* Attached Tab Navigation */}
-                <div style={{ 
-                    display: 'flex', gap: '4px', padding: '6px', background: 'white', 
-                    borderRadius: '20px 20px 0 0', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none',
-                    boxShadow: '0 -4px 6px -1px rgb(0 0 0 / 0.05)'
-                }}>
-                    {[
-                        { id: 'PRODUCTS', label: '1. Products', icon: <Package size={16} /> },
-                        { id: 'CUSTOMERS', label: '2. Audience', icon: <Users size={16} /> },
-                        { id: 'MESSAGE', label: '3. Message', icon: <MessageSquare size={16} /> },
-                        { id: 'SUMMARY', label: '4. Summary', icon: <Send size={16} /> }
-                    ].map((tab) => {
-                        const isActive = activeTab === tab.id;
-                        const isDone = (tab.id === 'PRODUCTS' && selectedProducts.size > 0) || 
-                                       (tab.id === 'CUSTOMERS' && selectedCustomers.size > 0) ||
-                                       (tab.id === 'MESSAGE' && message.trim().length > 0);
+            {/* Attached Tab Navigation */}
+            <div style={{
+                display: 'flex', gap: '4px', padding: '6px', background: 'white',
+                borderRadius: '20px 20px 0 0', border: '1px solid hsl(var(--border-subtle))', borderBottom: 'none',
+                boxShadow: '0 -4px 6px -1px rgb(0 0 0 / 0.05)'
+            }}>
+                {[
+                    { id: 'PRODUCTS', label: '1. Products', icon: <Package size={16} /> },
+                    { id: 'CUSTOMERS', label: '2. Audience', icon: <Users size={16} /> },
+                    { id: 'MESSAGE', label: '3. Message', icon: <MessageSquare size={16} /> },
+                    { id: 'SUMMARY', label: '4. Summary', icon: <Send size={16} /> }
+                ].map((tab) => {
+                    const isActive = activeTab === tab.id;
+                    const isDone = (tab.id === 'PRODUCTS' && selectedProducts.size > 0) ||
+                        (tab.id === 'CUSTOMERS' && selectedCustomers.size > 0) ||
+                        (tab.id === 'MESSAGE' && message.trim().length > 0);
 
-                        return (
-                            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                style={{
-                                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                                    padding: '0.85rem 1rem', borderRadius: '14px', border: 'none', cursor: 'pointer',
-                                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    background: isActive ? 'hsl(var(--primary))' : 'transparent',
-                                    color: isActive ? 'white' : 'hsl(var(--text-muted))',
-                                    fontWeight: isActive ? 700 : 500,
-                                    fontSize: '0.85rem'
-                                }}>
-                                <div style={{ 
-                                    width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: isActive ? 'rgba(255,255,255,0.2)' : (isDone ? 'hsl(var(--success))' : '#cbd5e1'),
-                                    color: 'white'
-                                }}>
-                                    {isDone && !isActive ? <Check size={14} strokeWidth={3} /> : tab.icon}
-                                </div>
-                                <span style={{ whiteSpace: 'nowrap' }}>{tab.label}</span>
-                            </button>
-                        );
-                    })}
-                </div>
+                    return (
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                            style={{
+                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                padding: '0.85rem 1rem', borderRadius: '14px', border: 'none', cursor: 'pointer',
+                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                background: isActive ? 'hsl(var(--primary))' : 'transparent',
+                                color: isActive ? 'white' : 'hsl(var(--text-muted))',
+                                fontWeight: isActive ? 700 : 500,
+                                fontSize: '0.85rem'
+                            }}>
+                            <div style={{
+                                width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: isActive ? 'rgba(255,255,255,0.2)' : (isDone ? 'hsl(var(--success))' : '#cbd5e1'),
+                                color: 'white'
+                            }}>
+                                {isDone && !isActive ? <Check size={14} strokeWidth={3} /> : tab.icon}
+                            </div>
+                            <span style={{ whiteSpace: 'nowrap' }}>{tab.label}</span>
+                        </button>
+                    );
+                })}
+            </div>
 
-            
+
 
             <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {/*  TAB CONTENT  */}
@@ -562,9 +562,9 @@ export default function BroadcastPage() {
                                         <div style={{ background: 'white', padding: '8px 12px', borderRadius: '8px', fontSize: '0.85rem', maxWidth: '90%', position: 'relative', boxShadow: '0 1px 1px rgba(0,0,0,0.1)' }}>
                                             <div style={{ whiteSpace: 'pre-wrap' }}>
                                                 {message.replace(/\{\{name\}\}/g, 'Customer')
-                                                        .replace(/\{\{product\.name\}\}/g, 'Premium Saree')
-                                                        .replace(/\{\{product\.price\}\}/g, '1,999')
-                                                        .replace(/\{\{product\.url\}\}/g, 'https://shop.link/123')}
+                                                    .replace(/\{\{product\.name\}\}/g, 'Premium Saree')
+                                                    .replace(/\{\{product\.price\}\}/g, '1,999')
+                                                    .replace(/\{\{product\.url\}\}/g, 'https://shop.link/123')}
                                             </div>
                                             <div style={{ fontSize: '0.65rem', color: '#999', textAlign: 'right', marginTop: '4px' }}>12:45 PM</div>
                                         </div>
@@ -589,7 +589,7 @@ export default function BroadcastPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: '2rem', padding: '1.5rem', background: 'white', borderRadius: '0 0 20px 20px', border: '1px solid hsl(var(--border-subtle))', borderTop: 'none' }}>
                             <div className="card" style={{ padding: '1.5rem', minWidth: 0 }}>
                                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.5rem' }}>Final Campaign Review</h2>
-                                
+
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                     <div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -627,7 +627,7 @@ export default function BroadcastPage() {
 
                             <div className="card" style={{ padding: '1.5rem', height: 'fit-content' }}>
                                 <h3 style={{ margin: '0 0 1.5rem', fontSize: '1rem' }}>Ready to Broadcast?</h3>
-                                
+
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '1.5rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                                         <span style={{ color: '#64748b' }}>Target Audience:</span>

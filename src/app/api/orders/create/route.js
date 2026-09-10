@@ -492,6 +492,24 @@ export async function POST(request) {
                         addrCity, addrState, addrPincode, addrCountry
                     ]
                 );
+
+                // Also sync address to the customer's main profile record
+                try {
+                    await conn.query(
+                        `UPDATE \`customers\` 
+                         SET \`name\` = COALESCE(NULLIF(?, ''), \`name\`),
+                             \`phone\` = COALESCE(NULLIF(?, ''), \`phone\`),
+                             \`address\` = ?,
+                             \`city\` = ?,
+                             \`state\` = ?,
+                             \`pincode\` = ?,
+                             \`updated_at\` = NOW()
+                         WHERE \`id\` = ?`,
+                        [addrName, addrPhone, addrLine, addrCity, addrState, addrPincode, customerId]
+                    );
+                } catch (cUpdErr) {
+                    console.warn('[ORDER-CREATE] Customer profile address sync note:', cUpdErr);
+                }
             }
 
             // 11. Insert Initial Status Log

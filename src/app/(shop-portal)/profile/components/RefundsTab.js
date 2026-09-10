@@ -113,7 +113,7 @@ export default function RefundsTab({
             {/* Refund Request Form */}
             <div className={styles.requestFormCard}>
                 <h4 style={{ margin: '0 0 1.25rem 0', fontWeight: 800 }}>Create New Refund Request</h4>
-                
+
                 {eligibleRefundOrders.length === 0 ? (
                     <div style={{
                         padding: '1.5rem',
@@ -224,7 +224,7 @@ export default function RefundsTab({
                                                     boxShadow: isChecked ? '0 2px 8px hsl(var(--primary) / 0.12)' : '0 1px 3px rgba(0,0,0,0.02)'
                                                 }}
                                             >
-                                                <div style={{ color: isChecked ? 'hsl(var(--primary))' : '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                                                <div style={{ color: isChecked ? 'hsl(var(--primary))' : '#000000', display: 'flex', alignItems: 'center' }}>
                                                     {isChecked ? <CheckSquare size={20} /> : <Square size={20} />}
                                                 </div>
 
@@ -235,7 +235,7 @@ export default function RefundsTab({
                                                         style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                                                     />
                                                 ) : (
-                                                    <div style={{ width: '50px', height: '50px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+                                                    <div style={{ width: '50px', height: '50px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000000' }}>
                                                         <ShoppingBag size={20} />
                                                     </div>
                                                 )}
@@ -258,7 +258,7 @@ export default function RefundsTab({
                                                         ₹{Number(item.price * item.quantity).toLocaleString('en-IN')}
                                                     </div>
                                                     {item.quantity > 1 && (
-                                                        <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                        <div style={{ fontSize: '0.72rem', color: '#000000' }}>
                                                             (₹{Number(item.price).toLocaleString('en-IN')} × {item.quantity})
                                                         </div>
                                                     )}
@@ -379,8 +379,8 @@ export default function RefundsTab({
                                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
                                         <span>Total GST ({refundForm.calculationBreakdown.isIGST ? 'IGST' : 'CGST + SGST'}):</span>
                                         <span style={{ fontWeight: 600, color: '#1e293b' }}>
-                                            +₹{(refundForm.calculationBreakdown.isIGST 
-                                                ? refundForm.calculationBreakdown.igst 
+                                            +₹{(refundForm.calculationBreakdown.isIGST
+                                                ? refundForm.calculationBreakdown.igst
                                                 : (refundForm.calculationBreakdown.cgst + refundForm.calculationBreakdown.sgst)
                                             ).toLocaleString('en-IN')}
                                         </span>
@@ -406,8 +406,8 @@ export default function RefundsTab({
                         <div className={styles.formGrid} style={{ marginBottom: '1.25rem' }}>
                             <div className={styles.formGroup}>
                                 <label>REASON *</label>
-                                <select 
-                                    value={refundForm.reason} 
+                                <select
+                                    value={refundForm.reason}
                                     onChange={(e) => setRefundForm({ ...refundForm, reason: e.target.value })}
                                 >
                                     <option value="Defective Product">Defective / Damaged Item</option>
@@ -420,10 +420,10 @@ export default function RefundsTab({
 
                             <div className={styles.formGroup}>
                                 <label>ELIGIBLE REFUND AMOUNT (₹)</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     readOnly
-                                    value={refundForm.amount ? `₹${Number(refundForm.amount).toLocaleString('en-IN')}` : (currentOrder ? 'Select products to calculate refund' : 'Select order & products first')} 
+                                    value={refundForm.amount ? `₹${Number(refundForm.amount).toLocaleString('en-IN')}` : (currentOrder ? 'Select products to calculate refund' : 'Select order & products first')}
                                     disabled
                                     style={{ background: 'hsl(var(--text-main) / 0.05)', cursor: 'not-allowed', color: 'hsl(var(--primary))', fontWeight: 700 }}
                                 />
@@ -433,8 +433,8 @@ export default function RefundsTab({
                         {refundForm.reason === 'Other' && (
                             <div className={styles.formGroupFull} style={{ marginBottom: '1.25rem' }}>
                                 <label>SPECIFY REASON *</label>
-                                <textarea 
-                                    rows={3} 
+                                <textarea
+                                    rows={3}
                                     placeholder="Please specify details regarding your refund request..."
                                     value={refundForm.otherReason}
                                     onChange={(e) => setRefundForm({ ...refundForm, otherReason: e.target.value })}
@@ -524,7 +524,7 @@ export default function RefundsTab({
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {refunds.map(r => {
-                        const displayOrderInv = r.orders?.invoice_no 
+                        const displayOrderInv = r.orders?.invoice_no
                             ? (r.orders.invoice_no.startsWith('#') ? r.orders.invoice_no : `#${r.orders.invoice_no}`)
                             : `#${String(r.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
 

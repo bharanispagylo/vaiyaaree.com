@@ -150,17 +150,23 @@ export async function POST(request) {
             const operation = (payload.operation || 'select').toLowerCase();
             const table = (payload.table || '').toLowerCase();
 
-            // 1. Block mutations except customer self-update with specific ID
+            // 1. Block mutations except customer self-update or customer_addresses mutations
             if (operation !== 'select') {
                 const isCustomerSelfUpdate = table === 'customers' && operation === 'update' && 
                     Array.isArray(payload.filters) && payload.filters.some(f => f && (f.col === 'id' || f.col === '`id`') && f.val);
                 
+                const isCustomerAddressMutation = table === 'customer_addresses' && (
+                    operation === 'insert' || operation === 'update' || operation === 'delete'
+                );
+
                 if (isCustomerSelfUpdate && payload.data) {
                     // Prevent customer from escalating role or overwriting admin fields
                     delete payload.data.role;
                     delete payload.data.admin_notes;
                     delete payload.data.password;
                     delete payload.data.password_hash;
+                } else if (isCustomerAddressMutation) {
+                    // Allowed for customer address book management
                 } else {
                     return NextResponse.json(
                         { data: null, error: { message: 'Unauthorized: Admin authentication required for database mutations' } },

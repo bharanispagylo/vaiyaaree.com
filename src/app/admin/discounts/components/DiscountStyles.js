@@ -34,7 +34,7 @@ export default function DiscountStyles() {
             .tab-buttons button.active { background: white; color: #4f46e5; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
             .search-box { position: relative; width: 320px; }
-            .search-box svg { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+            .search-box svg { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #000000; }
             .search-box input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.8rem; background: white; border: 1px solid #e2e8f0; border-radius: 14px; outline: none; font-weight: 600; font-size: 0.9rem; }
 
             /* RULES GRID */
@@ -125,7 +125,7 @@ export default function DiscountStyles() {
             .toast-bar.success { background: #dcfce7; color: #15803d; border-left: 4px solid #22c55e; }
             .toast-bar.error { background: #fef2f2; color: #b91c1c; border-left: 4px solid #ef4444; }
 
-            .empty-card { background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 24px; padding: 4rem 2rem; text-align: center; color: #94a3b8; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+            .empty-card { background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 24px; padding: 4rem 2rem; text-align: center; color: #000000; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
             .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem; color: #64748b; gap: 1rem; }
 
             .mt-2 { margin-top: 0.5rem; }

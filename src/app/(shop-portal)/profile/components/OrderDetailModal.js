@@ -1,6 +1,6 @@
 'use client';
 
-import { 
+import {
     Package, Truck, CheckCircle, MapPin, Download, ArrowLeft,
     XCircle, Tag, MessageCircle, RotateCcw, Globe
 } from 'lucide-react';
@@ -49,14 +49,14 @@ export default function OrderDetailModal({
     const sIdx = typeof getStatusIndex === 'function' ? getStatusIndex(order.status) : getInternalStatusIndex(order.status);
     const isCancelled = ['CANCELLED', 'REFUNDED', 'CANCEL_REQUESTED'].includes((order.status || '').toUpperCase());
     const isDelivered = (order.status || '').toUpperCase() === 'DELIVERED';
-    
+
     // Strict Pre-Fulfillment guard for cancellation
     const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED'].includes((order.status || '').toUpperCase());
 
     // Robust Address Parsing
     const shipping = parseAddressObject(order.shipping_address) || parseAddressObject(order.billing_address) || {};
 
-    const invoiceNo = order.invoice_no 
+    const invoiceNo = order.invoice_no
         ? (order.invoice_no.startsWith('#') ? order.invoice_no : `#${order.invoice_no}`)
         : `#${String(order.id).replace(/^[A-Z]+-/, 'INV-')}`;
 
@@ -236,7 +236,7 @@ export default function OrderDetailModal({
                                                     height: '38px',
                                                     borderRadius: '50%',
                                                     background: isDone ? 'hsl(var(--primary, #5d0821))' : '#f1f5f9',
-                                                    color: isDone ? '#ffffff' : '#94a3b8',
+                                                    color: isDone ? '#ffffff' : '#000000',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
@@ -245,7 +245,7 @@ export default function OrderDetailModal({
                                                 }}>
                                                     {step.icon}
                                                 </div>
-                                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: isDone ? 'hsl(var(--text-main, #0f172a))' : '#94a3b8' }}>{step.label}</div>
+                                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: isDone ? 'hsl(var(--text-main, #0f172a))' : '#000000' }}>{step.label}</div>
                                                 <div style={{ fontSize: '0.72rem', fontWeight: 600, color: isDone ? 'hsl(var(--primary, #5d0821))' : '#cbd5e1' }}>{stepText}</div>
                                             </div>
                                         );
@@ -305,7 +305,7 @@ export default function OrderDetailModal({
                                         try {
                                             const parsedImgs = typeof item.products.images === 'string' ? JSON.parse(item.products.images) : item.products.images;
                                             if (Array.isArray(parsedImgs) && parsedImgs.length > 0) imgUrl = parsedImgs[0];
-                                        } catch (e) {}
+                                        } catch (e) { }
                                     }
                                     const noImageSvg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f8fafc"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="%2394a3b8">NO IMAGE</text></svg>';
                                     if (imgUrl && imgUrl.includes('images.unsplash.com')) imgUrl = '';
@@ -461,7 +461,7 @@ export default function OrderDetailModal({
                                 gap: '0.75rem'
                             }}>
                                 <h4 style={{ margin: '0 0 0.25rem', fontSize: '0.85rem', textTransform: 'uppercase', color: 'hsl(var(--text-muted, #64748b))', fontWeight: 800 }}>Delivery Address</h4>
-                                
+
                                 <div style={{ fontSize: '0.85rem', lineHeight: 1.5, color: '#334155' }}>
                                     <div style={{ fontWeight: 800, color: '#0f172a' }}>
                                         {shipping.name || order.customer_name || 'Valued Customer'}

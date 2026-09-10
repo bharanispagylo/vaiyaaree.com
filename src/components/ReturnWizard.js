@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-    Package, ArrowRight, ArrowLeft, Check, Upload, X, MapPin, 
+import {
+    Package, ArrowRight, ArrowLeft, Check, Upload, X, MapPin,
     RotateCcw, AlertCircle, CheckCircle, Clock, Truck, Search,
     ChevronDown, Camera, FileText, Home, ExternalLink, ShieldCheck,
     XCircle, AlertTriangle
@@ -13,33 +13,33 @@ import { formatOrderDate } from '@/lib/dateUtils';
 // ─── STATUS CONFIG ─────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-    RETURN_REQUESTED:           { label: 'Request Submitted', color: '#6366f1', bg: '#eef2ff' },
-    RETURN_APPROVED:            { label: 'Approved — Please Courier Product', color: '#059669', bg: '#d1fae5' },
-    RETURN_REJECTED:            { label: 'Request Rejected', color: '#dc2626', bg: '#fee2e2' },
-    CUSTOMER_SHIPPED:           { label: 'Product Shipped by You', color: '#7c3aed', bg: '#ede9fe' },
-    IN_TRANSIT:                 { label: 'In Transit to Company', color: '#7c3aed', bg: '#ede9fe' },
-    RECEIVED_BY_COMPANY:        { label: 'Received by Company', color: '#0891b2', bg: '#e0f2fe' },
-    INSPECTION_PENDING:         { label: 'Inspection Pending', color: '#d97706', bg: '#fef3c7' },
-    UNDER_INSPECTION:           { label: 'Under Quality Inspection', color: '#d97706', bg: '#fef3c7' },
-    INSPECTION_APPROVED:        { label: 'Inspection Passed', color: '#059669', bg: '#d1fae5' },
-    INSPECTION_REJECTED:        { label: 'Inspection Failed', color: '#dc2626', bg: '#fee2e2' },
-    REFUND_PENDING:             { label: 'Refund Pending', color: '#d97706', bg: '#fef3c7' },
-    REFUND_PROCESSING:          { label: 'Refund Processing', color: '#2563eb', bg: '#dbeafe' },
-    REFUND_COMPLETED:           { label: 'Refund Completed', color: '#059669', bg: '#d1fae5' },
-    EXCHANGE_PENDING:           { label: 'Exchange Pending', color: '#d97706', bg: '#fef3c7' },
-    EXCHANGE_PROCESSING:        { label: 'Exchange Processing', color: '#2563eb', bg: '#dbeafe' },
-    EXCHANGE_SHIPPED:           { label: 'Exchange Shipped', color: '#7c3aed', bg: '#ede9fe' },
-    EXCHANGE_DELIVERED:         { label: 'Exchange Delivered', color: '#059669', bg: '#d1fae5' },
-    RETURN_TO_CUSTOMER:         { label: 'Being Returned to You', color: '#d97706', bg: '#fef3c7' },
+    RETURN_REQUESTED: { label: 'Request Submitted', color: '#6366f1', bg: '#eef2ff' },
+    RETURN_APPROVED: { label: 'Approved — Please Courier Product', color: '#059669', bg: '#d1fae5' },
+    RETURN_REJECTED: { label: 'Request Rejected', color: '#dc2626', bg: '#fee2e2' },
+    CUSTOMER_SHIPPED: { label: 'Product Shipped by You', color: '#7c3aed', bg: '#ede9fe' },
+    IN_TRANSIT: { label: 'In Transit to Company', color: '#7c3aed', bg: '#ede9fe' },
+    RECEIVED_BY_COMPANY: { label: 'Received by Company', color: '#0891b2', bg: '#e0f2fe' },
+    INSPECTION_PENDING: { label: 'Inspection Pending', color: '#d97706', bg: '#fef3c7' },
+    UNDER_INSPECTION: { label: 'Under Quality Inspection', color: '#d97706', bg: '#fef3c7' },
+    INSPECTION_APPROVED: { label: 'Inspection Passed', color: '#059669', bg: '#d1fae5' },
+    INSPECTION_REJECTED: { label: 'Inspection Failed', color: '#dc2626', bg: '#fee2e2' },
+    REFUND_PENDING: { label: 'Refund Pending', color: '#d97706', bg: '#fef3c7' },
+    REFUND_PROCESSING: { label: 'Refund Processing', color: '#2563eb', bg: '#dbeafe' },
+    REFUND_COMPLETED: { label: 'Refund Completed', color: '#059669', bg: '#d1fae5' },
+    EXCHANGE_PENDING: { label: 'Exchange Pending', color: '#d97706', bg: '#fef3c7' },
+    EXCHANGE_PROCESSING: { label: 'Exchange Processing', color: '#2563eb', bg: '#dbeafe' },
+    EXCHANGE_SHIPPED: { label: 'Exchange Shipped', color: '#7c3aed', bg: '#ede9fe' },
+    EXCHANGE_DELIVERED: { label: 'Exchange Delivered', color: '#059669', bg: '#d1fae5' },
+    RETURN_TO_CUSTOMER: { label: 'Being Returned to You', color: '#d97706', bg: '#fef3c7' },
     RETURN_TO_CUSTOMER_SHIPPED: { label: 'Shipped Back to You', color: '#7c3aed', bg: '#ede9fe' },
-    RETURN_TO_CUSTOMER_DELIVERED:{ label: 'Returned to You', color: '#6b7280', bg: '#f3f4f6' },
-    RETURN_CLOSED:              { label: 'Case Closed', color: '#6b7280', bg: '#f3f4f6' },
-    COMPLETED:                  { label: 'Completed', color: '#059669', bg: '#d1fae5' },
-    CANCELLED:                  { label: 'Cancelled', color: '#6b7280', bg: '#f3f4f6' },
+    RETURN_TO_CUSTOMER_DELIVERED: { label: 'Returned to You', color: '#6b7280', bg: '#f3f4f6' },
+    RETURN_CLOSED: { label: 'Case Closed', color: '#6b7280', bg: '#f3f4f6' },
+    COMPLETED: { label: 'Completed', color: '#059669', bg: '#d1fae5' },
+    CANCELLED: { label: 'Cancelled', color: '#6b7280', bg: '#f3f4f6' },
     // Legacy
-    PENDING:                    { label: 'Under Review', color: '#d97706', bg: '#fef3c7' },
-    APPROVED:                   { label: 'Approved — Please Courier Product', color: '#059669', bg: '#d1fae5' },
-    REJECTED:                   { label: 'Rejected', color: '#dc2626', bg: '#fee2e2' },
+    PENDING: { label: 'Under Review', color: '#d97706', bg: '#fef3c7' },
+    APPROVED: { label: 'Approved — Please Courier Product', color: '#059669', bg: '#d1fae5' },
+    REJECTED: { label: 'Rejected', color: '#dc2626', bg: '#fee2e2' },
 };
 
 function StatusBadge({ status }) {
@@ -109,7 +109,7 @@ function ReturnTimeline({ logs }) {
                             {STATUS_CONFIG[log.new_status]?.label || log.new_status}
                         </div>
                         {log.notes && <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.1rem' }}>{log.notes}</div>}
-                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.1rem' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#000000', marginTop: '0.1rem' }}>
                             {formatAppDate(log.created_at, true)}
                         </div>
                     </div>
@@ -173,7 +173,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
             if (user?.id) {
                 query = query.eq('customer_id', user.id);
             }
-            
+
             const { data, error } = await query;
             if (!error && data) {
                 setUserReturns(data);
@@ -197,7 +197,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                 if (user?.id) {
                     query = query.eq('customer_id', user.id);
                 }
-                
+
                 const { data, error } = await query;
                 if (mounted && !error && data) {
                     setUserReturns(data);
@@ -216,9 +216,9 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
             })
             .subscribe();
 
-        return () => { 
+        return () => {
             mounted = false;
-            mysqlClient.removeChannel(channel); 
+            mysqlClient.removeChannel(channel);
         };
     }, [user, mysqlClient]);
 
@@ -234,7 +234,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                     setShippingForm(f => ({ ...f, courierCompanyId: first.id, courierCompanyName: first.name }));
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
 
         return () => {
             mounted = false;
@@ -451,7 +451,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                 const data = await res.json();
                 setHistoryData(prev => ({ ...prev, [returnId]: data.statusLogs || [] }));
             }
-        } catch {}
+        } catch { }
         setExpandedHistory(returnId);
     }
 
@@ -486,7 +486,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                 }}>
                     Return ID: {submitted}
                 </div>
-                
+
                 <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', maxWidth: '480px', margin: '0 auto 2rem', textAlign: 'left' }}>
                     <h5 style={{ margin: '0 0 0.5rem', color: '#334155', fontWeight: 700 }}>Next Steps:</h5>
                     <ol style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.88rem', color: '#475569', lineHeight: 1.6 }}>
@@ -520,7 +520,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                                 width: '36px', height: '36px', borderRadius: '50%',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 background: i < step ? '#059669' : i === step ? 'hsl(var(--primary))' : '#e2e8f0',
-                                color: i <= step ? '#fff' : '#94a3b8',
+                                color: i <= step ? '#fff' : '#000000',
                                 fontWeight: 700, fontSize: '0.85rem', transition: 'all 0.3s',
                             }}>
                                 {i < step ? <Check size={16} /> : i + 1}
@@ -548,7 +548,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                         <div style={{ textAlign: 'center', padding: '3rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                             <Package size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
                             <p style={{ color: '#64748b', fontWeight: 600 }}>No eligible products for return.</p>
-                            <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Products must be from delivered orders within 10 days.</p>
+                            <p style={{ color: '#000000', fontSize: '0.85rem' }}>Products must be from delivered orders within 10 days.</p>
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -685,7 +685,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                     <h4 style={{ fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Camera size={20} color="hsl(var(--primary))" /> Upload Product / Damaged Proof Photos
                     </h4>
-                    
+
                     {(form.productCondition === 'DAMAGED' || (form.reason && (form.reason.includes('Defective') || form.reason.includes('Damaged')))) ? (
                         <div style={{ background: '#fee2e2', border: '1.5px solid #fca5a5', borderRadius: '12px', padding: '0.85rem 1rem', marginBottom: '1.25rem', color: '#991b1b', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <AlertTriangle size={18} style={{ flexShrink: 0 }} />
@@ -713,7 +713,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                         <p style={{ fontWeight: 700, color: (form.productCondition === 'DAMAGED' || (form.reason && (form.reason.includes('Defective') || form.reason.includes('Damaged')))) && photos.length === 0 ? '#b91c1c' : '#334155' }}>
                             {photos.length >= 5 ? 'Maximum 5 photos uploaded' : 'Click to select & upload product photos'}
                         </p>
-                        <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>JPG, PNG, WEBP • Max 5MB each</p>
+                        <p style={{ fontSize: '0.8rem', color: '#000000' }}>JPG, PNG, WEBP • Max 5MB each</p>
                         <input
                             ref={fileInputRef}
                             type="file" accept="image/*" multiple
@@ -784,10 +784,10 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
-                            <div><span style={{ color: '#94a3b8' }}>Type:</span> <strong>{form.requestType === 'RETURN' ? 'Return (Refund)' : 'Exchange'}</strong></div>
-                            <div><span style={{ color: '#94a3b8' }}>Reason:</span> <strong>{form.reason}</strong></div>
-                            <div><span style={{ color: '#94a3b8' }}>Condition:</span> <strong>{form.productCondition?.replace(/_/g, ' ')}</strong></div>
-                            <div><span style={{ color: '#94a3b8' }}>Photos Uploaded:</span> <strong>{photos.filter(p => p.url).length}</strong></div>
+                            <div><span style={{ color: '#000000' }}>Type:</span> <strong>{form.requestType === 'RETURN' ? 'Return (Refund)' : 'Exchange'}</strong></div>
+                            <div><span style={{ color: '#000000' }}>Reason:</span> <strong>{form.reason}</strong></div>
+                            <div><span style={{ color: '#000000' }}>Condition:</span> <strong>{form.productCondition?.replace(/_/g, ' ')}</strong></div>
+                            <div><span style={{ color: '#000000' }}>Photos Uploaded:</span> <strong>{photos.filter(p => p.url).length}</strong></div>
                         </div>
 
                         {photos.filter(p => p.url).length > 0 && (
@@ -901,7 +901,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                                         <div style={{ flex: 1 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                                 {r.return_id && <span style={{ fontWeight: 700, color: '#4f46e5', fontSize: '0.9rem' }}>{r.return_id}</span>}
-                                                <span style={{ color: '#94a3b8', fontSize: '0.82rem' }}>Order {inv}</span>
+                                                <span style={{ color: '#000000', fontSize: '0.82rem' }}>Order {inv}</span>
                                                 <StatusBadge status={r.status} />
                                             </div>
                                             <div style={{ fontSize: '0.88rem', color: '#334155', fontWeight: 600, marginTop: '0.3rem' }}>
@@ -932,7 +932,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                                                 </div>
                                             )}
 
-                                            <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+                                            <div style={{ fontSize: '0.78rem', color: '#000000', marginTop: '0.3rem' }}>
                                                 Requested Date: {formatOrderDate(r.created_at, { includeTime: false })}
                                             </div>
                                         </div>
@@ -1013,7 +1013,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                                     {expandedHistory === r.id && (
                                         <div style={{ padding: '1.25rem', borderTop: '1px solid #f1f5f9', background: '#fafafa' }}>
                                             <ReturnTimeline logs={historyData[r.id]} />
-                                            {!historyData[r.id] && <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Loading timeline...</p>}
+                                            {!historyData[r.id] && <p style={{ color: '#000000', fontSize: '0.85rem' }}>Loading timeline...</p>}
                                         </div>
                                     )}
                                 </div>
@@ -1058,7 +1058,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                             </div>
 
                             <form onSubmit={handleShippingSubmit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                                
+
                                 {/* Company Return Address Display */}
                                 <div style={{ background: '#eef2ff', borderRadius: '12px', padding: '1rem', border: '1px solid #c7d2fe' }}>
                                     <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#3730a3', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
@@ -1136,7 +1136,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                                     </div>
                                     <div>
                                         <label style={{ display: 'block', fontWeight: 700, fontSize: '0.8rem', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                            SHIPPING COST (₹) <span style={{ color: '#94a3b8', fontWeight: 500 }}>(OPTIONAL)</span>
+                                            SHIPPING COST (₹) <span style={{ color: '#000000', fontWeight: 500 }}>(OPTIONAL)</span>
                                         </label>
                                         <input
                                             type="number"
@@ -1165,7 +1165,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                                         <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#334155' }}>
                                             {shippingForm.uploadingReceipt ? 'Uploading receipt...' : shippingForm.receiptUrl ? 'Receipt Uploaded (Click to replace)' : 'Click to upload receipt photo/PDF'}
                                         </span>
-                                        <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>JPG, PNG, PDF • Max 5MB</span>
+                                        <span style={{ fontSize: '0.78rem', color: '#000000' }}>JPG, PNG, PDF • Max 5MB</span>
                                         <input
                                             ref={receiptInputRef}
                                             type="file"
@@ -1185,7 +1185,7 @@ export default function ReturnWizard({ user, mysqlClient, addresses = [], orders
                                 {/* Additional Notes */}
                                 <div>
                                     <label style={{ display: 'block', fontWeight: 700, fontSize: '0.8rem', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                        ADDITIONAL NOTES <span style={{ color: '#94a3b8', fontWeight: 500 }}>(OPTIONAL)</span>
+                                        ADDITIONAL NOTES <span style={{ color: '#000000', fontWeight: 500 }}>(OPTIONAL)</span>
                                     </label>
                                     <textarea
                                         rows={2}

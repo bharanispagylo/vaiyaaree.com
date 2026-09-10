@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { 
-    Users, Plus, Trash2, Edit2, Shield, 
-    CheckCircle2, AlertCircle, Loader2, 
+import {
+    Users, Plus, Trash2, Edit2, Shield,
+    CheckCircle2, AlertCircle, Loader2,
     Search, UserPlus, Mail, Lock, Key,
     MoreVertical, X, Save, ShieldCheck, ShieldOff
 } from 'lucide-react';
@@ -14,7 +14,7 @@ export default function UserManagementPage() {
         if (typeof window !== 'undefined') {
             try {
                 return JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}');
-            } catch (e) {}
+            } catch (e) { }
         }
         return {};
     });
@@ -101,9 +101,9 @@ export default function UserManagementPage() {
         if (!user) return;
 
         if (!user.email && !user.otp_enabled) {
-            setNotification({ 
-                message: `Please add an email address for ${user.username} before enabling Email OTP.`, 
-                type: 'error' 
+            setNotification({
+                message: `Please add an email address for ${user.username} before enabling Email OTP.`,
+                type: 'error'
             });
             setTimeout(() => setNotification(null), 4000);
             handleOpenModal(user);
@@ -114,7 +114,7 @@ export default function UserManagementPage() {
         try {
             const { error } = await mysqlClient
                 .from('admin_users')
-                .update({ 
+                .update({
                     otp_enabled: newOtpStatus ? 1 : 0,
                     updated_at: new Date().toISOString()
                 })
@@ -123,9 +123,9 @@ export default function UserManagementPage() {
             if (error) throw error;
 
             setUsers(prev => prev.map(u => u.id === user.id ? { ...u, otp_enabled: newOtpStatus ? 1 : 0 } : u));
-            setNotification({ 
-                message: `Email OTP ${newOtpStatus ? 'Enabled' : 'Disabled'} for ${user.username}`, 
-                type: 'success' 
+            setNotification({
+                message: `Email OTP ${newOtpStatus ? 'Enabled' : 'Disabled'} for ${user.username}`,
+                type: 'success'
             });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
@@ -175,9 +175,9 @@ export default function UserManagementPage() {
                 }
 
                 if (error) throw error;
-                setNotification({ 
-                    message: isEmailSupported ? 'User updated successfully!' : 'User updated! Run SQL migration in MySQL to enable email field.', 
-                    type: 'success' 
+                setNotification({
+                    message: isEmailSupported ? 'User updated successfully!' : 'User updated! Run SQL migration in MySQL to enable email field.',
+                    type: 'success'
                 });
             } else {
                 let { error } = await mysqlClient
@@ -195,12 +195,12 @@ export default function UserManagementPage() {
                 }
 
                 if (error) throw error;
-                setNotification({ 
-                    message: isEmailSupported ? 'New user added successfully!' : 'New user added! Run SQL migration in MySQL to enable email field.', 
-                    type: 'success' 
+                setNotification({
+                    message: isEmailSupported ? 'New user added successfully!' : 'New user added! Run SQL migration in MySQL to enable email field.',
+                    type: 'success'
                 });
             }
-            
+
             setShowModal(false);
             fetchUsers();
             setTimeout(() => setNotification(null), 4000);
@@ -214,7 +214,7 @@ export default function UserManagementPage() {
 
     const handleDeleteUser = async (id) => {
         if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
-        
+
         try {
             const { error } = await mysqlClient
                 .from('admin_users')
@@ -255,8 +255,8 @@ export default function UserManagementPage() {
                     <p style={{ color: 'hsl(var(--text-muted, #64748b))', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: '440px', margin: '0 auto 2rem' }}>
                         You are signed in with <strong>Manager</strong> credentials. Administrative user management and credential controls are restricted to <strong>Super Administrators</strong>.
                     </p>
-                    <button 
-                        onClick={() => window.location.href = '/admin'} 
+                    <button
+                        onClick={() => window.location.href = '/admin'}
                         className="btn-primary-glow"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', margin: '0 auto' }}
                     >
@@ -326,7 +326,7 @@ export default function UserManagementPage() {
                                                 <strong>{user.username}</strong>
                                             </div>
                                         </td>
-                                        <td>{user.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No email set</span>}</td>
+                                        <td>{user.email || <span style={{ color: '#000000', fontStyle: 'italic' }}>No email set</span>}</td>
                                         <td>{user.full_name || '—'}</td>
                                         <td>
                                             <span className={`badge badge-${user.role}`}>
@@ -398,11 +398,11 @@ export default function UserManagementPage() {
                                     <label>Username</label>
                                     <div className="input-with-icon">
                                         <Users size={16} />
-                                        <input 
-                                            type="text" 
-                                            required 
+                                        <input
+                                            type="text"
+                                            required
                                             value={formData.username}
-                                            onChange={e => setFormData({...formData, username: e.target.value})}
+                                            onChange={e => setFormData({ ...formData, username: e.target.value })}
                                             placeholder="johndoe"
                                         />
                                     </div>
@@ -411,11 +411,11 @@ export default function UserManagementPage() {
                                     <label>Password</label>
                                     <div className="input-with-icon">
                                         <Key size={16} />
-                                        <input 
-                                            type="text" 
-                                            required 
+                                        <input
+                                            type="text"
+                                            required
                                             value={formData.password}
-                                            onChange={e => setFormData({...formData, password: e.target.value})}
+                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
                                             placeholder="••••••••"
                                         />
                                     </div>
@@ -424,28 +424,28 @@ export default function UserManagementPage() {
                                     <label>Email Address</label>
                                     <div className="input-with-icon">
                                         <Mail size={16} />
-                                        <input 
-                                            type="email" 
+                                        <input
+                                            type="email"
                                             value={formData.email}
-                                            onChange={e => setFormData({...formData, email: e.target.value})}
+                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
                                             placeholder="admin@example.com"
                                         />
                                     </div>
                                 </div>
                                 <div className="field-group full-width">
                                     <label>Full Name</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={formData.full_name}
-                                        onChange={e => setFormData({...formData, full_name: e.target.value})}
+                                        onChange={e => setFormData({ ...formData, full_name: e.target.value })}
                                         placeholder="John Doe"
                                     />
                                 </div>
                                 <div className="field-group">
                                     <label>Role</label>
-                                    <select 
+                                    <select
                                         value={formData.role}
-                                        onChange={e => setFormData({...formData, role: e.target.value})}
+                                        onChange={e => setFormData({ ...formData, role: e.target.value })}
                                     >
                                         <option value="admin">Administrator</option>
                                         <option value="super_admin">Super Admin</option>
@@ -455,11 +455,11 @@ export default function UserManagementPage() {
                                 <div className="field-group">
                                     <label>Access Status</label>
                                     <div className="toggle-field">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             id="user_active_toggle"
                                             checked={formData.is_active}
-                                            onChange={e => setFormData({...formData, is_active: e.target.checked})}
+                                            onChange={e => setFormData({ ...formData, is_active: e.target.checked })}
                                         />
                                         <label htmlFor="user_active_toggle" style={{ margin: 0, cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>Active Account</label>
                                     </div>
@@ -472,19 +472,19 @@ export default function UserManagementPage() {
                                         Two-Factor Authentication (2FA)
                                     </label>
                                     <div className="toggle-field" style={{ marginTop: '0.6rem' }}>
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             id="otp_enabled_toggle"
                                             checked={Boolean(formData.otp_enabled)}
-                                            onChange={e => setFormData({...formData, otp_enabled: e.target.checked})}
+                                            onChange={e => setFormData({ ...formData, otp_enabled: e.target.checked })}
                                             disabled={!formData.email.trim()}
                                         />
-                                        <label htmlFor="otp_enabled_toggle" style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: formData.email.trim() ? '#334155' : '#94a3b8', cursor: formData.email.trim() ? 'pointer' : 'not-allowed' }}>
+                                        <label htmlFor="otp_enabled_toggle" style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: formData.email.trim() ? '#334155' : '#000000', cursor: formData.email.trim() ? 'pointer' : 'not-allowed' }}>
                                             Require 6-Digit Email OTP on Login
                                         </label>
                                     </div>
                                     <p style={{ margin: '0.4rem 0 0', fontSize: '0.78rem', color: formData.email.trim() ? '#64748b' : '#dc2626' }}>
-                                        {formData.email.trim() 
+                                        {formData.email.trim()
                                             ? "When enabled, a verification code will be sent to the user's email upon password check."
                                             : "⚠️ An email address is required above to enable Email OTP login."
                                         }

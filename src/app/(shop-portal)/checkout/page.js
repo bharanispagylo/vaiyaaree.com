@@ -93,6 +93,357 @@ export default function CheckoutPage() {
         fetchGatewaySettings();
     }, []);
 
+    // Automatically pre-fill previous customer billing & shipping address if fields are empty
+    useEffect(() => {
+        let isCancelled = false;
+
+        async function populatePreviousAddress() {
+            // Do not overwrite if user has already entered their billing address
+            if (checkoutForm.billingAddress && checkoutForm.billingAddress.trim()) {
+                return;
+            }
+
+            try {
+                // 1. Try localStorage saved last address
+                if (typeof window !== 'undefined') {
+                    const rawLast = localStorage.getItem('vaiyaaree_last_billing_address');
+                    if (rawLast) {
+                        try {
+                            const lastAddr = JSON.parse(rawLast);
+                            if (lastAddr && lastAddr.billingAddress && lastAddr.billingAddress.trim()) {
+                                setCheckoutForm(prev => {
+                                    if (prev.billingAddress && prev.billingAddress.trim()) return prev;
+                                    return {
+                                        ...prev,
+                                        billingName: prev.billingName || lastAddr.billingName || '',
+                                        billingCountryCode: prev.billingCountryCode || lastAddr.billingCountryCode || '+91',
+                                        billingPhone: prev.billingPhone || lastAddr.billingPhone || '',
+                                        billingWhatsApp: prev.billingWhatsApp || lastAddr.billingWhatsApp || lastAddr.billingPhone || '',
+                                        billingEmail: prev.billingEmail || lastAddr.billingEmail || '',
+                                        billingAddress: lastAddr.billingAddress,
+                                        billingCity: lastAddr.billingCity || prev.billingCity || '',
+                                        billingState: lastAddr.billingState || prev.billingState || 'Tamil Nadu',
+                                        billingCountry: lastAddr.billingCountry || prev.billingCountry || 'India',
+                                        billingPincode: lastAddr.billingPincode || prev.billingPincode || '',
+                                        shippingName: prev.shippingName || lastAddr.shippingName || lastAddr.billingName || '',
+                                        shippingPhone: prev.shippingPhone || lastAddr.shippingPhone || lastAddr.billingPhone || '',
+                                        shippingWhatsApp: prev.shippingWhatsApp || lastAddr.shippingWhatsApp || lastAddr.billingWhatsApp || lastAddr.billingPhone || '',
+                                        shippingAddress: lastAddr.shippingAddress || lastAddr.billingAddress,
+                                        shippingCity: lastAddr.shippingCity || lastAddr.billingCity || prev.shippingCity || '',
+                                        shippingState: lastAddr.shippingState || lastAddr.billingState || prev.shippingState || 'Tamil Nadu',
+                                        shippingCountry: lastAddr.shippingCountry || lastAddr.billingCountry || prev.shippingCountry || 'India',
+                                        shippingPincode: lastAddr.shippingPincode || lastAddr.billingPincode || prev.shippingPincode || '',
+                                        shippingEmail: prev.shippingEmail || lastAddr.shippingEmail || lastAddr.billingEmail || '',
+                                        sameAsBilling: lastAddr.sameAsBilling !== undefined ? lastAddr.sameAsBilling : prev.sameAsBilling
+                                    };
+                                });
+                                return;
+                            }
+                        } catch (e) {}
+                    }
+                }
+
+                if (!mysqlClient) return;
+
+                const phoneClean = (checkoutForm.billingPhone || user?.phone || '').replace(/^91/, '').replace(/\D/g, '').slice(-10);
+
+                // 2. If user is logged in, query customer_addresses first
+                if (user?.id) {
+                    try {
+                        const { data: addresses } = await mysqlClient
+                            .from('customer_addresses')
+                            .select('*')
+                            .eq('customer_id', user.id)
+                            .order('is_default', { ascending: false })
+                            .limit(1);
+
+                        if (!isCancelled && addresses && addresses.length > 0) {
+                            const addr = addresses[0];
+                            const cleanAddr = addr.address_line || addr.address || '';
+                            if (cleanAddr && cleanAddr.trim()) {
+                                const ph = addr.phone ? String(addr.phone).replace(/^91/, '').replace(/\D/g, '') : phoneClean;
+                                const populated = {
+                                    billingName: addr.name || user.name || '',
+                                    billingCountryCode: addr.country_code || '+91',
+                                    billingPhone: ph,
+                                    billingWhatsApp: ph,
+                                    billingEmail: user.email || '',
+                                    billingAddress: cleanAddr,
+                                    billingCity: addr.city || '',
+                                    billingState: addr.state || 'Tamil Nadu',
+                                    billingPincode: addr.pincode || '',
+                                    billingCountry: addr.country || 'India',
+                                    shippingName: addr.name || user.name || '',
+                                    shippingPhone: ph,
+                                    shippingWhatsApp: ph,
+                                    shippingAddress: cleanAddr,
+                                    shippingCity: addr.city || '',
+                                    shippingState: addr.state || 'Tamil Nadu',
+                                    shippingPincode: addr.pincode || '',
+                                    shippingCountry: addr.country || 'India',
+                                    shippingEmail: user.email || '',
+                                    sameAsBilling: true
+                                };
+
+                                setCheckoutForm(prev => {
+                                    if (prev.billingAddress && prev.billingAddress.trim()) return prev;
+                                    return { ...prev, ...populated };
+                                });
+
+                                if (typeof window !== 'undefined') {
+                                    localStorage.setItem('vaiyaaree_last_billing_address', JSON.stringify(populated));
+                                }
+                                return;
+                            }
+                        }
+                    } catch (addrErr) {
+                        console.warn('[CHECKOUT] customer_addresses lookup error:', addrErr);
+                    }
+
+                    // 3. Query the customer's previous order from orders table
+                    try {
+                        const { data: previousOrders } = await mysqlClient
+                            .from('orders')
+                            .select('billing_address, shipping_address, customer_name, customer_phone, customer_email')
+                            .eq('customer_id', user.id)
+                            .order('created_at', { ascending: false })
+                            .limit(1);
+
+                        if (!isCancelled && previousOrders && previousOrders.length > 0) {
+                            const o = previousOrders[0];
+                            let bAddr = o.billing_address;
+                            let sAddr = o.shipping_address;
+                            if (typeof bAddr === 'string' && bAddr.startsWith('{')) {
+                                try { bAddr = JSON.parse(bAddr); } catch (e) {}
+                            }
+                            if (typeof sAddr === 'string' && sAddr.startsWith('{')) {
+                                try { sAddr = JSON.parse(sAddr); } catch (e) {}
+                            }
+
+                            const validBillingAddr = bAddr?.address_line || bAddr?.address || sAddr?.address_line || sAddr?.address || '';
+                            if (validBillingAddr && validBillingAddr.trim()) {
+                                const bPhone = (bAddr?.phone || o.customer_phone || user.phone || phoneClean || '').replace(/^91/, '').replace(/\D/g, '');
+                                const bWA = (bAddr?.whatsapp || bPhone).replace(/^91/, '').replace(/\D/g, '');
+                                const sPhone = (sAddr?.phone || bPhone).replace(/^91/, '').replace(/\D/g, '');
+                                const sWA = (sAddr?.whatsapp || sPhone).replace(/^91/, '').replace(/\D/g, '');
+
+                                const populated = {
+                                    billingName: bAddr?.name || o.customer_name || user.name || '',
+                                    billingCountryCode: '+91',
+                                    billingPhone: bPhone,
+                                    billingWhatsApp: bWA,
+                                    billingEmail: bAddr?.email || o.customer_email || user.email || '',
+                                    billingAddress: validBillingAddr,
+                                    billingCity: bAddr?.city || sAddr?.city || '',
+                                    billingState: bAddr?.state || sAddr?.state || 'Tamil Nadu',
+                                    billingPincode: bAddr?.pincode || sAddr?.pincode || '',
+                                    billingCountry: bAddr?.country || sAddr?.country || 'India',
+                                    shippingName: sAddr?.name || bAddr?.name || o.customer_name || user.name || '',
+                                    shippingPhone: sPhone,
+                                    shippingWhatsApp: sWA,
+                                    shippingAddress: sAddr?.address_line || sAddr?.address || validBillingAddr,
+                                    shippingCity: sAddr?.city || bAddr?.city || '',
+                                    shippingState: sAddr?.state || bAddr?.state || 'Tamil Nadu',
+                                    shippingPincode: sAddr?.pincode || bAddr?.pincode || '',
+                                    shippingCountry: sAddr?.country || bAddr?.country || 'India',
+                                    shippingEmail: bAddr?.email || o.customer_email || user.email || '',
+                                    sameAsBilling: true
+                                };
+
+                                setCheckoutForm(prev => {
+                                    if (prev.billingAddress && prev.billingAddress.trim()) return prev;
+                                    return { ...prev, ...populated };
+                                });
+
+                                if (typeof window !== 'undefined') {
+                                    localStorage.setItem('vaiyaaree_last_billing_address', JSON.stringify(populated));
+                                }
+                                return;
+                            }
+                        }
+                    } catch (ordErr) {
+                        console.warn('[CHECKOUT] orders lookup error:', ordErr);
+                    }
+
+                    // 4. Query customers table
+                    try {
+                        const { data: custData } = await mysqlClient
+                            .from('customers')
+                            .select('address, city, state, pincode, name, phone, email')
+                            .eq('id', user.id)
+                            .maybeSingle();
+
+                        if (!isCancelled && custData && custData.address && custData.address.trim()) {
+                            const cPhone = (custData.phone || user.phone || phoneClean || '').replace(/^91/, '').replace(/\D/g, '');
+                            const populated = {
+                                billingName: custData.name || user.name || '',
+                                billingCountryCode: '+91',
+                                billingPhone: cPhone,
+                                billingWhatsApp: cPhone,
+                                billingEmail: custData.email || user.email || '',
+                                billingAddress: custData.address,
+                                billingCity: custData.city || '',
+                                billingState: custData.state || 'Tamil Nadu',
+                                billingPincode: custData.pincode || '',
+                                billingCountry: 'India',
+                                shippingName: custData.name || user.name || '',
+                                shippingPhone: cPhone,
+                                shippingWhatsApp: cPhone,
+                                shippingAddress: custData.address,
+                                shippingCity: custData.city || '',
+                                shippingState: custData.state || 'Tamil Nadu',
+                                shippingPincode: custData.pincode || '',
+                                shippingCountry: 'India',
+                                sameAsBilling: true
+                            };
+
+                            setCheckoutForm(prev => {
+                                if (prev.billingAddress && prev.billingAddress.trim()) return prev;
+                                return { ...prev, ...populated };
+                            });
+
+                            if (typeof window !== 'undefined') {
+                                localStorage.setItem('vaiyaaree_last_billing_address', JSON.stringify(populated));
+                            }
+                            return;
+                        }
+                    } catch (custErr) {
+                        console.warn('[CHECKOUT] customers lookup error:', custErr);
+                    }
+                } else {
+                    // Guest checkout: check previous order from localStorage recent orders
+                    try {
+                        const storedIds = JSON.parse(localStorage.getItem('vaiyaaree_recent_order_ids') || '[]');
+                        if (Array.isArray(storedIds) && storedIds.length > 0) {
+                            const cleanStored = storedIds.filter(id => id && typeof id === 'string' && id.length >= 3).slice(0, 5);
+                            if (cleanStored.length > 0) {
+                                const { data: guestOrders } = await mysqlClient
+                                    .from('orders')
+                                    .select('billing_address, shipping_address, customer_name, customer_phone, customer_email')
+                                    .or(`id.in.(${cleanStored.join(',')})`)
+                                    .order('created_at', { ascending: false })
+                                    .limit(1);
+
+                                if (!isCancelled && guestOrders && guestOrders.length > 0) {
+                                    const o = guestOrders[0];
+                                    let bAddr = o.billing_address;
+                                    let sAddr = o.shipping_address;
+                                    if (typeof bAddr === 'string' && bAddr.startsWith('{')) {
+                                        try { bAddr = JSON.parse(bAddr); } catch (e) {}
+                                    }
+                                    if (typeof sAddr === 'string' && sAddr.startsWith('{')) {
+                                        try { sAddr = JSON.parse(sAddr); } catch (e) {}
+                                    }
+                                    const validBillingAddr = bAddr?.address_line || bAddr?.address || sAddr?.address_line || sAddr?.address || '';
+                                    if (validBillingAddr && validBillingAddr.trim()) {
+                                        const bPhone = (bAddr?.phone || o.customer_phone || '').replace(/^91/, '').replace(/\D/g, '');
+                                        const bWA = (bAddr?.whatsapp || bPhone).replace(/^91/, '').replace(/\D/g, '');
+                                        const populated = {
+                                            billingName: bAddr?.name || o.customer_name || '',
+                                            billingCountryCode: '+91',
+                                            billingPhone: bPhone,
+                                            billingWhatsApp: bWA,
+                                            billingEmail: bAddr?.email || o.customer_email || '',
+                                            billingAddress: validBillingAddr,
+                                            billingCity: bAddr?.city || '',
+                                            billingState: bAddr?.state || 'Tamil Nadu',
+                                            billingPincode: bAddr?.pincode || '',
+                                            billingCountry: bAddr?.country || 'India',
+                                            shippingName: sAddr?.name || bAddr?.name || o.customer_name || '',
+                                            shippingPhone: (sAddr?.phone || bPhone).replace(/^91/, '').replace(/\D/g, ''),
+                                            shippingWhatsApp: (sAddr?.whatsapp || bWA).replace(/^91/, '').replace(/\D/g, ''),
+                                            shippingAddress: sAddr?.address_line || sAddr?.address || validBillingAddr,
+                                            shippingCity: sAddr?.city || bAddr?.city || '',
+                                            shippingState: sAddr?.state || bAddr?.state || 'Tamil Nadu',
+                                            shippingPincode: sAddr?.pincode || bAddr?.pincode || '',
+                                            shippingCountry: sAddr?.country || bAddr?.country || 'India',
+                                            sameAsBilling: true
+                                        };
+
+                                        setCheckoutForm(prev => {
+                                            if (prev.billingAddress && prev.billingAddress.trim()) return prev;
+                                            return { ...prev, ...populated };
+                                        });
+
+                                        if (typeof window !== 'undefined') {
+                                            localStorage.setItem('vaiyaaree_last_billing_address', JSON.stringify(populated));
+                                        }
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (gErr) {}
+
+                    // Lookup by phone if known and has 10 digits
+                    if (phoneClean && phoneClean.length === 10) {
+                        try {
+                            const phoneVars = [phoneClean, `91${phoneClean}`, `+91${phoneClean}`];
+                            const { data: phoneOrders } = await mysqlClient
+                                .from('orders')
+                                .select('billing_address, shipping_address, customer_name, customer_phone, customer_email')
+                                .or(`customer_phone.in.(${phoneVars.join(',')})`)
+                                .order('created_at', { ascending: false })
+                                .limit(1);
+
+                            if (!isCancelled && phoneOrders && phoneOrders.length > 0) {
+                                const o = phoneOrders[0];
+                                let bAddr = o.billing_address;
+                                let sAddr = o.shipping_address;
+                                if (typeof bAddr === 'string' && bAddr.startsWith('{')) {
+                                    try { bAddr = JSON.parse(bAddr); } catch (e) {}
+                                }
+                                if (typeof sAddr === 'string' && sAddr.startsWith('{')) {
+                                    try { sAddr = JSON.parse(sAddr); } catch (e) {}
+                                }
+                                const validBillingAddr = bAddr?.address_line || bAddr?.address || sAddr?.address_line || sAddr?.address || '';
+                                if (validBillingAddr && validBillingAddr.trim()) {
+                                    const bWA = (bAddr?.whatsapp || phoneClean).replace(/^91/, '').replace(/\D/g, '');
+                                    const populated = {
+                                        billingName: bAddr?.name || o.customer_name || '',
+                                        billingCountryCode: '+91',
+                                        billingPhone: phoneClean,
+                                        billingWhatsApp: bWA,
+                                        billingEmail: bAddr?.email || o.customer_email || '',
+                                        billingAddress: validBillingAddr,
+                                        billingCity: bAddr?.city || '',
+                                        billingState: bAddr?.state || 'Tamil Nadu',
+                                        billingPincode: bAddr?.pincode || '',
+                                        billingCountry: bAddr?.country || 'India',
+                                        shippingName: sAddr?.name || bAddr?.name || o.customer_name || '',
+                                        shippingPhone: (sAddr?.phone || phoneClean).replace(/^91/, '').replace(/\D/g, ''),
+                                        shippingWhatsApp: (sAddr?.whatsapp || bWA).replace(/^91/, '').replace(/\D/g, ''),
+                                        shippingAddress: sAddr?.address_line || sAddr?.address || validBillingAddr,
+                                        shippingCity: sAddr?.city || bAddr?.city || '',
+                                        shippingState: sAddr?.state || bAddr?.state || 'Tamil Nadu',
+                                        shippingPincode: sAddr?.pincode || bAddr?.pincode || '',
+                                        shippingCountry: sAddr?.country || bAddr?.country || 'India',
+                                        sameAsBilling: true
+                                    };
+
+                                    setCheckoutForm(prev => {
+                                        if (prev.billingAddress && prev.billingAddress.trim()) return prev;
+                                        return { ...prev, ...populated };
+                                    });
+
+                                    if (typeof window !== 'undefined') {
+                                        localStorage.setItem('vaiyaaree_last_billing_address', JSON.stringify(populated));
+                                    }
+                                }
+                            }
+                        } catch (pErr) {}
+                    }
+                }
+            } catch (err) {
+                console.warn('[CHECKOUT] Could not auto-populate previous billing address:', err);
+            }
+        }
+
+        populatePreviousAddress();
+
+        return () => { isCancelled = true; };
+    }, [user?.id, user?.phone, user?.email, mysqlClient]);
+
 
     const states = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"];
 

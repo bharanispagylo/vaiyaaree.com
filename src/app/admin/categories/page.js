@@ -264,7 +264,7 @@ export default function AdminCategoriesPage() {
             {/* Toolbar */}
             <div style={{ background: '#ffffff', borderRadius: '20px', padding: '1.25rem 1.5rem', marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #f1f5f9' }}>
                 <div style={{ position: 'relative', flex: 1 }}>
-                    <Search size={18} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <Search size={18} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: '#000000' }} />
                     <input
                         type="text"
                         placeholder="Search category name or slug..."
@@ -563,7 +563,7 @@ export default function AdminCategoriesPage() {
                                         <p style={{ margin: 0, fontWeight: 600 }}>Loading assigned products...</p>
                                     </div>
                                 ) : viewingProductsList.length === 0 ? (
-                                    <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+                                    <div style={{ padding: '3rem', textAlign: 'center', color: '#000000' }}>
                                         <Package size={48} style={{ marginBottom: '0.75rem', strokeWidth: 1.5 }} />
                                         <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600 }}>No products currently assigned to "{viewingCategoryProducts.name}".</p>
                                         <p style={{ margin: '6px 0 0', fontSize: '0.825rem' }}>Assign products to this category on the Product Add / Edit page.</p>

@@ -82,10 +82,10 @@ export default function AdminPaymentSettingsPage() {
         setSaving(true);
         setNotification(null);
         try {
-            const activeKeyId = settings.razorpay_mode === 'live' 
+            const activeKeyId = settings.razorpay_mode === 'live'
                 ? (settings.razorpay_live_key_id || settings.razorpay_test_key_id)
                 : (settings.razorpay_test_key_id);
-            
+
             const activeKeySecret = settings.razorpay_mode === 'live'
                 ? (settings.razorpay_live_key_secret || settings.razorpay_test_key_secret)
                 : (settings.razorpay_test_key_secret);
@@ -108,9 +108,9 @@ export default function AdminPaymentSettingsPage() {
 
             if (error) throw error;
 
-            setNotification({ 
-                message: `Razorpay settings saved successfully! Active mode: ${settings.razorpay_mode.toUpperCase()}`, 
-                type: 'success' 
+            setNotification({
+                message: `Razorpay settings saved successfully! Active mode: ${settings.razorpay_mode.toUpperCase()}`,
+                type: 'success'
             });
             setTimeout(() => setNotification(null), 4000);
         } catch (err) {
@@ -141,7 +141,7 @@ export default function AdminPaymentSettingsPage() {
 
     return (
         <div className="payment-settings-page animate-enter" style={{ maxWidth: '1150px', margin: '0 auto', paddingBottom: '4rem' }}>
-            
+
             {/* Top Page Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
@@ -209,7 +209,7 @@ export default function AdminPaymentSettingsPage() {
                             </h3>
                         </div>
                         <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'rgba(255,255,255,0.85)' }}>
-                            {isEnabled 
+                            {isEnabled
                                 ? (isLive ? 'Accepting real customer payments via Razorpay Live API credentials.' : 'Test environment active. Customers can test checkout without real payment.')
                                 : 'Razorpay gateway option is currently hidden on customer checkout page.'}
                         </p>
@@ -340,7 +340,7 @@ export default function AdminPaymentSettingsPage() {
                                     <Sparkles size={12} /> ACTIVE MODE
                                 </span>
                             ) : (
-                                <span style={{ background: '#f1f5f9', color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', borderRadius: '12px' }}>
+                                <span style={{ background: '#f1f5f9', color: '#000000', fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', borderRadius: '12px' }}>
                                     INACTIVE
                                 </span>
                             )}
@@ -413,7 +413,7 @@ export default function AdminPaymentSettingsPage() {
                                     <Sparkles size={12} /> ACTIVE MODE
                                 </span>
                             ) : (
-                                <span style={{ background: '#f1f5f9', color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', borderRadius: '12px' }}>
+                                <span style={{ background: '#f1f5f9', color: '#000000', fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', borderRadius: '12px' }}>
                                     INACTIVE
                                 </span>
                             )}

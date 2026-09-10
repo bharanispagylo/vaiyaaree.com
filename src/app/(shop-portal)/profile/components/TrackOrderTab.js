@@ -28,9 +28,9 @@ export default function TrackOrderTab({
             <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '16px', border: '1px solid hsl(var(--border-subtle))', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
-                        <input 
-                            type="text" 
-                            placeholder="Enter Order or Invoice ID (e.g. INV-0001 or WEB-0001)" 
+                        <input
+                            type="text"
+                            placeholder="Enter Order or Invoice ID (e.g. INV-0001 or WEB-0001)"
                             value={trackSearchId}
                             onChange={(e) => setTrackSearchId(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleTrackSearch()}
@@ -42,8 +42,8 @@ export default function TrackOrderTab({
                         />
                         <Search size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
                     </div>
-                    <button 
-                        onClick={() => handleTrackSearch()} 
+                    <button
+                        onClick={() => handleTrackSearch()}
                         disabled={loadingTrack}
                         className="btn btn-primary"
                         style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', fontWeight: 700, fontSize: '0.9rem' }}
@@ -147,7 +147,7 @@ export default function TrackOrderTab({
                                         }}>
                                             {step.icon}
                                         </div>
-                                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isDone ? 'hsl(var(--text-main))' : '#94a3b8' }}>{step.label}</div>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isDone ? 'hsl(var(--text-main))' : '#000000' }}>{step.label}</div>
                                         <div style={{ fontSize: '0.72rem', fontWeight: 600, color: isDone ? 'hsl(var(--primary))' : '#cbd5e1' }}>
                                             {stepText}
                                         </div>
@@ -176,10 +176,10 @@ export default function TrackOrderTab({
 
                     {/* Action Buttons */}
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                        <a 
-                            href={`/api/invoice/${trackOrderData.id}?phone=${trackOrderData.customer_phone}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
+                        <a
+                            href={`/api/invoice/${trackOrderData.id}?phone=${trackOrderData.customer_phone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className={styles.actionBtnOutline}
                             style={{ padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700 }}
                         >

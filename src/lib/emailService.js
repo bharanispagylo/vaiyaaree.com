@@ -155,14 +155,14 @@ function getFooterHtml(settings = {}) {
                 <td style="padding: 24px 20px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #64748b; line-height: 1.6;">
                     <p style="margin: 0 0 6px 0; font-weight: 700; font-size: 15px; color: #1e293b;">${shopName}</p>
                     <p style="margin: 0 0 10px 0;">${shopAddress}</p>
-                    <p style="margin: 0 0 12px 0; font-size: 12px; color: #94a3b8;">${billTerms}</p>
+                    <p style="margin: 0 0 12px 0; font-size: 12px; color: #000000;">${billTerms}</p>
                     <div style="border-top: 1px solid #e2e8f0; margin: 12px auto; width: 80%;"></div>
                     <p style="margin: 0 0 6px 0;">
                         Need help? Contact us: 
                         <a href="mailto:${shopEmail}" style="color: #5d0821; font-weight: 600; text-decoration: none;">${shopEmail}</a> | 
                         <a href="tel:${shopPhone}" style="color: #5d0821; font-weight: 600; text-decoration: none;">+91 ${shopPhone}</a>
                     </p>
-                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;">&copy; ${new Date().getFullYear()} ${shopName}. All rights reserved.</p>
+                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #000000;">&copy; ${new Date().getFullYear()} ${shopName}. All rights reserved.</p>
                 </td>
             </tr>
         </table>
@@ -248,7 +248,7 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
                                 if (v.image_url) variantImageMap[v.id] = v.image_url;
                             });
                         }
-                    } catch (vErr) {}
+                    } catch (vErr) { }
                 }
 
                 if (prodIdsToFetch.length > 0) {
@@ -265,13 +265,13 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
                                 }
                             });
                         }
-                    } catch (pErr) {}
+                    } catch (pErr) { }
                 }
 
                 order.order_items = items.map(it => {
                     const prodId = it.product_id || it.id;
                     const variantId = it.variant_id || it.variantId;
-                    const resolvedImg = it.image_url 
+                    const resolvedImg = it.image_url
                         || (variantId && variantImageMap[variantId])
                         || (prodId && productImageMap[prodId])
                         || (it.product_name && productImageMap[it.product_name])
@@ -330,8 +330,8 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
     try {
         const pdfBuffer = await generateOrderPDFBuffer(order, settings);
         if (pdfBuffer) {
-            const cleanInv = order.invoice_no 
-                ? order.invoice_no.replace(/^#/, '') 
+            const cleanInv = order.invoice_no
+                ? order.invoice_no.replace(/^#/, '')
                 : String(order.id).replace(/^[A-Z]+-/, 'INV-');
             attachments.push({
                 filename: `Invoice_${cleanInv}.pdf`,

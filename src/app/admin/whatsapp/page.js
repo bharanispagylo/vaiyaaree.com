@@ -174,8 +174,8 @@ export default function WhatsAppSettingsPage() {
                                         </span>
                                     </div>
                                     <p style={{ margin: '6px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
-                                        {isBotEnabled 
-                                            ? 'The AI bot is currently responding to customer WhatsApp messages, catalog queries, and commands.' 
+                                        {isBotEnabled
+                                            ? 'The AI bot is currently responding to customer WhatsApp messages, catalog queries, and commands.'
                                             : 'The bot is paused. Incoming WhatsApp messages will be acknowledged without automated replies.'}
                                     </p>
                                 </div>
@@ -271,7 +271,7 @@ export default function WhatsAppSettingsPage() {
                                     ) : (
                                         <div style={{
                                             width: '110px', height: '110px', borderRadius: '14px',
-                                            border: '1px dashed #94a3b8', background: '#ffffff',
+                                            border: '1px dashed #000000', background: '#ffffff',
                                             display: 'flex', flexDirection: 'column', alignItems: 'center',
                                             justifyContent: 'center', color: '#64748b', gap: '6px', flexShrink: 0
                                         }}>

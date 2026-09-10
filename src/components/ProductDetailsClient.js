@@ -423,7 +423,7 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                                 background: '#f8fafc',
                                 borderRadius: '16px',
                                 border: '1px dashed #cbd5e1',
-                                color: '#94a3b8'
+                                color: '#000000'
                             }}>
                                 <span style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>No Image</span>
                             </div>
@@ -550,7 +550,7 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                                     </span>
                                     {hasDiscount && (
                                         <>
-                                            <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '1.2rem', fontWeight: 600 }}>
+                                            <span style={{ textDecoration: 'line-through', color: '#000000', fontSize: '1.2rem', fontWeight: 600 }}>
                                                 ₹{Number(originalPrice).toLocaleString()}
                                             </span>
                                             <span style={{ background: '#fff1f2', color: '#e11d48', border: '1px solid #fecdd3', fontSize: '0.85rem', fontWeight: 800, padding: '0.25rem 0.65rem', borderRadius: '6px' }}>
@@ -673,7 +673,7 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                                 <div className={styles.qtySelector}>
                                     <button onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
                                     <span>{qty}</span>
-                                    <button 
+                                    <button
                                         onClick={() => setQty(Math.min(currentStock, qty + 1))}
                                         disabled={qty >= currentStock}
                                         title={qty >= currentStock ? `Maximum ${currentStock} sarees available` : 'Increase quantity'}
@@ -711,7 +711,7 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                         </div>
                     ) : (
                         <div className={styles.actions}>
-                            <button disabled className={styles.addToCartBtn} style={{ background: '#f1f5f9', cursor: 'not-allowed', color: '#94a3b8', border: '1px solid #e2e8f0', gridColumn: '1 / -1', height: '52px', fontWeight: 800 }}>
+                            <button disabled className={styles.addToCartBtn} style={{ background: '#f1f5f9', cursor: 'not-allowed', color: '#000000', border: '1px solid #e2e8f0', gridColumn: '1 / -1', height: '52px', fontWeight: 800 }}>
                                 Out of Stock
                             </button>
                         </div>

@@ -333,7 +333,7 @@ export default function HomepageBuilderPage() {
                 </div>
             ) : sections.length === 0 ? (
                 <div style={{ background: '#ffffff', padding: '4rem 2rem', textAlign: 'center', borderRadius: '16px', border: '2px dashed #cbd5e1' }}>
-                    <Layout size={48} style={{ color: '#94a3b8', margin: '0 auto 1rem' }} />
+                    <Layout size={48} style={{ color: '#000000', margin: '0 auto 1rem' }} />
                     <h3 style={{ margin: '0 0 0.5rem', color: '#0f172a', fontWeight: 800 }}>No Homepage Sections Found</h3>
                     <p style={{ color: '#64748b', maxWidth: '400px', margin: '0 auto 1.5rem', fontSize: '0.9rem' }}>
                         Start by adding your first section or initialize with default store sections.

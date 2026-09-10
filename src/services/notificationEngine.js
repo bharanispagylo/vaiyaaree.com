@@ -90,7 +90,7 @@ export async function dispatchNotification({
                 addrPhone = parsed.phone || parsed.mobile;
                 addrName = parsed.name || parsed.full_name;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
     if ((!addrEmail || !addrPhone) && order?.shipping_address) {
         try {
@@ -100,7 +100,7 @@ export async function dispatchNotification({
                 if (!addrPhone) addrPhone = parsed.phone || parsed.mobile;
                 if (!addrName) addrName = parsed.name || parsed.full_name;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     const customerEmail = (order?.billing_email || order?.customer_email || addrEmail || extraData?.email || '').trim();
@@ -126,12 +126,12 @@ export async function dispatchNotification({
                         if (cfg.enabled && cfg.recipient_emails) {
                             cfg.recipient_emails.split(',').map(e => e.trim()).filter(Boolean).forEach(em => adminEmails.push(em));
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 if ((s.key === 'admin_notification_phone' || s.key === 'business_phone') && s.value) adminPhone = normalizePhone(s.value);
             });
         }
-    } catch (e) {}
+    } catch (e) { }
 
     adminEmails = Array.from(new Set(adminEmails.filter(Boolean)));
     if (adminEmails.length === 0) {
@@ -179,7 +179,7 @@ export async function dispatchNotification({
                                 if (v.image_url) variantImageMap[v.id] = v.image_url;
                             });
                         }
-                    } catch (vErr) {}
+                    } catch (vErr) { }
                 }
 
                 if (prodIdsToFetch.length > 0) {
@@ -196,13 +196,13 @@ export async function dispatchNotification({
                                 }
                             });
                         }
-                    } catch (pErr) {}
+                    } catch (pErr) { }
                 }
 
                 order.order_items = items.map(it => {
                     const prodId = it.product_id || it.id;
                     const variantId = it.variant_id || it.variantId;
-                    const resolvedImg = it.image_url 
+                    const resolvedImg = it.image_url
                         || (variantId && variantImageMap[variantId])
                         || (prodId && productImageMap[prodId])
                         || (it.product_name && productImageMap[it.product_name])
@@ -234,8 +234,8 @@ export async function dispatchNotification({
             try {
                 const pdfBuffer = await generateOrderPDFBuffer(order);
                 if (pdfBuffer) {
-                    const cleanInv = order.invoice_no 
-                        ? order.invoice_no.replace(/^#/, '') 
+                    const cleanInv = order.invoice_no
+                        ? order.invoice_no.replace(/^#/, '')
                         : String(order.id || 'ORDER').replace(/^[A-Z]+-/, 'INV-');
                     attachments.push({
                         filename: `Invoice_${cleanInv}.pdf`,
@@ -291,8 +291,8 @@ export async function dispatchNotification({
                 try {
                     const pdfBuffer = await generateOrderPDFBuffer(order);
                     if (pdfBuffer) {
-                        const cleanInv = order.invoice_no 
-                            ? order.invoice_no.replace(/^#/, '') 
+                        const cleanInv = order.invoice_no
+                            ? order.invoice_no.replace(/^#/, '')
                             : String(order.id || 'ORDER').replace(/^[A-Z]+-/, 'INV-');
                         adminAttachments.push({
                             filename: `Invoice_${cleanInv}.pdf`,
@@ -300,7 +300,7 @@ export async function dispatchNotification({
                             contentType: 'application/pdf'
                         });
                     }
-                } catch (pdfErr) {}
+                } catch (pdfErr) { }
             }
 
             for (const singleAdminEmail of adminEmails) {
@@ -435,7 +435,7 @@ async function sendWithDuplicateCheck({
                 error_message: err.message || 'Dispatch exception',
                 sent_at: null
             }]);
-        } catch (dbErr) {}
+        } catch (dbErr) { }
 
         return { channel, recipient, status: 'FAILED', error: err.message };
     }
@@ -597,7 +597,7 @@ function renderAdminAlertHtml({
 
                     <!-- FOOTER BAR -->
                     <tr>
-                        <td style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 28px; text-align: center; font-size: 12px; color: #94a3b8;">
+                        <td style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 28px; text-align: center; font-size: 12px; color: #000000;">
                             Vaiyaaree Sarees Admin Notification Engine &bull; Automatic System Alert<br/>
                             <a href="${appUrl}" style="color: #64748b; text-decoration: underline;">www.vaiyaaree.com</a>
                         </td>

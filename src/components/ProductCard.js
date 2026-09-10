@@ -90,7 +90,7 @@ export default function ProductCard({ product, gridView = true }) {
                         setLocalVariants(data);
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
             return () => { isMounted = false; };
         }
     }, [isVariantProduct, product.id, localVariants, mysqlClient]);
@@ -206,7 +206,7 @@ export default function ProductCard({ product, gridView = true }) {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 background: '#f8fafc',
-                                color: '#94a3b8',
+                                color: '#000000',
                                 border: '1px dashed #cbd5e1'
                             }}>
                                 <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>No Image</span>
@@ -256,9 +256,9 @@ export default function ProductCard({ product, gridView = true }) {
                                             className={`${styles.variantChip} ${isSelected ? styles.variantChipActive : ''} ${isVarOutOfStock ? styles.variantChipOutOfStock : ''}`}
                                         >
                                             {colorHex && (
-                                                <span 
-                                                    className={styles.variantColorDot} 
-                                                    style={{ backgroundColor: colorHex }} 
+                                                <span
+                                                    className={styles.variantColorDot}
+                                                    style={{ backgroundColor: colorHex }}
                                                 />
                                             )}
                                             <span>{v.name}</span>
@@ -275,7 +275,7 @@ export default function ProductCard({ product, gridView = true }) {
                         <div className={styles.productPrice}>₹{activePrice.toLocaleString()}</div>
                         {hasDiscount && (
                             <>
-                                <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600 }}>
+                                <span style={{ textDecoration: 'line-through', color: '#000000', fontSize: '0.85rem', fontWeight: 600 }}>
                                     ₹{Number(mrpVal).toLocaleString()}
                                 </span>
                                 <span style={{ color: '#e11d48', fontSize: '0.75rem', fontWeight: 800, background: '#fff1f2', border: '1px solid #fecdd3', padding: '2px 6px', borderRadius: '4px' }}>
@@ -332,7 +332,7 @@ export default function ProductCard({ product, gridView = true }) {
                             alignItems: 'center',
                             justifyContent: 'center',
                             background: '#f8fafc',
-                            color: '#94a3b8',
+                            color: '#000000',
                             border: '1px dashed #cbd5e1'
                         }}>
                             <span style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>No Image</span>
@@ -412,9 +412,9 @@ export default function ProductCard({ product, gridView = true }) {
                                         className={`${styles.variantChip} ${isSelected ? styles.variantChipActive : ''} ${isVarOutOfStock ? styles.variantChipOutOfStock : ''}`}
                                     >
                                         {colorHex && (
-                                            <span 
-                                                className={styles.variantColorDot} 
-                                                style={{ backgroundColor: colorHex }} 
+                                            <span
+                                                className={styles.variantColorDot}
+                                                style={{ backgroundColor: colorHex }}
                                             />
                                         )}
                                         <span>{v.name}</span>
@@ -423,8 +423,8 @@ export default function ProductCard({ product, gridView = true }) {
                             })}
 
                             {remainingCount > 0 && (
-                                <Link 
-                                    href={productDetailUrl} 
+                                <Link
+                                    href={productDetailUrl}
                                     className={styles.variantMoreTag}
                                     onClick={(e) => e.stopPropagation()}
                                 >
@@ -440,7 +440,7 @@ export default function ProductCard({ product, gridView = true }) {
                     <div className={styles.productPrice}>₹{activePrice.toLocaleString()}</div>
                     {hasDiscount && (
                         <>
-                            <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.82rem', fontWeight: 600 }}>
+                            <span style={{ textDecoration: 'line-through', color: '#000000', fontSize: '0.82rem', fontWeight: 600 }}>
                                 ₹{Number(mrpVal).toLocaleString()}
                             </span>
                             <span style={{ color: '#e11d48', fontSize: '0.72rem', fontWeight: 800, background: '#fff1f2', border: '1px solid #fecdd3', padding: '1px 5px', borderRadius: '4px' }}>

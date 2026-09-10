@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { 
-    Truck, Plus, Trash2, Edit2, Save, X, 
-    Search, Globe, Phone, Mail, CheckCircle2, 
-    XCircle, Loader2, ExternalLink 
+import {
+    Truck, Plus, Trash2, Edit2, Save, X,
+    Search, Globe, Phone, Mail, CheckCircle2,
+    XCircle, Loader2, ExternalLink
 } from 'lucide-react';
 
 export default function CouriersPage() {
@@ -34,7 +34,7 @@ export default function CouriersPage() {
                 .from('couriers')
                 .select('*')
                 .order('name');
-            
+
             if (error) {
                 // If table doesn't exist, we'll handle it gracefully
                 if (error.code === 'PGRST116' || error.message.includes('relation "couriers" does not exist')) {
@@ -132,7 +132,7 @@ export default function CouriersPage() {
         setTimeout(() => setNotification(null), 3000);
     };
 
-    const filteredCouriers = couriers.filter(c => 
+    const filteredCouriers = couriers.filter(c =>
         c.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -162,39 +162,39 @@ export default function CouriersPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                             <div className="form-group">
                                 <label>Service Name</label>
-                                <input 
-                                    type="text" 
-                                    required 
+                                <input
+                                    type="text"
+                                    required
                                     value={formData.name}
-                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     placeholder="e.g. Delhivery, BlueDart"
                                 />
                             </div>
                             <div className="form-group">
                                 <label>Tracking URL Template</label>
                                 <p className="help-text">Use <code>{'{tracking_number}'}</code> as placeholder.</p>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={formData.tracking_url_template}
-                                    onChange={(e) => setFormData({...formData, tracking_url_template: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, tracking_url_template: e.target.value })}
                                     placeholder="https://track.com/?tn={tracking_number}"
                                 />
                             </div>
                             <div className="form-group">
                                 <label>Contact Phone</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     value={formData.phone}
-                                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                     placeholder="+91..."
                                 />
                             </div>
                             <div className="form-group">
                                 <label>Contact Email</label>
-                                <input 
-                                    type="email" 
+                                <input
+                                    type="email"
                                     value={formData.email}
-                                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                     placeholder="support@courier.com"
                                 />
                             </div>
@@ -202,10 +202,10 @@ export default function CouriersPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
                             <div className="form-group checkbox" style={{ margin: 0 }}>
                                 <label>
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         checked={formData.is_active}
-                                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                                     />
                                     <span style={{ marginLeft: '0.5rem' }}>Active Partner</span>
                                 </label>
@@ -232,9 +232,9 @@ export default function CouriersPage() {
             {!(isFormOpen || editingCourier) && (
                 <div className="search-bar">
                     <Search size={20} />
-                    <input 
-                        type="text" 
-                        placeholder="Search couriers..." 
+                    <input
+                        type="text"
+                        placeholder="Search couriers..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -517,7 +517,7 @@ export default function CouriersPage() {
                     outline: none;
                 }
                 .form-group input:focus { border-color: hsl(var(--primary)); }
-                .help-text { font-size: 0.7rem; color: #94a3b8; margin: -0.25rem 0 0.5rem; }
+                .help-text { font-size: 0.7rem; color: #000000; margin: -0.25rem 0 0.5rem; }
                 .help-text code { background: #f1f5f9; padding: 1px 4px; border-radius: 4px; }
 
                 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -563,7 +563,7 @@ export default function CouriersPage() {
                     grid-column: 1 / -1;
                     padding: 4rem;
                     text-align: center;
-                    color: #94a3b8;
+                    color: #000000;
                 }
                 .empty-state svg { margin-bottom: 1.5rem; opacity: 0.2; }
             `}</style>

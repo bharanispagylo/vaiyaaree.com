@@ -15,32 +15,32 @@ import {
 // ─── STATUS CONFIG ───────────────────────────────────────────────────────────
 
 const STATUS_CFG = {
-    RETURN_REQUESTED:            { label: 'Requested', color: '#6366f1', bg: '#eef2ff' },
-    RETURN_APPROVED:             { label: 'Approved — Ship Pending', color: '#059669', bg: '#d1fae5' },
-    RETURN_REJECTED:             { label: 'Rejected', color: '#dc2626', bg: '#fee2e2' },
-    CUSTOMER_SHIPPED:            { label: 'Shipped by Customer', color: '#7c3aed', bg: '#ede9fe' },
-    IN_TRANSIT:                  { label: 'In Transit', color: '#7c3aed', bg: '#ede9fe' },
-    RECEIVED_BY_COMPANY:         { label: 'Received by Company', color: '#0891b2', bg: '#e0f2fe' },
-    INSPECTION_PENDING:          { label: 'Inspection Pending', color: '#d97706', bg: '#fef3c7' },
-    UNDER_INSPECTION:            { label: 'Under Inspection', color: '#d97706', bg: '#fef3c7' },
-    INSPECTION_APPROVED:         { label: 'Inspection Passed', color: '#059669', bg: '#d1fae5' },
-    INSPECTION_REJECTED:         { label: 'Inspection Failed', color: '#dc2626', bg: '#fee2e2' },
-    REFUND_PENDING:              { label: 'Refund Pending', color: '#d97706', bg: '#fef3c7' },
-    REFUND_PROCESSING:           { label: 'Refund Processing', color: '#2563eb', bg: '#dbeafe' },
-    REFUND_COMPLETED:            { label: 'Refund Completed', color: '#059669', bg: '#d1fae5' },
-    EXCHANGE_PENDING:            { label: 'Exchange Pending', color: '#d97706', bg: '#fef3c7' },
-    EXCHANGE_PROCESSING:         { label: 'Exchange Processing', color: '#2563eb', bg: '#dbeafe' },
-    EXCHANGE_SHIPPED:            { label: 'Exchange Shipped', color: '#7c3aed', bg: '#ede9fe' },
-    EXCHANGE_DELIVERED:          { label: 'Exchange Delivered', color: '#059669', bg: '#d1fae5' },
-    RETURN_TO_CUSTOMER:          { label: 'Returning to Customer', color: '#d97706', bg: '#fef3c7' },
-    RETURN_TO_CUSTOMER_SHIPPED:  { label: 'Return Shipped', color: '#7c3aed', bg: '#ede9fe' },
-    RETURN_TO_CUSTOMER_DELIVERED:{ label: 'Return Delivered', color: '#6b7280', bg: '#f3f4f6' },
-    RETURN_CLOSED:               { label: 'Closed', color: '#6b7280', bg: '#f3f4f6' },
-    COMPLETED:                   { label: 'Completed', color: '#059669', bg: '#d1fae5' },
-    CANCELLED:                   { label: 'Cancelled', color: '#6b7280', bg: '#f3f4f6' },
-    PENDING:                     { label: 'Pending', color: '#d97706', bg: '#fef3c7' },
-    APPROVED:                    { label: 'Approved', color: '#059669', bg: '#d1fae5' },
-    REJECTED:                    { label: 'Rejected', color: '#dc2626', bg: '#fee2e2' },
+    RETURN_REQUESTED: { label: 'Requested', color: '#6366f1', bg: '#eef2ff' },
+    RETURN_APPROVED: { label: 'Approved — Ship Pending', color: '#059669', bg: '#d1fae5' },
+    RETURN_REJECTED: { label: 'Rejected', color: '#dc2626', bg: '#fee2e2' },
+    CUSTOMER_SHIPPED: { label: 'Shipped by Customer', color: '#7c3aed', bg: '#ede9fe' },
+    IN_TRANSIT: { label: 'In Transit', color: '#7c3aed', bg: '#ede9fe' },
+    RECEIVED_BY_COMPANY: { label: 'Received by Company', color: '#0891b2', bg: '#e0f2fe' },
+    INSPECTION_PENDING: { label: 'Inspection Pending', color: '#d97706', bg: '#fef3c7' },
+    UNDER_INSPECTION: { label: 'Under Inspection', color: '#d97706', bg: '#fef3c7' },
+    INSPECTION_APPROVED: { label: 'Inspection Passed', color: '#059669', bg: '#d1fae5' },
+    INSPECTION_REJECTED: { label: 'Inspection Failed', color: '#dc2626', bg: '#fee2e2' },
+    REFUND_PENDING: { label: 'Refund Pending', color: '#d97706', bg: '#fef3c7' },
+    REFUND_PROCESSING: { label: 'Refund Processing', color: '#2563eb', bg: '#dbeafe' },
+    REFUND_COMPLETED: { label: 'Refund Completed', color: '#059669', bg: '#d1fae5' },
+    EXCHANGE_PENDING: { label: 'Exchange Pending', color: '#d97706', bg: '#fef3c7' },
+    EXCHANGE_PROCESSING: { label: 'Exchange Processing', color: '#2563eb', bg: '#dbeafe' },
+    EXCHANGE_SHIPPED: { label: 'Exchange Shipped', color: '#7c3aed', bg: '#ede9fe' },
+    EXCHANGE_DELIVERED: { label: 'Exchange Delivered', color: '#059669', bg: '#d1fae5' },
+    RETURN_TO_CUSTOMER: { label: 'Returning to Customer', color: '#d97706', bg: '#fef3c7' },
+    RETURN_TO_CUSTOMER_SHIPPED: { label: 'Return Shipped', color: '#7c3aed', bg: '#ede9fe' },
+    RETURN_TO_CUSTOMER_DELIVERED: { label: 'Return Delivered', color: '#6b7280', bg: '#f3f4f6' },
+    RETURN_CLOSED: { label: 'Closed', color: '#6b7280', bg: '#f3f4f6' },
+    COMPLETED: { label: 'Completed', color: '#059669', bg: '#d1fae5' },
+    CANCELLED: { label: 'Cancelled', color: '#6b7280', bg: '#f3f4f6' },
+    PENDING: { label: 'Pending', color: '#d97706', bg: '#fef3c7' },
+    APPROVED: { label: 'Approved', color: '#059669', bg: '#d1fae5' },
+    REJECTED: { label: 'Rejected', color: '#dc2626', bg: '#fee2e2' },
 };
 
 function StatusBadge({ status }) {
@@ -802,7 +802,7 @@ export default function AdminReturnsPage() {
                                     <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => openDetail(r)}>
                                         <td>
                                             <div style={{ fontWeight: 700, color: '#4f46e5', fontSize: '0.85rem' }}>{invNo}</div>
-                                            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{r.return_id || `#${String(r.id).slice(0, 8)}`}</div>
+                                            <div style={{ fontSize: '0.72rem', color: '#000000' }}>{r.return_id || `#${String(r.id).slice(0, 8)}`}</div>
                                         </td>
                                         <td>
                                             <div style={{ fontWeight: 700, color: '#1e293b' }}>{customerName}</div>
@@ -941,7 +941,7 @@ export default function AdminReturnsPage() {
                                         {detailReturn.return_id || `Return #${String(detailReturn.id).slice(0, 8)}`}
                                         <span style={{ marginLeft: '0.75rem' }}><StatusBadge status={detailReturn.status} /></span>
                                     </div>
-                                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#000000', marginTop: '0.2rem' }}>
                                         Requested on: {formatAppDate(detailReturn.created_at, true)}
                                     </div>
                                 </div>
@@ -1048,7 +1048,7 @@ export default function AdminReturnsPage() {
                                         {/* 4. Customer Uploaded Return / Damaged Product Photos */}
                                         {(() => {
                                             let photoArray = [];
-                                            
+
                                             // 1. Array from images or return_images
                                             if (Array.isArray(detailReturn.images)) photoArray.push(...detailReturn.images);
                                             if (Array.isArray(detailReturn.return_images)) photoArray.push(...detailReturn.return_images);
@@ -1059,7 +1059,7 @@ export default function AdminReturnsPage() {
                                                 try {
                                                     const parsed = typeof detailReturn.photo_urls === 'string' ? JSON.parse(detailReturn.photo_urls) : detailReturn.photo_urls;
                                                     if (Array.isArray(parsed)) photoArray.push(...parsed);
-                                                } catch (e) {}
+                                                } catch (e) { }
                                             }
 
                                             // Filter duplicates and normalize to image URL string
@@ -1136,19 +1136,19 @@ export default function AdminReturnsPage() {
                                         {/* 6. Inspection Results */}
                                         {detailReturn.inspection && (
                                             <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '1rem', border: '1px solid #e2e8f0' }}>
-                                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#000000', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                                     <ClipboardCheck size={12} /> Quality Inspection Results
                                                 </div>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.85rem' }}>
-                                                    <div><span style={{ color: '#94a3b8' }}>Packaging:</span> <strong>{detailReturn.inspection.packaging_condition}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Product:</span> <strong>{detailReturn.inspection.product_condition}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Damage:</span> <strong style={{ color: detailReturn.inspection.has_damage ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_damage ? 'Yes' : 'No'}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Stain:</span> <strong style={{ color: detailReturn.inspection.has_stain ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_stain ? 'Yes' : 'No'}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Usage:</span> <strong style={{ color: detailReturn.inspection.has_usage ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_usage ? 'Yes' : 'No'}</strong></div>
-                                                    <div><span style={{ color: '#94a3b8' }}>Tags:</span> <strong style={{ color: detailReturn.inspection.has_tags ? '#166534' : '#dc2626' }}>{detailReturn.inspection.has_tags ? 'Intact' : 'Missing'}</strong></div>
-                                                    <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#94a3b8' }}>Result:</span> <StatusBadge status={detailReturn.inspection.result === 'APPROVED' ? 'INSPECTION_APPROVED' : detailReturn.inspection.result === 'REJECTED' ? 'INSPECTION_REJECTED' : 'INSPECTION_PENDING'} /></div>
+                                                    <div><span style={{ color: '#000000' }}>Packaging:</span> <strong>{detailReturn.inspection.packaging_condition}</strong></div>
+                                                    <div><span style={{ color: '#000000' }}>Product:</span> <strong>{detailReturn.inspection.product_condition}</strong></div>
+                                                    <div><span style={{ color: '#000000' }}>Damage:</span> <strong style={{ color: detailReturn.inspection.has_damage ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_damage ? 'Yes' : 'No'}</strong></div>
+                                                    <div><span style={{ color: '#000000' }}>Stain:</span> <strong style={{ color: detailReturn.inspection.has_stain ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_stain ? 'Yes' : 'No'}</strong></div>
+                                                    <div><span style={{ color: '#000000' }}>Usage:</span> <strong style={{ color: detailReturn.inspection.has_usage ? '#dc2626' : '#166534' }}>{detailReturn.inspection.has_usage ? 'Yes' : 'No'}</strong></div>
+                                                    <div><span style={{ color: '#000000' }}>Tags:</span> <strong style={{ color: detailReturn.inspection.has_tags ? '#166534' : '#dc2626' }}>{detailReturn.inspection.has_tags ? 'Intact' : 'Missing'}</strong></div>
+                                                    <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#000000' }}>Result:</span> <StatusBadge status={detailReturn.inspection.result === 'APPROVED' ? 'INSPECTION_APPROVED' : detailReturn.inspection.result === 'REJECTED' ? 'INSPECTION_REJECTED' : 'INSPECTION_PENDING'} /></div>
                                                     {detailReturn.inspection.rejection_reason && <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#dc2626' }}>Rejection Reason:</span> {detailReturn.inspection.rejection_reason}</div>}
-                                                    {detailReturn.inspection.inspection_notes && <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#94a3b8' }}>Notes:</span> {detailReturn.inspection.inspection_notes}</div>}
+                                                    {detailReturn.inspection.inspection_notes && <div style={{ gridColumn: '1/-1' }}><span style={{ color: '#000000' }}>Notes:</span> {detailReturn.inspection.inspection_notes}</div>}
                                                 </div>
                                             </div>
                                         )}
@@ -1156,7 +1156,7 @@ export default function AdminReturnsPage() {
                                         {/* 7. Status Timeline */}
                                         {detailReturn.statusLogs && detailReturn.statusLogs.length > 0 && (
                                             <div>
-                                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#000000', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                                     <List size={12} /> Status Timeline
                                                 </div>
                                                 {detailReturn.statusLogs.map((log, i) => (
@@ -1170,10 +1170,10 @@ export default function AdminReturnsPage() {
                                                         <div>
                                                             <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
                                                                 {STATUS_CFG[log.new_status]?.label || log.new_status}
-                                                                {log.actor && log.actor !== 'system' && <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginLeft: '0.5rem' }}>by {log.actor}</span>}
+                                                                {log.actor && log.actor !== 'system' && <span style={{ fontSize: '0.72rem', color: '#000000', marginLeft: '0.5rem' }}>by {log.actor}</span>}
                                                             </div>
                                                             {log.notes && <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{log.notes}</div>}
-                                                            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                            <div style={{ fontSize: '0.72rem', color: '#000000' }}>
                                                                 {formatAppDate(log.created_at, true)}
                                                             </div>
                                                         </div>
@@ -1184,7 +1184,7 @@ export default function AdminReturnsPage() {
 
                                         {/* Admin Action Center */}
                                         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem' }}>
-                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Admin Action Center</div>
+                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#000000', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Admin Action Center</div>
                                             {renderActionPanel(detailReturn)}
                                         </div>
                                     </>
@@ -1221,7 +1221,7 @@ export default function AdminReturnsPage() {
                             padding: '1.75rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
                             border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '1.25rem'
                         }} onClick={e => e.stopPropagation()}>
-                            
+
                             {/* Header */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#1e293b' }}>

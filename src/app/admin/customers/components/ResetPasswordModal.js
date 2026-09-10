@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { 
-    KeyRound, Lock, Eye, EyeOff, Sparkles, Check, X, Loader2, 
+import {
+    KeyRound, Lock, Eye, EyeOff, Sparkles, Check, X, Loader2,
     Send, Mail, MessageCircle, Link2, Copy, CheckCircle2, ShieldAlert, Clock
 } from 'lucide-react';
 
@@ -187,8 +187,8 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
             padding: '1rem',
             animation: 'fadeIn 0.2s ease'
         }}>
-            <div 
-                className="card shadow-premium animate-enter" 
+            <div
+                className="card shadow-premium animate-enter"
                 style={{
                     width: '100%',
                     maxWidth: '520px',
@@ -382,7 +382,7 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
                                 New Password *
                             </label>
                             <div style={{ position: 'relative' }}>
-                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#000000' }} />
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
@@ -403,7 +403,7 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
                                         transform: 'translateY(-50%)',
                                         background: 'none',
                                         border: 'none',
-                                        color: '#94a3b8',
+                                        color: '#000000',
                                         cursor: 'pointer'
                                     }}
                                 >
@@ -418,7 +418,7 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
                                 Confirm Password *
                             </label>
                             <div style={{ position: 'relative' }}>
-                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#000000' }} />
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={confirmPassword}
@@ -481,7 +481,7 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                 {/* Send to Email */}
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: hasEmail ? '#1e293b' : '#94a3b8', cursor: hasEmail ? 'pointer' : 'not-allowed' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: hasEmail ? '#1e293b' : '#000000', cursor: hasEmail ? 'pointer' : 'not-allowed' }}>
                                     <input
                                         type="checkbox"
                                         checked={sendEmail && hasEmail}
@@ -489,14 +489,14 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
                                         onChange={(e) => setSendEmail(e.target.checked)}
                                         style={{ width: '16px', height: '16px', accentColor: '#5d0821', cursor: hasEmail ? 'pointer' : 'not-allowed' }}
                                     />
-                                    <Mail size={16} color={hasEmail ? '#5d0821' : '#94a3b8'} />
+                                    <Mail size={16} color={hasEmail ? '#5d0821' : '#000000'} />
                                     <span>
                                         Email: <strong>{customer?.email || 'No email registered'}</strong>
                                     </span>
                                 </label>
 
                                 {/* Send to WhatsApp */}
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: hasPhone ? '#1e293b' : '#94a3b8', cursor: hasPhone ? 'pointer' : 'not-allowed' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: hasPhone ? '#1e293b' : '#000000', cursor: hasPhone ? 'pointer' : 'not-allowed' }}>
                                     <input
                                         type="checkbox"
                                         checked={sendWhatsApp && hasPhone}
@@ -504,7 +504,7 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
                                         onChange={(e) => setSendWhatsApp(e.target.checked)}
                                         style={{ width: '16px', height: '16px', accentColor: '#25D366', cursor: hasPhone ? 'pointer' : 'not-allowed' }}
                                     />
-                                    <MessageCircle size={16} color={hasPhone ? '#25D366' : '#94a3b8'} />
+                                    <MessageCircle size={16} color={hasPhone ? '#25D366' : '#000000'} />
                                     <span>
                                         WhatsApp: <strong>{customer?.country_code || '+91'} {customer?.phone || 'No mobile registered'}</strong>
                                     </span>
@@ -585,7 +585,7 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                                 {/* Send to Email */}
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: hasEmail ? '#1e293b' : '#94a3b8', cursor: hasEmail ? 'pointer' : 'not-allowed' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: hasEmail ? '#1e293b' : '#000000', cursor: hasEmail ? 'pointer' : 'not-allowed' }}>
                                     <input
                                         type="checkbox"
                                         checked={sendEmail && hasEmail}
@@ -593,14 +593,14 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
                                         onChange={(e) => setSendEmail(e.target.checked)}
                                         style={{ width: '16px', height: '16px', accentColor: '#5d0821', cursor: hasEmail ? 'pointer' : 'not-allowed' }}
                                     />
-                                    <Mail size={16} color={hasEmail ? '#5d0821' : '#94a3b8'} />
+                                    <Mail size={16} color={hasEmail ? '#5d0821' : '#000000'} />
                                     <span>
                                         Email: <strong>{customer?.email || 'No email registered'}</strong>
                                     </span>
                                 </label>
 
                                 {/* Send to WhatsApp */}
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: hasPhone ? '#1e293b' : '#94a3b8', cursor: hasPhone ? 'pointer' : 'not-allowed' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: hasPhone ? '#1e293b' : '#000000', cursor: hasPhone ? 'pointer' : 'not-allowed' }}>
                                     <input
                                         type="checkbox"
                                         checked={sendWhatsApp && hasPhone}
@@ -608,7 +608,7 @@ export default function ResetPasswordModal({ isOpen, onClose, customer, onPasswo
                                         onChange={(e) => setSendWhatsApp(e.target.checked)}
                                         style={{ width: '16px', height: '16px', accentColor: '#25D366', cursor: hasPhone ? 'pointer' : 'not-allowed' }}
                                     />
-                                    <MessageCircle size={16} color={hasPhone ? '#25D366' : '#94a3b8'} />
+                                    <MessageCircle size={16} color={hasPhone ? '#25D366' : '#000000'} />
                                     <span>
                                         WhatsApp: <strong>{customer?.country_code || '+91'} {customer?.phone || 'No mobile registered'}</strong>
                                     </span>

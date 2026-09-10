@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { 
-    ArrowLeft, Phone, Mail, MapPin, Edit2, Check, X, 
+import {
+    ArrowLeft, Phone, Mail, MapPin, Edit2, Check, X,
     MessageCircle, KeyRound, Trash2, Loader2, ShieldCheck, User,
     Receipt, Truck, CheckSquare, Square, Building, Globe, Copy,
     Lock, Unlock
@@ -10,23 +10,23 @@ import { COUNTRY_CODES } from '@/lib/countryCodes';
 import CustomerOrders from './CustomerOrders';
 
 const INDIAN_STATES = [
-    "Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", 
-    "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", 
-    "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", 
-    "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", 
-    "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", 
+    "Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
+    "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh",
+    "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra",
+    "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+    "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh",
     "Uttarakhand", "West Bengal", "Delhi", "Puducherry", "Chandigarh", "Other"
 ];
 
 const COUNTRIES = [
-    "India", "United States", "United Kingdom", "United Arab Emirates", 
+    "India", "United States", "United Kingdom", "United Arab Emirates",
     "Singapore", "Malaysia", "Australia", "Canada", "Germany", "France", "Other"
 ];
 
-export default function CustomerDetail({ 
-    customer, 
-    onBack, 
-    onCustomerUpdated, 
+export default function CustomerDetail({
+    customer,
+    onBack,
+    onCustomerUpdated,
     onResetPasswordClick,
     onDeleteCustomerClick,
     onToggleLockClick
@@ -185,9 +185,9 @@ export default function CustomerDetail({
             {/* Top Action Header */}
             <div className="admin-header-row" style={{ marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <button 
-                        onClick={onBack} 
-                        className="btn btn-secondary" 
+                    <button
+                        onClick={onBack}
+                        className="btn btn-secondary"
                         style={{ padding: '0.5rem', borderRadius: '50%', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         title="Back to Customers list"
                     >
@@ -213,17 +213,17 @@ export default function CustomerDetail({
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {isEditing ? (
                         <>
-                            <button 
-                                onClick={() => { setIsEditing(false); setError(''); }} 
+                            <button
+                                onClick={() => { setIsEditing(false); setError(''); }}
                                 className="btn btn-secondary"
                                 style={{ borderRadius: '12px', padding: '0.65rem 1.25rem' }}
                             >
                                 Cancel
                             </button>
-                            <button 
-                                onClick={handleSaveProfile} 
-                                disabled={isUpdating} 
-                                className="btn btn-primary" 
+                            <button
+                                onClick={handleSaveProfile}
+                                disabled={isUpdating}
+                                className="btn btn-primary"
                                 style={{ background: 'hsl(var(--success))', border: 'none', borderRadius: '12px', padding: '0.65rem 1.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
                                 {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Save Changes
@@ -241,8 +241,8 @@ export default function CustomerDetail({
                                 <MessageCircle size={15} /> WhatsApp
                             </a>
 
-                            <button 
-                                onClick={() => onResetPasswordClick && onResetPasswordClick(customer)} 
+                            <button
+                                onClick={() => onResetPasswordClick && onResetPasswordClick(customer)}
                                 className="btn btn-secondary"
                                 style={{ borderRadius: '12px', padding: '0.65rem 1.1rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
@@ -267,16 +267,16 @@ export default function CustomerDetail({
                                 {customer?.is_locked ? <><Unlock size={15} /> Unlock Customer</> : <><Lock size={15} /> Lock Customer</>}
                             </button>
 
-                            <button 
-                                onClick={() => setIsEditing(true)} 
+                            <button
+                                onClick={() => setIsEditing(true)}
                                 className="btn btn-primary"
                                 style={{ borderRadius: '12px', padding: '0.65rem 1.25rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
                                 <Edit2 size={15} /> Edit Details
                             </button>
 
-                            <button 
-                                onClick={() => onDeleteCustomerClick && onDeleteCustomerClick(customer)} 
+                            <button
+                                onClick={() => onDeleteCustomerClick && onDeleteCustomerClick(customer)}
                                 style={{
                                     background: '#fee2e2',
                                     color: '#dc2626',
@@ -361,10 +361,10 @@ export default function CustomerDetail({
 
             {/* Main Grid: Details Left, Orders Right */}
             <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 1.15fr', gap: '1.75rem', alignItems: 'start' }}>
-                
+
                 {/* Left Column: Customer Profile + Billing & Shipping Cards */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    
+
                     {/* Financial Metrics Summary */}
                     <div className="card shadow-premium" style={{ padding: '1.25rem 1.5rem', borderRadius: '16px', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', textAlign: 'center' }}>
@@ -581,7 +581,7 @@ export default function CustomerDetail({
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.5rem', alignItems: 'center' }}>
                                     <span style={{ color: '#64748b', fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase' }}>Email:</span>
-                                    <span style={{ color: customer?.billing?.email || customer?.email ? '#0f172a' : '#94a3b8', fontWeight: 500 }}>
+                                    <span style={{ color: customer?.billing?.email || customer?.email ? '#0f172a' : '#000000', fontWeight: 500 }}>
                                         {customer?.billing?.email || customer?.email || 'No email provided'}
                                     </span>
                                 </div>
@@ -599,7 +599,7 @@ export default function CustomerDetail({
                                                 <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{customer.billing.country || 'India'}</div>
                                             </>
                                         ) : (
-                                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No billing address recorded.</span>
+                                            <span style={{ color: '#000000', fontStyle: 'italic' }}>No billing address recorded.</span>
                                         )}
                                     </div>
                                 </div>
@@ -629,7 +629,7 @@ export default function CustomerDetail({
                         {isEditing ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {/* Same as billing toggle */}
-                                <label 
+                                <label
                                     onClick={() => setSameAsBilling(!sameAsBilling)}
                                     style={{
                                         display: 'flex',
@@ -646,7 +646,7 @@ export default function CustomerDetail({
                                         userSelect: 'none'
                                     }}
                                 >
-                                    {sameAsBilling ? <CheckSquare size={18} color="#2563eb" /> : <Square size={18} color="#94a3b8" />}
+                                    {sameAsBilling ? <CheckSquare size={18} color="#2563eb" /> : <Square size={18} color="#000000" />}
                                     Shipping address is same as billing address
                                 </label>
 
@@ -783,7 +783,7 @@ export default function CustomerDetail({
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.5rem', alignItems: 'center' }}>
                                     <span style={{ color: '#64748b', fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase' }}>Email:</span>
-                                    <span style={{ color: customer?.shipping?.email || customer?.billing?.email || customer?.email ? '#0f172a' : '#94a3b8', fontWeight: 500 }}>
+                                    <span style={{ color: customer?.shipping?.email || customer?.billing?.email || customer?.email ? '#0f172a' : '#000000', fontWeight: 500 }}>
                                         {customer?.shipping?.email || customer?.billing?.email || customer?.email || 'N/A'}
                                     </span>
                                 </div>
@@ -801,7 +801,7 @@ export default function CustomerDetail({
                                                 <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{customer?.shipping?.country || 'India'}</div>
                                             </>
                                         ) : (
-                                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No shipping address recorded.</span>
+                                            <span style={{ color: '#000000', fontStyle: 'italic' }}>No shipping address recorded.</span>
                                         )}
                                     </div>
                                 </div>
@@ -811,7 +811,7 @@ export default function CustomerDetail({
                 </div>
 
                 {/* Right Column: Customer Orders List */}
-                <CustomerOrders 
+                <CustomerOrders
                     customerPhone={customer?.phone}
                     customerName={customer?.name}
                     initialOrders={customer?.orders}

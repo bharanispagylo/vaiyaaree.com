@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-    Clock, Save, CheckCircle2, AlertCircle, Loader2, 
-    Sparkles, Eye, Users, Phone, Mail, Instagram, 
+import {
+    Clock, Save, CheckCircle2, AlertCircle, Loader2,
+    Sparkles, Eye, Users, Phone, Mail, Instagram,
     Facebook, Calendar, Power, RefreshCw, Download
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
@@ -109,7 +109,7 @@ export default function AdminComingSoonPage() {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement('a');
         link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `vaiyaaree_coming_soon_subscribers_${new Date().toISOString().slice(0,10)}.csv`);
+        link.setAttribute('download', `vaiyaaree_coming_soon_subscribers_${new Date().toISOString().slice(0, 10)}.csv`);
         document.body.appendChild(link);
         link.click();
         if (link.parentNode) {
@@ -183,7 +183,7 @@ export default function AdminComingSoonPage() {
             {/* Main Configuration Grid */}
             <div className="settings-grid">
                 {/* Master Switch Card */}
-                <section className="settings-card full-width shadow-premium" style={{ borderLeft: `6px solid ${settings.enabled ? '#16a34a' : '#94a3b8'}` }}>
+                <section className="settings-card full-width shadow-premium" style={{ borderLeft: `6px solid ${settings.enabled ? '#16a34a' : '#000000'}` }}>
                     <div className="switch-banner">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                             <div className={`switch-icon-box ${settings.enabled ? 'active' : ''}`}>
@@ -324,7 +324,7 @@ export default function AdminComingSoonPage() {
                     display: flex; align-items: center; gap: 0.6rem; cursor: pointer;
                     transition: 0.25s ease;
                 }
-                .btn-secondary-action:hover { background: #f8fafc; border-color: #94a3b8; }
+                .btn-secondary-action:hover { background: #f8fafc; border-color: #000000; }
 
                 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 2rem; }
                 .full-width { grid-column: 1 / -1; }
@@ -336,7 +336,7 @@ export default function AdminComingSoonPage() {
                 .switch-banner { display: flex; justify-content: space-between; align-items: center; }
                 .switch-icon-box {
                     width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
-                    background: #f1f5f9; color: #94a3b8; transition: all 0.3s ease;
+                    background: #f1f5f9; color: #000000; transition: all 0.3s ease;
                 }
                 .switch-icon-box.active { background: #dcfce7; color: #16a34a; }
 

@@ -56,7 +56,7 @@ export default function DiscountFilters({
                     left: '1.25rem',
                     top: '50%',
                     transform: 'translateY(-50%)',
-                    color: '#94a3b8',
+                    color: '#000000',
                     pointerEvents: 'none',
                     zIndex: 5
                 }} />

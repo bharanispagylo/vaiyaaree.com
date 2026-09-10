@@ -4,8 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
-    User, Mail, Phone, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, 
+import {
+    User, Mail, Phone, Lock, Eye, EyeOff, ShieldCheck, ArrowRight,
     MessageCircle, Loader2, KeyRound, ShoppingBag, CheckCircle, Sparkles, Truck, ChevronRight
 } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
@@ -16,10 +16,10 @@ import styles from './auth.module.css';
 function CheckoutAuthContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { 
-        user, setUser, showToast, setCheckoutForm, cart, cartTotal, 
-        discountData, isSessionLoading, isCartLoaded, communicationChannel, 
-        isEmailOnly, isWhatsAppOnly, isHybridChannel 
+    const {
+        user, setUser, showToast, setCheckoutForm, cart, cartTotal,
+        discountData, isSessionLoading, isCartLoaded, communicationChannel,
+        isEmailOnly, isWhatsAppOnly, isHybridChannel
     } = useShop();
 
     const [activeTab, setActiveTab] = useState('otp'); // 'otp' | 'register' | 'login'
@@ -205,7 +205,8 @@ function CheckoutAuthContent() {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                const customer = sanitizeCustomerSession({ ...data.customer, login_at: Date.now() });
+                const rawCustomer = data.customer || data.user;
+                const customer = sanitizeCustomerSession({ ...rawCustomer, login_at: Date.now() });
                 localStorage.setItem('cast_prince_user', JSON.stringify(customer));
                 localStorage.setItem('vaiyaaree_user', JSON.stringify(customer));
                 setUser(customer);
@@ -365,7 +366,7 @@ function CheckoutAuthContent() {
     return (
         <div className={styles.authPageWrapper}>
             <div className={styles.authContainer}>
-                
+
                 {/* Stepper Progress Bar */}
                 <div className={styles.checkoutProgress}>
                     <div className={`${styles.progressStep} ${styles.progressStepActive}`}>
@@ -386,7 +387,7 @@ function CheckoutAuthContent() {
 
                 {/* Main Grid */}
                 <div className={styles.authGrid}>
-                    
+
                     {/* LEFT COLUMN: AUTHENTICATION GATE CARD */}
                     <div className={styles.authCard}>
                         <div className={styles.authCardHeader}>
@@ -545,7 +546,7 @@ function CheckoutAuthContent() {
                                                     type="button"
                                                     onClick={handleSendOtp}
                                                     disabled={otpCountdown > 0 || loading}
-                                                    style={{ background: 'none', border: 'none', color: otpCountdown > 0 ? '#94a3b8' : '#5d0821', fontSize: '0.8rem', fontWeight: 700, cursor: otpCountdown > 0 ? 'default' : 'pointer' }}
+                                                    style={{ background: 'none', border: 'none', color: otpCountdown > 0 ? '#000000' : '#5d0821', fontSize: '0.8rem', fontWeight: 700, cursor: otpCountdown > 0 ? 'default' : 'pointer' }}
                                                 >
                                                     {otpCountdown > 0 ? `Resend code in ${otpCountdown}s` : 'Resend Code'}
                                                 </button>
@@ -742,8 +743,8 @@ function CheckoutAuthContent() {
                         </div>
 
                         <div className={styles.guestCard}>
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={handleContinueAsGuest}
                                 className={styles.guestBtn}
                             >
@@ -765,11 +766,11 @@ function CheckoutAuthContent() {
                         <div className={styles.itemsList}>
                             {cart.map((item, index) => (
                                 <div key={index} className={styles.itemRow}>
-                                    <img 
-                                        src={item.image || '/images/placeholder.jpg'} 
-                                        alt={item.name} 
-                                        className={styles.itemThumb} 
-                                        onError={(e) => { e.target.onerror = null; e.target.src = '/images/placeholder.jpg'; }} 
+                                    <img
+                                        src={item.image || '/images/placeholder.jpg'}
+                                        alt={item.name}
+                                        className={styles.itemThumb}
+                                        onError={(e) => { e.target.onerror = null; e.target.src = '/images/placeholder.jpg'; }}
                                     />
                                     <div className={styles.itemInfo}>
                                         <div className={styles.itemName}>{item.name}</div>
