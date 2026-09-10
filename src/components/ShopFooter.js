@@ -47,7 +47,7 @@ const ShopFooter = () => {
                     <div className={styles.contactInfo}>
                         <div className={styles.infoItem}>
                             <MapPin size={18} className={styles.infoIcon} />
-                            <p>16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.</p>
+                            <p>Coimbatore, Tamil Nadu - 641015.</p>
                         </div>
                         <div className={styles.infoItem}>
                             <Mail size={18} className={styles.infoIcon} />
