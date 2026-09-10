@@ -144,7 +144,7 @@ export async function ensureShippingTablesAndZones(poolInstance = pool) {
 
         // Check if a domestic zone exists
         const [domRows] = await poolInstance.query(
-            "SELECT id, rate FROM shipping_zones WHERE is_international = 0 OR is_international = '0' OR is_international IS NULL LIMIT 1"
+            "SELECT id, name, rate FROM shipping_zones WHERE is_international = 0 OR is_international = '0' OR is_international IS NULL LIMIT 1"
         );
 
         if (!domRows || domRows.length === 0) {
@@ -152,6 +152,12 @@ export async function ensureShippingTablesAndZones(poolInstance = pool) {
             await poolInstance.query(
                 "INSERT INTO shipping_zones (id, name, rate, free_threshold, is_international, cod_charge) VALUES (?, ?, ?, ?, 0, 0)",
                 [randomUUID(), 'Domestic Group', 50, 2005]
+            );
+        } else if (domRows.length > 0 && Number(domRows[0].rate) === 100 && domRows[0].name === 'Domestic Group') {
+            // Self-healing migration: if default Domestic Group still has legacy seed rate of 100, update to standard 50
+            await poolInstance.query(
+                "UPDATE shipping_zones SET rate = 50 WHERE id = ? AND rate = 100",
+                [domRows[0].id]
             );
         }
 

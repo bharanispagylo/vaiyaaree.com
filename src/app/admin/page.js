@@ -461,55 +461,59 @@ export default function AdminDashboard() {
                     <div key={i} className="card" style={{
                         position: 'relative',
                         padding: '1.5rem',
-                        transition: 'transform 0.3s ease'
+                        transition: 'transform 0.3s ease',
+                        overflow: 'hidden'
                     }}>
+                        {/* Background glow */}
                         <div style={{
                             position: 'absolute', top: '-40px', right: '-40px',
                             width: '140px', height: '140px', borderRadius: '50%',
                             background: stat.gradient, opacity: 0.12, filter: 'blur(50px)'
                         }} />
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1, gap: '1rem' }}>
-                            <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                                <div style={{
-                                    fontSize: '0.7rem', color: 'hsl(var(--text-muted))',
-                                    fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                                }}>
-                                    {stat.title}
-                                </div>
-                                <div style={{
-                                    fontSize: '1.75rem', fontWeight: 800, marginTop: '0.5rem',
-                                    letterSpacing: '-0.02em', color: 'hsl(var(--text-main))',
-                                    fontFamily: 'var(--font-heading)',
-                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                                }}>
-                                    {stat.value}
-                                </div>
-                                {stat.sub && (
-                                    <div style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-                                        fontSize: '0.75rem', color: 'hsl(var(--primary))',
-                                        fontWeight: 600, marginTop: '0.5rem',
-                                        background: 'hsl(var(--primary) / 0.1)', padding: '0.2rem 0.6rem', borderRadius: '4px'
-                                    }}>
-                                        <TrendingUp size={12} /> {stat.sub}
-                                    </div>
-                                )}
+                        {/* Icon — absolutely placed top-right so it never competes with the value */}
+                        <div style={{
+                            position: 'absolute', top: '1.25rem', right: '1.25rem',
+                            width: '44px', height: '44px', borderRadius: '12px',
+                            background: 'hsl(var(--primary))', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                            color: '#ffffff',
+                            fontSize: '1.2rem', fontWeight: 700,
+                            zIndex: 1
+                        }}>
+                            {i === 0 ? <span style={{ display: 'inline-block' }}>₹</span> : <stat.icon size={20} strokeWidth={2.2} />}
+                        </div>
+
+                        {/* Content — full width, icon does not compete */}
+                        <div style={{ position: 'relative', zIndex: 1, paddingRight: '56px' }}>
+                            <div style={{
+                                fontSize: '0.7rem', color: 'hsl(var(--text-muted))',
+                                fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                            }}>
+                                {stat.title}
                             </div>
                             <div style={{
-                                width: '48px', height: '48px', borderRadius: '12px',
-                                background: 'hsl(var(--primary))', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center',
-                                boxShadow: `0 4px 10px rgba(0,0,0,0.1)`,
-                                color: '#ffffff',
-                                flexShrink: 0,
-                                fontSize: '1.25rem',
-                                fontWeight: 700,
-                                position: 'relative'
+                                fontSize: '1.75rem', fontWeight: 800, marginTop: '0.5rem',
+                                letterSpacing: '-0.02em', color: 'hsl(var(--text-main))',
+                                fontFamily: 'var(--font-heading)',
+                                wordBreak: 'break-word', overflowWrap: 'break-word',
+                                lineHeight: 1.2
                             }}>
-                                {i === 0 ? <span style={{ display: 'inline-block' }}>₹</span> : <stat.icon size={22} strokeWidth={2.2} />}
+                                {stat.value}
                             </div>
+                            {stat.sub && (
+                                <div style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                                    fontSize: '0.75rem', color: 'hsl(var(--primary))',
+                                    fontWeight: 600, marginTop: '0.5rem',
+                                    background: 'hsl(var(--primary) / 0.1)', padding: '0.2rem 0.6rem', borderRadius: '4px',
+                                    flexWrap: 'wrap'
+                                }}>
+                                    <TrendingUp size={12} /> {stat.sub}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}

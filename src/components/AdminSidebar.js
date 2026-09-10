@@ -51,10 +51,7 @@ const menuItems = [
         name: 'Social Media', 
         icon: Megaphone, 
         children: [
-            { name: 'Broadcast', href: '/admin/broadcast' },
-            { name: 'WhatsApp Funnel', href: '/admin/whatsapp' },
-            { name: 'Schedule Post', href: '/admin/schedule' },
-            { name: 'Meta Connect', href: '/admin/facebook' }
+            { name: 'WhatsApp Funnel', href: '/admin/whatsapp' }
         ]
     },
     { name: 'CMS', href: '/admin/cms', icon: Layout },
@@ -76,6 +73,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const router = useRouter();
     const [logo, setLogo] = useState('/images/vaiyaaree-logo.png');
+    const [logoError, setLogoError] = useState(false);
     const [openSubMenus, setOpenSubMenus] = useState([]); // Start collapsed, let useEffect expand the active one
     const [userRole, setUserRole] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -98,7 +96,10 @@ export default function AdminSidebar({ isOpen, onClose }) {
         async function fetchLogo() {
             try {
                 const { data } = await mysqlClient.from('app_settings').select('value').eq('key', 'shop_logo').single();
-                if (data?.value) setLogo(getLogoUrl(data.value));
+                if (data?.value) {
+                    setLogoError(false);
+                    setLogo(getLogoUrl(data.value));
+                }
             } catch (err) {
                 console.error('Fetch Logo Error:', err);
                 setLogo('/images/vaiyaaree-logo.png');
@@ -161,23 +162,34 @@ export default function AdminSidebar({ isOpen, onClose }) {
         <aside className={`sidebar no-print ${isOpen ? 'open' : ''}`}>
             {/* Brand */}
             <div style={{
-                display: 'flex', alignItems: 'center', gap: '1rem',
-                padding: '0 0.5rem 2rem', marginBottom: '1.5rem',
-                borderBottom: '1px solid hsl(var(--border-subtle))'
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                padding: '0 0.5rem 1.5rem', marginBottom: '1.5rem',
+                borderBottom: '1px solid hsl(var(--border-subtle))',
+                gap: '0.6rem'
             }}>
-                <div style={{
-                    width: '56px', height: '56px',
-                    filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.2))'
-                }}>
-                    <img src={logo} 
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '0.5rem' }} 
-                        alt="Logo" 
-                        onError={(e) => { e.target.onerror = null; e.target.src = '/images/vaiyaaree-logo.png'; }}
-                    />
-                </div>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 500, color: '#fff', letterSpacing: '0.18em', fontFamily: 'var(--font-brand)', textTransform: 'uppercase' }}>VAIYAAREE</h2>
-                </div>
+                {!logoError && (
+                    <div style={{
+                        width: '48px', height: '48px', flexShrink: 0,
+                        filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.2))'
+                    }}>
+                        <img src={logo}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '0.5rem' }}
+                            alt="Logo"
+                            onError={() => setLogoError(true)}
+                        />
+                    </div>
+                )}
+                <h2 style={{
+                    margin: 0,
+                    fontSize: '1.25rem',
+                    fontWeight: 500,
+                    color: '#fff',
+                    letterSpacing: '0.2em',
+                    fontFamily: 'var(--font-brand)',
+                    textTransform: 'uppercase',
+                    textAlign: 'center',
+                    width: '100%'
+                }}>VAIYAAREE</h2>
             </div>
 
             {/* WhatsApp Status */}

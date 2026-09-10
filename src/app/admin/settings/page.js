@@ -111,7 +111,7 @@ export default function SettingsPage() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                     <div>
                                         <label className="label">Standard Shipping (₹)</label>
-                                        <input className="input-field" type="number" defaultValue="100" min="0" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                        <input className="input-field" type="number" defaultValue="50" min="0" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                     </div>
                                     <div>
                                         <label className="label">Free Shipping Above (₹)</label>
