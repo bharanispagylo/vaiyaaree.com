@@ -1,0 +1,511 @@
+.authPageWrapper {
+    min-height: 100vh;
+    background: #fdfbf7;
+    padding: 2rem 1.5rem 5rem;
+    font-family: var(--font-roboto), sans-serif;
+    color: #1e293b;
+}
+
+.authContainer {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* ─── Breadcrumb / Checkout Stepper ─────────────────────── */
+.checkoutProgress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+}
+
+.progressStep {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #94a3b8;
+}
+
+.progressStepActive {
+    color: #5d0821;
+}
+
+.stepNumber {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.stepNumberActive {
+    background: #5d0821;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(93, 8, 33, 0.25);
+}
+
+.progressDivider {
+    width: 40px;
+    height: 2px;
+    background: #e2e8f0;
+}
+
+.progressDividerActive {
+    background: #5d0821;
+}
+
+/* ─── Layout Grid ────────────────────────────────────────── */
+.authGrid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 2.5rem;
+    align-items: start;
+}
+
+@media (max-width: 960px) {
+    .authGrid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+}
+
+/* ─── Main Auth Card (Left/Primary) ───────────────────────── */
+.authCard {
+    background: #ffffff;
+    border: 1px solid #f1e7e0;
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow: 0 12px 40px rgba(93, 8, 33, 0.05);
+}
+
+@media (max-width: 600px) {
+    .authCard {
+        padding: 1.5rem 1.25rem;
+        border-radius: 18px;
+    }
+}
+
+.authCardHeader {
+    margin-bottom: 2rem;
+}
+
+.authCardTitle {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.authCardSubtitle {
+    font-size: 0.92rem;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* ─── Navigation Tabs ────────────────────────────────────── */
+.tabsContainer {
+    display: flex;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 4px;
+    margin-bottom: 2rem;
+    gap: 4px;
+}
+
+.tabButton {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.tabButtonActive {
+    background: #ffffff;
+    color: #5d0821;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Sub-toggle for WhatsApp vs Email */
+.channelSubToggle {
+    display: flex;
+    gap: 8px;
+    background: #fdf2f4;
+    border: 1px solid #fbcfe8;
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.channelSubBtn {
+    flex: 1;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #831843;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.channelSubBtnActive {
+    background: #ffffff;
+    color: #5d0821;
+    box-shadow: 0 2px 6px rgba(93, 8, 33, 0.1);
+}
+
+/* ─── Form Elements ──────────────────────────────────────── */
+.formGroup {
+    margin-bottom: 1.25rem;
+}
+
+.formLabel {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #475569;
+    margin-bottom: 0.45rem;
+}
+
+.requiredStar {
+    color: #5d0821;
+}
+
+.inputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.fieldIcon {
+    position: absolute;
+    left: 1rem;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.formInput {
+    width: 100%;
+    padding: 0.85rem 1rem 0.85rem 2.75rem;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.95rem;
+    color: #0f172a;
+    background: #f8fafc;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.formInput:focus {
+    border-color: #5d0821;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(93, 8, 33, 0.08);
+}
+
+.phoneGroup {
+    display: flex;
+    gap: 8px;
+}
+
+.countryCodeSelect {
+    padding: 0.85rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #334155;
+    outline: none;
+}
+
+.passwordToggle {
+    position: absolute;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.passwordToggle:hover {
+    color: #0f172a;
+}
+
+.primaryBtn {
+    width: 100%;
+    padding: 0.95rem 1.5rem;
+    border-radius: 12px;
+    background: #5d0821;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 6px 20px rgba(93, 8, 33, 0.25);
+    margin-top: 1rem;
+}
+
+.primaryBtn:hover:not(:disabled) {
+    background: #470619;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(93, 8, 33, 0.3);
+}
+
+.primaryBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.errorAlert {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.successAlert {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ─── Guest Checkout Section ─────────────────────────────── */
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 2rem 0;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.divider span {
+    padding: 0 1rem;
+}
+
+.guestCard {
+    background: #f8fafc;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.guestCard:hover {
+    border-color: #5d0821;
+    background: #ffffff;
+}
+
+.guestBtn {
+    width: 100%;
+    padding: 0.9rem 1.25rem;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1.5px solid #0f172a;
+    color: #0f172a;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.guestBtn:hover {
+    background: #0f172a;
+    color: #ffffff;
+}
+
+.guestHint {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin: 0;
+    text-align: center;
+}
+
+/* ─── Summary / Side Column ──────────────────────────────── */
+.summaryCard {
+    background: #ffffff;
+    border: 1px solid #f1e7e0;
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow: 0 8px 30px rgba(93, 8, 33, 0.04);
+}
+
+.summaryTitle {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.itemsList {
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-right: 4px;
+}
+
+.itemRow {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.itemThumb {
+    width: 54px;
+    height: 64px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: #f1f5f9;
+    flex-shrink: 0;
+}
+
+.itemInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.itemName {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.itemMeta {
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.itemPrice {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.summaryDivider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 1rem 0;
+}
+
+.summaryRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.88rem;
+    color: #475569;
+    margin-bottom: 0.5rem;
+}
+
+.summaryTotalRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    padding-top: 0.75rem;
+    border-top: 1.5px solid #e2e8f0;
+    margin-top: 0.5rem;
+}
+
+.trustList {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.trustItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.4;
+}
+
+.trustIcon {
+    color: #16a34a;
+    flex-shrink: 0;
+    margin-top: 2px;
+}

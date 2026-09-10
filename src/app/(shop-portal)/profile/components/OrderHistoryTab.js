@@ -16,6 +16,7 @@ export default function OrderHistoryTab({
     totalHistoryPages,
     ORDERS_PER_PAGE,
     setTrackSearchId,
+    setTrackOrderData,
     handleTabChange,
     handleTrackSearch
 }) {
@@ -104,6 +105,7 @@ export default function OrderHistoryTab({
                                                         onClick={() => {
                                                             const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
                                                             setTrackSearchId(inv);
+                                                            if (setTrackOrderData) setTrackOrderData(order);
                                                             handleTabChange('track');
                                                             handleTrackSearch(order.id);
                                                         }}
@@ -170,6 +172,7 @@ export default function OrderHistoryTab({
                                             onClick={() => {
                                                 const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
                                                 setTrackSearchId(inv);
+                                                if (setTrackOrderData) setTrackOrderData(order);
                                                 handleTabChange('track');
                                                 handleTrackSearch(order.id);
                                             }}

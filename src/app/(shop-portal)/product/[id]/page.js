@@ -146,8 +146,15 @@ export default async function ProductPage({ params }) {
     const rawGallery = extractProductGalleryImages(product);
     const allImages = rawGallery.map(img => img.startsWith('http') ? img : `${baseUrl}${img}`);
 
-    const isAvailable = Number(product.stock || 0) > 0;
-    const priceNumber = Number(product.price || 0);
+    const isVariable = (product.type === 'variant' || product.type === 'variable') && variants.length > 0;
+    const variantPrices = isVariable ? variants.map(v => Number(v.price || 0)).filter(p => p > 0) : [];
+    const minPrice = variantPrices.length > 0 ? Math.min(...variantPrices) : Number(product.price || 0);
+    const maxPrice = variantPrices.length > 0 ? Math.max(...variantPrices) : Number(product.price || 0);
+    const isAvailable = isVariable ? variants.some(v => Number(v.stock || 0) > 0) : Number(product.stock || 0) > 0;
+
+    const nextYearDate = new Date();
+    nextYearDate.setFullYear(nextYearDate.getFullYear() + 1);
+    const validUntilStr = nextYearDate.toISOString().split('T')[0];
 
     // ── SCHEMA.ORG PRODUCT RICH SNIPPET ──────────────────────────────────────
     const productSchema = {
@@ -163,25 +170,30 @@ export default async function ProductPage({ params }) {
             'name': 'Vaiyaaree'
         },
         'category': product.category || 'Sarees',
-        'offers': {
+        'offers': isVariable && minPrice !== maxPrice ? {
+            '@type': 'AggregateOffer',
+            'url': productUrl,
+            'priceCurrency': 'INR',
+            'lowPrice': minPrice,
+            'highPrice': maxPrice,
+            'offerCount': variants.length,
+            'availability': isAvailable ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            'seller': {
+                '@type': 'Organization',
+                'name': 'Vaiyaaree Sarees'
+            }
+        } : {
             '@type': 'Offer',
             'url': productUrl,
             'priceCurrency': 'INR',
-            'price': priceNumber,
-            'priceValidUntil': '2027-12-31',
+            'price': minPrice,
+            'priceValidUntil': validUntilStr,
             'itemCondition': 'https://schema.org/NewCondition',
             'availability': isAvailable ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
             'seller': {
                 '@type': 'Organization',
                 'name': 'Vaiyaaree Sarees'
             }
-        },
-        'aggregateRating': {
-            '@type': 'AggregateRating',
-            'ratingValue': '4.9',
-            'reviewCount': '36',
-            'bestRating': '5',
-            'worstRating': '1'
         }
     };
 

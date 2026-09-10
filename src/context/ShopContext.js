@@ -10,17 +10,26 @@ const defaultContextValue = {
     shippingZones: [], zoneMappings: [], businessState: 'Tamil Nadu', fetchShippingRates: async () => {},
     checkoutForm: { 
         billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingCountry: 'India', billingPincode: '', billingEmail: '', billingWhatsApp: '',
-        shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingCountry: 'India', shippingPincode: '',
+        shippingName: '', shippingPhone: '', shippingWhatsApp: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingCountry: 'India', shippingPincode: '', shippingEmail: '',
         sameAsBilling: true, paymentMethod: 'COD' 
     },
     setCheckoutForm: () => { }, addToCart: () => { }, removeFromCart: () => { }, updateQty: () => { },
     handleLogout: () => { }, showToast: () => { }, toast: { show: false, message: '', type: 'success' },
     cartTotal: 0, cartCount: 0, taxDetails: { cgst: 0, sgst: 0, igst: 0, shipping: 0, totalOrder: 0 },
-    mysqlClient: null, placeOrder: () => { },
+    mysqlClient: null, placeOrder: () => { }, clearCartAfterSuccess: () => { },
     isCartOpen: false, setIsCartOpen: () => { }, openCart: () => { }, closeCart: () => { }, toggleCart: () => { },
     comingSoonSettings: null, setComingSoonSettings: () => { }, fetchComingSoon: () => { },
     activeDiscountRules: [], getEffectiveProductPrice: () => ({ originalPrice: 0, discountedPrice: 0, discountPercent: 0, discountAmount: 0, activeRule: null, hasDiscount: false }),
-    appliedCoupon: null, couponMessage: null, couponError: null, applyCoupon: async () => false, removeCoupon: () => { }, discountData: null
+    appliedCoupon: null, couponMessage: null, couponError: null, applyCoupon: async () => false, removeCoupon: () => { }, discountData: null,
+    hasMounted: false, isCartLoaded: false,
+    communicationChannel: 'whatsapp',
+    isEmailOnly: false,
+    isWhatsAppOnly: true,
+    isHybridChannel: false,
+    waChatbotEnabled: true,
+    supportEmail: 'vaiyaaree@gmail.com',
+    supportPhone: '918667793292',
+    fetchCommunicationSettings: () => { }
 };
 
 const ShopContext = createContext(defaultContextValue);
@@ -42,6 +51,7 @@ export function ShopProvider({ children }) {
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [hasMounted, setHasMounted] = useState(false);
     const [isCartLoaded, setIsCartLoaded] = useState(false); // Guard for DB sync
+    const isCartHydratedRef = useRef(false);
     const [appliedCoupon, setAppliedCoupon] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -102,29 +112,74 @@ export function ShopProvider({ children }) {
         return null;
     });
 
-    const [checkoutForm, setCheckoutForm] = useState({
-        // Billing fields
-        billingName: '',
-        billingPhone: '',
-        billingAddress: '',
-        billingCity: '',
-        billingState: 'Tamil Nadu',
-        billingCountry: 'India',
-        billingPincode: '',
-        billingEmail: '',
-        // Shipping fields
-        shippingName: '',
-        shippingPhone: '',
-        shippingAddress: '',
-        shippingCity: '',
-        shippingState: 'Tamil Nadu',
-        shippingCountry: 'India',
-        shippingPincode: '',
-        shippingEmail: '',
-        sameAsBilling: true,
-        // Payment
-        paymentMethod: 'COD'
+    const [communicationChannel, setCommunicationChannel] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('vaiyaaree_communication_channel') || 'whatsapp';
+        }
+        return 'whatsapp';
     });
+
+    const isEmailOnly = communicationChannel === 'email';
+    const isWhatsAppOnly = communicationChannel === 'whatsapp';
+    const isHybridChannel = communicationChannel === 'both';
+
+    const [waChatbotEnabled, setWaChatbotEnabled] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const cached = localStorage.getItem('vaiyaaree_wa_chatbot_enabled');
+            if (cached !== null) return cached !== 'false' && cached !== '0';
+        }
+        return true;
+    });
+
+    const [supportEmail, setSupportEmail] = useState('vaiyaaree@gmail.com');
+    const [supportPhone, setSupportPhone] = useState('918667793292');
+
+    const [checkoutForm, setCheckoutForm] = useState(() => {
+        const defaultForm = {
+            billingName: '',
+            billingCountryCode: '+91',
+            billingPhone: '',
+            billingWhatsApp: '',
+            billingEmail: '',
+            billingAddress: '',
+            billingCity: '',
+            billingState: 'Tamil Nadu',
+            billingCountry: 'India',
+            billingPincode: '',
+            shippingName: '',
+            shippingPhone: '',
+            shippingWhatsApp: '',
+            shippingAddress: '',
+            shippingCity: '',
+            shippingState: 'Tamil Nadu',
+            shippingCountry: 'India',
+            shippingPincode: '',
+            shippingEmail: '',
+            sameAsBilling: true,
+            paymentMethod: 'COD'
+        };
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = sessionStorage.getItem('vaiyaaree_checkout_form') || localStorage.getItem('vaiyaaree_checkout_form');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && typeof parsed === 'object') {
+                        return { ...defaultForm, ...parsed };
+                    }
+                }
+            } catch (e) {}
+        }
+        return defaultForm;
+    });
+
+    // Persist checkoutForm to sessionStorage and localStorage to survive page refresh
+    useEffect(() => {
+        if (!hasMounted || !isCartHydratedRef.current || typeof window === 'undefined') return;
+        try {
+            sessionStorage.setItem('vaiyaaree_checkout_form', JSON.stringify(checkoutForm));
+            localStorage.setItem('vaiyaaree_checkout_form', JSON.stringify(checkoutForm));
+        } catch (e) {}
+    }, [checkoutForm, hasMounted]);
 
     const [dbCategories, setDbCategories] = useState([]);
     const [activeDiscountRules, setActiveDiscountRules] = useState([]);
@@ -260,7 +315,38 @@ export function ShopProvider({ children }) {
 
     //  EFFECTS 
     useEffect(() => {
+        // 1. Synchronously hydrate cart from localStorage on mount before any save can trigger
+        if (typeof window !== 'undefined') {
+            try {
+                const savedCart = localStorage.getItem('vaiyaaree_cart') || localStorage.getItem('cast_prince_cart');
+                if (savedCart) {
+                    const parsed = JSON.parse(savedCart);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setCart(parsed);
+                    }
+                }
+            } catch (e) {
+                console.error('[CART HYDRATION ERROR]', e);
+            }
+
+            // 2. Synchronously hydrate checkoutForm from storage on mount
+            try {
+                const savedForm = sessionStorage.getItem('vaiyaaree_checkout_form') || localStorage.getItem('vaiyaaree_checkout_form');
+                if (savedForm) {
+                    const parsed = JSON.parse(savedForm);
+                    if (parsed && typeof parsed === 'object') {
+                        setCheckoutForm(prev => ({ ...prev, ...parsed }));
+                    }
+                }
+            } catch (e) {
+                console.error('[CHECKOUT HYDRATION ERROR]', e);
+            }
+        }
+
+        isCartHydratedRef.current = true;
         setHasMounted(true);
+        setIsCartLoaded(true);
+
         // Execute initial data fetches concurrently for fast startup performance
         Promise.all([
             fetchProducts(),
@@ -268,32 +354,69 @@ export function ShopProvider({ children }) {
             fetchShippingRates(),
             checkSession(),
             fetchComingSoon(),
+            fetchCommunicationSettings(),
             fetchDbCategories(),
             fetchActiveDiscountRules()
         ]).catch(err => console.error('[APP INIT] Startup fetch error:', err));
 
-        // Listen for live shipping settings updates from Admin or other tabs
+        // Listen for live settings updates from Admin or other tabs
         const handleShippingUpdated = () => {
             fetchShippingRates();
+        };
+        const handleSettingsUpdated = () => {
+            fetchComingSoon();
+            fetchCommunicationSettings();
         };
         const handleStorageChange = (e) => {
             if (e.key === 'vaiyaaree_shipping_updated') {
                 fetchShippingRates();
             }
+            if (e.key === 'vaiyaaree_communication_channel' || e.key === 'vaiyaaree_wa_chatbot_enabled') {
+                fetchCommunicationSettings();
+            }
         };
 
         if (typeof window !== 'undefined') {
             window.addEventListener('vaiyaaree_shipping_updated', handleShippingUpdated);
+            window.addEventListener('vaiyaaree_settings_updated', handleSettingsUpdated);
             window.addEventListener('storage', handleStorageChange);
         }
 
         return () => {
             if (typeof window !== 'undefined') {
                 window.removeEventListener('vaiyaaree_shipping_updated', handleShippingUpdated);
+                window.removeEventListener('vaiyaaree_settings_updated', handleSettingsUpdated);
                 window.removeEventListener('storage', handleStorageChange);
             }
         };
     }, []);
+
+    const fetchCommunicationSettings = async () => {
+        try {
+            const { data } = await mysqlClient
+                .from('app_settings')
+                .select('key, value')
+                .in('key', ['communication_channel', 'wa_chatbot_enabled', 'support_email', 'support_phone']);
+            
+            if (data && data.length > 0) {
+                const map = {};
+                data.forEach(item => { map[item.key] = item.value; });
+                if (map.communication_channel) {
+                    setCommunicationChannel(map.communication_channel);
+                    if (typeof window !== 'undefined') localStorage.setItem('vaiyaaree_communication_channel', map.communication_channel);
+                }
+                if (map.wa_chatbot_enabled !== undefined) {
+                    const enabled = map.wa_chatbot_enabled !== 'false' && map.wa_chatbot_enabled !== '0';
+                    setWaChatbotEnabled(enabled);
+                    if (typeof window !== 'undefined') localStorage.setItem('vaiyaaree_wa_chatbot_enabled', map.wa_chatbot_enabled);
+                }
+                if (map.support_email) setSupportEmail(map.support_email);
+                if (map.support_phone) setSupportPhone(map.support_phone);
+            }
+        } catch (e) {
+            console.error('Fetch communication settings error:', e);
+        }
+    };
 
     const fetchComingSoon = async () => {
         try {
@@ -345,10 +468,14 @@ export function ShopProvider({ children }) {
 
     //  CART PERSISTENCE 
     useEffect(() => {
-        localStorage.setItem('vaiyaaree_cart', JSON.stringify(cart));
-        localStorage.setItem('cast_prince_cart', JSON.stringify(cart));
+        if (!hasMounted || !isCartHydratedRef.current) return;
+        try {
+            localStorage.setItem('vaiyaaree_cart', JSON.stringify(cart));
+            localStorage.setItem('cast_prince_cart', JSON.stringify(cart));
+        } catch (e) {}
 
         const syncCart = async () => {
+            if (!isCartLoaded || !isCartHydratedRef.current) return;
             if (user?.phone) {
                 try {
                     const digits = user.phone.replace(/\D/g, '');
@@ -384,9 +511,9 @@ export function ShopProvider({ children }) {
         return () => clearTimeout(timer);
     }, [cart, user?.phone, hasMounted, isCartLoaded]);
 
-    // Load cart from DB when user logs in or session is restored
+    // Merge cart from DB when user logs in or session is restored
     useEffect(() => {
-        if (!hasMounted) return;
+        if (!hasMounted || !isCartHydratedRef.current) return;
 
         const loadUserCart = async () => {
             if (user?.phone) {
@@ -398,9 +525,10 @@ export function ShopProvider({ children }) {
 
                     const { data } = await mysqlClient.from('whatsapp_cart').select('*').in('phone', phoneVariations);
                     
-                    setCart(prev => {
-                        // Standardize DB items
-                        const dbCart = (data || []).map(dbItem => ({
+                    // CRITICAL FIX: Only merge DB items if DB actually returned items!
+                    // NEVER wipe local cart to [] if DB cart has no rows!
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        const dbCart = data.map(dbItem => ({
                             id: dbItem.product_id,
                             name: dbItem.product_name,
                             price: dbItem.price,
@@ -410,9 +538,10 @@ export function ShopProvider({ children }) {
                             variantName: dbItem.variant_name
                         }));
                         
-                        // If guest cart items exist in local state, DO NOT wipe them out!
-                        // Preserve guest cart items and merge any extra DB items
-                        if (prev && prev.length > 0) {
+                        setCart(prev => {
+                            if (!prev || prev.length === 0) {
+                                return dbCart;
+                            }
                             const merged = [...prev];
                             dbCart.forEach(dbItem => {
                                 const exists = merged.find(m => (dbItem.variantId ? m.variantId === dbItem.variantId : m.id === dbItem.id));
@@ -421,30 +550,16 @@ export function ShopProvider({ children }) {
                                 }
                             });
                             return merged;
-                        }
-                        
-                        return dbCart;
-                    });
+                        });
+                    }
                 } catch (err) {
                     console.error('Error loading WhatsApp cross-platform cart:', err);
                 }
             }
-            setIsCartLoaded(true); // Now we are safe to sync back to DB
         };
 
         loadUserCart();
     }, [user?.phone, hasMounted]);
-
-    // Initial local cart load on mount
-    useEffect(() => {
-        const saved = localStorage.getItem('vaiyaaree_cart') || localStorage.getItem('cast_prince_cart');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) setCart(parsed);
-            } catch (e) { }
-        }
-    }, []);
 
     async function checkSession() {
         if (typeof window === 'undefined') {
@@ -536,17 +651,18 @@ export function ShopProvider({ children }) {
 
                         setCheckoutForm(prev => ({
                             ...prev,
-                            billingName: activeUser.name || prev.billingName || '',
-                            billingCountryCode: activeUser.country_code || prev.billingCountryCode || '+91',
-                            billingPhone: activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.billingPhone || ''),
-                            billingWhatsApp: activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.billingWhatsApp || ''),
-                            billingEmail: activeUser.email || prev.billingEmail || '',
-                            billingAddress: activeUser.address || prev.billingAddress || '',
-                            billingCity: activeUser.city || prev.billingCity || '',
-                            billingState: activeUser.state || prev.billingState || 'Tamil Nadu',
-                            billingPincode: activeUser.pincode || prev.billingPincode || '',
-                            shippingName: activeUser.name || prev.shippingName || '',
-                            shippingPhone: activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.shippingPhone || '')
+                            billingName: prev.billingName || activeUser.name || '',
+                            billingCountryCode: prev.billingCountryCode || activeUser.country_code || '+91',
+                            billingPhone: prev.billingPhone || (activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : ''),
+                            billingWhatsApp: prev.billingWhatsApp || (activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : ''),
+                            billingEmail: prev.billingEmail || activeUser.email || '',
+                            billingAddress: prev.billingAddress || activeUser.address || '',
+                            billingCity: prev.billingCity || activeUser.city || '',
+                            billingState: prev.billingState || activeUser.state || 'Tamil Nadu',
+                            billingPincode: prev.billingPincode || activeUser.pincode || '',
+                            shippingName: prev.shippingName || activeUser.name || '',
+                            shippingPhone: prev.shippingPhone || (activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : ''),
+                            shippingWhatsApp: prev.shippingWhatsApp || (activeUser.phone ? String(activeUser.phone).replace(/^91/, '').replace(/\D/g, '') : '')
                         }));
                     }
                 } catch (dbErr) {
@@ -563,25 +679,26 @@ export function ShopProvider({ children }) {
         }
     }
 
-    // Auto-sync checkout form whenever logged in user profile updates
+    // Auto-sync checkout form whenever logged in user profile updates without wiping user input
     useEffect(() => {
         if (user && user.id) {
             setCheckoutForm(prev => ({
                 ...prev,
-                billingName: user.name || prev.billingName || '',
-                billingCountryCode: user.country_code || prev.billingCountryCode || '+91',
-                billingPhone: user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.billingPhone || ''),
-                billingWhatsApp: user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.billingWhatsApp || ''),
-                billingEmail: user.email || prev.billingEmail || '',
-                billingAddress: user.address || prev.billingAddress || '',
-                billingCity: user.city || prev.billingCity || '',
-                billingState: user.state || prev.billingState || 'Tamil Nadu',
-                billingPincode: user.pincode || prev.billingPincode || '',
-                shippingName: user.name || prev.shippingName || '',
-                shippingPhone: user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : (prev.shippingPhone || '')
+                billingName: prev.billingName || user.name || '',
+                billingCountryCode: prev.billingCountryCode || user.country_code || '+91',
+                billingPhone: prev.billingPhone || (user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : ''),
+                billingWhatsApp: prev.billingWhatsApp || (user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : ''),
+                billingEmail: prev.billingEmail || user.email || '',
+                billingAddress: prev.billingAddress || user.address || '',
+                billingCity: prev.billingCity || user.city || '',
+                billingState: prev.billingState || user.state || 'Tamil Nadu',
+                billingPincode: prev.billingPincode || user.pincode || '',
+                shippingName: prev.shippingName || user.name || '',
+                shippingPhone: prev.shippingPhone || (user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : ''),
+                shippingWhatsApp: prev.shippingWhatsApp || (user.phone ? String(user.phone).replace(/^91/, '').replace(/\D/g, '') : '')
             }));
         }
-    }, [user]);
+    }, [user?.id]);
 
     async function handleLogout() {
         if (typeof window !== 'undefined') {
@@ -595,7 +712,7 @@ export function ShopProvider({ children }) {
         setIsCartLoaded(true);
         setCheckoutForm({
             billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
-            shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '', shippingEmail: '',
+            shippingName: '', shippingPhone: '', shippingWhatsApp: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '', shippingEmail: '',
             sameAsBilling: true, paymentMethod: 'COD'
         });
         showToast('Logged out successfully');
@@ -710,15 +827,15 @@ export function ShopProvider({ children }) {
     const closeCart = () => setIsCartOpen(false);
     const toggleCart = () => setIsCartOpen(prev => !prev);
 
-    function addToCart(product, variant = null, quantity = 1) {
+    function addToCart(product, variant = null, quantity = 1, openDrawer = true) {
         const itemStock = variant ? (variant.stock ?? 0) : (product.stock ?? 0);
         if (itemStock <= 0) {
             showToast('Saree Not Available (Out of Stock)', 'error');
-            return;
+            return false;
         }
         if (itemStock < quantity) {
             showToast(`Saree Not Available in requested quantity. Only ${itemStock} in stock.`, 'error');
-            return;
+            return false;
         }
 
         let isBlocked = false;
@@ -748,19 +865,28 @@ export function ShopProvider({ children }) {
             return [...prev, newEntry];
         });
 
-        if (!isBlocked) {
-            setIsCartOpen(true);
-            showToast(` ${quantity}x ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
+        if (isBlocked) {
+            return false;
         }
+
+        if (openDrawer) {
+            setIsCartOpen(true);
+        }
+        showToast(` ${quantity}x ${product.name}${variant ? ` (${variant.name})` : ''} added to cart!`);
+        return true;
     }
 
-    function updateQty(index, delta) {
+    function updateQty(target, delta) {
         setCart(prev => {
             const newCart = [...prev];
-            const item = newCart[index];
-            if (!item) return prev;
+            const targetIdx = typeof target === 'number'
+                ? target
+                : newCart.findIndex(i => (i.variantId ? String(i.variantId) === String(target) : String(i.id) === String(target)) || `${i.id}_${i.variantId}` === String(target));
 
-            const itemStock = item.stock !== undefined && item.stock !== null ? item.stock : 999;
+            if (targetIdx === -1 || !newCart[targetIdx]) return prev;
+
+            const item = newCart[targetIdx];
+            const itemStock = item.stock !== undefined && item.stock !== null ? Number(item.stock) : 999;
             const targetQty = item.qty + delta;
 
             if (delta > 0 && targetQty > itemStock) {
@@ -771,16 +897,26 @@ export function ShopProvider({ children }) {
             const updatedItem = { ...item, qty: Math.max(0, targetQty) };
 
             if (updatedItem.qty > 0) {
-                newCart[index] = updatedItem;
+                newCart[targetIdx] = updatedItem;
                 return newCart;
             } else {
-                return newCart.filter((_, i) => i !== index);
+                return newCart.filter((_, i) => i !== targetIdx);
             }
         });
     }
 
-    function removeFromCart(index) {
-        setCart(prev => prev.filter((_, i) => i !== index));
+    function removeFromCart(target) {
+        setCart(prev => {
+            if (typeof target === 'number') {
+                return prev.filter((_, i) => i !== target);
+            }
+            return prev.filter(i => {
+                const matchVariant = i.variantId && String(i.variantId) === String(target);
+                const matchId = String(i.id) === String(target);
+                const matchKey = `${i.id}_${i.variantId}` === String(target);
+                return !matchVariant && !matchId && !matchKey;
+            });
+        });
     }
 
     const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
@@ -1058,7 +1194,28 @@ export function ShopProvider({ children }) {
         return { cgst, sgst, igst, shipping, totalOrder, activeZone, isInternational, totalDiscount, taxableSubtotal };
     }, [cartTotal, discountData, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.billingCountry, checkoutForm.shippingCountry, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
 
-    async function placeOrder() {
+    const clearCartAfterSuccess = () => {
+        setCart([]);
+        setAppliedCoupon(null);
+        setCouponMessage(null);
+        setCouponError(null);
+        if (typeof window !== 'undefined') {
+            try {
+                sessionStorage.removeItem('vaiyaaree_applied_coupon');
+                sessionStorage.removeItem('vaiyaaree_checkout_form');
+                localStorage.removeItem('vaiyaaree_cart');
+                localStorage.removeItem('cast_prince_cart');
+            } catch (e) {}
+        }
+        setCheckoutForm({
+            billingName: '', billingCountryCode: '+91', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingCountry: 'India', billingPincode: '', billingEmail: '', billingWhatsApp: '',
+            shippingName: '', shippingPhone: '', shippingWhatsApp: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingCountry: 'India', shippingPincode: '', shippingEmail: '',
+            sameAsBilling: true, paymentMethod: 'COD'
+        });
+    };
+
+    async function placeOrder(explicitMethod = null) {
+        const effectiveMethod = explicitMethod || checkoutForm.paymentMethod || 'COD';
         const shippingState = checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState;
         const shippingCity = checkoutForm.sameAsBilling ? checkoutForm.billingCity : checkoutForm.shippingCity;
         const shippingAddress = checkoutForm.sameAsBilling ? checkoutForm.billingAddress : checkoutForm.shippingAddress;
@@ -1066,6 +1223,7 @@ export function ShopProvider({ children }) {
         const shippingName = checkoutForm.sameAsBilling ? checkoutForm.billingName : checkoutForm.shippingName;
         const shippingPhone = checkoutForm.sameAsBilling ? checkoutForm.billingPhone : checkoutForm.shippingPhone;
         const shippingEmail = checkoutForm.sameAsBilling ? checkoutForm.billingEmail : checkoutForm.shippingEmail;
+        const shippingWhatsApp = checkoutForm.sameAsBilling ? checkoutForm.billingWhatsApp : checkoutForm.shippingWhatsApp;
 
         const rawBillingCountry = checkoutForm.billingCountry ?? 'India';
         const rawShippingCountry = checkoutForm.sameAsBilling 
@@ -1076,18 +1234,20 @@ export function ShopProvider({ children }) {
         const shippingCountry = String(rawShippingCountry || 'India').trim() || 'India';
 
         if (!checkoutForm.billingName || !checkoutForm.billingPhone || !checkoutForm.billingWhatsApp || !checkoutForm.billingAddress) {
-            showToast('Please fill all required billing fields', 'error');
+            showToast('Please fill all required billing fields including WhatsApp number', 'error');
             return;
         }
 
-        if (!checkoutForm.sameAsBilling && (!shippingName || !shippingPhone || !shippingAddress)) {
-            showToast('Please fill all required shipping fields', 'error');
+        if (!checkoutForm.sameAsBilling && (!shippingName || !shippingPhone || !shippingWhatsApp || !shippingAddress)) {
+            showToast('Please fill all required shipping fields including WhatsApp number', 'error');
             return;
         }
 
         try {
-            const cleanDigits = checkoutForm.billingPhone.replace(/\D/g, '').slice(-10);
-            const fullPhone = `91${cleanDigits}`;
+            const countryCode = checkoutForm.billingCountryCode || '+91';
+            const cleanDigits = checkoutForm.billingPhone.replace(/\D/g, '');
+            const isIndia = (billingCountry || 'India').toLowerCase() === 'india';
+            const fullPhone = isIndia ? `91${cleanDigits.slice(-10)}` : `${countryCode.replace(/\D/g, '')}${cleanDigits}`;
             
             // Build full addresses
             const fullBillingAddress = `${checkoutForm.billingAddress}, ${checkoutForm.billingCity} - ${checkoutForm.billingPincode} (${checkoutForm.billingState}, ${billingCountry})`.trim();
@@ -1097,6 +1257,7 @@ export function ShopProvider({ children }) {
             const billingAddressObj = {
                 name: checkoutForm.billingName,
                 phone: checkoutForm.billingPhone,
+                whatsapp: checkoutForm.billingWhatsApp,
                 email: checkoutForm.billingEmail || null,
                 address: checkoutForm.billingAddress,
                 city: checkoutForm.billingCity,
@@ -1108,6 +1269,7 @@ export function ShopProvider({ children }) {
             const shippingAddressObj = {
                 name: shippingName,
                 phone: shippingPhone,
+                whatsapp: shippingWhatsApp,
                 email: shippingEmail || null,
                 address: shippingAddress,
                 city: shippingCity,
@@ -1117,27 +1279,42 @@ export function ShopProvider({ children }) {
             };
 
             // GUEST CHECKOUT / AUTO-ACCOUNT CREATION LOGIC
-            const userPhoneDigits = user?.phone ? user.phone.replace(/\D/g, '') : '';
-            const checkoutPhoneDigits = fullPhone.replace(/\D/g, '');
-            const isUserValidCustomer = user?.id && 
+            const isUserValidCustomer = Boolean(
+                user?.id && 
                 user.role !== 'admin' && 
                 user.role !== 'Super Admin' && 
-                !user.username &&
-                (userPhoneDigits === checkoutPhoneDigits || (userPhoneDigits.length === 10 && '91' + userPhoneDigits === checkoutPhoneDigits) || ('91' + userPhoneDigits === checkoutPhoneDigits));
+                !user.username
+            );
 
             let customerId = isUserValidCustomer ? user.id : null;
             let currentCustomer = isUserValidCustomer ? user : null;
 
             if (!customerId) {
-                // Check if customer exists by phone (checking clean 10-digit, 91 prefix, and +91 prefix)
+                // Check if customer exists by phone OR email
                 const phoneVariations = [cleanDigits, `91${cleanDigits}`, `+91${cleanDigits}`];
-                const { data: existingCustomers } = await mysqlClient
-                    .from('customers')
-                    .select('*')
-                    .in('phone', phoneVariations)
-                    .order('created_at', { ascending: true });
+                let existingCustomer = null;
 
-                const existingCustomer = Array.isArray(existingCustomers) && existingCustomers.length > 0 ? existingCustomers[0] : null;
+                try {
+                    const { data: byPhone } = await mysqlClient
+                        .from('customers')
+                        .select('*')
+                        .in('phone', phoneVariations)
+                        .order('created_at', { ascending: true });
+                    if (Array.isArray(byPhone) && byPhone.length > 0) {
+                        existingCustomer = byPhone[0];
+                    } else if (checkoutForm.billingEmail?.trim()) {
+                        const { data: byEmail } = await mysqlClient
+                            .from('customers')
+                            .select('*')
+                            .eq('email', checkoutForm.billingEmail.trim())
+                            .order('created_at', { ascending: true });
+                        if (Array.isArray(byEmail) && byEmail.length > 0) {
+                            existingCustomer = byEmail[0];
+                        }
+                    }
+                } catch (findErr) {
+                    console.warn('[CHECKOUT] Could not lookup existing customer:', findErr);
+                }
 
                 if (existingCustomer) {
                     const updatePayload = {
@@ -1147,41 +1324,50 @@ export function ShopProvider({ children }) {
                         city: checkoutForm.billingCity || existingCustomer.city,
                         state: checkoutForm.billingState || existingCustomer.state,
                         pincode: checkoutForm.billingPincode || existingCustomer.pincode,
-                        phone: cleanDigits,
+                        phone: existingCustomer.phone || cleanDigits,
                         country_code: existingCustomer.country_code || checkoutForm.billingCountryCode || '+91'
                     };
 
-                    const { data: updatedExisting } = await mysqlClient
-                        .from('customers')
-                        .update(updatePayload)
-                        .eq('id', existingCustomer.id)
-                        .select()
-                        .single();
-
-                    currentCustomer = updatedExisting || { ...existingCustomer, ...updatePayload };
+                    try {
+                        const { data: updatedExisting } = await mysqlClient
+                            .from('customers')
+                            .update(updatePayload)
+                            .eq('id', existingCustomer.id)
+                            .select()
+                            .single();
+                        currentCustomer = updatedExisting || { ...existingCustomer, ...updatePayload };
+                    } catch (updErr) {
+                        currentCustomer = { ...existingCustomer, ...updatePayload };
+                    }
                     customerId = currentCustomer.id;
                 } else {
                     // Create new customer
-                    const { data: newCustomer, error: createError } = await mysqlClient
-                        .from('customers')
-                        .insert({
-                            phone: cleanDigits,
-                            country_code: checkoutForm.billingCountryCode || '+91',
-                            name: checkoutForm.billingName,
-                            email: checkoutForm.billingEmail || null,
-                            address: checkoutForm.billingAddress,
-                            city: checkoutForm.billingCity,
-                            state: checkoutForm.billingState,
-                            pincode: checkoutForm.billingPincode,
-                            role: 'user',
-                            is_verified: false
-                        })
-                        .select()
-                        .single();
+                    try {
+                        const { data: newCustomer, error: createError } = await mysqlClient
+                            .from('customers')
+                            .insert({
+                                phone: cleanDigits,
+                                country_code: checkoutForm.billingCountryCode || '+91',
+                                name: checkoutForm.billingName,
+                                email: checkoutForm.billingEmail || null,
+                                address: checkoutForm.billingAddress,
+                                city: checkoutForm.billingCity,
+                                state: checkoutForm.billingState,
+                                pincode: checkoutForm.billingPincode,
+                                role: 'user',
+                                is_verified: false
+                            })
+                            .select()
+                            .single();
 
-                    if (createError) throw createError;
-                    customerId = newCustomer?.id || `cust_${cleanDigits}`;
-                    currentCustomer = newCustomer || { id: customerId, phone: cleanDigits, name: checkoutForm.billingName };
+                        if (createError) throw createError;
+                        customerId = newCustomer?.id || `cust_${cleanDigits}`;
+                        currentCustomer = newCustomer || { id: customerId, phone: cleanDigits, name: checkoutForm.billingName };
+                    } catch (cErr) {
+                        console.warn('[CHECKOUT] Could not auto-insert customer row, fallback to phone ID:', cErr);
+                        customerId = `cust_${cleanDigits}`;
+                        currentCustomer = { id: customerId, phone: cleanDigits, name: checkoutForm.billingName };
+                    }
                 }
 
                 // Log the customer in locally so they see their correct profile immediately
@@ -1197,11 +1383,11 @@ export function ShopProvider({ children }) {
                     const { data: updatedUser } = await mysqlClient.from('customers').update({
                         name: checkoutForm.billingName || user.name,
                         email: checkoutForm.billingEmail || user.email,
-                        phone: checkoutForm.billingPhone || user.phone,
-                        address: checkoutForm.shippingAddress || checkoutForm.billingAddress,
-                        city: checkoutForm.shippingCity || checkoutForm.billingCity,
-                        state: checkoutForm.shippingState || checkoutForm.billingState,
-                        pincode: checkoutForm.shippingPincode || checkoutForm.billingPincode,
+                        phone: user.phone || checkoutForm.billingPhone,
+                        address: checkoutForm.shippingAddress || checkoutForm.billingAddress || user.address,
+                        city: checkoutForm.shippingCity || checkoutForm.billingCity || user.city,
+                        state: checkoutForm.shippingState || checkoutForm.billingState || user.state,
+                        pincode: checkoutForm.shippingPincode || checkoutForm.billingPincode || user.pincode,
                         metadata: {
                             ...(user.metadata || {}),
                             last_billing_address: billingAddressObj,
@@ -1231,7 +1417,7 @@ export function ShopProvider({ children }) {
                 customerEmail: checkoutForm.billingEmail,
                 shippingAddress: shippingAddressObj,
                 billingAddress: billingAddressObj,
-                paymentMethod: checkoutForm.paymentMethod,
+                paymentMethod: effectiveMethod,
                 cart: cart,
                 shippingCost: taxDetails.shipping,
                 shippingZoneId: taxDetails.activeZone?.id,
@@ -1253,6 +1439,15 @@ export function ShopProvider({ children }) {
 
             const assignedOrderId = createData.orderId;
 
+            // Store order ID locally so account orders page and track page always find it instantly
+            if (typeof window !== 'undefined' && assignedOrderId) {
+                try {
+                    const prevIds = JSON.parse(localStorage.getItem('vaiyaaree_recent_order_ids') || '[]');
+                    const nextIds = [assignedOrderId, ...prevIds.filter(id => id !== assignedOrderId)].slice(0, 25);
+                    localStorage.setItem('vaiyaaree_recent_order_ids', JSON.stringify(nextIds));
+                } catch (e) {}
+            }
+
             const finalOrderData = {
                 orderId: assignedOrderId,
                 billingName: checkoutForm.billingName,
@@ -1266,45 +1461,38 @@ export function ShopProvider({ children }) {
                 shipping: taxDetails.shipping
             };
 
-            setCart([]);
-            setAppliedCoupon(null);
-            setCouponMessage(null);
-            setCouponError(null);
-            if (typeof window !== 'undefined') {
+            const isOnlinePayment = effectiveMethod === 'RAZORPAY' || effectiveMethod === 'ONLINE';
+
+            if (!isOnlinePayment) {
+                clearCartAfterSuccess();
+                showToast('Order Placed Successfully!', 'success');
+
+                // Trigger Email Notification automatically for COD/offline orders
                 try {
-                    sessionStorage.removeItem('vaiyaaree_applied_coupon');
-                } catch (e) {}
-            }
-            setCheckoutForm({
-                billingName: '', billingPhone: '', billingAddress: '', billingCity: '', billingState: 'Tamil Nadu', billingPincode: '', billingEmail: '', billingWhatsApp: '',
-                shippingName: '', shippingPhone: '', shippingAddress: '', shippingCity: '', shippingState: 'Tamil Nadu', shippingPincode: '', shippingEmail: '',
-                sameAsBilling: true, paymentMethod: 'COD'
-            });
-            showToast('Order Placed Successfully!', 'success');
+                    fetch('/api/orders/resend-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId: assignedOrderId })
+                    });
+                } catch (emailErr) {
+                    console.error('Failed to trigger order confirmation email:', emailErr);
+                }
 
-            // Trigger Email Notification automatically
-            try {
-                fetch('/api/orders/resend-email', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId: assignedOrderId })
-                });
-            } catch (emailErr) {
-                console.error('Failed to trigger order confirmation email:', emailErr);
-            }
-
-            // Trigger WhatsApp Notification automatically for ALL orders
-            try {
-                fetch('/api/orders/notify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        orderId: assignedOrderId,
-                        phone: checkoutForm.billingWhatsApp || checkoutForm.billingPhone
-                    })
-                });
-            } catch (notifyErr) {
-                console.error('Failed to trigger WhatsApp notification:', notifyErr);
+                // Trigger WhatsApp Notification automatically for COD/offline orders (only if WhatsApp channel is enabled)
+                if (!isEmailOnly) {
+                    try {
+                        fetch('/api/orders/notify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                orderId: assignedOrderId,
+                                phone: checkoutForm.billingWhatsApp || checkoutForm.billingPhone
+                            })
+                        });
+                    } catch (notifyErr) {
+                        console.error('Failed to trigger WhatsApp notification:', notifyErr);
+                    }
+                }
             }
 
             return finalOrderData;
@@ -1430,9 +1618,18 @@ export function ShopProvider({ children }) {
         <ShopContext.Provider value={{
             products, cart, loading, user, setUser, isSessionLoading, shippingZones, zoneMappings, businessState, fetchShippingRates,
             checkoutForm, setCheckoutForm, addToCart, removeFromCart, updateQty,
-            handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, discountData, mysqlClient, placeOrder,
+            handleLogout, showToast, toast, cartTotal, cartCount, taxDetails, discountData, mysqlClient, placeOrder, clearCartAfterSuccess,
+            hasMounted, isCartLoaded,
             isCartOpen, setIsCartOpen, openCart, closeCart, toggleCart,
             comingSoonSettings, setComingSoonSettings, fetchComingSoon,
+            communicationChannel,
+            isEmailOnly,
+            isWhatsAppOnly,
+            isHybridChannel,
+            waChatbotEnabled,
+            supportEmail,
+            supportPhone,
+            fetchCommunicationSettings,
             appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon,
             dbCategories, fetchDbCategories,
             activeDiscountRules, fetchActiveDiscountRules, getEffectiveProductPrice

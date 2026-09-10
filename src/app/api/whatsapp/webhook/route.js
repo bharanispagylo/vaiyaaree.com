@@ -1,4 +1,5 @@
 import { processIncomingMessage } from '@/services/whatsappService';
+import { mysqlClient } from '@/lib/mysqlClient';
 
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
@@ -65,6 +66,19 @@ export async function POST(request) {
             console.log('MESSAGE FROM:', msg.from);
             
             try {
+                // Check if WhatsApp Chatbot Assistant is active in app_settings
+                const { data: botSetting } = await mysqlClient
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'wa_chatbot_enabled')
+                    .maybeSingle();
+
+                const isBotEnabled = botSetting?.value !== 'false' && botSetting?.value !== '0';
+                if (!isBotEnabled) {
+                    console.log('[WA-CHATBOT] Chatbot automated responses paused by Admin in Settings. Acknowledging message without reply.');
+                    return new Response('OK', { status: 200 });
+                }
+
                 await processIncomingMessage(body);
                 console.log(' processIncomingMessage completed successfully');
             } catch (processError) {

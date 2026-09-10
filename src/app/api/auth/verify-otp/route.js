@@ -6,29 +6,143 @@ export const revalidate = 0;
 
 export async function POST(req) {
     try {
-        const { phone, code, country_code } = await req.json();
+        const body = await req.json();
+        const { phone, email, identifier, code, country_code } = body;
 
-        if (!phone || !code) {
-            return NextResponse.json({ error: 'Phone and Code are required' }, { status: 400 });
+        const rawTarget = (email || phone || identifier || '').trim();
+        const rawCode = String(code || '').trim();
+
+        if (!rawTarget || !rawCode) {
+            return NextResponse.json({ error: 'Verification target and OTP code are required.' }, { status: 400 });
         }
 
-        const rawDigits = String(phone || '').trim().replace(/\D/g, '');
+        const isEmailTarget = rawTarget.includes('@');
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // FLOW A: EMAIL OTP VERIFICATION
+        // ─────────────────────────────────────────────────────────────────────────────
+        if (isEmailTarget) {
+            const cleanEmail = rawTarget.toLowerCase();
+
+            // 1. Check if Code exists in otps table and not expired
+            const { data: otpList, error: dbError } = await mysqlClient
+                .from('otps')
+                .select('*')
+                .eq('phone', cleanEmail)
+                .eq('code', rawCode)
+                .gte('expires_at', new Date().toISOString())
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            const otpData = Array.isArray(otpList) ? otpList[0] : otpList;
+            if (dbError || !otpData) {
+                return NextResponse.json({ error: 'Invalid or expired OTP code. Please try again.' }, { status: 401 });
+            }
+
+            // 2. Clear used OTP
+            await mysqlClient.from('otps').delete().eq('phone', cleanEmail);
+
+            // 3. Find or Create Customer with this email
+            const { data: existingCustomers } = await mysqlClient
+                .from('customers')
+                .select('*')
+                .eq('email', cleanEmail)
+                .limit(1);
+
+            let customerRecord = Array.isArray(existingCustomers) && existingCustomers.length > 0 ? existingCustomers[0] : null;
+
+            if (customerRecord) {
+                if (Boolean(customerRecord.is_locked)) {
+                    return NextResponse.json({ 
+                        error: 'Your account has been locked by administration. Please contact customer support.',
+                        is_locked: true
+                    }, { status: 403 });
+                }
+
+                await mysqlClient
+                    .from('customers')
+                    .update({
+                        is_verified: true,
+                        last_login: new Date().toISOString()
+                    })
+                    .eq('id', customerRecord.id);
+            } else {
+                // Insert new customer account with verified email
+                const { data: newCustomer, error: insertError } = await mysqlClient
+                    .from('customers')
+                    .insert({
+                        email: cleanEmail,
+                        name: cleanEmail.split('@')[0],
+                        is_verified: true,
+                        role: 'user',
+                        last_login: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (insertError) {
+                    console.error('[AUTH-EMAIL] Customer insert error:', insertError);
+                }
+
+                customerRecord = newCustomer || {
+                    id: `cust_${Date.now()}`,
+                    email: cleanEmail,
+                    name: cleanEmail.split('@')[0],
+                    role: 'user'
+                };
+            }
+
+            const customerProfile = {
+                id: customerRecord.id,
+                name: customerRecord.name || '',
+                email: cleanEmail,
+                phone: customerRecord.phone || '',
+                country_code: customerRecord.country_code || '+91',
+                address: customerRecord.address || '',
+                city: customerRecord.city || '',
+                state: customerRecord.state || 'Tamil Nadu',
+                pincode: customerRecord.pincode || '',
+                role: customerRecord.role || 'user',
+                login_at: Date.now()
+            };
+
+            const response = NextResponse.json({
+                success: true,
+                message: 'Logged in successfully via Email',
+                user: customerProfile,
+                channel: 'email'
+            });
+
+            const cookieOptions = {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 60 * 60 * 24 * 7,
+                path: '/'
+            };
+            response.cookies.set('user_session', cleanEmail, cookieOptions);
+            return response;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // FLOW B: PHONE / WHATSAPP OTP VERIFICATION
+        // ─────────────────────────────────────────────────────────────────────────────
+        const rawDigits = String(rawTarget).replace(/\D/g, '');
         const selectedCountryCode = (country_code || '+91').trim();
         const formattedCountryCode = selectedCountryCode.startsWith('+') ? selectedCountryCode : `+${selectedCountryCode}`;
         
-        // Canonical 10-digit phone for India (+91), or full digits for international
         const clean10 = (selectedCountryCode === '+91' || selectedCountryCode === '91') ? rawDigits.slice(-10) : rawDigits;
         const fullPhoneWith91 = `91${clean10}`;
         const phoneVariations = [...new Set([clean10, fullPhoneWith91, `+91${clean10}`, rawDigits].filter(Boolean))];
 
-        console.log(`[AUTH] Verifying WhatsApp OTP for variations:`, phoneVariations, `with code:`, code);
+        console.log(`[AUTH] Verifying WhatsApp OTP for variations:`, phoneVariations, `with code:`, rawCode);
 
         // 1. Check if Code exists in otps table and not expired
         const { data: otpList, error: dbError } = await mysqlClient
             .from('otps')
             .select('*')
             .in('phone', phoneVariations)
-            .eq('code', String(code).trim())
+            .eq('code', rawCode)
             .gte('expires_at', new Date().toISOString())
             .order('created_at', { ascending: false })
             .limit(1);
@@ -52,7 +166,6 @@ export async function POST(req) {
         let customerRecord = null;
 
         if (Array.isArray(existingCustomers) && existingCustomers.length > 0) {
-            // Pick customer with most complete profile data (has name/email/address), or oldest
             customerRecord = existingCustomers.find(c => Boolean(c.name || c.email || c.address)) || existingCustomers[0];
 
             if (Boolean(customerRecord?.is_locked)) {
@@ -62,7 +175,6 @@ export async function POST(req) {
                 }, { status: 403 });
             }
 
-            // Normalize their phone to clean 10-digit number & update last login
             await mysqlClient
                 .from('customers')
                 .update({
@@ -73,7 +185,6 @@ export async function POST(req) {
                 })
                 .eq('id', customerRecord.id);
 
-            // Re-assign any orders from alternate phone variations to main customer record without deleting customer accounts
             if (existingCustomers.length > 1) {
                 const alternateIds = existingCustomers.filter(c => c.id !== customerRecord.id).map(c => c.id);
                 if (alternateIds.length > 0) {
@@ -87,7 +198,7 @@ export async function POST(req) {
                 }
             }
         } else {
-            // 4. If no customer exists at all, insert new persistent customer account
+            // 4. Insert new customer account
             const { data: newCustomer, error: insertError } = await mysqlClient
                 .from('customers')
                 .insert({
@@ -113,7 +224,6 @@ export async function POST(req) {
 
         const isAdmin = customerRecord?.role === 'admin' || customerRecord?.role === 'Super Admin';
 
-        // Full Customer Profile Payload for client pre-fill
         const customerProfile = {
             id: customerRecord.id,
             name: customerRecord.name || '',
@@ -128,18 +238,18 @@ export async function POST(req) {
             login_at: Date.now()
         };
 
-        // 5. Set Session Cookie
         const response = NextResponse.json({
             success: true,
-            message: 'Logged in successfully',
-            user: customerProfile
+            message: 'Logged in successfully via WhatsApp',
+            user: customerProfile,
+            channel: 'whatsapp'
         });
 
         const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 60 * 60 * 24 * 7, // 7 days
+            maxAge: 60 * 60 * 24 * 7,
             path: '/'
         };
 

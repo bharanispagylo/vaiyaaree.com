@@ -21,9 +21,11 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
     const searchParams = useSearchParams();
     const { products, addToCart, loading: productsLoading, mysqlClient, getEffectiveProductPrice } = useShop();
 
+    const isExplicitlyInactive = p => p && (p.is_active === 0 || p.is_active === false || String(p.is_active) === '0');
+
     const [product, setProduct] = useState(() => {
         if (!initialProduct) return null;
-        if (initialProduct.is_active === 0 || initialProduct.is_active === false || String(initialProduct.is_active) === '0' || !initialProduct.is_active) {
+        if (isExplicitlyInactive(initialProduct)) {
             return null;
         }
         return initialProduct;
@@ -53,7 +55,7 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
     // Sync state whenever initialProduct or initialVariants change from server
     useEffect(() => {
         if (initialProduct) {
-            if (initialProduct.is_active === 0 || initialProduct.is_active === false || String(initialProduct.is_active) === '0' || !initialProduct.is_active) {
+            if (isExplicitlyInactive(initialProduct)) {
                 setProduct(null);
             } else {
                 setProduct(initialProduct);
@@ -89,10 +91,18 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
         async function loadProductDetails() {
             if (!id) return;
 
-            // If we already have the matching product loaded, do not re-fetch or show skeleton
-            if (product && (product.id === id || getProductSlug(product) === id || findProductBySlugOrId(id, [product]))) {
-                if (isMounted) setLoading(false);
-                return;
+            // If we already have the matching product loaded (from initialProduct or state), do not re-fetch
+            const currentP = product || initialProduct;
+            if (currentP) {
+                const cleanParam = decodeURIComponent(String(id)).trim().toLowerCase().replace(/\/$/, '');
+                const slugMatch = getProductSlug(currentP).toLowerCase() === cleanParam;
+                const idMatch = String(currentP.id).toLowerCase() === cleanParam || String(currentP.product_no || '').toLowerCase() === cleanParam;
+                const directMatch = findProductBySlugOrId(id, [currentP]);
+                if (slugMatch || idMatch || directMatch) {
+                    if (!product && initialProduct) setProduct(initialProduct);
+                    if (isMounted) setLoading(false);
+                    return;
+                }
             }
 
             try {
@@ -113,10 +123,14 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                         if (directData) found = directData;
                     }
 
-                    // C. Direct SKU match
+                    // C. Direct SKU or product_no match
                     if (!found) {
                         const { data: directSku } = await mysqlClient.from('products').select('*').eq('sku', rawParam).eq('is_active', true).maybeSingle();
                         if (directSku) found = directSku;
+                    }
+                    if (!found) {
+                        const { data: directNo } = await mysqlClient.from('products').select('*').eq('product_no', rawParam).eq('is_active', true).maybeSingle();
+                        if (directNo) found = directNo;
                     }
 
                     // D. Trailing identifier match (Product No / SKU / ID)
@@ -124,8 +138,12 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                         const lastHyphen = rawParam.lastIndexOf('-');
                         if (lastHyphen !== -1) {
                             const identifier = rawParam.substring(lastHyphen + 1);
-                            const { data: bySku } = await mysqlClient.from('products').select('*').eq('sku', identifier).eq('is_active', true).maybeSingle();
-                            if (bySku) found = bySku;
+                            const { data: byNo } = await mysqlClient.from('products').select('*').eq('product_no', identifier).eq('is_active', true).maybeSingle();
+                            if (byNo) found = byNo;
+                            if (!found) {
+                                const { data: bySku } = await mysqlClient.from('products').select('*').eq('sku', identifier).eq('is_active', true).maybeSingle();
+                                if (bySku) found = bySku;
+                            }
                             if (!found) {
                                 const { data: byId } = await mysqlClient.from('products').select('*').eq('id', identifier).eq('is_active', true).maybeSingle();
                                 if (byId) found = byId;
@@ -207,10 +225,17 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
         };
     }, [id, products, productsLoading, mysqlClient, initialProduct]);
 
-    // Instant, flicker-free variant selection
+    // Instant, flicker-free variant selection with automatic quantity clamping
     const handleSelectVariant = useCallback((v) => {
         if (!v) return;
         setSelectedVariant(v);
+
+        // Clamp quantity to newly selected variant's available stock
+        const maxStock = Number(v.stock ?? 0);
+        setQty(prev => {
+            if (maxStock <= 0) return 1;
+            return Math.max(1, Math.min(prev, maxStock));
+        });
 
         // Quietly sync URL without re-triggering router or page unmount
         if (typeof window !== 'undefined' && v.id) {
@@ -270,9 +295,12 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
         const targetName = currentVals.join(' / ').toLowerCase();
         let matched = variants.find(v => String(v.name || '').trim().toLowerCase() === targetName);
 
-        // 2. Fallback match: if exact combo not found, find first variant having clicked option
+        // 2. Fallback match: if exact combo not found, find first in-stock variant having clicked option
         if (!matched) {
             matched = variants.find(v => {
+                const parts = String(v.name || '').split('/').map(p => p.trim().toLowerCase());
+                return parts[groupIndex] === val.toLowerCase() && Number(v.stock || 0) > 0;
+            }) || variants.find(v => {
                 const parts = String(v.name || '').split('/').map(p => p.trim().toLowerCase());
                 return parts[groupIndex] === val.toLowerCase();
             });
@@ -302,9 +330,17 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
         return null;
     }, [product, variants]);
 
-    const handleAddToCart = () => {
+    const handleAddToCart = (openDrawer = true) => {
+        if (!product) return false;
+        return addToCart(product, selectedVariant, qty, openDrawer);
+    };
+
+    const handleBuyNow = () => {
         if (!product) return;
-        addToCart(product, selectedVariant, qty);
+        const success = handleAddToCart(false);
+        if (success) {
+            router.push('/checkout');
+        }
     };
 
     // Gallery images stable list (auto-normalizes JSON brackets, commas, with-watermark paths)
@@ -645,12 +681,12 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                                         +
                                     </button>
                                 </div>
-                                <button className={styles.addToCartBtn} onClick={handleAddToCart}>
+                                <button className={styles.addToCartBtn} onClick={() => handleAddToCart(true)}>
                                     <ShoppingCart size={16} /> Add to Cart
                                 </button>
                                 <button
                                     className={styles.buyNowBtn}
-                                    onClick={() => { handleAddToCart(); router.push('/checkout'); }}
+                                    onClick={handleBuyNow}
                                 >
                                     Buy Now
                                 </button>

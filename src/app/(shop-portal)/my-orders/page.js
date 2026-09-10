@@ -10,9 +10,6 @@ import styles from './orders.module.css';
 
 export default function MyOrdersPage() {
     const router = useRouter();
-    useEffect(() => {
-        router.replace('/profile?tab=orders');
-    }, [router]);
     const { user, mysqlClient, isSessionLoading } = useShop();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -31,29 +28,51 @@ export default function MyOrdersPage() {
 
     useEffect(() => {
         if (!mysqlClient) return;
-        if (user) {
-            fetchUserOrders();
-        } else if (!isSessionLoading) {
-            setLoading(false);
-        }
+        fetchUserOrders();
     }, [user, mysqlClient, isSessionLoading]);
 
     async function fetchUserOrders() {
-        if (!mysqlClient || !user) {
+        if (!mysqlClient) {
             setLoading(false);
             return;
         }
         setLoading(true);
         try {
-            const digits = (user.phone || '').replace(/\D/g, '');
-            const phoneVariations = [];
-            if (digits) {
-                phoneVariations.push(digits);
-                if (digits.length === 10) {
-                    phoneVariations.push('91' + digits);
-                } else if (digits.length === 12 && digits.startsWith('91')) {
-                    phoneVariations.push(digits.substring(2));
+            const orClauses = [];
+            if (user?.id) {
+                orClauses.push(`customer_id.eq.${user.id}`);
+            }
+
+            const rawPhone = String(user?.phone || '').trim();
+            const cleanDigits = rawPhone.replace(/\D/g, '');
+            if (cleanDigits) {
+                const last10 = cleanDigits.slice(-10);
+                const phoneSet = new Set([
+                    cleanDigits,
+                    last10,
+                    `91${last10}`,
+                    `+91${last10}`
+                ]);
+                orClauses.push(`customer_phone.in.(${Array.from(phoneSet).join(',')})`);
+            }
+
+            if (user?.email && String(user.email).includes('@')) {
+                orClauses.push(`customer_email.eq.${String(user.email).trim()}`);
+            }
+
+            try {
+                const storedIds = JSON.parse(localStorage.getItem('vaiyaaree_recent_order_ids') || '[]');
+                if (Array.isArray(storedIds) && storedIds.length > 0) {
+                    const cleanStored = storedIds.filter(id => id && typeof id === 'string' && id.length >= 3).slice(0, 20);
+                    if (cleanStored.length > 0) {
+                        orClauses.push(`id.in.(${cleanStored.join(',')})`);
+                    }
                 }
+            } catch (e) {}
+
+            if (orClauses.length === 0) {
+                setLoading(false);
+                return;
             }
 
             let query = mysqlClient
@@ -61,24 +80,27 @@ export default function MyOrdersPage() {
                 .select('*, order_items(*)')
                 .order('created_at', { ascending: false });
 
-            if (user.id && phoneVariations.length > 0) {
-                query = query.or(`customer_id.eq.${user.id},customer_phone.in.(${phoneVariations.join(',')})`);
-            } else if (user.id) {
-                query = query.eq('customer_id', user.id);
-            } else if (phoneVariations.length > 0) {
-                query = query.in('customer_phone', phoneVariations);
-            } else {
-                setLoading(false);
-                return;
+            query = query.or(orClauses.join(','));
+
+            let { data, error } = await query;
+            if (error || !data || data.length === 0) {
+                let fallback = mysqlClient
+                    .from('orders')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                fallback = fallback.or(orClauses.join(','));
+                const fallbackRes = await fallback;
+                if (fallbackRes.data && fallbackRes.data.length > 0) {
+                    data = fallbackRes.data;
+                }
             }
 
-            const { data, error } = await query;
-            if (error) {
-                console.error('Fetch Orders Query Error:', error);
-            } else if (data) {
-                const enrichedData = (data || []).map((o, idx) => ({
+            if (data && Array.isArray(data)) {
+                const enrichedData = data.map((o, idx) => ({
                     ...o,
-                    invoice_no: o.invoice_no || (o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String((data || []).length - idx).padStart(4, '0')}`)
+                    invoice_no: o.invoice_no 
+                        ? (o.invoice_no.startsWith('#') ? o.invoice_no : `#${o.invoice_no}`)
+                        : `#${o.id ? String(o.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(data.length - idx).padStart(4, '0')}`}`
                 }));
 
                 setOrders(enrichedData);
@@ -151,7 +173,7 @@ export default function MyOrdersPage() {
         );
     }
 
-    if (!user) {
+    if (!user && orders.length === 0) {
         return (
             <div className={styles.loginPrompt}>
                 <Package size={64} style={{ opacity: 0.1, marginBottom: '2rem' }} />

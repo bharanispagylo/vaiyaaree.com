@@ -5,7 +5,8 @@ import { mysqlClient } from '@/lib/mysqlClient';
 import {
     Store, Save, Image, FileText, MapPin,
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
-    Upload, Globe, Phone, Mail, Clock, ArrowRight, CreditCard, ShieldCheck, Lock
+    Upload, Globe, Phone, Mail, Clock, ArrowRight, CreditCard, ShieldCheck, Lock,
+    MessageCircle, Bot, Sparkles, Radio, ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
@@ -101,6 +102,14 @@ export default function ShopSettingsPage() {
             if (error) throw error;
 
             if (fetchComingSoon) await fetchComingSoon();
+
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('vaiyaaree_communication_channel', settings.communication_channel || 'whatsapp');
+                localStorage.setItem('vaiyaaree_wa_chatbot_enabled', settings.wa_chatbot_enabled || 'true');
+                window.dispatchEvent(new Event('vaiyaaree_settings_updated'));
+                window.dispatchEvent(new Event('storage'));
+            }
+
             setNotification({ message: 'Settings saved successfully!', type: 'success' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
@@ -145,6 +154,195 @@ export default function ShopSettingsPage() {
             )}
 
             <div className="settings-grid">
+                {/* Store Communication Channel & WhatsApp Chatbot Gateway Card */}
+                <section className="settings-card card shadow-premium full-width" style={{ borderLeft: '6px solid hsl(var(--primary))', background: 'linear-gradient(180deg, rgba(93, 8, 33, 0.02) 0%, rgba(255, 255, 255, 1) 100%)' }}>
+                    <div className="card-header" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'hsl(var(--primary) / 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Sparkles size={20} color="hsl(var(--primary))" />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Store Communication & Auth Channel Gateway</h3>
+                                <p style={{ margin: '2px 0 0', fontSize: '0.84rem', color: '#64748b' }}>
+                                    Control whether customer authentication, OTP codes, order receipts, and customer service operate via WhatsApp, Email, or Both.
+                                </p>
+                            </div>
+                        </div>
+                        <span style={{
+                            fontSize: '0.75rem', fontWeight: 800, padding: '0.35rem 0.85rem', borderRadius: '20px', letterSpacing: '0.05em',
+                            background: settings.communication_channel === 'email' ? '#eff6ff' : (settings.communication_channel === 'both' ? '#f5f3ff' : '#f0fdf4'),
+                            color: settings.communication_channel === 'email' ? '#2563eb' : (settings.communication_channel === 'both' ? '#7c3aed' : '#16a34a'),
+                            border: `1px solid ${settings.communication_channel === 'email' ? '#bfdbfe' : (settings.communication_channel === 'both' ? '#ddd6fe' : '#bbf7d0')}`
+                        }}>
+                            CURRENT: {((settings.communication_channel || 'whatsapp').toUpperCase())} ACTIVE
+                        </span>
+                    </div>
+
+                    {/* Mode Selector Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginTop: '1.25rem' }}>
+                        {/* Option 1: WhatsApp Only */}
+                        <div 
+                            onClick={() => handleUpdate('communication_channel', 'whatsapp')}
+                            style={{
+                                cursor: 'pointer',
+                                padding: '1.25rem',
+                                borderRadius: '16px',
+                                border: `2px solid ${(settings.communication_channel || 'whatsapp') === 'whatsapp' ? '#22c55e' : '#e2e8f0'}`,
+                                background: (settings.communication_channel || 'whatsapp') === 'whatsapp' ? '#f0fdf4' : '#ffffff',
+                                transition: 'all 0.2s ease',
+                                boxShadow: (settings.communication_channel || 'whatsapp') === 'whatsapp' ? '0 4px 15px rgba(34, 197, 94, 0.15)' : 'none',
+                                position: 'relative'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <MessageCircle size={22} color="#16a34a" />
+                                    <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#166534' }}>WhatsApp Primary</span>
+                                </div>
+                                {(settings.communication_channel || 'whatsapp') === 'whatsapp' && (
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e' }}></span>
+                                )}
+                            </div>
+                            <p style={{ margin: 0, fontSize: '0.83rem', color: '#4b5563', lineHeight: 1.45 }}>
+                                Customers log in and verify with <strong>WhatsApp OTP</strong>. Order confirmations and notifications are delivered directly to their WhatsApp.
+                            </p>
+                        </div>
+
+                        {/* Option 2: Email Only */}
+                        <div 
+                            onClick={() => handleUpdate('communication_channel', 'email')}
+                            style={{
+                                cursor: 'pointer',
+                                padding: '1.25rem',
+                                borderRadius: '16px',
+                                border: `2px solid ${settings.communication_channel === 'email' ? '#3b82f6' : '#e2e8f0'}`,
+                                background: settings.communication_channel === 'email' ? '#eff6ff' : '#ffffff',
+                                transition: 'all 0.2s ease',
+                                boxShadow: settings.communication_channel === 'email' ? '0 4px 15px rgba(59, 130, 246, 0.15)' : 'none',
+                                position: 'relative'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Mail size={22} color="#2563eb" />
+                                    <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#1e40af' }}>Email Primary (No WhatsApp)</span>
+                                </div>
+                                {settings.communication_channel === 'email' && (
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#3b82f6' }}></span>
+                                )}
+                            </div>
+                            <p style={{ margin: 0, fontSize: '0.83rem', color: '#4b5563', lineHeight: 1.45 }}>
+                                Entire store runs on <strong>Email</strong>. Login, sign-up, OTPs, password reset, and order receipts operate 100% via Email without WhatsApp. Ideal during WhatsApp outages.
+                            </p>
+                        </div>
+
+                        {/* Option 3: Both (Customer Choice) */}
+                        <div 
+                            onClick={() => handleUpdate('communication_channel', 'both')}
+                            style={{
+                                cursor: 'pointer',
+                                padding: '1.25rem',
+                                borderRadius: '16px',
+                                border: `2px solid ${settings.communication_channel === 'both' ? '#8b5cf6' : '#e2e8f0'}`,
+                                background: settings.communication_channel === 'both' ? '#f5f3ff' : '#ffffff',
+                                transition: 'all 0.2s ease',
+                                boxShadow: settings.communication_channel === 'both' ? '0 4px 15px rgba(139, 92, 246, 0.15)' : 'none',
+                                position: 'relative'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Radio size={22} color="#7c3aed" />
+                                    <span style={{ fontWeight: 800, fontSize: '0.98rem', color: '#5b21b6' }}>Both WhatsApp & Email</span>
+                                </div>
+                                {settings.communication_channel === 'both' && (
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#8b5cf6' }}></span>
+                                )}
+                            </div>
+                            <p style={{ margin: 0, fontSize: '0.83rem', color: '#4b5563', lineHeight: 1.45 }}>
+                                Customers can choose to authenticate, receive OTPs, and get order updates via either <strong>WhatsApp or Email</strong>.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* WhatsApp Chatbot Assistant Toggle Section */}
+                    <div style={{
+                        marginTop: '1.5rem',
+                        padding: '1.25rem 1.5rem',
+                        background: '#f8fafc',
+                        borderRadius: '16px',
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1rem'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: (settings.wa_chatbot_enabled !== 'false' && settings.wa_chatbot_enabled !== '0') ? '#dcfce7' : '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Bot size={24} color={(settings.wa_chatbot_enabled !== 'false' && settings.wa_chatbot_enabled !== '0') ? '#16a34a' : '#ef4444'} />
+                            </div>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    Automated WhatsApp Chatbot Assistant
+                                    <span style={{
+                                        fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '10px',
+                                        background: (settings.wa_chatbot_enabled !== 'false' && settings.wa_chatbot_enabled !== '0') ? '#dcfce7' : '#fee2e2',
+                                        color: (settings.wa_chatbot_enabled !== 'false' && settings.wa_chatbot_enabled !== '0') ? '#15803d' : '#b91c1c'
+                                    }}>
+                                        {(settings.wa_chatbot_enabled !== 'false' && settings.wa_chatbot_enabled !== '0') ? '● ONLINE & ACTIVE' : '○ PAUSED / OFF'}
+                                    </span>
+                                </h4>
+                                <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                                    When enabled, customer messages to WhatsApp receive automatic catalog browsing, order inquiry, and FAQ replies. Disable if managing WhatsApp manually or dealing with number restrictions.
+                                </p>
+                            </div>
+                        </div>
+
+                        <label className="toggle-switch" style={{ position: 'relative', display: 'inline-block', width: '56px', height: '30px', margin: 0 }}>
+                            <input
+                                type="checkbox"
+                                checked={settings.wa_chatbot_enabled !== 'false' && settings.wa_chatbot_enabled !== '0'}
+                                onChange={(e) => handleUpdate('wa_chatbot_enabled', e.target.checked ? 'true' : 'false')}
+                                style={{ opacity: 0, width: 0, height: 0 }}
+                            />
+                            <span style={{
+                                position: 'absolute', cursor: 'pointer', inset: 0,
+                                backgroundColor: (settings.wa_chatbot_enabled !== 'false' && settings.wa_chatbot_enabled !== '0') ? '#16a34a' : '#cbd5e1',
+                                borderRadius: '30px', transition: '0.3s'
+                            }}>
+                                <span style={{
+                                    position: 'absolute', content: '""', height: '22px', width: '22px', left: '4px', bottom: '4px',
+                                    backgroundColor: 'white', borderRadius: '50%', transition: '0.3s',
+                                    transform: (settings.wa_chatbot_enabled !== 'false' && settings.wa_chatbot_enabled !== '0') ? 'translateX(26px)' : 'translateX(0)'
+                                }} />
+                            </span>
+                        </label>
+                    </div>
+
+                    {/* Support Contact Fallbacks */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', marginTop: '1.25rem' }}>
+                        <div className="field-group">
+                            <label><Mail size={14} color="hsl(var(--primary))" /> Store Support Email (Used in Email Mode)</label>
+                            <input
+                                type="email"
+                                value={settings.support_email || settings.coming_soon_email || 'vaiyaaree@gmail.com'}
+                                onChange={(e) => handleUpdate('support_email', e.target.value)}
+                                placeholder="vaiyaaree@gmail.com"
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label><Phone size={14} color="hsl(var(--primary))" /> Store WhatsApp / Support Mobile</label>
+                            <input
+                                type="tel"
+                                value={settings.support_phone || settings.coming_soon_whatsapp || '918667793292'}
+                                onChange={(e) => handleUpdate('support_phone', e.target.value)}
+                                placeholder="918667793292"
+                            />
+                        </div>
+                    </div>
+                </section>
+
                 {/* General Shop Info */}
                 <section className="settings-card card shadow-premium">
                     <div className="card-header">

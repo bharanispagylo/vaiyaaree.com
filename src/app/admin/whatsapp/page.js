@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { parseUploadResponse, validateImageFile } from '@/lib/uploadHelper';
 import styles from '../page.module.css';
-import { MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings, Upload, Trash2, FileImage, Link as LinkIcon, Paperclip } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Loader2, CheckCircle2, ChevronRight, Settings, Upload, Trash2, FileImage, Link as LinkIcon, Paperclip, Bot, Sparkles } from 'lucide-react';
 
 export default function WhatsAppSettingsPage() {
     const [settings, setSettings] = useState([]);
@@ -138,6 +138,78 @@ export default function WhatsAppSettingsPage() {
             )}
 
             <div style={{ display: 'grid', gap: '1.25rem', maxWidth: '900px' }}>
+                {/* Chatbot Master Switch Banner */}
+                {(() => {
+                    const botSetting = settings.find(s => s.key === 'wa_chatbot_enabled');
+                    const isBotEnabled = botSetting?.value !== 'false' && botSetting?.value !== '0';
+                    return (
+                        <div className="card shadow-premium" style={{
+                            padding: '1.75rem 2rem',
+                            borderRadius: '20px',
+                            background: isBotEnabled ? 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)' : 'linear-gradient(135deg, #fef2f2 0%, #ffffff 100%)',
+                            border: `2px solid ${isBotEnabled ? '#86efac' : '#fca5a5'}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '1.25rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                                <div style={{
+                                    width: '52px', height: '52px', borderRadius: '14px',
+                                    background: isBotEnabled ? '#dcfce7' : '#fee2e2',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    <Bot size={30} color={isBotEnabled ? '#16a34a' : '#ef4444'} />
+                                </div>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                        <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#1e293b' }}>WhatsApp Chatbot Assistant</h3>
+                                        <span style={{
+                                            fontSize: '0.75rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px',
+                                            background: isBotEnabled ? '#dcfce7' : '#fee2e2',
+                                            color: isBotEnabled ? '#15803d' : '#b91c1c'
+                                        }}>
+                                            {isBotEnabled ? '● LIVE & ACTIVE' : '○ PAUSED / DISABLED'}
+                                        </span>
+                                    </div>
+                                    <p style={{ margin: '6px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                                        {isBotEnabled 
+                                            ? 'The AI bot is currently responding to customer WhatsApp messages, catalog queries, and commands.' 
+                                            : 'The bot is paused. Incoming WhatsApp messages will be acknowledged without automated replies.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const nextVal = isBotEnabled ? 'false' : 'true';
+                                    if (botSetting) {
+                                        handleChange('wa_chatbot_enabled', nextVal);
+                                    } else {
+                                        setSettings(prev => [...prev, { key: 'wa_chatbot_enabled', value: nextVal, description: 'Controls whether WhatsApp AI chatbot automatically replies to messages' }]);
+                                    }
+                                }}
+                                style={{
+                                    padding: '0.75rem 1.5rem',
+                                    borderRadius: '12px',
+                                    fontWeight: 800,
+                                    fontSize: '0.9rem',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    background: isBotEnabled ? '#ef4444' : '#16a34a',
+                                    color: '#ffffff',
+                                    boxShadow: isBotEnabled ? '0 4px 14px rgba(239, 68, 68, 0.3)' : '0 4px 14px rgba(22, 163, 74, 0.3)',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {isBotEnabled ? 'Pause Chatbot' : 'Activate Chatbot'}
+                            </button>
+                        </div>
+                    );
+                })()}
+
                 {settings.length === 0 && (
                     <div style={{ padding: '4rem', textAlign: 'center', background: 'hsl(var(--bg-panel))', borderRadius: '24px', border: '1px dashed hsl(var(--border-subtle))' }}>
                         <Settings size={40} color="hsl(var(--text-muted))" style={{ marginBottom: '1rem', opacity: 0.5 }} />

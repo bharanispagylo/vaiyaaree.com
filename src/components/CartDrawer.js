@@ -8,7 +8,7 @@ import { useShop } from '@/context/ShopContext';
 import styles from './CartDrawer.module.css';
 
 export default function CartDrawer() {
-    const { isCartOpen, closeCart, cart, cartCount, cartTotal, updateQty, removeFromCart, discountData, appliedCoupon } = useShop();
+    const { isCartOpen, closeCart, cart, cartCount, cartTotal, updateQty, removeFromCart, discountData, appliedCoupon, user } = useShop();
     const router = useRouter();
 
     const hasUnavailableItems = cart.some(i => i.stock !== undefined && i.stock !== null && (i.stock <= 0 || i.qty > i.stock));
@@ -90,6 +90,7 @@ export default function CartDrawer() {
                                 const itemStock = item.stock !== undefined && item.stock !== null ? item.stock : 999;
                                 const isOutOfStock = itemStock <= 0;
                                 const isStockLimitReached = item.qty >= itemStock && itemStock > 0;
+                                const targetId = item.variantId || item.id;
 
                                 return (
                                     <div key={`${item.id}-${item.variantId || index}`} className={styles.cartCard}>
@@ -104,7 +105,7 @@ export default function CartDrawer() {
                                                 <h4 className={styles.itemName}>{item.name}</h4>
                                                 <button
                                                     className={styles.removeBtn}
-                                                    onClick={() => removeFromCart(index)}
+                                                    onClick={() => removeFromCart(targetId)}
                                                     title="Remove item"
                                                 >
                                                     <Trash2 size={16} />
@@ -129,12 +130,12 @@ export default function CartDrawer() {
 
                                             <div className={styles.itemBottomRow}>
                                                 <div className={styles.priceTag}>
-                                                    ₹{(item.price || 0).toLocaleString()}
+                                                    ₹{Number(item.price || 0).toLocaleString('en-IN')}
                                                 </div>
 
                                                 <div className={styles.qtyControl}>
                                                     <button
-                                                        onClick={() => updateQty(index, -1)}
+                                                        onClick={() => updateQty(targetId, -1)}
                                                         className={styles.qtyBtn}
                                                         aria-label="Decrease quantity"
                                                     >
@@ -142,7 +143,7 @@ export default function CartDrawer() {
                                                     </button>
                                                     <span className={styles.qtyValue}>{item.qty}</span>
                                                     <button
-                                                        onClick={() => updateQty(index, 1)}
+                                                        onClick={() => updateQty(targetId, 1)}
                                                         className={`${styles.qtyBtn} ${isStockLimitReached ? styles.qtyBtnDisabled : ''}`}
                                                         disabled={isStockLimitReached || isOutOfStock}
                                                         aria-label="Increase quantity"
@@ -227,7 +228,7 @@ export default function CartDrawer() {
                         <div className={styles.footerBtnGroup}>
                             <button 
                                 className={styles.checkoutBtn} 
-                                onClick={() => handleNavigate('/checkout')}
+                                onClick={() => handleNavigate(user?.id ? '/checkout' : '/checkout/auth')}
                                 disabled={hasUnavailableItems}
                                 style={hasUnavailableItems ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                             >

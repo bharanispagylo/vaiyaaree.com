@@ -201,11 +201,21 @@ export async function POST(req) {
                 } catch (mailErr) {
                     console.error('[RESET-PASSWORD] Failed to send email:', mailErr);
                 }
+            } else {
+                try {
+                    const { sendText } = await import('@/services/whatsappService');
+                    const cleanPhone = `91${lookupKey.slice(-10)}`;
+                    const message = `✨ *Vaiyaaree* ✨\n\nYour password reset code is: *${otpCode}*\n\nThis code expires in 10 minutes. Please do not share it with anyone.`;
+                    await sendText(cleanPhone, message);
+                } catch (waErr) {
+                    console.error('[RESET-PASSWORD] Failed to send WhatsApp OTP:', waErr);
+                }
             }
 
             return NextResponse.json({
                 success: true,
-                message: `Verification code sent to ${isEmailInput ? customer.email : lookupKey}`
+                message: `Verification code sent to ${isEmailInput ? customer.email : lookupKey}`,
+                channel: isEmailInput ? 'email' : 'whatsapp'
             });
         }
 

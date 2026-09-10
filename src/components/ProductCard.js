@@ -287,7 +287,7 @@ export default function ProductCard({ product, gridView = true }) {
                     </div>
 
                     <button
-                        onClick={() => addToCart(product, selectedVariant || (hasVariants ? localVariants[0] : null))}
+                        onClick={() => addToCart(product, selectedVariant || (hasVariants ? (localVariants.find(v => Number(v.stock || 0) > 0) || localVariants[0]) : null))}
                         disabled={isOutOfStock}
                         className={`${styles.addToCartBtn} ${isOutOfStock ? styles.addToCartDisabled : ''}`}
                         style={{ alignSelf: 'flex-start' }}
@@ -372,7 +372,7 @@ export default function ProductCard({ product, gridView = true }) {
                         className={styles.hoverAddToCart}
                         onClick={(e) => {
                             e.stopPropagation();
-                            addToCart(product, selectedVariant || (hasVariants ? localVariants[0] : null));
+                            addToCart(product, selectedVariant || (hasVariants ? (localVariants.find(v => Number(v.stock || 0) > 0) || localVariants[0]) : null));
                         }}
                     >
                         <ShoppingCart size={16} /> ADD TO CART

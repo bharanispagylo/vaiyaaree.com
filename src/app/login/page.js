@@ -15,7 +15,7 @@ function LoginContent({ initialMode }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirectUrl = searchParams.get('redirect') || '';
-    const { setUser, showToast } = useShop();
+    const { setUser, showToast, isEmailOnly, isWhatsAppOnly, isHybridChannel, communicationChannel } = useShop();
 
     const [activeTab, setActiveTab] = useState(initialMode || (searchParams.get('mode') === 'register' ? 'register' : 'login')); // 'login' | 'register'
 
@@ -54,7 +54,11 @@ function LoginContent({ initialMode }) {
         setSuccessMessage('');
 
         if (!loginIdentifier.trim()) {
-            setError('Please enter your Mobile Number or Email address.');
+            setError(isEmailOnly ? 'Please enter your Email address.' : (isWhatsAppOnly ? 'Please enter your WhatsApp Mobile Number.' : 'Please enter your Mobile Number or Email address.'));
+            return;
+        }
+        if (isEmailOnly && !loginIdentifier.includes('@')) {
+            setError('Please enter a valid Email address.');
             return;
         }
         if (!loginPassword.trim()) {
@@ -114,9 +118,16 @@ function LoginContent({ initialMode }) {
             return;
         }
         const rawPhone = regPhone.replace(/\D/g, '');
-        if (!rawPhone || (regCountryCode === '+91' && rawPhone.length !== 10) || rawPhone.length < 7) {
-            setError('Please enter a valid Mobile Number (10 digits for India).');
-            return;
+        if (!isEmailOnly) {
+            if (!rawPhone || (regCountryCode === '+91' && rawPhone.length !== 10) || rawPhone.length < 7) {
+                setError('Please enter a valid Mobile Number (10 digits for India).');
+                return;
+            }
+        } else if (rawPhone) {
+            if ((regCountryCode === '+91' && rawPhone.length !== 10) || rawPhone.length < 7) {
+                setError('Please enter a valid Mobile Number (10 digits for India).');
+                return;
+            }
         }
         if (!regPassword || regPassword.length < 6) {
             setError('Password must be at least 6 characters long.');
@@ -223,7 +234,7 @@ function LoginContent({ initialMode }) {
                             </div>
                             <div className={styles.highlightInfo}>
                                 <strong>Express Shipping & Safe Transit</strong>
-                                <span>Fast insured delivery with live SMS & WhatsApp updates</span>
+                                <span>{isEmailOnly ? 'Fast insured delivery with live Email updates' : 'Fast insured delivery with live SMS & WhatsApp updates'}</span>
                             </div>
                         </div>
 
@@ -325,15 +336,15 @@ function LoginContent({ initialMode }) {
                         <form onSubmit={handleLoginSubmit}>
                             <div className={styles.formGroup}>
                                 <label className={styles.formLabel}>
-                                    Mobile Number or Email
+                                    {isEmailOnly ? 'Email Address' : (isWhatsAppOnly ? 'WhatsApp Mobile Number' : 'Mobile Number or Email')}
                                 </label>
                                 <div className={styles.inputWrapper}>
-                                    <User size={18} className={styles.fieldIcon} />
+                                    {isEmailOnly ? <Mail size={18} className={styles.fieldIcon} /> : <User size={18} className={styles.fieldIcon} />}
                                     <input
-                                        type="text"
+                                        type={isEmailOnly ? "email" : "text"}
                                         value={loginIdentifier}
                                         onChange={e => setLoginIdentifier(e.target.value)}
-                                        placeholder="e.g. 9876543210 or your@email.com"
+                                        placeholder={isEmailOnly ? "your@email.com" : (isWhatsAppOnly ? "e.g. 9876543210" : "e.g. 9876543210 or your@email.com")}
                                         className={styles.formInput}
                                         required
                                         autoFocus
@@ -427,7 +438,7 @@ function LoginContent({ initialMode }) {
 
                             <div className={styles.formGroup}>
                                 <label className={styles.formLabel}>
-                                    Mobile Number <span style={{ color: '#5d0821' }}>*</span>
+                                    Mobile Number {isEmailOnly ? <span style={{ color: '#64748b', fontWeight: 500 }}>(Optional)</span> : <span style={{ color: '#5d0821' }}>*</span>}
                                 </label>
                                 <div className={styles.phoneRow}>
                                     <select
@@ -449,7 +460,7 @@ function LoginContent({ initialMode }) {
                                             onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, ''))}
                                             placeholder={regCountryCode === '+91' ? '10-digit mobile number' : 'Mobile number'}
                                             className={styles.formInput}
-                                            required
+                                            required={!isEmailOnly}
                                         />
                                     </div>
                                 </div>

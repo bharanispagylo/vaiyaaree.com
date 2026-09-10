@@ -11,14 +11,17 @@ export default function TrackOrderTab({
     setTrackSearchId,
     handleTrackSearch,
     loadingTrack,
-    trackOrderData
+    trackOrderData,
+    orders = [],
+    activeOrders = [],
+    onSelectOrder
 }) {
     return (
         <section className={styles.profileSection}>
             <div className={styles.sectionHeader}>
                 <div>
                     <h3 className={styles.sectionTitle}><Truck size={20} /> Track Orders</h3>
-                    <p className={styles.sectionSubtitle}>Enter your Invoice ID to see real-time order & delivery status</p>
+                    <p className={styles.sectionSubtitle}>Select an order or enter your Invoice ID to view real-time delivery status</p>
                 </div>
             </div>
 
@@ -27,7 +30,7 @@ export default function TrackOrderTab({
                     <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
                         <input 
                             type="text" 
-                            placeholder="Enter Invoice ID (e.g. INV-0001)" 
+                            placeholder="Enter Order or Invoice ID (e.g. INV-0001 or WEB-0001)" 
                             value={trackSearchId}
                             onChange={(e) => setTrackSearchId(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleTrackSearch()}
@@ -45,9 +48,57 @@ export default function TrackOrderTab({
                         className="btn btn-primary"
                         style={{ padding: '0.65rem 1.25rem', borderRadius: '10px', fontWeight: 700, fontSize: '0.9rem' }}
                     >
-                        {loadingTrack ? 'Searching...' : 'Track My Order'}
+                        {loadingTrack ? 'Searching...' : 'Track Order'}
                     </button>
                 </div>
+
+                {orders && orders.length > 0 && (
+                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Package size={14} /> Select Your Order to Track:
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {orders.slice(0, 6).map(o => {
+                                const invDisplay = o.invoice_no || o.id;
+                                const isSelected = trackOrderData && (trackOrderData.id === o.id || trackOrderData.invoice_no === o.invoice_no);
+                                return (
+                                    <button
+                                        key={o.id}
+                                        type="button"
+                                        onClick={() => {
+                                            if (onSelectOrder) onSelectOrder(o);
+                                        }}
+                                        style={{
+                                            padding: '0.45rem 0.85rem',
+                                            borderRadius: '8px',
+                                            border: isSelected ? '2px solid #5d0821' : '1px solid #cbd5e1',
+                                            background: isSelected ? '#5d0821' : '#ffffff',
+                                            color: isSelected ? '#ffffff' : '#1e293b',
+                                            fontWeight: 700,
+                                            fontSize: '0.82rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        <span>{invDisplay}</span>
+                                        <span style={{
+                                            fontSize: '0.7rem',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            background: isSelected ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
+                                            color: isSelected ? '#ffffff' : '#64748b'
+                                        }}>
+                                            {o.status}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {trackOrderData ? (

@@ -11,16 +11,27 @@ import { useShop } from '@/context/ShopContext';
 function ForgotPasswordContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { showToast } = useShop();
+    const { showToast, isEmailOnly, isWhatsAppOnly, isHybridChannel, communicationChannel } = useShop();
 
     const urlToken = searchParams.get('token') || '';
     const urlIdentifier = searchParams.get('identifier') || searchParams.get('email') || searchParams.get('phone') || '';
 
-    // 4-step flow: 1 = Phone/WhatsApp, 2 = Verify OTP, 3 = New Password, 4 = Success
+    // Channel mode: 'email' | 'whatsapp'
+    const [channelMode, setChannelMode] = useState(isEmailOnly ? 'email' : 'whatsapp');
+
+    useEffect(() => {
+        if (isEmailOnly) {
+            setChannelMode('email');
+        } else if (isWhatsAppOnly) {
+            setChannelMode('whatsapp');
+        }
+    }, [isEmailOnly, isWhatsAppOnly]);
+
+    // 4-step flow: 1 = Input (Phone or Email), 2 = Verify OTP, 3 = New Password, 4 = Success
     const [step, setStep] = useState(1);
 
-    const [phone, setPhone] = useState('');
-    const [maskedPhone, setMaskedPhone] = useState('');
+    const [identifier, setIdentifier] = useState('');
+    const [maskedDisplay, setMaskedDisplay] = useState('');
     const [otp, setOtp] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -83,40 +94,57 @@ function ForgotPasswordContent() {
         return () => clearInterval(timer);
     }, [resendCooldown]);
 
-    // Clean phone number (extract digits)
-    const cleanDigits = phone.replace(/\D/g, '');
-
-    // Step 1: Send Verification OTP via WhatsApp
+    // Step 1: Send Verification OTP via active channel
     const handleSendOTP = async (e) => {
         if (e) e.preventDefault();
         setError('');
         setSuccessMessage('');
 
-        const digits = phone.replace(/\D/g, '');
-        if (digits.length < 10) {
-            setError('Please enter a valid 10-digit WhatsApp Mobile Number.');
-            return;
+        if (channelMode === 'email') {
+            const cleanEmail = identifier.trim().toLowerCase();
+            if (!cleanEmail || !cleanEmail.includes('@')) {
+                setError('Please enter a valid Registered Email Address.');
+                return;
+            }
+        } else {
+            const digits = identifier.replace(/\D/g, '');
+            if (digits.length < 10) {
+                setError('Please enter a valid 10-digit WhatsApp Mobile Number.');
+                return;
+            }
         }
 
         setLoading(true);
         try {
+            const isEmail = channelMode === 'email';
+            const cleanId = isEmail ? identifier.trim().toLowerCase() : identifier.replace(/\D/g, '').slice(-10);
+
             const res = await fetch('/api/auth/customer/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'send-otp',
-                    phone: digits.slice(-10)
+                    identifier: cleanId,
+                    email: isEmail ? cleanId : undefined,
+                    phone: !isEmail ? cleanId : undefined
                 })
             });
 
             const data = await res.json();
             if (res.ok && data.success) {
-                setMaskedPhone(data.maskedPhone || `+91 ******${digits.slice(-4)}`);
-                setSuccessMessage(data.message || 'Verification OTP sent to your WhatsApp number.');
+                if (isEmail) {
+                    const [userPart, domainPart] = cleanId.split('@');
+                    const masked = userPart.length > 2 ? `${userPart.slice(0, 2)}***@${domainPart}` : `***@${domainPart}`;
+                    setMaskedDisplay(masked);
+                    setSuccessMessage(data.message || `Verification OTP code sent to your email address.`);
+                } else {
+                    setMaskedDisplay(data.maskedPhone || `+91 ******${cleanId.slice(-4)}`);
+                    setSuccessMessage(data.message || 'Verification OTP sent to your WhatsApp number.');
+                }
                 setResendCooldown(45);
                 setStep(2);
             } else {
-                setError(data.error || 'Failed to send WhatsApp verification code. Please check your number.');
+                setError(data.error || (isEmail ? 'Failed to send Email verification code. Please check your email address.' : 'Failed to send WhatsApp verification code. Please check your number.'));
             }
         } catch (err) {
             setError('Connection failed. Please try again.');
@@ -132,20 +160,24 @@ function ForgotPasswordContent() {
         setSuccessMessage('');
         setResending(true);
 
-        const digits = phone.replace(/\D/g, '');
+        const isEmail = channelMode === 'email';
+        const cleanId = isEmail ? identifier.trim().toLowerCase() : identifier.replace(/\D/g, '').slice(-10);
+
         try {
             const res = await fetch('/api/auth/customer/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'send-otp',
-                    phone: digits.slice(-10)
+                    identifier: cleanId,
+                    email: isEmail ? cleanId : undefined,
+                    phone: !isEmail ? cleanId : undefined
                 })
             });
 
             const data = await res.json();
             if (res.ok && data.success) {
-                setSuccessMessage('A new verification code has been sent to your WhatsApp!');
+                setSuccessMessage(isEmail ? 'A new verification code has been sent to your Email!' : 'A new verification code has been sent to your WhatsApp!');
                 setResendCooldown(45);
             } else {
                 setError(data.error || 'Failed to resend code. Please wait a moment and try again.');
@@ -157,36 +189,40 @@ function ForgotPasswordContent() {
         }
     };
 
-    // Step 2: Verify WhatsApp OTP Code
+    // Step 2: Verify OTP Code
     const handleVerifyOTP = async (e) => {
         e.preventDefault();
         setError('');
         setSuccessMessage('');
 
         if (!otp.trim() || otp.trim().length !== 6) {
-            setError('Please enter the 6-digit WhatsApp OTP code.');
+            setError('Please enter the 6-digit verification OTP code.');
             return;
         }
 
         setLoading(true);
         try {
-            const digits = phone.replace(/\D/g, '');
+            const isEmail = channelMode === 'email';
+            const cleanId = isEmail ? identifier.trim().toLowerCase() : identifier.replace(/\D/g, '').slice(-10);
+
             const res = await fetch('/api/auth/customer/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'verify-otp',
-                    phone: digits.slice(-10),
+                    identifier: cleanId,
+                    email: isEmail ? cleanId : undefined,
+                    phone: !isEmail ? cleanId : undefined,
                     otp: otp.trim()
                 })
             });
 
             const data = await res.json();
             if (res.ok && data.success) {
-                setSuccessMessage('WhatsApp OTP verified successfully! Please set your new password.');
+                setSuccessMessage('Verification code verified successfully! Please set your new password.');
                 setStep(3);
             } else {
-                setError(data.error || 'Invalid or expired WhatsApp OTP code.');
+                setError(data.error || 'Invalid or expired verification OTP code.');
             }
         } catch (err) {
             setError('Verification failed. Please try again.');
@@ -195,7 +231,7 @@ function ForgotPasswordContent() {
         }
     };
 
-    // Step 3: Update Password (works for both OTP flow and direct Link token flow)
+    // Step 3: Update Password
     const handleUpdatePassword = async (e) => {
         e.preventDefault();
         setError('');
@@ -221,10 +257,13 @@ function ForgotPasswordContent() {
                     newPassword
                 };
             } else {
-                const digits = phone.replace(/\D/g, '');
+                const isEmail = channelMode === 'email';
+                const cleanId = isEmail ? identifier.trim().toLowerCase() : identifier.replace(/\D/g, '').slice(-10);
                 payload = {
                     action: 'update-password',
-                    phone: digits.slice(-10),
+                    identifier: cleanId,
+                    email: isEmail ? cleanId : undefined,
+                    phone: !isEmail ? cleanId : undefined,
                     otp: otp.trim(),
                     newPassword
                 };
@@ -252,6 +291,10 @@ function ForgotPasswordContent() {
             setLoading(false);
         }
     };
+
+    const isStep1Valid = channelMode === 'email' 
+        ? (identifier.trim().length > 3 && identifier.includes('@'))
+        : (identifier.replace(/\D/g, '').length === 10);
 
     return (
         <div style={{
@@ -318,12 +361,67 @@ function ForgotPasswordContent() {
                         letterSpacing: '0.04em',
                         textTransform: 'uppercase'
                     }}>
-                        {step === 1 && <><MessageCircle size={14} color="#25D366" /> Step 1: Mobile / WhatsApp</>}
+                        {step === 1 && (
+                            <>
+                                {channelMode === 'email' ? <Mail size={14} color="#5d0821" /> : <MessageCircle size={14} color="#25D366" />}
+                                {channelMode === 'email' ? ' Step 1: Registered Email' : ' Step 1: Mobile / WhatsApp'}
+                            </>
+                        )}
                         {step === 2 && <><KeyRound size={14} /> Step 2: Verification Code</>}
                         {step === 3 && <><Lock size={14} /> Step 3: New Password</>}
                         {step === 4 && <><CheckCircle2 size={14} color="#166534" /> Completed</>}
                     </div>
                 </div>
+
+                {/* Hybrid Mode Channel Switcher (Step 1 Only) */}
+                {isHybridChannel && step === 1 && (
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', background: '#f8f4ee', padding: '4px', borderRadius: '12px', border: '1px solid #e7dcd3' }}>
+                        <button
+                            type="button"
+                            onClick={() => { setChannelMode('whatsapp'); setIdentifier(''); setError(''); setSuccessMessage(''); }}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: channelMode === 'whatsapp' ? '#ffffff' : 'transparent',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                color: channelMode === 'whatsapp' ? '#0f172a' : '#64748b',
+                                boxShadow: channelMode === 'whatsapp' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <MessageCircle size={15} color="#25D366" /> Via WhatsApp
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setChannelMode('email'); setIdentifier(''); setError(''); setSuccessMessage(''); }}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: channelMode === 'email' ? '#ffffff' : 'transparent',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                color: channelMode === 'email' ? '#0f172a' : '#64748b',
+                                boxShadow: channelMode === 'email' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <Mail size={15} color="#5d0821" /> Via Email
+                        </button>
+                    </div>
+                )}
 
                 {/* Verified Customer Card in Link Mode */}
                 {isLinkMode && linkCustomer && step === 3 && (
@@ -397,37 +495,23 @@ function ForgotPasswordContent() {
                     </div>
                 )}
 
-                {/* STEP 1: ENTER WHATSAPP NUMBER */}
+                {/* STEP 1: ENTER WHATSAPP NUMBER OR EMAIL */}
                 {step === 1 && (
                     <form onSubmit={handleSendOTP}>
                         <div style={{ marginBottom: '1.5rem' }}>
                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                WhatsApp Mobile Number <span style={{ color: '#5d0821' }}>*</span>
+                                {channelMode === 'email' ? 'Registered Email Address' : 'WhatsApp Mobile Number'} <span style={{ color: '#5d0821' }}>*</span>
                             </label>
                             
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    background: '#faf9f6',
-                                    border: '1px solid #ddd',
-                                    borderRadius: '12px',
-                                    padding: '0.85rem 0.9rem',
-                                    fontSize: '0.95rem',
-                                    fontWeight: 700,
-                                    color: '#444'
-                                }}>
-                                    +91
-                                </div>
-                                <div style={{ position: 'relative', flex: 1 }}>
+                            {channelMode === 'email' ? (
+                                <div style={{ position: 'relative' }}>
                                     <input
-                                        type="tel"
-                                        value={phone}
-                                        onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                        placeholder="10-digit mobile number"
-                                        maxLength="10"
+                                        type="email"
+                                        value={identifier}
+                                        onChange={e => setIdentifier(e.target.value)}
+                                        placeholder="your@email.com"
                                         required
+                                        autoFocus
                                         style={{
                                             width: '100%',
                                             padding: '0.85rem 1rem 0.85rem 2.6rem',
@@ -436,34 +520,86 @@ function ForgotPasswordContent() {
                                             fontSize: '1rem',
                                             fontWeight: 600,
                                             outline: 'none',
-                                            background: '#faf9f6',
-                                            letterSpacing: '0.04em'
+                                            background: '#faf9f6'
                                         }}
                                     />
-                                    <MessageCircle 
+                                    <Mail 
                                         size={18} 
                                         style={{ 
-                                             position: 'absolute', 
+                                            position: 'absolute', 
                                             left: '0.9rem', 
                                             top: '50%', 
                                             transform: 'translateY(-50%)', 
-                                            color: '#25D366' 
+                                            color: '#5d0821' 
                                         }} 
                                     />
                                 </div>
-                            </div>
+                            ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        background: '#faf9f6',
+                                        border: '1px solid #ddd',
+                                        borderRadius: '12px',
+                                        padding: '0.85rem 0.9rem',
+                                        fontSize: '0.95rem',
+                                        fontWeight: 700,
+                                        color: '#444'
+                                    }}>
+                                        +91
+                                    </div>
+                                    <div style={{ position: 'relative', flex: 1 }}>
+                                        <input
+                                            type="tel"
+                                            value={identifier}
+                                            onChange={e => setIdentifier(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                            placeholder="10-digit mobile number"
+                                            maxLength="10"
+                                            required
+                                            autoFocus
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.85rem 1rem 0.85rem 2.6rem',
+                                                borderRadius: '12px',
+                                                border: '1px solid #ddd',
+                                                fontSize: '1rem',
+                                                fontWeight: 600,
+                                                outline: 'none',
+                                                background: '#faf9f6',
+                                                letterSpacing: '0.04em'
+                                            }}
+                                        />
+                                        <MessageCircle 
+                                            size={18} 
+                                            style={{ 
+                                                position: 'absolute', 
+                                                left: '0.9rem', 
+                                                top: '50%', 
+                                                transform: 'translateY(-50%)', 
+                                                color: '#25D366' 
+                                            }} 
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             <p style={{ fontSize: '0.78rem', color: '#777', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <ShieldCheck size={14} style={{ color: '#2563eb' }} /> A 6-digit OTP will be sent to your WhatsApp account.
+                                <ShieldCheck size={14} style={{ color: '#2563eb' }} /> 
+                                {channelMode === 'email' 
+                                    ? 'A 6-digit verification code will be sent to your email inbox.' 
+                                    : 'A 6-digit OTP will be sent to your WhatsApp account.'}
                             </p>
                         </div>
 
                         <button
                             type="submit"
-                            disabled={loading || cleanDigits.length !== 10}
+                            disabled={loading || !isStep1Valid}
                             style={{
                                 width: '100%',
                                 padding: '1rem',
-                                background: cleanDigits.length === 10 ? '#5d0821' : '#94a3b8',
+                                background: isStep1Valid ? '#5d0821' : '#94a3b8',
                                 color: '#ffffff',
                                 border: 'none',
                                 borderRadius: '12px',
@@ -471,8 +607,8 @@ function ForgotPasswordContent() {
                                 fontSize: '0.95rem',
                                 letterSpacing: '0.06em',
                                 textTransform: 'uppercase',
-                                cursor: cleanDigits.length === 10 ? 'pointer' : 'not-allowed',
-                                boxShadow: cleanDigits.length === 10 ? '0 6px 20px rgba(93, 8, 33, 0.25)' : 'none',
+                                cursor: isStep1Valid ? 'pointer' : 'not-allowed',
+                                boxShadow: isStep1Valid ? '0 6px 20px rgba(93, 8, 33, 0.25)' : 'none',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -481,7 +617,9 @@ function ForgotPasswordContent() {
                             }}
                         >
                             {loading ? (
-                                <><Loader2 size={18} className="animate-spin" /> Sending WhatsApp OTP...</>
+                                <><Loader2 size={18} className="animate-spin" /> Sending Code...</>
+                            ) : channelMode === 'email' ? (
+                                <><Mail size={18} /> Send Email OTP →</>
                             ) : (
                                 <><MessageCircle size={18} /> Send WhatsApp OTP →</>
                             )}
@@ -489,12 +627,12 @@ function ForgotPasswordContent() {
                     </form>
                 )}
 
-                {/* STEP 2: VERIFY WHATSAPP OTP */}
+                {/* STEP 2: VERIFY OTP */}
                 {step === 2 && (
                     <form onSubmit={handleVerifyOTP}>
                         <div style={{ marginBottom: '1.5rem' }}>
                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                6-Digit WhatsApp Verification OTP
+                                {channelMode === 'email' ? '6-Digit Email Verification Code' : '6-Digit WhatsApp Verification OTP'}
                             </label>
                             
                             <div style={{ position: 'relative' }}>
@@ -527,7 +665,7 @@ function ForgotPasswordContent() {
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', flexWrap: 'wrap', gap: '4px' }}>
                                 <span style={{ fontSize: '0.8rem', color: '#666' }}>
-                                    Sent to <strong>{maskedPhone || phone}</strong>
+                                    Sent to <strong>{maskedDisplay || identifier}</strong>
                                 </span>
                                 
                                 <button
@@ -537,7 +675,7 @@ function ForgotPasswordContent() {
                                     style={{
                                         background: 'none',
                                         border: 'none',
-                                        color: resendCooldown > 0 ? '#94a3b8' : '#25D366',
+                                        color: resendCooldown > 0 ? '#94a3b8' : (channelMode === 'email' ? '#5d0821' : '#25D366'),
                                         fontSize: '0.8rem',
                                         fontWeight: 700,
                                         cursor: resendCooldown > 0 ? 'default' : 'pointer',
@@ -549,9 +687,9 @@ function ForgotPasswordContent() {
                                     {resending ? (
                                         <><Loader2 size={13} className="animate-spin" /> Sending...</>
                                     ) : resendCooldown > 0 ? (
-                                        `Resend OTP in ${resendCooldown}s`
+                                        `Resend in ${resendCooldown}s`
                                     ) : (
-                                        <><RefreshCw size={13} /> Resend via WhatsApp</>
+                                        <><RefreshCw size={13} /> {channelMode === 'email' ? 'Resend via Email' : 'Resend via WhatsApp'}</>
                                     )}
                                 </button>
                             </div>
@@ -572,7 +710,7 @@ function ForgotPasswordContent() {
                                     cursor: 'pointer'
                                 }}
                             >
-                                Change Number
+                                {channelMode === 'email' ? 'Change Email' : 'Change Number'}
                             </button>
 
                             <button

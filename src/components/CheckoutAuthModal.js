@@ -1,23 +1,30 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { User, Mail, Phone, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, MessageCircle, Loader2, KeyRound } from 'lucide-react';
+import { User, Mail, Phone, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, MessageCircle, Loader2, KeyRound, X } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ModalPortal from '@/components/ModalPortal';
 import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
 import { sanitizeCustomerSession } from '@/lib/authSanitizer';
 
-export default function CheckoutAuthModal({ onSuccess }) {
-    const { setUser, showToast, setCheckoutForm } = useShop();
+export default function CheckoutAuthModal({ onSuccess, onClose, onContinueAsGuest }) {
+    const { setUser, showToast, setCheckoutForm, communicationChannel, isEmailOnly, isWhatsAppOnly, isHybridChannel } = useShop();
 
     const [activeTab, setActiveTab] = useState('otp'); // 'otp' | 'register' | 'login'
 
-    // OTP Auth State (WhatsApp OTP)
+    // OTP Auth State (WhatsApp or Email)
+    const [otpMode, setOtpMode] = useState(isEmailOnly ? 'email' : 'whatsapp');
+    const [otpEmail, setOtpEmail] = useState('');
     const [otpCountryCode, setOtpCountryCode] = useState(DEFAULT_COUNTRY_CODE);
     const [otpPhone, setOtpPhone] = useState('');
     const [otpCode, setOtpCode] = useState('');
-    const [otpStep, setOtpStep] = useState(1); // 1 = Enter Phone, 2 = Enter 6-digit OTP
+    const [otpStep, setOtpStep] = useState(1); // 1 = Enter Target, 2 = Enter 6-digit OTP
     const [otpCountdown, setOtpCountdown] = useState(0);
+
+    useEffect(() => {
+        if (isEmailOnly) setOtpMode('email');
+        else if (isWhatsAppOnly) setOtpMode('whatsapp');
+    }, [isEmailOnly, isWhatsAppOnly]);
 
     // New User Sign Up State
     const [regName, setRegName] = useState('');
@@ -62,6 +69,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
             billingPincode: customerData.pincode || prev.billingPincode || '',
             shippingName: customerData.name || prev.shippingName || '',
             shippingPhone: phoneClean || prev.shippingPhone || '',
+            shippingWhatsApp: phoneClean || prev.shippingWhatsApp || '',
             shippingAddress: customerData.address || prev.shippingAddress || '',
             shippingCity: customerData.city || prev.shippingCity || '',
             shippingState: customerData.state || prev.shippingState || 'Tamil Nadu',
@@ -69,11 +77,45 @@ export default function CheckoutAuthModal({ onSuccess }) {
         }));
     };
 
-    // Handle Send WhatsApp OTP
+    // Handle Send OTP (Email or WhatsApp)
     const handleSendOtp = async (e) => {
         if (e) e.preventDefault();
         setError('');
 
+        if (otpMode === 'email') {
+            const cleanEmail = otpEmail.trim().toLowerCase();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+                setError('Please enter a valid Email Address.');
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const res = await fetch('/api/auth/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: cleanEmail })
+                });
+                const data = await res.json();
+                if (!res.ok && data.error) {
+                    setError(data.error || 'Failed to send verification email.');
+                    return;
+                }
+
+                setOtpStep(2);
+                setOtpCountdown(30);
+                showToast(`Verification code sent to ${cleanEmail}`, 'info');
+            } catch (err) {
+                console.error('Send Email OTP Error:', err);
+                setError('Failed to send verification email. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
+        // WhatsApp flow
         const cleanDigits = otpPhone.replace(/\D/g, '');
         if (cleanDigits.length < 7 || (otpCountryCode === '+91' && cleanDigits.length !== 10)) {
             setError('Please enter a valid Mobile Number (10 digits for India).');
@@ -108,37 +150,35 @@ export default function CheckoutAuthModal({ onSuccess }) {
         }
     };
 
-    // Handle Verify 6-Digit WhatsApp OTP
+    // Handle Verify 6-Digit OTP (Email or WhatsApp)
     const handleVerifyOtp = async (e) => {
         if (e) e.preventDefault();
         setError('');
 
         if (!otpCode || otpCode.trim().length !== 6) {
-            setError('Please enter the 6-digit WhatsApp OTP code.');
+            setError('Please enter the 6-digit verification code.');
             return;
         }
 
-        const cleanDigits = otpPhone.replace(/\D/g, '');
         setLoading(true);
+        const payload = otpMode === 'email'
+            ? { email: otpEmail.trim().toLowerCase(), code: otpCode.trim() }
+            : { phone: otpPhone.replace(/\D/g, ''), country_code: otpCountryCode, code: otpCode.trim() };
 
         try {
             const res = await fetch('/api/auth/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    phone: cleanDigits, 
-                    country_code: otpCountryCode,
-                    code: otpCode.trim() 
-                })
+                body: JSON.stringify(payload)
             });
 
             const data = await res.json();
             if (res.ok && data.success && data.user) {
                 const customerData = sanitizeCustomerSession({
-                    id: data.user.id || 'cust_' + cleanDigits,
+                    id: data.user.id || (otpMode === 'email' ? 'cust_' + Date.now() : 'cust_' + payload.phone),
                     name: data.user.name || '',
-                    email: data.user.email || '',
-                    phone: data.user.phone || cleanDigits,
+                    email: data.user.email || (otpMode === 'email' ? otpEmail.trim().toLowerCase() : ''),
+                    phone: data.user.phone || (otpMode === 'email' ? '' : payload.phone),
                     country_code: data.user.country_code || otpCountryCode,
                     address: data.user.address || '',
                     city: data.user.city || '',
@@ -153,12 +193,12 @@ export default function CheckoutAuthModal({ onSuccess }) {
                 showToast(
                     customerData.name 
                         ? `Welcome back, ${customerData.name}! Continuing Checkout.` 
-                        : 'WhatsApp Verified! Continuing Checkout.', 
+                        : `${otpMode === 'email' ? 'Email' : 'WhatsApp'} Verified! Continuing Checkout.`, 
                     'success'
                 );
                 if (onSuccess) onSuccess(customerData);
             } else {
-                setError(data.error || 'Invalid or expired 6-digit OTP code.');
+                setError(data.error || 'Invalid or expired 6-digit verification code.');
             }
         } catch (err) {
             setError('Connection failed. Please check your internet connection.');
@@ -181,7 +221,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
             return;
         }
         const cleanDigits = regPhone.replace(/\D/g, '');
-        if (cleanDigits.length < 7 || (regCountryCode === '+91' && cleanDigits.length !== 10)) {
+        if (!isEmailOnly && (cleanDigits.length < 7 || (regCountryCode === '+91' && cleanDigits.length !== 10))) {
             setError('Please enter a valid Mobile Number (10 digits for India).');
             return;
         }
@@ -296,9 +336,36 @@ export default function CheckoutAuthModal({ onSuccess }) {
                         padding: '2rem 1.75rem',
                         boxShadow: '0 25px 60px rgba(93, 8, 33, 0.25)',
                         border: '1px solid #f0e6df',
-                        animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                        animation: 'modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                        position: 'relative'
                     }}
                 >
+                    {(onClose || onContinueAsGuest) && (
+                        <button
+                            type="button"
+                            onClick={onContinueAsGuest || onClose}
+                            aria-label="Close authentication modal"
+                            style={{
+                                position: 'absolute',
+                                top: '1rem',
+                                right: '1rem',
+                                background: '#f4f4f5',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                color: '#52525b',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
+
                     {/* Header */}
                     <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
@@ -310,7 +377,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                             Authenticate to Checkout
                         </h2>
                         <p style={{ fontSize: '0.8rem', color: '#666', margin: 0, lineHeight: 1.4 }}>
-                            Verify your WhatsApp or sign in to complete your purchase securely.
+                            Verify your {isEmailOnly ? 'Email' : (isWhatsAppOnly ? 'WhatsApp' : 'WhatsApp or Email')} or sign in to complete your purchase securely.
                         </p>
                     </div>
 
@@ -332,7 +399,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                 border: 'none',
                                 borderRadius: '9px',
                                 background: activeTab === 'otp' ? '#ffffff' : 'transparent',
-                                color: activeTab === 'otp' ? '#16a34a' : '#777',
+                                color: activeTab === 'otp' ? (otpMode === 'email' ? '#2563eb' : '#16a34a') : '#777',
                                 fontWeight: activeTab === 'otp' ? 800 : 600,
                                 fontSize: '0.8rem',
                                 cursor: 'pointer',
@@ -344,7 +411,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            <MessageCircle size={14} /> WhatsApp OTP
+                            {otpMode === 'email' ? <><Mail size={14} /> Email OTP</> : <><MessageCircle size={14} /> WhatsApp OTP</>}
                         </button>
                         <button
                             type="button"
@@ -402,73 +469,131 @@ export default function CheckoutAuthModal({ onSuccess }) {
                         </div>
                     )}
 
-                    {/* TAB 1: WHATSAPP 6-DIGIT OTP AUTH */}
+                    {/* TAB 1: OTP AUTH (EMAIL OR WHATSAPP) */}
                     {activeTab === 'otp' && (
                         <div>
+                            {/* Sub-toggle if in Both mode */}
+                            {isHybridChannel && (
+                                <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '10px', marginBottom: '1rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setOtpMode('whatsapp'); setOtpStep(1); setOtpCode(''); setError(''); }}
+                                        style={{
+                                            flex: 1, padding: '0.45rem', border: 'none', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                                            background: otpMode === 'whatsapp' ? '#ffffff' : 'transparent',
+                                            color: otpMode === 'whatsapp' ? '#16a34a' : '#64748b',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                        }}
+                                    >
+                                        <MessageCircle size={14} /> WhatsApp
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setOtpMode('email'); setOtpStep(1); setOtpCode(''); setError(''); }}
+                                        style={{
+                                            flex: 1, padding: '0.45rem', border: 'none', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                                            background: otpMode === 'email' ? '#ffffff' : 'transparent',
+                                            color: otpMode === 'email' ? '#2563eb' : '#64748b',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                        }}
+                                    >
+                                        <Mail size={14} /> Email
+                                    </button>
+                                </div>
+                            )}
+
                             {otpStep === 1 ? (
                                 <form onSubmit={handleSendOtp}>
-                                    <div style={{ marginBottom: '1.25rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#444', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            Mobile / WhatsApp Number <span style={{ color: '#5d0821' }}>*</span>
-                                        </label>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <select
-                                                value={otpCountryCode}
-                                                onChange={e => setOtpCountryCode(e.target.value)}
-                                                style={{ width: '115px', padding: '0.75rem 0.4rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: 700, background: '#faf9f6', outline: 'none' }}
-                                            >
-                                                {COUNTRY_CODES.map(c => (
-                                                    <option key={c.code} value={c.code}>
-                                                        {c.flag} {c.code}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <div style={{ position: 'relative', flex: 1 }}>
-                                                <Phone size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                    {otpMode === 'email' ? (
+                                        <div style={{ marginBottom: '1.25rem' }}>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#444', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Email Address <span style={{ color: '#5d0821' }}>*</span>
+                                            </label>
+                                            <div style={{ position: 'relative' }}>
+                                                <Mail size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
                                                 <input
-                                                    type="tel"
-                                                    value={otpPhone}
-                                                    onChange={e => setOtpPhone(e.target.value.replace(/\D/g, ''))}
-                                                    placeholder={otpCountryCode === '+91' ? '10-digit mobile' : 'Enter mobile'}
+                                                    type="email"
+                                                    value={otpEmail}
+                                                    onChange={e => setOtpEmail(e.target.value)}
+                                                    placeholder="Enter your email address"
                                                     required
                                                     style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.95rem', outline: 'none', background: '#faf9f6' }}
                                                 />
                                             </div>
+                                            <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '6px', display: 'block' }}>
+                                                🔒 A 6-digit verification code will be sent to your email inbox.
+                                            </span>
                                         </div>
-                                        <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '6px', display: 'block' }}>
-                                            🔒 A 6-digit verification code will be sent to your WhatsApp.
-                                        </span>
-                                    </div>
+                                    ) : (
+                                        <div style={{ marginBottom: '1.25rem' }}>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#444', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Mobile / WhatsApp Number <span style={{ color: '#5d0821' }}>*</span>
+                                            </label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <select
+                                                    value={otpCountryCode}
+                                                    onChange={e => setOtpCountryCode(e.target.value)}
+                                                    style={{ width: '115px', padding: '0.75rem 0.4rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: 700, background: '#faf9f6', outline: 'none' }}
+                                                >
+                                                    {COUNTRY_CODES.map(c => (
+                                                        <option key={c.code} value={c.code}>
+                                                            {c.flag} {c.code}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <div style={{ position: 'relative', flex: 1 }}>
+                                                    <Phone size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                                    <input
+                                                        type="tel"
+                                                        value={otpPhone}
+                                                        onChange={e => setOtpPhone(e.target.value.replace(/\D/g, ''))}
+                                                        placeholder={otpCountryCode === '+91' ? '10-digit mobile' : 'Enter mobile'}
+                                                        required
+                                                        style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.95rem', outline: 'none', background: '#faf9f6' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '6px', display: 'block' }}>
+                                                🔒 A 6-digit verification code will be sent to your WhatsApp.
+                                            </span>
+                                        </div>
+                                    )}
 
                                     <button
                                         type="submit"
-                                        disabled={loading || !otpPhone}
+                                        disabled={loading || (otpMode === 'email' ? !otpEmail : !otpPhone)}
                                         style={{
                                             width: '100%',
                                             padding: '0.9rem',
-                                            background: otpPhone ? '#16a34a' : '#94a3b8',
+                                            background: (otpMode === 'email' ? otpEmail : otpPhone) ? (otpMode === 'email' ? '#2563eb' : '#16a34a') : '#94a3b8',
                                             color: '#ffffff',
                                             border: 'none',
                                             borderRadius: '12px',
                                             fontWeight: 800,
                                             fontSize: '0.92rem',
                                             letterSpacing: '0.04em',
-                                            cursor: otpPhone ? 'pointer' : 'not-allowed',
-                                            boxShadow: otpPhone ? '0 6px 20px rgba(22, 163, 74, 0.25)' : 'none',
+                                            cursor: (otpMode === 'email' ? otpEmail : otpPhone) ? 'pointer' : 'not-allowed',
+                                            boxShadow: (otpMode === 'email' ? otpEmail : otpPhone) ? '0 6px 20px rgba(37, 99, 235, 0.25)' : 'none',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             gap: '8px'
                                         }}
                                     >
-                                        {loading ? <><Loader2 size={18} className="animate-spin" /> Sending WhatsApp OTP...</> : <><MessageCircle size={18} /> Send 6-Digit WhatsApp OTP →</>}
+                                        {loading ? (
+                                            <><Loader2 size={18} className="animate-spin" /> Sending Code...</>
+                                        ) : otpMode === 'email' ? (
+                                            <><Mail size={18} /> Send 6-Digit Email Code →</>
+                                        ) : (
+                                            <><MessageCircle size={18} /> Send 6-Digit WhatsApp OTP →</>
+                                        )}
                                     </button>
                                 </form>
                             ) : (
                                 <form onSubmit={handleVerifyOtp}>
                                     <div style={{ marginBottom: '1.25rem', textAlign: 'center' }}>
                                         <div style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '0.5rem' }}>
-                                            Enter the 6-digit OTP sent to: <strong>{otpCountryCode} {otpPhone}</strong>
+                                            Enter the 6-digit code sent to: <strong>{otpMode === 'email' ? otpEmail : `${otpCountryCode} ${otpPhone}`}</strong>
                                         </div>
                                         <input
                                             type="text"
@@ -504,7 +629,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                                 onClick={handleSendOtp}
                                                 style={{ background: 'none', border: 'none', color: '#5d0821', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
                                             >
-                                                Resend OTP via WhatsApp
+                                                Resend Code {otpMode === 'email' ? 'to Email' : 'via WhatsApp'}
                                             </button>
                                         )}
                                         <span style={{ margin: '0 8px', color: '#cbd5e1' }}>•</span>
@@ -513,7 +638,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                             onClick={() => { setOtpStep(1); setOtpCode(''); }}
                                             style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
                                         >
-                                            Change Number
+                                            Change {otpMode === 'email' ? 'Email' : 'Number'}
                                         </button>
                                     </div>
 
@@ -536,7 +661,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                             gap: '8px'
                                         }}
                                     >
-                                        {loading ? <><Loader2 size={18} className="animate-spin" /> Verifying...</> : <>Verify OTP & Unlock Checkout →</>}
+                                        {loading ? <><Loader2 size={18} className="animate-spin" /> Verifying...</> : <>Verify Code & Unlock Checkout →</>}
                                     </button>
                                 </form>
                             )}
@@ -582,7 +707,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
 
                             <div style={{ marginBottom: '0.85rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#444', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    Mobile Number <span style={{ color: '#5d0821' }}>*</span>
+                                    Mobile Number {isEmailOnly ? <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 500 }}>(Optional for delivery)</span> : <span style={{ color: '#5d0821' }}>*</span>}
                                 </label>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <select
@@ -603,7 +728,7 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                             value={regPhone}
                                             onChange={e => setRegPhone(e.target.value.replace(/[^0-9]/g, ''))}
                                             placeholder={regCountryCode === '+91' ? '10-digit mobile number' : 'Mobile number'}
-                                            required
+                                            required={!isEmailOnly}
                                             style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '9px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
                                         />
                                     </div>
@@ -681,15 +806,19 @@ export default function CheckoutAuthModal({ onSuccess }) {
                         <form onSubmit={handleLoginSubmit}>
                             <div style={{ marginBottom: '1rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#444', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    Mobile Number or Email
+                                    {isEmailOnly ? 'Email Address' : (isWhatsAppOnly ? 'WhatsApp Mobile Number' : 'Mobile Number or Email')} <span style={{ color: '#5d0821' }}>*</span>
                                 </label>
                                 <div style={{ position: 'relative' }}>
-                                    <User size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                    {isEmailOnly ? (
+                                        <Mail size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                    ) : (
+                                        <User size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+                                    )}
                                     <input
-                                        type="text"
+                                        type={isEmailOnly ? "email" : "text"}
                                         value={loginIdentifier}
                                         onChange={e => setLoginIdentifier(e.target.value)}
-                                        placeholder="Enter Mobile or Email"
+                                        placeholder={isEmailOnly ? "Enter your email address" : (isWhatsAppOnly ? "Enter 10-digit mobile" : "Enter Mobile or Email")}
                                         required
                                         style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '9px', border: '1px solid #ddd', fontSize: '0.9rem', outline: 'none', background: '#faf9f6' }}
                                     />
@@ -746,6 +875,28 @@ export default function CheckoutAuthModal({ onSuccess }) {
                                 {loading ? 'Logging in...' : 'Login & Continue Checkout →'}
                             </button>
                         </form>
+                    )}
+
+                    {(onContinueAsGuest || onClose) && (
+                        <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f0e6df' }}>
+                            <button
+                                type="button"
+                                onClick={onContinueAsGuest || onClose}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#64748b',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                Continue as Guest Checkout <ArrowRight size={14} />
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

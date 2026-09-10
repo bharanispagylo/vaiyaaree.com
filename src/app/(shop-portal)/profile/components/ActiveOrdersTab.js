@@ -18,6 +18,7 @@ export default function ActiveOrdersTab({
     setCancelModalOrder,
     setCancelReason,
     setTrackSearchId,
+    setTrackOrderData,
     handleTabChange,
     handleTrackSearch
 }) {
@@ -126,6 +127,7 @@ export default function ActiveOrdersTab({
                                                         onClick={() => {
                                                             const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
                                                             setTrackSearchId(inv);
+                                                            if (setTrackOrderData) setTrackOrderData(order);
                                                             handleTabChange('track');
                                                             handleTrackSearch(order.id);
                                                         }}
@@ -204,6 +206,7 @@ export default function ActiveOrdersTab({
                                             onClick={() => {
                                                 const inv = order.invoice_no ? order.invoice_no : String(order.id).replace(/^[A-Z]+-/, 'INV-');
                                                 setTrackSearchId(inv);
+                                                if (setTrackOrderData) setTrackOrderData(order);
                                                 handleTabChange('track');
                                                 handleTrackSearch(order.id);
                                             }}

@@ -9,6 +9,8 @@ export async function getProductServer(param) {
     try {
         const rawParam = decodeURIComponent(String(param)).trim().replace(/\/$/, '').toLowerCase();
 
+        const isExplicitlyInactive = p => p && (p.is_active === 0 || p.is_active === false || String(p.is_active) === '0');
+
         // 1. Direct Slug, ID, product_no, or SKU query
         const [rows] = await pool.query(
             'SELECT * FROM `products` WHERE (`slug` = ? OR `id` = ? OR `product_no` = ? OR `sku` = ?) LIMIT 1',
@@ -16,20 +18,36 @@ export async function getProductServer(param) {
         );
         if (rows && rows.length > 0) {
             const product = rows[0];
-            // If product exists but is disabled or draft, strictly return null
-            if (product.is_active === 0 || product.is_active === false || String(product.is_active) === '0' || !product.is_active) {
+            if (isExplicitlyInactive(product)) {
                 return null;
             }
             return product;
         }
 
-        // 2. Fetch all products to match via findProductBySlugOrId
-        const [allRows] = await pool.query('SELECT * FROM `products`');
+        // 2. Direct trailing identifier query (Product No / SKU / ID extracted after last hyphen)
+        const lastHyphen = rawParam.lastIndexOf('-');
+        if (lastHyphen !== -1) {
+            const identifier = rawParam.substring(lastHyphen + 1);
+            if (identifier) {
+                const [idRows] = await pool.query(
+                    'SELECT * FROM `products` WHERE (`product_no` = ? OR `sku` = ? OR `id` = ?) LIMIT 1',
+                    [identifier, identifier, identifier]
+                );
+                if (idRows && idRows.length > 0) {
+                    const product = idRows[0];
+                    if (!isExplicitlyInactive(product)) {
+                        return product;
+                    }
+                }
+            }
+        }
+
+        // 3. Fetch active products to match via findProductBySlugOrId fallback
+        const [allRows] = await pool.query('SELECT * FROM `products` WHERE `is_active` != 0 AND `is_active` IS NOT FALSE');
         if (allRows && allRows.length > 0) {
             const matched = findProductBySlugOrId(param, allRows);
             if (matched) {
-                // If matched product is disabled or draft, strictly return null
-                if (matched.is_active === 0 || matched.is_active === false || String(matched.is_active) === '0' || !matched.is_active) {
+                if (isExplicitlyInactive(matched)) {
                     return null;
                 }
                 return matched;

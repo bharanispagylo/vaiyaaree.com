@@ -23,22 +23,36 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Please enter a valid Email Address.' }, { status: 400 });
         }
 
+        // Fetch communication channel setting
+        const { data: channelSetting } = await mysqlClient
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'communication_channel')
+            .maybeSingle();
+
+        const activeChannel = channelSetting?.value || 'whatsapp';
+        const isEmailMode = activeChannel === 'email';
+
         const selectedCountryCode = (country_code || '+91').trim();
         const rawDigits = (phone || '').replace(/\D/g, '');
-        // For +91 (India), check 10 digits; for international numbers allow 7-15 digits
         const cleanPhone = (selectedCountryCode === '+91' || selectedCountryCode === '91')
             ? rawDigits.slice(-10)
             : rawDigits;
 
-        if (!cleanPhone || cleanPhone.length < 7 || (selectedCountryCode === '+91' && cleanPhone.length !== 10)) {
-            return NextResponse.json({ error: 'Please enter a valid Mobile Number.' }, { status: 400 });
+        if (!isEmailMode) {
+            if (!cleanPhone || cleanPhone.length < 7 || (selectedCountryCode === '+91' && cleanPhone.length !== 10)) {
+                return NextResponse.json({ error: 'Please enter a valid Mobile Number.' }, { status: 400 });
+            }
+        } else if (cleanPhone && (cleanPhone.length < 7 || (selectedCountryCode === '+91' && cleanPhone.length !== 10))) {
+            return NextResponse.json({ error: 'Please enter a valid Mobile Number (10 digits for India) or leave it blank.' }, { status: 400 });
         }
+
         if (!password || password.length < 6) {
             return NextResponse.json({ error: 'Password must be at least 6 characters long.' }, { status: 400 });
         }
 
         const normalizedEmail = email.trim().toLowerCase();
-        const fullPhoneWith91 = `91${cleanPhone}`;
+        const fullPhoneWith91 = cleanPhone ? `91${cleanPhone}` : '';
 
         // 2. Check for Duplicate Email
         const { data: existingEmail } = await mysqlClient
@@ -51,15 +65,17 @@ export async function POST(req) {
             return NextResponse.json({ error: 'An account with this email address already exists. Please log in.' }, { status: 400 });
         }
 
-        // 3. Check for Duplicate Phone (check clean phone, 91+phone, and +91+phone)
-        const { data: existingPhone } = await mysqlClient
-            .from('customers')
-            .select('id')
-            .or(`phone.eq.${cleanPhone},phone.eq.${fullPhoneWith91},phone.eq.+91${cleanPhone}`)
-            .maybeSingle();
+        // 3. Check for Duplicate Phone (if phone provided)
+        if (cleanPhone) {
+            const { data: existingPhone } = await mysqlClient
+                .from('customers')
+                .select('id')
+                .or(`phone.eq.${cleanPhone},phone.eq.${fullPhoneWith91},phone.eq.+91${cleanPhone}`)
+                .maybeSingle();
 
-        if (existingPhone) {
-            return NextResponse.json({ error: 'An account with this mobile number already exists. Please log in.' }, { status: 400 });
+            if (existingPhone) {
+                return NextResponse.json({ error: 'An account with this mobile number already exists. Please log in.' }, { status: 400 });
+            }
         }
 
         // 4. Hash Password with PBKDF2 (SHA-512, 100k iterations) & Store JSON Payload in admin_notes

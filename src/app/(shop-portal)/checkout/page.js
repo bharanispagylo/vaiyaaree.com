@@ -1,22 +1,35 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
-import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock, Sparkles } from 'lucide-react';
+import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock, Sparkles, Mail } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
-import CheckoutAuthModal from '@/components/CheckoutAuthModal';
 import ModalPortal from '@/components/ModalPortal';
 import Link from 'next/link';
 import styles from './checkout.module.css';
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, discountData, placeOrder, mysqlClient, showToast, user, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon, activeDiscountRules, fetchShippingRates } = useShop();
+    const searchParams = useSearchParams();
+    const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, discountData, placeOrder, clearCartAfterSuccess, isSessionLoading, mysqlClient, showToast, user, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon, activeDiscountRules, fetchShippingRates, isCartLoaded, isEmailOnly, isWhatsAppOnly, isHybridChannel, communicationChannel, supportEmail, supportPhone } = useShop();
+    const [pageMounted, setPageMounted] = useState(false);
     const [placing, setPlacing] = useState(false);
     const [orderData, setOrderData] = useState(null);
+    const [isGuestMode, setIsGuestMode] = useState(false);
     const [couponInput, setCouponInput] = useState('');
     const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+    useEffect(() => {
+        setPageMounted(true);
+        if (typeof window !== 'undefined') {
+            const hasGuestParam = searchParams?.get('guest') === 'true';
+            const hasGuestSession = sessionStorage.getItem('vaiyaaree_checkout_guest') === 'true';
+            if (hasGuestParam || hasGuestSession) {
+                setIsGuestMode(true);
+            }
+        }
+    }, [searchParams]);
 
     // Refresh live shipping rates directly from DB on checkout mount
     useEffect(() => {
@@ -40,6 +53,13 @@ export default function CheckoutPage() {
     });
 
     const isUserLoggedIn = Boolean(user && user.id);
+
+    // Redirect to dedicated checkout auth page if not logged in and not guest
+    useEffect(() => {
+        if (!isSessionLoading && !isUserLoggedIn && !isGuestMode) {
+            router.replace('/checkout/auth');
+        }
+    }, [isSessionLoading, isUserLoggedIn, isGuestMode, router]);
 
     // Fetch Payment Gateway Settings on mount
     useEffect(() => {
@@ -74,42 +94,21 @@ export default function CheckoutPage() {
     }, []);
 
 
-    // Sync shipping with billing when sameAsBilling is checked
-    useEffect(() => {
-        if (checkoutForm.sameAsBilling) {
-            setCheckoutForm(p => ({
-                ...p,
-                shippingName: p.billingName,
-                shippingPhone: p.billingPhone,
-                shippingAddress: p.billingAddress,
-                shippingCity: p.billingCity,
-                shippingState: p.billingState,
-                shippingPincode: p.billingPincode,
-                shippingCountry: p.billingCountry || 'India'
-            }));
-        }
-    }, [
-        checkoutForm.sameAsBilling,
-        checkoutForm.billingName,
-        checkoutForm.billingPhone,
-        checkoutForm.billingAddress,
-        checkoutForm.billingCity,
-        checkoutForm.billingState,
-        checkoutForm.billingPincode,
-        checkoutForm.billingCountry
-    ]);
-
     const states = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"];
+
+    const isBillingIndia = (checkoutForm.billingCountry || 'India').toLowerCase() === 'india';
+    const cleanBillingPhoneDigits = (checkoutForm.billingPhone || '').replace(/\D/g, '');
+    const cleanWhatsAppDigits = (checkoutForm.billingWhatsApp || '').replace(/\D/g, '');
 
     const isBillingComplete = Boolean(
         checkoutForm.billingName?.trim() &&
-        checkoutForm.billingPhone?.trim()?.length === 10 &&
-        checkoutForm.billingWhatsApp?.trim()?.length === 10 &&
+        (isBillingIndia ? cleanBillingPhoneDigits.length === 10 : cleanBillingPhoneDigits.length >= 7) &&
+        (isBillingIndia ? cleanWhatsAppDigits.length === 10 : cleanWhatsAppDigits.length >= 7) &&
         checkoutForm.billingEmail?.trim() &&
         checkoutForm.billingEmail?.includes('@') &&
         checkoutForm.billingAddress?.trim() &&
         checkoutForm.billingCity?.trim() &&
-        checkoutForm.billingPincode?.trim()?.length >= 6
+        checkoutForm.billingPincode?.trim()?.length >= (isBillingIndia ? 6 : 3)
     );
 
     const handlePlaceOrder = async () => {
@@ -117,14 +116,30 @@ export default function CheckoutPage() {
             showToast('Please enter your Full Name', 'error');
             return;
         }
-        if (!checkoutForm.billingPhone || checkoutForm.billingPhone.trim().length !== 10) {
-            showToast('Please enter a valid 10-digit Phone Number', 'error');
-            return;
+
+        const cleanPhone = (checkoutForm.billingPhone || '').replace(/\D/g, '');
+        const cleanWA = (checkoutForm.billingWhatsApp || '').replace(/\D/g, '');
+
+        if (isBillingIndia) {
+            if (cleanPhone.length !== 10) {
+                showToast('Please enter a valid 10-digit Phone Number', 'error');
+                return;
+            }
+            if (cleanWA.length !== 10) {
+                showToast('Please enter a valid 10-digit Billing WhatsApp Number', 'error');
+                return;
+            }
+        } else {
+            if (cleanPhone.length < 7 || cleanPhone.length > 15) {
+                showToast('Please enter a valid Phone Number (7-15 digits)', 'error');
+                return;
+            }
+            if (cleanWA.length < 7 || cleanWA.length > 15) {
+                showToast('Please enter a valid Billing WhatsApp Number (7-15 digits)', 'error');
+                return;
+            }
         }
-        if (!checkoutForm.billingWhatsApp || checkoutForm.billingWhatsApp.trim().length !== 10) {
-            showToast('Please enter a valid 10-digit WhatsApp Number', 'error');
-            return;
-        }
+
         if (!checkoutForm.billingEmail || !checkoutForm.billingEmail.includes('@')) {
             showToast('Please enter a valid Email Address', 'error');
             return;
@@ -137,8 +152,8 @@ export default function CheckoutPage() {
             showToast('Please enter your City / Town', 'error');
             return;
         }
-        if (!checkoutForm.billingPincode || checkoutForm.billingPincode.trim().length < 6) {
-            showToast('Please enter a valid 6-digit Pincode', 'error');
+        if (!checkoutForm.billingPincode || (isBillingIndia && checkoutForm.billingPincode.trim().length < 6)) {
+            showToast('Please enter a valid Pincode', 'error');
             return;
         }
         if (!checkoutForm.billingState?.trim()) {
@@ -147,9 +162,51 @@ export default function CheckoutPage() {
         }
 
         // Validate shipping if different from billing
-        if (!checkoutForm.sameAsBilling && (!checkoutForm.shippingName || !checkoutForm.shippingPhone || !checkoutForm.shippingAddress)) {
-            showToast('Please fill all required shipping details', 'error');
-            return;
+        if (!checkoutForm.sameAsBilling) {
+            if (!checkoutForm.shippingName?.trim()) {
+                showToast('Please enter recipient Full Name for shipping', 'error');
+                return;
+            }
+            const cleanShipPhone = (checkoutForm.shippingPhone || '').replace(/\D/g, '');
+            const cleanShipWA = (checkoutForm.shippingWhatsApp || '').replace(/\D/g, '');
+            const isShippingIndia = (checkoutForm.shippingCountry || 'India').toLowerCase() === 'india';
+
+            if (isShippingIndia) {
+                if (cleanShipPhone.length !== 10) {
+                    showToast('Please enter a valid 10-digit Shipping Phone Number', 'error');
+                    return;
+                }
+                if (cleanShipWA.length !== 10) {
+                    showToast('Please enter a valid 10-digit Shipping WhatsApp Number', 'error');
+                    return;
+                }
+            } else {
+                if (cleanShipPhone.length < 7 || cleanShipPhone.length > 15) {
+                    showToast('Please enter a valid Shipping Phone Number (7-15 digits)', 'error');
+                    return;
+                }
+                if (cleanShipWA.length < 7 || cleanShipWA.length > 15) {
+                    showToast('Please enter a valid Shipping WhatsApp Number (7-15 digits)', 'error');
+                    return;
+                }
+            }
+
+            if (!checkoutForm.shippingAddress?.trim()) {
+                showToast('Please enter recipient Address for shipping', 'error');
+                return;
+            }
+            if (!checkoutForm.shippingCity?.trim()) {
+                showToast('Please enter recipient City for shipping', 'error');
+                return;
+            }
+            if (!checkoutForm.shippingPincode?.trim()) {
+                showToast('Please enter recipient Pincode for shipping', 'error');
+                return;
+            }
+            if (!checkoutForm.shippingState?.trim()) {
+                showToast('Please select recipient State for shipping', 'error');
+                return;
+            }
         }
 
         // Validate product stock limits
@@ -159,15 +216,11 @@ export default function CheckoutPage() {
             return;
         }
 
-        // Validate payment method selected
-        if (!checkoutForm.paymentMethod) {
-            showToast('Please select a Payment Method (Online Payment or Cash on Delivery)', 'error');
-            return;
-        }
+        const selectedMethod = checkoutForm.paymentMethod || 'COD';
 
         setPlacing(true);
         try {
-            if (checkoutForm.paymentMethod === 'RAZORPAY') {
+            if (selectedMethod === 'RAZORPAY') {
                 // Step 1: Create Order Record in MySQL
                 const createdOrder = await placeOrder('RAZORPAY');
                 if (!createdOrder || !createdOrder.orderId) {
@@ -210,6 +263,7 @@ export default function CheckoutPage() {
                                 });
                                 const verifyData = await verifyRes.json();
                                 if (verifyData.success) {
+                                    clearCartAfterSuccess();
                                     setOrderData({
                                         ...createdOrder,
                                         payment_method: 'Razorpay',
@@ -217,7 +271,7 @@ export default function CheckoutPage() {
                                     });
                                     showToast('Payment Successful! Your order has been confirmed.', 'success');
                                 } else {
-                                    showToast(verifyData.error || 'Payment verification failed', 'error');
+                                    showToast(verifyData.error || 'Payment verification failed. Your cart is preserved.', 'error');
                                 }
                             } catch (verifyErr) {
                                 showToast('Verification Error: ' + verifyErr.message, 'error');
@@ -228,7 +282,7 @@ export default function CheckoutPage() {
                         modal: {
                             ondismiss: function () {
                                 setPlacing(false);
-                                showToast('Payment window closed. You can retry payment anytime.', 'info');
+                                showToast('Payment window closed. Your cart and details are saved so you can retry.', 'info');
                             }
                         },
                         prefill: {
@@ -258,9 +312,8 @@ export default function CheckoutPage() {
         } catch (err) {
             console.error('Checkout Error:', err);
             showToast(err.message || 'Failed to place order', 'error');
-            setPlacing(false);
         } finally {
-            if (checkoutForm.paymentMethod !== 'RAZORPAY') {
+            if (selectedMethod !== 'RAZORPAY') {
                 setPlacing(false);
             }
         }
@@ -271,6 +324,14 @@ export default function CheckoutPage() {
         const bizPhone = process.env.NEXT_PUBLIC_BUSINESS_PHONE || '918667793292';
         window.open(`https://wa.me/${bizPhone}?text=${message}`, '_blank');
     };
+
+    if ((!pageMounted || !isCartLoaded) && !orderData && !placing) {
+        return (
+            <div className={styles.emptyCheckout} style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 size={36} className={`${styles.spinnerRing} animate-spin`} style={{ color: '#5d0821' }} />
+            </div>
+        );
+    }
 
     if (cart.length === 0 && !orderData && !placing) {
         return (
@@ -283,24 +344,45 @@ export default function CheckoutPage() {
         );
     }
 
+    if (!isSessionLoading && !isUserLoggedIn && !isGuestMode && !orderData) {
+        return (
+            <div className={styles.emptyCheckout} style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem' }}>
+                <Loader2 size={36} className={`${styles.spinnerRing} animate-spin`} style={{ color: '#5d0821' }} />
+                <p style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 600 }}>Proceeding to authentication...</p>
+            </div>
+        );
+    }
+
     return (
         <>
-            {!isUserLoggedIn && (
-                <CheckoutAuthModal />
-            )}
+            <div className={styles.checkoutLayout}>
+                <div className={styles.checkoutLeft}>
+                    {/* GUEST BANNER */}
+                    {!isUserLoggedIn && isGuestMode && (
+                        <div style={{
+                            background: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '12px',
+                            padding: '12px 18px',
+                            marginBottom: '1.5rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '8px'
+                        }}>
+                            <div style={{ fontSize: '0.88rem', color: '#334155' }}>
+                                ⚡ Checking out as <strong>Guest</strong>.
+                            </div>
+                            <Link href="/checkout/auth" style={{ fontSize: '0.84rem', color: '#5d0821', fontWeight: 700, textDecoration: 'none' }}>
+                                Log in or Register for live tracking →
+                            </Link>
+                        </div>
+                    )}
 
-            <div style={{
-                filter: !isUserLoggedIn ? 'blur(6px)' : 'none',
-                pointerEvents: !isUserLoggedIn ? 'none' : 'auto',
-                userSelect: !isUserLoggedIn ? 'none' : 'auto',
-                opacity: !isUserLoggedIn ? 0.45 : 1,
-                transition: 'all 0.3s ease'
-            }}>
-                <div className={styles.checkoutLayout}>
-                    <div className={styles.checkoutLeft}>
-                        {/* BILLING ADDRESS SECTION */}
-                        <section className={styles.checkoutCard}>
-                            <h3 className={styles.cardTitle}>Billing Details</h3>
+                    {/* BILLING ADDRESS SECTION */}
+                    <section className={styles.checkoutCard}>
+                        <h3 className={styles.cardTitle}>Billing Details</h3>
                             <div className={styles.formGrid}>
                                 <div className={styles.formGroup}>
                                     <label>FULL NAME <span className={styles.requiredStar}>*</span></label>
@@ -337,12 +419,21 @@ export default function CheckoutPage() {
 
                             <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                                 <div className={styles.formGroup}>
-                                    <label>WHATSAPP NUMBER <span className={styles.requiredStar}>*</span></label>
+                                    <label>
+                                        WHATSAPP NUMBER <span className={styles.requiredStar}>*</span>
+                                    </label>
                                     <input 
                                         type="tel" 
                                         value={checkoutForm.billingWhatsApp || ''} 
-                                        onChange={e => setCheckoutForm(p => ({ ...p, billingWhatsApp: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
-                                        placeholder="WhatsApp number for order updates" 
+                                        onChange={e => {
+                                            const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                            setCheckoutForm(p => ({ 
+                                                ...p, 
+                                                billingWhatsApp: val,
+                                                ...(p.sameAsBilling ? { shippingWhatsApp: val } : {})
+                                            }));
+                                        }} 
+                                        placeholder="10-digit WhatsApp number" 
                                         pattern="[0-9]{10}"
                                         maxLength="10"
                                         minLength="10"
@@ -354,7 +445,14 @@ export default function CheckoutPage() {
                                     <input 
                                         type="email" 
                                         value={checkoutForm.billingEmail || ''} 
-                                        onChange={e => setCheckoutForm(p => ({ ...p, billingEmail: e.target.value }))} 
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            setCheckoutForm(p => ({ 
+                                                ...p, 
+                                                billingEmail: val,
+                                                ...(p.sameAsBilling ? { shippingEmail: val } : {})
+                                            }));
+                                        }} 
                                         placeholder="your@email.com" 
                                         required
                                     />
@@ -365,7 +463,14 @@ export default function CheckoutPage() {
                                 <label>BILLING ADDRESS <span className={styles.requiredStar}>*</span></label>
                                 <textarea 
                                     value={checkoutForm.billingAddress || ''} 
-                                    onChange={e => setCheckoutForm(p => ({ ...p, billingAddress: e.target.value }))} 
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        setCheckoutForm(p => ({ 
+                                            ...p, 
+                                            billingAddress: val,
+                                            ...(p.sameAsBilling ? { shippingAddress: val } : {})
+                                        }));
+                                    }} 
                                     placeholder="House No, Building, Street, Area..." 
                                     rows={2} 
                                     required
@@ -378,7 +483,14 @@ export default function CheckoutPage() {
                                     <input 
                                         type="text" 
                                         value={checkoutForm.billingCity || ''} 
-                                        onChange={e => setCheckoutForm(p => ({ ...p, billingCity: e.target.value }))} 
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            setCheckoutForm(p => ({ 
+                                                ...p, 
+                                                billingCity: val,
+                                                ...(p.sameAsBilling ? { shippingCity: val } : {})
+                                            }));
+                                        }} 
                                         placeholder="City name" 
                                         required
                                     />
@@ -388,7 +500,14 @@ export default function CheckoutPage() {
                                     {(checkoutForm.billingCountry || 'India') === 'India' ? (
                                         <select 
                                             value={checkoutForm.billingState || 'Tamil Nadu'} 
-                                            onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setCheckoutForm(p => ({ 
+                                                    ...p, 
+                                                    billingState: val,
+                                                    ...(p.sameAsBilling ? { shippingState: val } : {})
+                                                }));
+                                            }}
                                         >
                                             {states.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
@@ -396,7 +515,14 @@ export default function CheckoutPage() {
                                         <input
                                             type="text"
                                             value={checkoutForm.billingState || ''}
-                                            onChange={e => setCheckoutForm(p => ({ ...p, billingState: e.target.value }))}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setCheckoutForm(p => ({ 
+                                                    ...p, 
+                                                    billingState: val,
+                                                    ...(p.sameAsBilling ? { shippingState: val } : {})
+                                                }));
+                                            }}
                                             placeholder="State / Province / Region"
                                             required
                                         />
@@ -410,7 +536,14 @@ export default function CheckoutPage() {
                                     <input 
                                         type="text" 
                                         value={checkoutForm.billingPincode || ''} 
-                                        onChange={e => setCheckoutForm(p => ({ ...p, billingPincode: e.target.value.replace(/[^0-9a-zA-Z\s-]/g, '').slice(0, 10) }))} 
+                                        onChange={e => {
+                                            const val = e.target.value.replace(/[^0-9a-zA-Z\s-]/g, '').slice(0, 10);
+                                            setCheckoutForm(p => ({ 
+                                                ...p, 
+                                                billingPincode: val,
+                                                ...(p.sameAsBilling ? { shippingPincode: val } : {})
+                                            }));
+                                        }} 
                                         placeholder="6-digit Pincode (e.g. 600001)" 
                                         required
                                     />
@@ -459,6 +592,8 @@ export default function CheckoutPage() {
                                             ...(isChecked ? {
                                                 shippingName: p.billingName,
                                                 shippingPhone: p.billingPhone,
+                                                shippingWhatsApp: p.billingWhatsApp,
+                                                shippingEmail: p.billingEmail,
                                                 shippingAddress: p.billingAddress,
                                                 shippingCity: p.billingCity,
                                                 shippingState: p.billingState,
@@ -476,7 +611,7 @@ export default function CheckoutPage() {
                             <div className={styles.shippingFields} style={{ marginTop: '1.5rem' }}>
                                 <div className={styles.formGrid}>
                                     <div className={styles.formGroup}>
-                                        <label>SHIPPING FULL NAME</label>
+                                        <label>SHIPPING FULL NAME <span className={styles.requiredStar}>*</span></label>
                                         <input 
                                             type="text" 
                                             value={checkoutForm.shippingName || ''} 
@@ -486,10 +621,11 @@ export default function CheckoutPage() {
                                             title="Only letters and spaces are allowed"
                                             disabled={checkoutForm.sameAsBilling}
                                             className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                            required={!checkoutForm.sameAsBilling}
                                         />
                                     </div>
                                     <div className={styles.formGroup}>
-                                        <label>SHIPPING PHONE NUMBER</label>
+                                        <label>SHIPPING PHONE NUMBER <span className={styles.requiredStar}>*</span></label>
                                         <input 
                                             type="tel" 
                                             value={checkoutForm.shippingPhone || ''} 
@@ -500,12 +636,42 @@ export default function CheckoutPage() {
                                             pattern="[0-9]{10}"
                                             maxLength="10"
                                             minLength="10"
+                                            required={!checkoutForm.sameAsBilling}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
+                                    <div className={styles.formGroup}>
+                                        <label>SHIPPING WHATSAPP NUMBER <span className={styles.requiredStar}>*</span></label>
+                                        <input 
+                                            type="tel" 
+                                            value={checkoutForm.shippingWhatsApp || ''} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingWhatsApp: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))} 
+                                            placeholder="10-digit WhatsApp number"
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                            pattern="[0-9]{10}"
+                                            maxLength="10"
+                                            minLength="10"
+                                            required={!checkoutForm.sameAsBilling}
+                                        />
+                                    </div>
+                                    <div className={styles.formGroup}>
+                                        <label>SHIPPING EMAIL</label>
+                                        <input 
+                                            type="email" 
+                                            value={checkoutForm.shippingEmail || ''} 
+                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingEmail: e.target.value }))} 
+                                            placeholder="recipient@email.com (optional)"
+                                            disabled={checkoutForm.sameAsBilling}
+                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
                                         />
                                     </div>
                                 </div>
 
                                 <div className={styles.formGroupFull} style={{ marginTop: '1.5rem' }}>
-                                    <label>SHIPPING ADDRESS</label>
+                                    <label>SHIPPING ADDRESS <span className={styles.requiredStar}>*</span></label>
                                     <textarea 
                                         value={checkoutForm.shippingAddress || ''} 
                                         onChange={e => setCheckoutForm(p => ({ ...p, shippingAddress: e.target.value }))} 
@@ -513,12 +679,13 @@ export default function CheckoutPage() {
                                         rows={2}
                                         disabled={checkoutForm.sameAsBilling}
                                         className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                        required={!checkoutForm.sameAsBilling}
                                     />
                                 </div>
 
                                 <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                                     <div className={styles.formGroup}>
-                                        <label>CITY / TOWN</label>
+                                        <label>CITY / TOWN <span className={styles.requiredStar}>*</span></label>
                                         <input 
                                             type="text" 
                                             value={checkoutForm.shippingCity || ''} 
@@ -526,10 +693,11 @@ export default function CheckoutPage() {
                                             placeholder="City name"
                                             disabled={checkoutForm.sameAsBilling}
                                             className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                            required={!checkoutForm.sameAsBilling}
                                         />
                                     </div>
                                     <div className={styles.formGroup}>
-                                        <label>STATE</label>
+                                        <label>STATE <span className={styles.requiredStar}>*</span></label>
                                         {(checkoutForm.shippingCountry || 'India') === 'India' ? (
                                             <select 
                                                 value={checkoutForm.shippingState || 'Tamil Nadu'} 
@@ -547,6 +715,7 @@ export default function CheckoutPage() {
                                                 placeholder="State / Province / Region"
                                                 disabled={checkoutForm.sameAsBilling}
                                                 className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                                required={!checkoutForm.sameAsBilling}
                                             />
                                         )}
                                     </div>
@@ -554,7 +723,7 @@ export default function CheckoutPage() {
 
                                 <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
                                     <div className={styles.formGroup}>
-                                        <label>SHIPPING PINCODE</label>
+                                        <label>SHIPPING PINCODE <span className={styles.requiredStar}>*</span></label>
                                         <input 
                                             type="text" 
                                             value={checkoutForm.shippingPincode || ''} 
@@ -562,23 +731,11 @@ export default function CheckoutPage() {
                                             placeholder="6-digit pincode"
                                             disabled={checkoutForm.sameAsBilling}
                                             className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
+                                            required={!checkoutForm.sameAsBilling}
                                         />
                                     </div>
                                     <div className={styles.formGroup}>
-                                        <label>SHIPPING EMAIL</label>
-                                        <input 
-                                            type="email" 
-                                            value={checkoutForm.shippingEmail || ''} 
-                                            onChange={e => setCheckoutForm(p => ({ ...p, shippingEmail: e.target.value }))} 
-                                            placeholder="recipient@email.com"
-                                            disabled={checkoutForm.sameAsBilling}
-                                            className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
-                                        />
-                                    </div>
-                                </div>
-                                <div className={styles.formGrid} style={{ marginTop: '1.5rem' }}>
-                                    <div className={styles.formGroup}>
-                                        <label>COUNTRY</label>
+                                        <label>COUNTRY <span className={styles.requiredStar}>*</span></label>
                                         <select 
                                             value={checkoutForm.shippingCountry || 'India'}
                                             onChange={e => {
@@ -730,7 +887,7 @@ export default function CheckoutPage() {
 
                         <div className={styles.summaryRow}>
                             <span>Subtotal</span>
-                            <span>₹{cartTotal.toLocaleString()}.00</span>
+                            <span>₹{Number(cartTotal || 0).toLocaleString('en-IN')}.00</span>
                         </div>
 
                         {discountData?.totalDiscount > 0 && (() => {
@@ -861,7 +1018,6 @@ export default function CheckoutPage() {
                 </div>
             </aside>
         </div>
-        </div>
 
         {/* Modal 1: Centered Order Placing / Processing Loading Modal */}
         {placing && !orderData && (
@@ -914,7 +1070,9 @@ export default function CheckoutPage() {
                         </div>
                         <h2 className={styles.modalTitle}>Your Placed Order Confirmed</h2>
                         <p className={styles.modalSubtitle}>
-                            Thank you for your purchase! We have received your order and will process it shortly.
+                            {isEmailOnly
+                                ? 'Thank you for your purchase! A confirmation email with your order summary has been dispatched to your email address.'
+                                : 'Thank you for your purchase! We have received your order and will process it shortly.'}
                         </p>
 
                         {/* Order Details Card */}
@@ -948,10 +1106,21 @@ export default function CheckoutPage() {
                                 <span>View My Orders</span>
                             </button>
                             
-                            <button onClick={() => goToWhatsApp(orderData.orderId)} className={styles.modalWaBtn}>
-                                <MessageCircle size={18} />
-                                <span>Confirm on WhatsApp</span>
-                            </button>
+                            {isEmailOnly ? (
+                                <a 
+                                    href={`mailto:${supportEmail || 'support@vaiyaaree.com'}?subject=${encodeURIComponent(`Order #${orderData.orderId} Confirmation`)}&body=${encodeURIComponent(`Hi Vaiyaaree Team,\n\nI have placed Order #${orderData.orderId}. Please let me know if you need any additional details.\n\nThank you!`)}`} 
+                                    className={styles.modalSecondaryBtn}
+                                    style={{ textDecoration: 'none', background: '#0f172a', color: '#ffffff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                >
+                                    <Mail size={18} />
+                                    <span>Email Support</span>
+                                </a>
+                            ) : (
+                                <button onClick={() => goToWhatsApp(orderData.orderId)} className={styles.modalWaBtn}>
+                                    <MessageCircle size={18} />
+                                    <span>Confirm on WhatsApp</span>
+                                </button>
+                            )}
 
                             <button 
                                 onClick={() => {

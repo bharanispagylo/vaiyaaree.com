@@ -78,34 +78,54 @@ export default function ProfilePage() {
         const idToSearch = searchIdToUse || trackSearchId;
         if (!idToSearch) return;
         setLoadingTrack(true);
-        setTrackOrderData(null);
         try {
             const cleanId = String(idToSearch).trim().toUpperCase().replace(/^#/, '');
             const numMatch = cleanId.match(/(\d+)/);
             const numStr = numMatch ? numMatch[1] : '';
-            const padded4 = numStr ? numStr.padStart(4, '0') : '';
 
-            const candidates = new Set([cleanId]);
-            if (numStr) {
-                candidates.add(numStr);
-                candidates.add(`WEB-${padded4}`);
-                candidates.add(`ORD-${padded4}`);
-                candidates.add(`MAN-${padded4}`);
-                candidates.add(`WEB-${numStr}`);
-                candidates.add(`ORD-${numStr}`);
-                candidates.add(`MAN-${numStr}`);
-                candidates.add(`INV-${padded4}`);
-                candidates.add(`INV-${numStr}`);
-                candidates.add(`#INV-${padded4}`);
-                candidates.add(`#INV-${numStr}`);
+            // 1. Check loaded orders in state first for instant response
+            if (orders && orders.length > 0) {
+                const localMatch = orders.find(o => {
+                    const oId = String(o.id || '').toUpperCase().replace(/^#/, '');
+                    const oInv = String(o.invoice_no || '').toUpperCase().replace(/^#/, '');
+                    if (oId === cleanId || oInv === cleanId) return true;
+                    if (numStr && (oId.endsWith(numStr) || oInv.endsWith(numStr))) return true;
+                    return false;
+                });
+                if (localMatch) {
+                    setTrackOrderData(localMatch);
+                    setLoadingTrack(false);
+                    return;
+                }
             }
 
-            const searchOr = Array.from(candidates).map(c => `id.eq.${c},id.ilike.%${c}%,invoice_no.eq.${c},invoice_no.ilike.%${c}%`).join(',');
+            // 2. Query MySQL
+            const candidateIds = new Set([cleanId]);
+            if (numStr) {
+                const padded4 = numStr.padStart(4, '0');
+                candidateIds.add(`WEB-${padded4}`);
+                candidateIds.add(`INV-${padded4}`);
+                candidateIds.add(`ORD-${padded4}`);
+                candidateIds.add(`MAN-${padded4}`);
+                candidateIds.add(`WEB-${numStr}`);
+                candidateIds.add(`INV-${numStr}`);
+            }
 
-            const { data: matches } = await mysqlClient
+            const candidatesList = Array.from(candidateIds);
+            const searchOr = `id.in.(${candidatesList.join(',')}),invoice_no.in.(${candidatesList.join(',')})`;
+
+            let { data: matches, error } = await mysqlClient
                 .from('orders')
                 .select('*, order_items(*, products(id, image_url, name))')
                 .or(searchOr);
+
+            if ((error || !matches || matches.length === 0)) {
+                const fallback = await mysqlClient
+                    .from('orders')
+                    .select('*')
+                    .or(searchOr);
+                matches = fallback.data || [];
+            }
 
             if (matches && matches.length > 0) {
                 const o = matches[0];
@@ -121,7 +141,7 @@ export default function ProfilePage() {
         } finally {
             setLoadingTrack(false);
         }
-    }, [mysqlClient, showToast, trackSearchId]);
+    }, [mysqlClient, showToast, trackSearchId, orders]);
 
     // Synchronize tab with URL query parameter
     useEffect(() => {
@@ -139,6 +159,13 @@ export default function ProfilePage() {
 
     const handleTabChange = (tab) => {
         setActiveTab(tab);
+        if (tab === 'track' && !trackOrderData && orders.length > 0) {
+            const defaultOrder = activeOrders[0] || orders[0];
+            if (defaultOrder) {
+                setTrackOrderData(defaultOrder);
+                setTrackSearchId(defaultOrder.invoice_no || defaultOrder.id);
+            }
+        }
         router.push(`/profile?tab=${tab}`, { scroll: false });
     };
 
@@ -153,36 +180,79 @@ export default function ProfilePage() {
             setLoadingOrders(false);
             setLoadingAddresses(false);
         }
-    }, [user]);
+    }, [user?.id, user?.phone, user?.email]);
 
     // Fetch Customer Orders
     async function fetchUserOrders() {
         if (!user || !mysqlClient) return;
         setLoadingOrders(true);
         try {
-            const digits = (user.phone || '').replace(/\D/g, '');
-            const phoneVariations = [];
-            if (digits) {
-                phoneVariations.push(digits);
-                if (digits.length === 10) phoneVariations.push('91' + digits);
-                else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
+            const orClauses = [];
+
+            // 1. Primary match: customer_id
+            if (user.id) {
+                orClauses.push(`customer_id.eq.${user.id}`);
             }
+
+            // 2. Phone variations: clean 10 digits, 91 prefix, +91 prefix
+            const rawPhone = String(user.phone || '').trim();
+            const cleanDigits = rawPhone.replace(/\D/g, '');
+            if (cleanDigits) {
+                const last10 = cleanDigits.slice(-10);
+                const phoneSet = new Set([
+                    cleanDigits,
+                    last10,
+                    `91${last10}`,
+                    `+91${last10}`
+                ]);
+                orClauses.push(`customer_phone.in.(${Array.from(phoneSet).join(',')})`);
+            }
+
+            // 3. Email match
+            if (user.email && String(user.email).includes('@')) {
+                orClauses.push(`customer_email.eq.${String(user.email).trim()}`);
+            }
+
+            // 4. Stored local orders placed recently on this device
+            try {
+                const storedIds = JSON.parse(localStorage.getItem('vaiyaaree_recent_order_ids') || '[]');
+                if (Array.isArray(storedIds) && storedIds.length > 0) {
+                    const cleanStored = storedIds.filter(id => id && typeof id === 'string' && id.length >= 3).slice(0, 20);
+                    if (cleanStored.length > 0) {
+                        orClauses.push(`id.in.(${cleanStored.join(',')})`);
+                    }
+                }
+            } catch (e) {}
 
             let query = mysqlClient
                 .from('orders')
                 .select('*, order_items(*, products(id, image_url, name))')
                 .order('created_at', { ascending: false });
 
-            if (user.id && phoneVariations.length > 0) {
-                query = query.or(`customer_id.eq.${user.id},customer_phone.in.(${phoneVariations.join(',')})`);
-            } else if (user.id) {
-                query = query.eq('customer_id', user.id);
-            } else if (phoneVariations.length > 0) {
-                query = query.in('customer_phone', phoneVariations);
+            if (orClauses.length > 0) {
+                query = query.or(orClauses.join(','));
             }
 
-            const { data, error } = await query;
-            if (!error && data) {
+            let { data, error } = await query;
+
+            // Resilient fallback: If relation query has any schema discrepancy, fetch from orders directly
+            if (error || !data || data.length === 0) {
+                if (error) console.warn('[PROFILE] Primary order query error, trying fallback:', error);
+                let fallbackQuery = mysqlClient
+                    .from('orders')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (orClauses.length > 0) {
+                    fallbackQuery = fallbackQuery.or(orClauses.join(','));
+                }
+                const fallbackRes = await fallbackQuery;
+                if (fallbackRes.data && fallbackRes.data.length > 0) {
+                    data = fallbackRes.data;
+                }
+            }
+
+            if (data && Array.isArray(data)) {
                 const formattedOrders = data.map(o => ({
                     ...o,
                     invoice_no: o.invoice_no 
@@ -190,6 +260,12 @@ export default function ProfilePage() {
                         : `#${String(o.id).replace(/^[A-Z]+-/, 'INV-')}`
                 }));
                 setOrders(formattedOrders);
+
+                // Auto-set tracking order if in tracking tab and not yet selected
+                if (!trackOrderData && formattedOrders.length > 0) {
+                    setTrackOrderData(formattedOrders[0]);
+                    setTrackSearchId(formattedOrders[0].invoice_no || formattedOrders[0].id);
+                }
 
                 const userOrderIds = data.map(o => o.id);
                 fetchRefunds(userOrderIds);
@@ -686,16 +762,13 @@ export default function ProfilePage() {
     }
 
     // Filter Active vs History Orders
-    const activeOrders = orders.filter(o =>
-        ['PLACED', 'PAID', 'PROCESSING', 'SHIPPED', 'CONFIRMED', 'PENDING', 'AWAITING_PAYMENT', 'OUT_FOR_DELIVERY'].includes(
-            (o.status || '').toUpperCase()
-        )
-    );
     const pastOrders = orders.filter(o =>
         ['DELIVERED', 'CANCELLED', 'REFUNDED', 'RETURN_REQUESTED', 'RETURN_APPROVED'].includes(
             (o.status || '').toUpperCase()
         )
     );
+    // Any placed, pending, or processing order is active so no order is ever omitted
+    const activeOrders = orders.filter(o => !pastOrders.some(p => p.id === o.id));
 
     const totalActivePages = Math.ceil(activeOrders.length / ORDERS_PER_PAGE);
     const paginatedActiveOrders = activeOrders.slice((activeOrdersPage - 1) * ORDERS_PER_PAGE, activeOrdersPage * ORDERS_PER_PAGE);
@@ -862,6 +935,7 @@ export default function ProfilePage() {
                             setCancelModalOrder={setCancelModalOrder}
                             setCancelReason={setCancelReason}
                             setTrackSearchId={setTrackSearchId}
+                            setTrackOrderData={setTrackOrderData}
                             handleTabChange={handleTabChange}
                             handleTrackSearch={handleTrackSearch}
                         />
@@ -874,6 +948,12 @@ export default function ProfilePage() {
                             handleTrackSearch={handleTrackSearch}
                             loadingTrack={loadingTrack}
                             trackOrderData={trackOrderData}
+                            orders={orders}
+                            activeOrders={activeOrders}
+                            onSelectOrder={(order) => {
+                                setTrackOrderData(order);
+                                setTrackSearchId(order.invoice_no || order.id);
+                            }}
                         />
                     )}
 
@@ -887,6 +967,7 @@ export default function ProfilePage() {
                             totalHistoryPages={totalHistoryPages}
                             ORDERS_PER_PAGE={ORDERS_PER_PAGE}
                             setTrackSearchId={setTrackSearchId}
+                            setTrackOrderData={setTrackOrderData}
                             handleTabChange={handleTabChange}
                             handleTrackSearch={handleTrackSearch}
                         />

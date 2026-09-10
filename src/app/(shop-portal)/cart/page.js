@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { X, ShoppingCart, ArrowRight, Tag, Check, Sparkles } from 'lucide-react';
+import { X, ShoppingCart, ArrowRight, Tag, Check, Sparkles, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
 import styles from './cart.module.css';
@@ -10,12 +10,16 @@ export default function CartPage() {
     const {
         cart, removeFromCart, updateQty, cartTotal, showToast,
         discountData, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon,
-        activeDiscountRules
+        activeDiscountRules, isCartLoaded, user
     } = useShop();
 
-    const [isDirty, setIsDirty] = useState(false);
+    const [pageMounted, setPageMounted] = useState(false);
     const [couponInput, setCouponInput] = useState('');
     const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+    useEffect(() => {
+        setPageMounted(true);
+    }, []);
 
     const availableCouponOffers = useMemo(() => {
         return (activeDiscountRules || []).filter(r => {
@@ -25,14 +29,15 @@ export default function CartPage() {
         });
     }, [activeDiscountRules]);
 
-    const handleQtyChange = (idx, delta) => {
-        updateQty(idx, delta);
-        setIsDirty(true);
-    };
+    const hasStockIssue = useMemo(() => {
+        return (cart || []).some(item => {
+            if (item.stock === undefined || item.stock === null) return false;
+            return item.stock <= 0 || item.qty > item.stock;
+        });
+    }, [cart]);
 
-    const handleUpdateCart = () => {
-        setIsDirty(false);
-        showToast('Cart updated successfully');
+    const handleQtyChange = (itemKeyOrId, delta) => {
+        updateQty(itemKeyOrId, delta);
     };
 
     const handleApplyCoupon = async (e) => {
@@ -55,6 +60,14 @@ export default function CartPage() {
 
     const totalDiscount = Math.round(discountData?.totalDiscount || 0);
     const finalCartTotal = Math.max(0, Math.round(cartTotal - (discountData?.totalDiscount || 0)));
+
+    if (!pageMounted || !isCartLoaded) {
+        return (
+            <div className={styles.cartContainer} style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 size={36} className="animate-spin" style={{ color: 'hsl(var(--primary))' }} />
+            </div>
+        );
+    }
 
     return (
         <div className={styles.cartContainer}>
@@ -79,51 +92,56 @@ export default function CartPage() {
                             <span>Subtotal</span>
                             <span></span>
                         </div>
-                        {cart.map((item, idx) => (
-                            <div key={idx} className={styles.cartItem}>
-                                <div className={styles.productCell}>
-                                    <img 
-                                        src={item.image_url?.split(',')[0]} 
-                                        className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder} 
-                                        alt={item.name} 
-                                        onError={(e) => {
-                                            e.target.onerror = null;
-                                            e.target.src = 'https://placehold.co/100x125?text=No+Image';
-                                        }}
-                                    />
-                                    <div className={styles.itemName}>
-                                        {item.name}
-                                        {item.variantName && <span className={styles.variantName}>({item.variantName})</span>}
-                                    </div>
-                                </div>
-                                <div className={styles.priceCell}>₹{item.price.toLocaleString()}.00</div>
-                                <div className={styles.qtyCell}>
-                                    <div className={styles.qtyControl}>
-                                        <button onClick={() => handleQtyChange(idx, -1)}>-</button>
-                                        <span>{item.qty}</span>
-                                        <button onClick={() => handleQtyChange(idx, 1)}>+</button>
-                                    </div>
-                                </div>
-                                <div className={styles.subtotalCell}>
-                                    <span>₹{(item.price * item.qty).toLocaleString()}.00</span>
-                                </div>
-                                <div className={styles.removeCell}>
-                                    <button onClick={() => removeFromCart(idx)} className={styles.removeBtn} title="Remove item">
-                                        <X size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                        {cart.map((item, idx) => {
+                            const itemKey = item.variantId ? `${item.id}_${item.variantId}` : `${item.id}_${idx}`;
+                            const targetIdentifier = item.variantId || item.id;
+                            const priceNum = Number(item.price || 0);
+                            const subtotalNum = priceNum * (Number(item.qty) || 1);
+                            const isOut = item.stock !== undefined && item.stock !== null && item.stock <= 0;
+                            const isExceeded = item.stock !== undefined && item.stock !== null && item.stock > 0 && item.qty > item.stock;
 
-                        <div className={styles.cartActions}>
-                            <button
-                                className={styles.updateCartBtn}
-                                onClick={handleUpdateCart}
-                                disabled={!isDirty}
-                            >
-                                Update Cart
-                            </button>
-                        </div>
+                            return (
+                                <div key={itemKey} className={styles.cartItem}>
+                                    <div className={styles.productCell}>
+                                        <img 
+                                            src={item.image_url?.split(',')[0]} 
+                                            className={item.image_url ? styles.itemImg : styles.itemImgPlaceholder} 
+                                            alt={item.name} 
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = 'https://placehold.co/100x125?text=No+Image';
+                                            }}
+                                        />
+                                        <div className={styles.itemName}>
+                                            {item.name}
+                                            {item.variantName && <span className={styles.variantName}>({item.variantName})</span>}
+                                            {isOut && <span className={styles.stockWarning}>Out of Stock</span>}
+                                            {isExceeded && <span className={styles.stockWarning}>Only {item.stock} left in stock</span>}
+                                        </div>
+                                    </div>
+                                    <div className={styles.priceCell}>₹{priceNum.toLocaleString('en-IN')}.00</div>
+                                    <div className={styles.qtyCell}>
+                                        <div className={styles.qtyControl}>
+                                            <button onClick={() => handleQtyChange(targetIdentifier, -1)} aria-label="Decrease quantity">-</button>
+                                            <span>{item.qty}</span>
+                                            <button 
+                                                onClick={() => handleQtyChange(targetIdentifier, 1)} 
+                                                disabled={item.stock !== undefined && item.stock !== null && item.qty >= item.stock}
+                                                aria-label="Increase quantity"
+                                            >+</button>
+                                        </div>
+                                    </div>
+                                    <div className={styles.subtotalCell}>
+                                        <span>₹{subtotalNum.toLocaleString('en-IN')}.00</span>
+                                    </div>
+                                    <div className={styles.removeCell}>
+                                        <button onClick={() => removeFromCart(targetIdentifier)} className={styles.removeBtn} title="Remove item">
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     <div className={styles.cartSummary}>
@@ -301,11 +319,22 @@ export default function CartPage() {
                             <div className={styles.divider} />
                             <div className={styles.summaryTotal}>
                                 <span>Total</span>
-                                <span>₹{finalCartTotal.toLocaleString()}.00</span>
+                                <span>₹{Number(finalCartTotal || 0).toLocaleString('en-IN')}.00</span>
                             </div>
-                            <Link href="/checkout" className={styles.checkoutBtn}>
-                                Proceed to Checkout <ArrowRight size={18} />
-                            </Link>
+                            {hasStockIssue ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <button disabled className={styles.checkoutBtnDisabled}>
+                                        Adjust Stock to Checkout
+                                    </button>
+                                    <p style={{ color: '#ef4444', fontSize: '0.78rem', textAlign: 'center', margin: 0, fontWeight: 600 }}>
+                                        Some items in your cart exceed available stock. Please adjust quantities before checkout.
+                                    </p>
+                                </div>
+                            ) : (
+                                <Link href={user?.id ? "/checkout" : "/checkout/auth"} className={styles.checkoutBtn}>
+                                    Proceed to Checkout <ArrowRight size={18} />
+                                </Link>
+                            )}
                             <Link href="/shop" className={styles.continueShoppingBtn}>
                                 Continue Shopping
                             </Link>
