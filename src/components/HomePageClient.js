@@ -239,20 +239,9 @@ export default function HomePageClient() {
         { id: 'sec_feature_perks', section_type: 'feature_perks' }
     ];
 
-    let activeSectionsToRender = (sectionsConfig && sectionsConfig.length > 0)
-        ? [...sectionsConfig]
+    const activeSectionsToRender = (sectionsConfig && sectionsConfig.length > 0)
+        ? sectionsConfig
         : fallbackDefaultSections;
-
-    // Guarantee Brand Story 50-50 Section is present if not already in DB list
-    if (!activeSectionsToRender.some(s => s.section_type === 'brand_story' || s.section_type === 'logo_with_text')) {
-        const insertIdx = activeSectionsToRender.findIndex(s => s.section_type === 'shop_by_category');
-        const brandSec = { id: 'sec_brand_story', section_type: 'brand_story' };
-        if (insertIdx !== -1) {
-            activeSectionsToRender.splice(insertIdx + 1, 0, brandSec);
-        } else {
-            activeSectionsToRender.push(brandSec);
-        }
-    }
 
     return (
         <div style={{ minHeight: '100vh', background: '#fdfbf7', fontFamily: 'var(--font-roboto), sans-serif', color: '#2b2623' }}>

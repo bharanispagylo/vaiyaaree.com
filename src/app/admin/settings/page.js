@@ -70,6 +70,29 @@ export default function SettingsPage() {
                                         <span className="slider round"></span>
                                     </label>
                                 </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+                                    <Link
+                                        href="/admin/settings/footer"
+                                        style={{
+                                            padding: '1rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc',
+                                            textDecoration: 'none', color: '#0f172a', display: 'flex', flexDirection: 'column', gap: '4px'
+                                        }}
+                                    >
+                                        <strong style={{ fontSize: '0.92rem', color: '#5d0821' }}>Footer Settings &rarr;</strong>
+                                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Customize footer logos, contacts, quick links & social icons.</span>
+                                    </Link>
+                                    <Link
+                                        href="/admin/settings/homepage-builder"
+                                        style={{
+                                            padding: '1rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc',
+                                            textDecoration: 'none', color: '#0f172a', display: 'flex', flexDirection: 'column', gap: '4px'
+                                        }}
+                                    >
+                                        <strong style={{ fontSize: '0.92rem', color: '#5d0821' }}>Homepage Builder &rarr;</strong>
+                                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Reorder and configure homepage blocks with live preview.</span>
+                                    </Link>
+                                </div>
                             </div>
                         </>
                     )}

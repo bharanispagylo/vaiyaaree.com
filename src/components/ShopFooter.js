@@ -1,9 +1,11 @@
 'use client';
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Mail, MapPin, Instagram, Sparkles, ChevronUp } from 'lucide-react';
+import { Mail, MapPin, Instagram, Facebook, Youtube, ChevronUp } from 'lucide-react';
 import { RangoliOrnament, LotusMotif } from '@/components/RangoliMotif';
+import { DEFAULT_FOOTER_SETTINGS } from '@/app/api/footer-settings/route';
 import styles from './ShopFooter.module.css';
 
 const WhatsAppIcon = ({ size = 20, className }) => (
@@ -14,105 +16,210 @@ const WhatsAppIcon = ({ size = 20, className }) => (
 
 const ShopFooter = () => {
     const currentYear = new Date().getFullYear();
+    const [footerConfig, setFooterConfig] = useState(DEFAULT_FOOTER_SETTINGS);
+    const [navLinks, setNavLinks] = useState(() => {
+        try {
+            return JSON.parse(DEFAULT_FOOTER_SETTINGS.footer_nav_links);
+        } catch (e) {
+            return [];
+        }
+    });
+
+    const loadSettings = async () => {
+        try {
+            const res = await fetch('/api/footer-settings', { cache: 'no-store' });
+            const data = await res.json();
+            if (data.success && data.settings) {
+                const cfg = { ...DEFAULT_FOOTER_SETTINGS, ...data.settings };
+                setFooterConfig(cfg);
+                try {
+                    const parsed = typeof cfg.footer_nav_links === 'string'
+                        ? JSON.parse(cfg.footer_nav_links)
+                        : (cfg.footer_nav_links || []);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setNavLinks(parsed);
+                    }
+                } catch (err) {
+                    console.error('Error parsing footer nav links:', err);
+                }
+            }
+        } catch (e) {
+            // Silently fallback to default state
+        }
+    };
+
+    useEffect(() => {
+        loadSettings();
+
+        const handleSettingsUpdate = () => {
+            loadSettings();
+        };
+
+        window.addEventListener('vaiyaaree_settings_updated', handleSettingsUpdate);
+        window.addEventListener('storage', handleSettingsUpdate);
+
+        return () => {
+            window.removeEventListener('vaiyaaree_settings_updated', handleSettingsUpdate);
+            window.removeEventListener('storage', handleSettingsUpdate);
+        };
+    }, []);
+
+    // Brand and logo info
+    const logoSrc = footerConfig.footer_logo_image || footerConfig.fallback_logo || '/images/vaiyaaree-logo.png';
+    const brandName = footerConfig.footer_brand_name || 'VAIYAAREE';
+    const brandSub = footerConfig.footer_brand_sub || 'AUTHENTIC HANDLOOM SILKS';
+    const tagline = footerConfig.footer_tagline || 'Celebrating the timeless elegance of Indian handloom weaves, master artisans, and authentic silk craftsmanship.';
+
+    // Contact info
+    const address = footerConfig.footer_address || 'Coimbatore, Tamil Nadu - 641015.';
+    const email = footerConfig.footer_email || 'vaiyaaree@gmail.com';
+    const phone = footerConfig.footer_phone || '+91 86677 93292';
+
+    // Social links
+    const instagramHandle = footerConfig.footer_instagram_handle || '@vaiyaaree';
+    const instagramUrl = footerConfig.footer_instagram_url || 'https://www.instagram.com/vaiyaaree';
+    const whatsappNum = footerConfig.footer_whatsapp_number || '+91 86677 93292';
+    const whatsappLink = footerConfig.footer_whatsapp_link || 'https://wa.me/918667793292';
+    const facebookUrl = footerConfig.footer_facebook_url;
+    const youtubeUrl = footerConfig.footer_youtube_url;
+
+    // Silk Mark Badge
+    const showSeal = footerConfig.footer_show_seal !== 'false';
+    const sealTitle = footerConfig.footer_seal_title || '100% PURE SILK MARK';
+    const sealSub = footerConfig.footer_seal_sub || 'Handloom Certified Drapes';
+
+    // Copyright & Toggles
+    const showRangoli = footerConfig.footer_show_rangoli !== 'false';
+    const showScrollTop = footerConfig.footer_show_scroll_top !== 'false';
+    const copyrightText = (footerConfig.footer_copyright_text || '© {year} Vaiyaaree. Handcrafted with devotion in South India.')
+        .replace('{year}', currentYear);
 
     return (
         <footer className={styles.footer}>
             {/* Ornate Rangoli Top Divider */}
-            <div className={styles.footerRangoliDivider}>
-                <span className={styles.footerRangoliLine} />
-                <RangoliOrnament size={24} color="#d47a06" />
-                <span className={styles.footerRangoliLine} />
-            </div>
+            {showRangoli && (
+                <div className={styles.footerRangoliDivider}>
+                    <span className={styles.footerRangoliLine} />
+                    <RangoliOrnament size={24} color="#d47a06" />
+                    <span className={styles.footerRangoliLine} />
+                </div>
+            )}
 
             <div className={styles.footerInner}>
                 {/* Column 1: Logo & Heritage Story */}
                 <div className={styles.footerColumn}>
                     <Link href="/" className={styles.footerLogo}>
-                        <Image 
-                            src="/images/vaiyaaree-logo.png" 
-                            alt="Vaiyaaree" 
-                            width={54}
-                            height={54}
+                        <img 
+                            src={logoSrc} 
+                            alt={brandName} 
                             className={styles.logoImg} 
+                            onError={(e) => {
+                                if (e.currentTarget.src !== '/images/vaiyaaree-logo.png') {
+                                    e.currentTarget.src = '/images/vaiyaaree-logo.png';
+                                }
+                            }}
                         />
                         <div className={styles.footerBrandGroup}>
-                            <span className={styles.footerBrandName}>VAIYAAREE</span>
-                            <span className={styles.footerBrandSub}>AUTHENTIC HANDLOOM SILKS</span>
+                            <span className={styles.footerBrandName}>{brandName}</span>
+                            <span className={styles.footerBrandSub}>{brandSub}</span>
                         </div>
                     </Link>
 
-                    <p className={styles.footerTagline}>
-                        Celebrating the timeless elegance of Indian handloom weaves, master artisans, and authentic silk craftsmanship.
-                    </p>
+                    {tagline && (
+                        <p className={styles.footerTagline}>
+                            {tagline}
+                        </p>
+                    )}
 
                     <div className={styles.contactInfo}>
-                        <div className={styles.infoItem}>
-                            <MapPin size={18} className={styles.infoIcon} />
-                            <p>Coimbatore, Tamil Nadu - 641015.</p>
-                        </div>
-                        <div className={styles.infoItem}>
-                            <Mail size={18} className={styles.infoIcon} />
-                            <p>vaiyaaree@gmail.com</p>
-                        </div>
+                        {address && (
+                            <div className={styles.infoItem}>
+                                <MapPin size={18} className={styles.infoIcon} />
+                                <p>{address}</p>
+                            </div>
+                        )}
+                        {email && (
+                            <div className={styles.infoItem}>
+                                <Mail size={18} className={styles.infoIcon} />
+                                <a href={`mailto:${email}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                    <p>{email}</p>
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Column 2: Quick Links & Policies */}
                 <div className={styles.footerColumn}>
                     <h4 className={styles.columnHeader}>
-                        <span>OUR BOUTIQUE</span>
+                        <span>{footerConfig.footer_col2_title || 'OUR BOUTIQUE'}</span>
                         <div className={styles.headerUnderline} />
                     </h4>
                     <nav className={styles.footerNav}>
-                        <Link href="/about-us">Our Heritage & Story</Link>
-                        <Link href="/shop">Explore Collections</Link>
-                        <Link href="/contact">Contact Our Stylists</Link>
-                        <Link href="/privacy-policy">Privacy Policy</Link>
-                        <Link href="/return-policy">Return & Exchange Policy</Link>
-                        <Link href="/shipping-policy">Shipping & Delivery Policy</Link>
-                        <Link href="/terms-and-conditions">Terms & Conditions</Link>
-                        <Link href="/refund-cancellation-policy">Refund Policy</Link>
+                        {navLinks.map((item, idx) => (
+                            <Link key={idx} href={item.href || '/'}>
+                                {item.label}
+                            </Link>
+                        ))}
                     </nav>
                 </div>
 
                 {/* Column 3: Follow & Connect */}
                 <div className={styles.footerColumn}>
                     <h4 className={styles.columnHeader}>
-                        <span>CONNECT WITH US</span>
+                        <span>{footerConfig.footer_col3_title || 'CONNECT WITH US'}</span>
                         <div className={styles.headerUnderline} />
                     </h4>
                     <nav className={styles.socialNav}>
-                        <a href="https://www.instagram.com/vaiyaaree" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
-                            <Instagram size={20} className={styles.socialIcon} /> @vaiyaaree
-                        </a>
-                        <a href="https://wa.me/918667793292" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
-                            <WhatsAppIcon size={20} className={styles.socialIcon} /> +91 86677 93292
-                        </a>
+                        {instagramUrl && (
+                            <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
+                                <Instagram size={20} className={styles.socialIcon} /> {instagramHandle}
+                            </a>
+                        )}
+                        {whatsappLink && (
+                            <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
+                                <WhatsAppIcon size={20} className={styles.socialIcon} /> {whatsappNum}
+                            </a>
+                        )}
+                        {facebookUrl && (
+                            <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
+                                <Facebook size={20} className={styles.socialIcon} /> Facebook Page
+                            </a>
+                        )}
+                        {youtubeUrl && (
+                            <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
+                                <Youtube size={20} className={styles.socialIcon} /> YouTube Channel
+                            </a>
+                        )}
                     </nav>
 
-                    <div className={styles.artisanSealBadge}>
-                        <LotusMotif size={24} color="#d47a06" />
-                        <div>
-                            <div className={styles.sealTitle}>100% PURE SILK MARK</div>
-                            <div className={styles.sealSub}>Handloom Certified Drapes</div>
+                    {showSeal && (
+                        <div className={styles.artisanSealBadge}>
+                            <LotusMotif size={24} color="#d47a06" />
+                            <div>
+                                <div className={styles.sealTitle}>{sealTitle}</div>
+                                <div className={styles.sealSub}>{sealSub}</div>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
             <div className={styles.copyrightBar}>
                 <div className={styles.copyrightInner}>
-                    <p>&copy; {currentYear} Vaiyaaree. Handcrafted with devotion in South India.</p>
+                    <p>{copyrightText}</p>
                 </div>
             </div>
             
-            <button 
-                className={styles.scrollToTop} 
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                aria-label="Scroll to top of page"
-            >
-                <ChevronUp size={20} />
-            </button>
+            {showScrollTop && (
+                <button 
+                    className={styles.scrollToTop} 
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    aria-label="Scroll to top of page"
+                >
+                    <ChevronUp size={20} />
+                </button>
+            )}
         </footer>
     );
 };

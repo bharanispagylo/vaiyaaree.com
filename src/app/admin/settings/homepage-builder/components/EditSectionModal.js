@@ -4,6 +4,7 @@ import React from 'react';
 import { X, Image as ImageIcon, Save } from 'lucide-react';
 import HeroSlidesEditor from './HeroSlidesEditor';
 import FeaturePerksEditor from './FeaturePerksEditor';
+import GalleryImagesEditor from './GalleryImagesEditor';
 
 export default function EditSectionModal({
     editingSection,
@@ -137,6 +138,14 @@ export default function EditSectionModal({
                         <FeaturePerksEditor
                             settings={settings}
                             updateSettings={updateSetting}
+                        />
+                    )}
+
+                    {sectionType === 'gallery_popup' && (
+                        <GalleryImagesEditor
+                            settings={settings}
+                            updateSettings={updateSetting}
+                            openMediaPicker={openMediaPicker}
                         />
                     )}
 

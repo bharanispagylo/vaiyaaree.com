@@ -72,6 +72,7 @@ export default function HomepageSectionDispatcher({
             return <CraftsmanshipStorySection key={sec.id} sec={sec} />;
 
         case 'brand_story':
+        case 'brand_story_logo':
         case 'logo_with_text':
         case 'logo_text':
             return <BrandStoryLogoSection key={sec.id} sec={sec} />;

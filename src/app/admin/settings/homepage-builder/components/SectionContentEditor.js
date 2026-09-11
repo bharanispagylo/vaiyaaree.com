@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import HeroSlidesEditor from './HeroSlidesEditor';
 import FeaturePerksEditor from './FeaturePerksEditor';
+import GalleryImagesEditor from './GalleryImagesEditor';
 import { getSectionIcon, getSectionTypeName } from './builderConstants';
 
 export default function SectionContentEditor({
@@ -401,6 +402,16 @@ export default function SectionContentEditor({
                         <FeaturePerksEditor
                             settings={settings}
                             updateSettings={updateSetting}
+                        />
+                    </div>
+                )}
+
+                {sectionType === 'gallery_popup' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <GalleryImagesEditor
+                            settings={settings}
+                            updateSettings={updateSetting}
+                            openMediaPicker={openMediaPicker}
                         />
                     </div>
                 )}

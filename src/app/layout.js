@@ -50,9 +50,9 @@ export default async function RootLayout({ children }) {
                 themeFontHeading = map.theme_font_heading.trim();
             }
 
-            const enabled = map.coming_soon_enabled === 'true' || 
-                            map.coming_soon_enabled === '1' || 
-                            map.coming_soon_enabled === true;
+            const enabled = map.coming_soon_enabled === 'true' ||
+                map.coming_soon_enabled === '1' ||
+                map.coming_soon_enabled === true;
 
             if (enabled) {
                 initialComingSoon = {
@@ -81,9 +81,9 @@ export default async function RootLayout({ children }) {
             <head>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                <link 
+                <link
                     href={googleFontsHref}
-                    rel="stylesheet" 
+                    rel="stylesheet"
                 />
                 <style id="vaiyaaree-ssr-theme-fonts" dangerouslySetInnerHTML={{
                     __html: `
@@ -101,7 +101,7 @@ export default async function RootLayout({ children }) {
                 <ComingSoonGuard initialSettings={initialComingSoon}>
                     <Providers>
                         {children}
-                        <WhatsAppWidget />
+                        {/* <WhatsAppWidget /> */}
                     </Providers>
                 </ComingSoonGuard>
             </body>

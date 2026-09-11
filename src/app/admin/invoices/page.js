@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { getDiscountDetails } from '@/lib/discountHelper';
-import { Search, Loader2, FileText, Download, Eye, Printer, MessageCircle, Settings, MapPin, Hash, Info, X, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Search, Loader2, FileText, Download, Eye, Printer, MessageCircle, Settings, MapPin, Hash, Info, X, CheckCircle2, ChevronRight, Trash2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 const numberToWords = (num) => {
@@ -120,11 +120,18 @@ export default function InvoicesPage() {
     const [notification, setNotification] = useState(null);
     const [invoicePage, setInvoicePage] = useState(1);
     const [stats, setStats] = useState({ totalRevenue: 0, paidTotal: 0, unpaidTotal: 0 });
+    
+    // Multi-select & Delete States
+    const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
+    const [confirmDelete, setConfirmDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const INVOICES_PER_PAGE = 10;
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [invoicePage]);
+
     const [settings, setSettings] = useState({
         shop_name: 'Vaiyaaree',
         shop_logo: '',
@@ -142,76 +149,115 @@ export default function InvoicesPage() {
         bank_upi: 'vaiyaaree@upi'
     });
 
+    const fetchSettings = useCallback(async () => {
+        try {
+            const { data, error } = await mysqlClient.from('app_settings').select('*');
+            if (error) throw error;
+            if (data) {
+                const mapped = {};
+                data.forEach(item => mapped[item.key] = item.value);
+                setSettings(prev => ({ ...prev, ...mapped }));
+            }
+        } catch (err) {
+            console.error('Settings load error:', err);
+        }
+    }, []);
+
+    const fetchStats = useCallback(async () => {
+        try {
+            const { data, error } = await mysqlClient
+                .from('orders')
+                .select('total_amount, status')
+                .neq('status', 'DRAFT');
+            if (error) throw error;
+            if (data) {
+                const activeOrders = data.filter(o => o.status !== 'CANCELLED');
+                const totalRevenue = activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
+                const paidInvoices = data.filter(o => ['PAID', 'DELIVERED', 'SHIPPED'].includes(o.status));
+                const paidTotal = paidInvoices.reduce((s, o) => s + (o.total_amount || 0), 0);
+                const unpaidTotal = totalRevenue - paidTotal;
+                setStats({ totalRevenue, paidTotal, unpaidTotal });
+            }
+        } catch (err) {
+            console.error('Stats load error:', err);
+        }
+    }, []);
+
+    const fetchInvoices = useCallback(async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await mysqlClient
+                .from('orders')
+                .select('*')
+                .neq('status', 'DRAFT')
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+
+            const enrichedData = (data || []).map((inv, idx) => ({
+                ...inv,
+                invoice_no: inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(idx + 1).padStart(4, '0')}`)
+            })).reverse();
+
+            setAllInvoices(enrichedData);
+        } catch (error) {
+            console.error('Error fetching invoices:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const { data, error } = await mysqlClient.from('app_settings').select('*');
-                if (error) throw error;
-                if (data) {
-                    const mapped = {};
-                    data.forEach(item => mapped[item.key] = item.value);
-                    setSettings(prev => ({ ...prev, ...mapped }));
-                }
-            } catch (err) {
-                console.error('Settings load error:', err);
-            }
-        };
-
-        const fetchStats = async () => {
-            try {
-                const { data, error } = await mysqlClient
-                    .from('orders')
-                    .select('total_amount, status')
-                    .neq('status', 'DRAFT');
-                if (error) throw error;
-                if (data) {
-                    const activeOrders = data.filter(o => o.status !== 'CANCELLED');
-                    const totalRevenue = activeOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
-                    const paidInvoices = data.filter(o => ['PAID', 'DELIVERED', 'SHIPPED'].includes(o.status));
-                    const paidTotal = paidInvoices.reduce((s, o) => s + (o.total_amount || 0), 0);
-                    const unpaidTotal = totalRevenue - paidTotal;
-                    setStats({ totalRevenue, paidTotal, unpaidTotal });
-                }
-            } catch (err) {
-                console.error('Stats load error:', err);
-            }
-        };
-
         fetchSettings();
         fetchStats();
-    }, []);
-
-    useEffect(() => {
-        const fetchInvoices = async () => {
-            setLoading(true);
-            try {
-                const { data, error } = await mysqlClient
-                    .from('orders')
-                    .select('*')
-                    .neq('status', 'DRAFT')
-                    .order('created_at', { ascending: true });
-
-                if (error) throw error;
-
-                const enrichedData = (data || []).map((inv, idx) => ({
-                    ...inv,
-                    invoice_no: inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : `INV-${String(idx + 1).padStart(4, '0')}`)
-                })).reverse();
-
-                setAllInvoices(enrichedData);
-            } catch (error) {
-                console.error('Error fetching invoices:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchInvoices();
-    }, []);
+    }, [fetchSettings, fetchStats, fetchInvoices]);
 
     useEffect(() => {
         setInvoicePage(1);
     }, [searchTerm]);
+
+    // Multi-delete execution handler
+    const handleDeleteConfirmed = async () => {
+        if (!confirmDelete || !confirmDelete.ids || confirmDelete.ids.length === 0 || isDeleting) return;
+        const idsToDelete = confirmDelete.ids;
+        setIsDeleting(true);
+
+        try {
+            await mysqlClient.from('order_items').delete().in('order_id', idsToDelete);
+            await mysqlClient.from('order_status_logs').delete().in('order_id', idsToDelete);
+            await mysqlClient.from('order_discounts').delete().in('order_id', idsToDelete);
+
+            const { error } = await mysqlClient
+                .from('orders')
+                .delete()
+                .in('id', idsToDelete);
+
+            if (error) throw error;
+
+            setNotification({
+                type: 'success',
+                message: `${idsToDelete.length} invoice(s) deleted successfully`
+            });
+
+            setSelectedInvoiceIds(prev => prev.filter(id => !idsToDelete.includes(id)));
+            setConfirmDelete(null);
+            fetchInvoices();
+            fetchStats();
+            if (selectedInvoice && idsToDelete.includes(selectedInvoice.id)) {
+                setSelectedInvoice(null);
+            }
+        } catch (err) {
+            console.error('Delete Error:', err);
+            setNotification({
+                type: 'error',
+                message: `Failed to delete invoice(s): ${err.message || 'Database error'}`
+            });
+        } finally {
+            setIsDeleting(false);
+            setTimeout(() => setNotification(null), 4000);
+        }
+    };
 
     const filteredInvoices = filterInvoices(allInvoices, searchTerm);
     const totalCount = filteredInvoices.length;
@@ -283,8 +329,6 @@ export default function InvoicesPage() {
         }
     };
 
-    // Top-level loading check removed so headers stay visible
-
     return (
         <div className="animate-enter">
             {/* Header */}
@@ -308,8 +352,15 @@ export default function InvoicesPage() {
             )}
 
             {notification && (
-                <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 1100, background: 'hsl(142 70% 45%)', color: 'white', padding: '1rem 2rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-                    <CheckCircle2 size={20} /> {notification.message}
+                <div style={{
+                    position: 'fixed', top: '2rem', right: '2rem', zIndex: 100000,
+                    background: notification.type === 'error' ? '#ef4444' : 'hsl(142 70% 45%)',
+                    color: 'white', padding: '1rem 2rem', borderRadius: '12px',
+                    display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700,
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                    animation: 'slideDown 0.3s ease'
+                }}>
+                    {notification.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />} {notification.message}
                 </div>
             )}
 
@@ -333,7 +384,7 @@ export default function InvoicesPage() {
 
             {/* Invoice List */}
             {!selectedInvoice && (
-                <div className="card" style={{ padding: 0 }}>
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                     <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                         <div style={{ position: 'relative', width: '100%', maxWidth: '420px' }}>
                             <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--text-muted))' }} />
@@ -364,6 +415,62 @@ export default function InvoicesPage() {
                         )}
                     </div>
 
+                    {/* Bulk Selection Bar */}
+                    {selectedInvoiceIds.length > 0 && (
+                        <div className="animate-enter" style={{
+                            padding: '0.75rem 1.5rem',
+                            background: '#1e293b',
+                            color: '#ffffff',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '1rem',
+                            borderBottom: '1px solid rgba(255,255,255,0.1)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                                    {selectedInvoiceIds.length} {selectedInvoiceIds.length === 1 ? 'Invoice' : 'Invoices'} Selected
+                                </span>
+                                <button
+                                    onClick={() => setSelectedInvoiceIds([])}
+                                    style={{
+                                        background: 'transparent',
+                                        border: '1px solid rgba(255,255,255,0.3)',
+                                        color: '#cbd5e1',
+                                        padding: '0.25rem 0.75rem',
+                                        borderRadius: '6px',
+                                        fontSize: '0.8rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Deselect All
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                <button
+                                    onClick={() => setConfirmDelete({ ids: selectedInvoiceIds, title: `${selectedInvoiceIds.length} Invoices` })}
+                                    className="btn"
+                                    style={{
+                                        background: '#ef4444',
+                                        color: '#ffffff',
+                                        padding: '0.45rem 1rem',
+                                        borderRadius: '8px',
+                                        fontWeight: 700,
+                                        fontSize: '0.85rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        border: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <Trash2 size={15} /> Delete Selected ({selectedInvoiceIds.length})
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {loading ? (
                         <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
                             <Loader2 size={24} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> Loading Invoices...
@@ -373,6 +480,23 @@ export default function InvoicesPage() {
                             <table style={{ margin: 0, width: '100%' }}>
                                 <thead>
                                     <tr>
+                                        <th style={{ width: '40px', padding: '0.85rem 0.75rem', textAlign: 'center' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={invoices.length > 0 && invoices.every(inv => selectedInvoiceIds.includes(inv.id))}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        const pageIds = invoices.map(inv => inv.id);
+                                                        setSelectedInvoiceIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                                                    } else {
+                                                        const pageIds = invoices.map(inv => inv.id);
+                                                        setSelectedInvoiceIds(prev => prev.filter(id => !pageIds.includes(id)));
+                                                    }
+                                                }}
+                                                style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--primary))' }}
+                                                aria-label="Select all invoices on current page"
+                                            />
+                                        </th>
                                         <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Invoice #</th>
                                         <th style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Customer</th>
                                         <th style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>Amount</th>
@@ -384,14 +508,43 @@ export default function InvoicesPage() {
                                 </thead>
                                 <tbody>
                                     {invoices.length === 0 ? (
-                                        <tr><td colSpan={7} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
+                                        <tr><td colSpan={8} style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>No invoices found.</td></tr>
                                     ) : (
                                         invoices.map((inv) => {
                                             const raw = inv.invoice_no || (inv.id ? String(inv.id).replace(/^[A-Z]+-/, 'INV-') : 'INV-0001');
                                             const seqNum = `#${String(raw).replace(/^#+/, '')}`;
+                                            const isSelected = selectedInvoiceIds.includes(inv.id);
 
                                             return (
-                                                <tr key={inv.id} onClick={() => openInvoice(inv)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+                                                <tr
+                                                    key={inv.id}
+                                                    onClick={() => openInvoice(inv)}
+                                                    style={{
+                                                        cursor: 'pointer',
+                                                        transition: 'background 0.2s',
+                                                        background: isSelected ? 'hsl(var(--primary) / 0.06)' : 'transparent'
+                                                    }}
+                                                    onMouseOver={(e) => {
+                                                        if (!isSelected) e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)';
+                                                    }}
+                                                    onMouseOut={(e) => {
+                                                        if (!isSelected) e.currentTarget.style.background = 'transparent';
+                                                    }}
+                                                >
+                                                    <td style={{ width: '40px', padding: '0.85rem 0.75rem', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedInvoiceIds(prev =>
+                                                                    prev.includes(inv.id) ? prev.filter(id => id !== inv.id) : [...prev, inv.id]
+                                                                );
+                                                            }}
+                                                            style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--primary))' }}
+                                                            aria-label={`Select invoice ${seqNum}`}
+                                                        />
+                                                    </td>
                                                     <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
                                                         <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.95rem' }}>{seqNum}</span>
                                                     </td>
@@ -408,10 +561,27 @@ export default function InvoicesPage() {
                                                         {new Date(inv.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                     </td>
                                                     <td style={{ textAlign: 'right', padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
-                                                        <button onClick={(e) => { e.stopPropagation(); openInvoice(inv); }}
-                                                            className="btn btn-secondary" style={{ padding: '0.4rem', color: 'hsl(var(--primary))' }} title="View Invoice">
-                                                            <Eye size={15} />
-                                                        </button>
+                                                        <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); openInvoice(inv); }}
+                                                                className="btn btn-secondary"
+                                                                style={{ padding: '0.4rem 0.5rem', color: 'hsl(var(--primary))' }}
+                                                                title="View Invoice"
+                                                            >
+                                                                <Eye size={15} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setConfirmDelete({ ids: [inv.id], title: `Invoice ${seqNum}` });
+                                                                }}
+                                                                className="btn btn-secondary"
+                                                                style={{ padding: '0.4rem 0.5rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)' }}
+                                                                title="Delete Invoice"
+                                                            >
+                                                                <Trash2 size={15} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -451,6 +621,85 @@ export default function InvoicesPage() {
                             </button>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {confirmDelete && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 99999,
+                    padding: '20px',
+                    animation: 'fadeIn 0.2s ease'
+                }}>
+                    <div className="card shadow-premium animate-pop" style={{
+                        maxWidth: '420px',
+                        width: '100%',
+                        padding: '2.25rem 2rem',
+                        textAlign: 'center',
+                        background: '#ffffff',
+                        borderRadius: '24px',
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                        border: '1px solid hsl(var(--border-subtle))'
+                    }}>
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '50%',
+                            background: 'rgba(239,68,68,0.1)',
+                            color: '#ef4444',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 1.25rem'
+                        }}>
+                            <Trash2 size={32} />
+                        </div>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: 800, fontSize: '1.35rem', color: 'hsl(var(--text-main))' }}>
+                            Delete {confirmDelete.ids?.length > 1 ? `${confirmDelete.ids.length} Invoices?` : 'Invoice?'}
+                        </h3>
+                        <p style={{ color: 'hsl(var(--text-muted))', margin: '0 0 2rem 0', lineHeight: 1.5, fontSize: '0.9rem' }}>
+                            This will permanently remove {confirmDelete.ids?.length > 1 ? `${confirmDelete.ids.length} invoice & order records` : 'this invoice & order record'} and all associated line items. This action cannot be undone.
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <button
+                                type="button"
+                                onClick={() => setConfirmDelete(null)}
+                                disabled={isDeleting}
+                                className="btn btn-secondary"
+                                style={{ padding: '0.75rem', borderRadius: '12px', fontWeight: 600 }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeleteConfirmed}
+                                disabled={isDeleting}
+                                className="btn"
+                                style={{
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    padding: '0.75rem',
+                                    borderRadius: '12px',
+                                    fontWeight: 700,
+                                    border: 'none',
+                                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                {isDeleting ? <Loader2 size={16} className="animate-spin" /> : 'Delete Now'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

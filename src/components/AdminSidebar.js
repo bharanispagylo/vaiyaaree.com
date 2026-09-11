@@ -9,9 +9,9 @@ import { useState, useEffect } from 'react';
 
 const menuItems = [
     { name: 'Dashboard', href: '/admin', icon: TrendingUp },
-    { 
-        name: 'Orders', 
-        icon: Package, 
+    {
+        name: 'Orders',
+        icon: Package,
         children: [
             { name: 'Orders', href: '/admin/orders' },
             { name: 'Order Analysis', href: '/admin/orders/analysis' },
@@ -23,45 +23,45 @@ const menuItems = [
     { name: 'Categories', href: '/admin/categories', icon: Layers },
     { name: 'Discount Rule', href: '/admin/discounts', icon: Tag },
     { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
-    { 
-        name: 'Invoices', 
-        icon: FileText, 
+    {
+        name: 'Invoices',
+        icon: FileText,
         children: [
             { name: 'Invoices', href: '/admin/invoices' },
             { name: 'Invoice Report', href: '/admin/invoices/report' }
         ]
     },
-    { 
-        name: 'Customers', 
-        icon: Users, 
+    {
+        name: 'Customers',
+        icon: Users,
         children: [
             { name: 'Customers', href: '/admin/customers' },
             { name: 'Customer Analysis', href: '/admin/customers/analysis' }
         ]
     },
-    { 
-        name: 'Shipping', 
-        icon: Truck, 
+    {
+        name: 'Shipping',
+        icon: Truck,
         children: [
             { name: 'Shipping Settings', href: '/admin/shipping' },
             { name: 'Couriers', href: '/admin/couriers' }
         ]
     },
-    { 
-        name: 'Social Media', 
-        icon: Megaphone, 
+    {
+        name: 'Social Media',
+        icon: Megaphone,
         children: [
             { name: 'WhatsApp Funnel', href: '/admin/whatsapp' }
         ]
     },
     { name: 'CMS', href: '/admin/cms', icon: Layout },
-    { name: 'Navigation Menus', href: '/admin/menus', icon: Compass },
     { name: 'User Management', href: '/admin/users', icon: Users },
-    { 
-        name: 'Settings', 
+    {
+        name: 'Settings',
         icon: Settings,
         children: [
             { name: 'Shop Settings', href: '/admin/shop-settings' },
+            { name: 'Footer Settings', href: '/admin/settings/footer' },
             { name: 'Checkout Settings', href: '/admin/settings/checkout' },
             { name: 'Navigation Menus', href: '/admin/menus' },
             { name: 'Home Page Builder', href: '/admin/settings/homepage-builder' },
@@ -83,7 +83,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
             try {
                 const stored = JSON.parse(localStorage.getItem('cast_prince_admin_user') || '{}');
                 return stored.rawRole || stored.role || 'admin';
-            } catch (e) {}
+            } catch (e) { }
         }
         return 'admin';
     });
@@ -119,13 +119,13 @@ export default function AdminSidebar({ isOpen, onClose }) {
                 if (stored.rawRole || stored.role) {
                     setUserRole(stored.rawRole || stored.role);
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
     }, [pathname]);
 
     // Auto-manage sub-menus based on the current page path
     useEffect(() => {
-        const activeSubMenu = menuItems.find(item => 
+        const activeSubMenu = menuItems.find(item =>
             item.children && item.children.some(child => child.href === pathname)
         );
         if (activeSubMenu) {
@@ -139,7 +139,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
     async function handleLogout() {
         try {
             await fetch('/api/auth/logout', { method: 'POST' });
-        } catch (e) {}
+        } catch (e) { }
         localStorage.removeItem('cast_prince_admin');
         localStorage.removeItem('cast_prince_admin_user');
         router.push('/admin/login');
@@ -203,11 +203,11 @@ export default function AdminSidebar({ isOpen, onClose }) {
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 display: 'flex', alignItems: 'center', gap: '0.85rem'
             }}> */}
-                {/* <div style={{ position: 'relative', display: 'flex' }}>
+            {/* <div style={{ position: 'relative', display: 'flex' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--success))' }} />
                     <div style={{ position: 'absolute', inset: -4, borderRadius: '50%', background: 'hsl(var(--success))', opacity: 0.3, animation: 'pulse 2s infinite' }} />
                 </div> */}
-                {/* <div>
+            {/* <div>
                     <span style={{ color: 'white', fontWeight: 700, fontSize: '0.75rem', display: 'block' }}>WhatsApp Active</span>
                     <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.65rem', display: 'block' }}>Bot is online</span>
                 </div> */}
@@ -225,7 +225,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
                             <div key={item.name} style={{ display: 'flex', flexDirection: 'column' }}>
                                 <button
                                     onClick={() => {
-                                        setOpenSubMenus(prev => 
+                                        setOpenSubMenus(prev =>
                                             prev.includes(item.name) ? prev : [item.name]
                                         );
                                         if (item.children && item.children.length > 0) {
@@ -246,13 +246,13 @@ export default function AdminSidebar({ isOpen, onClose }) {
                                 >
                                     <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} />
                                     <span style={{ flex: 1, textAlign: 'left' }}>{item.name}</span>
-                                    <ChevronDown 
-                                        size={14} 
-                                        style={{ 
-                                            transform: isSubMenuOpen ? 'rotate(180deg)' : 'rotate(0)', 
+                                    <ChevronDown
+                                        size={14}
+                                        style={{
+                                            transform: isSubMenuOpen ? 'rotate(180deg)' : 'rotate(0)',
                                             transition: 'transform 0.2s',
                                             opacity: 0.5
-                                        }} 
+                                        }}
                                     />
                                 </button>
                                 {isSubMenuOpen && (
