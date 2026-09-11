@@ -47,11 +47,11 @@ export default function OrderDetailModal({
     if (!order) return null;
 
     const sIdx = typeof getStatusIndex === 'function' ? getStatusIndex(order.status) : getInternalStatusIndex(order.status);
-    const isCancelled = ['CANCELLED', 'REFUNDED', 'CANCEL_REQUESTED'].includes((order.status || '').toUpperCase());
+    const isCancelled = ['CANCELLED', 'CANCELED', 'REFUNDED', 'CANCEL_REQUESTED'].includes((order.status || '').toUpperCase());
     const isDelivered = (order.status || '').toUpperCase() === 'DELIVERED';
 
     // Strict Pre-Fulfillment guard for cancellation
-    const canCancel = ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED'].includes((order.status || '').toUpperCase());
+    const canCancel = !isCancelled && ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED'].includes((order.status || '').toUpperCase());
 
     // Robust Address Parsing
     const shipping = parseAddressObject(order.shipping_address) || parseAddressObject(order.billing_address) || {};
@@ -64,6 +64,13 @@ export default function OrderDetailModal({
     const itemsSubtotal = items.reduce((sum, it) => sum + (Number(it.price_at_time || it.price || 0) * (it.quantity || 1)), 0);
     const totalDiscount = Number(order.total_discount || order.cart_discount || order.product_discount || 0);
     const finalTotal = Number(order.total_amount || order.total || 0);
+
+    const method = String(order.payment_method || '').toUpperCase();
+    const isCod = method === 'COD' || method.includes('CASH ON DELIVERY');
+    const codAdv = Number(order.advance_paid || order.cod_advance_required || 0);
+    const codBal = Number(order.balance_amount !== undefined && order.balance_amount !== null ? order.balance_amount : Math.max(0, finalTotal - codAdv));
+    const isCodWithAdvance = isCod && codAdv > 0;
+    const isCodPure = isCod && codAdv === 0;
 
     const timelineSteps = [
         { stage: 'PLACED', label: 'Order Placed', icon: <Package size={18} /> },
@@ -83,27 +90,30 @@ export default function OrderDetailModal({
             <div style={{
                 position: 'fixed',
                 inset: 0,
-                background: 'rgba(15, 23, 42, 0.65)',
+                backgroundColor: 'rgba(15, 23, 42, 0.65)',
                 backdropFilter: 'blur(8px)',
                 zIndex: 99999,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '1.25rem'
-            }}>
+                padding: '1rem',
+                overflowY: 'auto'
+            }} onClick={onClose}>
                 <div
                     style={{
-                        background: '#ffffff',
+                        backgroundColor: '#ffffff',
                         borderRadius: '24px',
                         width: '100%',
                         maxWidth: '850px',
                         maxHeight: '90vh',
                         overflowY: 'auto',
-                        border: '1px solid hsl(var(--border-subtle, #e2e8f0))',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        position: 'relative',
                         display: 'flex',
-                        flexDirection: 'column'
+                        flexDirection: 'column',
+                        border: '1px solid hsl(var(--border-subtle, #e2e8f0))'
                     }}
+                    onClick={e => e.stopPropagation()}
                 >
                     {/* Header Navigation Bar */}
                     <div style={{
@@ -204,12 +214,65 @@ export default function OrderDetailModal({
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', fontWeight: 800, borderRadius: '20px' }}>
-                                    {order.status}
+                                <span style={{
+                                    padding: '0.45rem 1rem',
+                                    fontSize: '0.82rem',
+                                    fontWeight: 800,
+                                    borderRadius: '20px',
+                                    background: isCancelled ? '#fef2f2' : (isDelivered ? '#f0fdf4' : '#eff6ff'),
+                                    color: isCancelled ? '#dc2626' : (isDelivered ? '#15803d' : '#1d4ed8'),
+                                    border: `1px solid ${isCancelled ? '#fecdd3' : (isDelivered ? '#bbf7d0' : '#bfdbfe')}`
+                                }}>
+                                    {isCancelled ? 'CANCELED' : order.status}
                                 </span>
-                                <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted, #64748b))', fontWeight: 700 }}>
-                                    Payment: <strong style={{ color: order.payment_status === 'PAID' ? '#16a34a' : 'inherit' }}>{order.payment_status || 'PENDING'}</strong> ({order.payment_method || 'Online'})
-                                </div>
+                                {isCancelled ? (
+                                    <div style={{ textAlign: 'right', marginTop: '2px' }}>
+                                        <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted, #64748b))', fontWeight: 700 }}>
+                                            Payment: <strong style={{ color: (order.refund_status === 'REFUNDED' || order.razorpay_refund_id) ? '#16a34a' : (isCodPure ? '#64748b' : '#d97706') }}>
+                                                {isCodPure ? 'VOIDED (COD)' : (order.refund_status === 'REFUNDED' || order.razorpay_refund_id ? 'REFUNDED' : 'REFUND PROCESSING')}
+                                            </strong> ({isCod ? 'Cash on Delivery' : (order.payment_method || 'Online')})
+                                        </div>
+                                        {isCodWithAdvance && (
+                                            <div style={{ marginTop: '2px' }}>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '5px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                                                    💳 Advance Refunded: ₹{(Number(order.refund_amount) || codAdv).toLocaleString('en-IN')} (Razorpay)
+                                                </span>
+                                            </div>
+                                        )}
+                                        {!isCod && (
+                                            <div style={{ marginTop: '2px' }}>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '5px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                                                    💳 Refunded: ₹{(Number(order.refund_amount) || finalTotal).toLocaleString('en-IN')} via Razorpay
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted, #64748b))', fontWeight: 700 }}>
+                                            Payment: <strong style={{ color: order.payment_status === 'PAID' ? '#16a34a' : (isCodWithAdvance ? '#2563eb' : 'inherit') }}>
+                                                {isCodWithAdvance ? 'ADVANCE PAID' : (order.payment_status || 'PENDING')}
+                                            </strong> ({isCod ? 'Cash on Delivery' : (order.payment_method || 'Online')})
+                                        </div>
+                                        {isCodWithAdvance && (
+                                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: '2px' }}>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '5px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                                                    ✓ Adv: ₹{codAdv.toLocaleString('en-IN')} (Paid)
+                                                </span>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '5px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                                                    💵 Due: ₹{codBal.toLocaleString('en-IN')} (Cash)
+                                                </span>
+                                            </div>
+                                        )}
+                                        {isCodPure && (
+                                            <div style={{ marginTop: '2px' }}>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '5px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                                                    💵 ₹{finalTotal.toLocaleString('en-IN')} Cash Due on Delivery
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -291,6 +354,75 @@ export default function OrderDetailModal({
                                         Track on Carrier Website
                                     </a>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Prominent COD Notice & Cash Collection Instructions */}
+                        {isCod && (
+                            <div style={{
+                                background: '#fffbeb',
+                                border: '1.5px solid #fde68a',
+                                borderRadius: '16px',
+                                padding: '1.25rem 1.35rem',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '1rem',
+                                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)'
+                            }}>
+                                <div style={{
+                                    background: '#fef3c7',
+                                    color: '#b45309',
+                                    borderRadius: '12px',
+                                    padding: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    <Truck size={22} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#92400e' }}>
+                                            Cash on Delivery (COD) Summary & Instructions
+                                        </h4>
+                                        <span style={{ fontSize: '0.74rem', fontWeight: 800, background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '6px', border: '1px solid #fcd34d' }}>
+                                            {isCodWithAdvance ? 'PARTIAL ADVANCE PAID' : 'PAY ON ARRIVAL'}
+                                        </span>
+                                    </div>
+                                    <p style={{ margin: '5px 0 8px', fontSize: '0.82rem', color: '#78350f', lineHeight: 1.5 }}>
+                                        {isCodWithAdvance ? (
+                                            <>
+                                                We have received your advance payment of <strong>₹{codAdv.toLocaleString('en-IN')}.00</strong> via Razorpay. The remaining balance will be collected in cash or UPI by the delivery courier.
+                                            </>
+                                        ) : (
+                                            <>
+                                                Please keep the exact amount ready in cash or UPI to hand over to the courier partner upon package arrival.
+                                            </>
+                                        )}
+                                    </p>
+                                    <div style={{
+                                        background: '#ffffff',
+                                        border: '1px solid #fde68a',
+                                        borderRadius: '10px',
+                                        padding: '8px 12px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        flexWrap: 'wrap',
+                                        gap: '8px'
+                                    }}>
+                                        <div>
+                                            <span style={{ fontSize: '0.70rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase' }}>Cash to Pay Courier</span>
+                                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#b45309' }}>
+                                                ₹{codBal.toLocaleString('en-IN')}.00
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: '0.78rem', color: '#78350f', fontWeight: 600 }}>
+                                            💡 Keep exact change or UPI ready.
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -435,19 +567,132 @@ export default function OrderDetailModal({
                                     </span>
                                 </div>
 
-                                <div style={{
-                                    borderTop: '1px solid hsl(var(--border-subtle, #e2e8f0))',
-                                    paddingTop: '0.75rem',
-                                    marginTop: '0.35rem',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    fontSize: '1.1rem',
-                                    fontWeight: 900,
-                                    color: 'hsl(var(--text-main, #0f172a))'
-                                }}>
-                                    <span>Total Paid</span>
-                                    <span style={{ color: 'hsl(var(--primary, #5d0821))' }}>₹{finalTotal.toLocaleString()}.00</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, color: 'hsl(var(--text-main, #0f172a))' }}>
+                                    <span>Total Order Value</span>
+                                    <span>₹{finalTotal.toLocaleString()}.00</span>
                                 </div>
+
+                                {isCodWithAdvance ? (
+                                    <>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#15803d', fontWeight: 700 }}>
+                                            <span>✓ Advance Paid (Razorpay)</span>
+                                            <span>-₹{codAdv.toLocaleString()}.00</span>
+                                        </div>
+                                        {isCancelled ? (
+                                            <div style={{
+                                                borderTop: '2px solid #bbf7d0',
+                                                padding: '8px 10px',
+                                                margin: '4px -10px 0',
+                                                borderRadius: '8px',
+                                                background: '#f0fdf4',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                color: '#15803d'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>Advance Refunded</div>
+                                                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#166534' }}>
+                                                        {order.razorpay_refund_id ? `Razorpay Refund ID: ${order.razorpay_refund_id}` : 'Credited back via Razorpay'}
+                                                    </div>
+                                                </div>
+                                                <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#15803d' }}>₹{(Number(order.refund_amount) || codAdv).toLocaleString()}.00</div>
+                                            </div>
+                                        ) : (
+                                            <div style={{
+                                                borderTop: '2px solid #fde68a',
+                                                padding: '8px 10px',
+                                                margin: '4px -10px 0',
+                                                borderRadius: '8px',
+                                                background: '#fffbeb',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                color: '#b45309'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>Cash Due on Delivery</div>
+                                                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#92400e' }}>Payable upon courier arrival</div>
+                                                </div>
+                                                <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#b45309' }}>₹{codBal.toLocaleString()}.00</div>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : isCodPure ? (
+                                    isCancelled ? (
+                                        <div style={{
+                                            borderTop: '2px solid #e2e8f0',
+                                            padding: '8px 10px',
+                                            margin: '4px -10px 0',
+                                            borderRadius: '8px',
+                                            background: '#f8fafc',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            color: '#64748b'
+                                        }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>Cash Due on Delivery</div>
+                                                <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8' }}>Order Cancelled (No Cash Due)</div>
+                                            </div>
+                                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#64748b', textDecoration: 'line-through' }}>₹{finalTotal.toLocaleString()}.00</div>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            borderTop: '2px solid #fde68a',
+                                            padding: '8px 10px',
+                                            margin: '4px -10px 0',
+                                            borderRadius: '8px',
+                                            background: '#fffbeb',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            color: '#b45309'
+                                        }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>Cash Due on Delivery</div>
+                                                <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#92400e' }}>Payable upon courier arrival</div>
+                                            </div>
+                                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#b45309' }}>₹{finalTotal.toLocaleString()}.00</div>
+                                        </div>
+                                    )
+                                ) : (
+                                    isCancelled ? (
+                                        <div style={{
+                                            borderTop: '2px solid #bbf7d0',
+                                            padding: '8px 10px',
+                                            margin: '4px -10px 0',
+                                            borderRadius: '8px',
+                                            background: '#f0fdf4',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            color: '#15803d'
+                                        }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800 }}>Amount Refunded</div>
+                                                <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#166534' }}>
+                                                    {order.razorpay_refund_id ? `Razorpay Refund ID: ${order.razorpay_refund_id}` : 'Credited back via Razorpay'}
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#15803d' }}>₹{(Number(order.refund_amount) || finalTotal).toLocaleString()}.00</div>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            borderTop: '1px solid hsl(var(--border-subtle, #e2e8f0))',
+                                            paddingTop: '0.75rem',
+                                            marginTop: '0.35rem',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            fontSize: '1.1rem',
+                                            fontWeight: 900,
+                                            color: 'hsl(var(--text-main, #0f172a))'
+                                        }}>
+                                            <span>Total Paid</span>
+                                            <span style={{ color: 'hsl(var(--primary, #5d0821))' }}>₹{finalTotal.toLocaleString()}.00</span>
+                                        </div>
+                                    )
+                                )}
                             </div>
 
                             {/* Delivery Address Card */}

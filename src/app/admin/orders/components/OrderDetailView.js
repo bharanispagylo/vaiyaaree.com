@@ -92,7 +92,18 @@ export default function OrderDetailView({
         })();
 
     const razorpaySignature = selectedOrder.razorpay_signature || null;
-    const razorpayRefundId = selectedOrder.razorpay_refund_id || null;
+    const razorpayRefundId = selectedOrder.razorpay_refund_id || 
+        (() => {
+            if (Array.isArray(orderActivityLogs)) {
+                for (const log of orderActivityLogs) {
+                    const match = log.notes?.match(/Refund ID:\s*([a-zA-Z0-9_]+)/i);
+                    if (match) return match[1];
+                }
+            }
+            const notesMatch = selectedOrder.admin_notes?.match(/Refund ID:\s*([a-zA-Z0-9_]+)/i);
+            if (notesMatch) return notesMatch[1];
+            return null;
+        })();
 
     const paymentMethodText = String(selectedOrder.payment_method || '').trim();
     const isPaidOnline = Boolean(

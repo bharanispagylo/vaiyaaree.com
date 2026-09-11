@@ -907,10 +907,10 @@ async function handleUpsert({ table, data, returnColumns, isSingle, isMaybeSingl
         const keys = Object.keys(row);
         const colNames = keys.map(k => `\`${k}\``).join(', ');
         const placeholders = keys.map(() => '?').join(', ');
-        const updateClauses = keys.filter(k => k !== 'id').map(k => `\`${k}\` = VALUES(\`${k}\`)`).join(', ');
+        const updateClauses = keys.filter(k => k !== 'id' && k !== 'key').map(k => `\`${k}\` = VALUES(\`${k}\`)`).join(', ');
         const values = keys.map(k => formatValueForMySQL(row[k]));
 
-        const sql = `INSERT INTO \`${table}\` (${colNames}) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updateClauses || '`id`=`id`'}`;
+        const sql = `INSERT INTO \`${table}\` (${colNames}) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updateClauses || '`updated_at`=NOW()'}`;
         await pool.query(sql, values);
         upserted.push(parseJsonFields(row));
     }

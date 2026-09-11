@@ -728,6 +728,14 @@ export default function ProfilePage() {
                 ? 'Order cancelled successfully! (Cash on Delivery)' 
                 : 'Order cancelled! Refund request submitted.');
             showToast(successMsg, 'success');
+            setOrders(prev => prev.map(o => o.id === cancelModalOrder.id ? {
+                ...o,
+                status: 'CANCELLED',
+                cancel_reason: cancelReason,
+                refund_status: data.refund?.refundStatus || (data.isCod ? 'NOT_APPLICABLE' : 'REFUND_REQUESTED'),
+                refund_amount: data.refund?.refundAmount !== undefined ? data.refund.refundAmount : o.refund_amount,
+                razorpay_refund_id: data.refund?.razorpayRefundId || o.razorpay_refund_id
+            } : o));
             setCancelModalOrder(null);
             setCancelReason('Changed my mind');
             await fetchUserOrders();
@@ -763,7 +771,7 @@ export default function ProfilePage() {
 
     // Filter Active vs History Orders
     const pastOrders = orders.filter(o =>
-        ['DELIVERED', 'CANCELLED', 'REFUNDED', 'RETURN_REQUESTED', 'RETURN_APPROVED'].includes(
+        ['DELIVERED', 'CANCELLED', 'CANCELED', 'REFUNDED', 'RETURN_REQUESTED', 'RETURN_APPROVED'].includes(
             (o.status || '').toUpperCase()
         )
     );

@@ -347,6 +347,64 @@
     margin-top: 2px;
 }
 
+.codAdvanceNoteBox {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-left: 3.5px solid #f59e0b;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    color: #92400e;
+    line-height: 1.45;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    animation: fadeInSlide 0.25s ease-out;
+}
+
+.codAdvanceNoteBox strong {
+    color: #78350f;
+    font-weight: 700;
+}
+
+.codAdvanceBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #b45309;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    padding: 2px 7px;
+    border-radius: 6px;
+    letter-spacing: 0.02em;
+}
+
+.codAdvanceSplit {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.codAdvanceSplitRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: #475569;
+}
+
+.codAdvanceSplitRow strong {
+    font-weight: 700;
+}
+
 .placeOrderBtn {
     width: calc(100% - 2.5rem);
     margin: 0 1.25rem 1.25rem;
@@ -1116,4 +1174,70 @@
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+}
+
+/* ─── Create Account Section ─── */
+.createAccountCard {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-top: 1.5rem;
+    transition: all 0.2s ease;
+}
+
+.createAccountCard:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+
+.createAccountCheckboxLabel {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.accountCheckbox {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: #5d0821;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.createAccountText {
+    font-size: 0.88rem;
+    color: #334155;
+    line-height: 1.45;
+}
+
+.createAccountText strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.accountPasswordSection {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px dashed #cbd5e1;
+}
+
+.passwordInput {
+    width: 100%;
+    padding: 0.85rem 2.8rem 0.85rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: #ffffff;
+    color: #0f172a;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.passwordInput:focus {
+    border-color: #5d0821;
+    box-shadow: 0 0 0 3px rgba(93, 8, 33, 0.08);
 }

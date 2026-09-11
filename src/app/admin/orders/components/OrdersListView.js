@@ -402,6 +402,46 @@ export default function OrdersListView({
                                                     <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'hsl(var(--text-main))' }}>
                                                         {order.payment_method || '—'}
                                                     </span>
+                                                    {(() => {
+                                                        const isCod = (order.payment_method || '').toUpperCase() === 'COD' || (order.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+                                                        const advRequired = Number(order.cod_advance_required || 0);
+                                                        const advPaid = Number(order.advance_paid || 0);
+                                                        if (isCod && (advRequired > 0 || advPaid > 0)) {
+                                                            const adv = advPaid > 0 ? advPaid : advRequired;
+                                                            const total = Number(order.total_amount || 0);
+                                                            const balance = Number(order.balance_amount !== undefined && order.balance_amount !== null ? order.balance_amount : Math.max(0, total - adv));
+                                                            const isAdvPaid = advPaid > 0 || ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes((order.status || '').toUpperCase());
+                                                            return (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px', alignItems: 'center' }}>
+                                                                    <span style={{
+                                                                        fontSize: '0.68rem',
+                                                                        fontWeight: 800,
+                                                                        color: isAdvPaid ? '#15803d' : '#b45309',
+                                                                        background: isAdvPaid ? '#dcfce7' : '#fef3c7',
+                                                                        border: `1px solid ${isAdvPaid ? '#bbf7d0' : '#fde68a'}`,
+                                                                        padding: '1px 6px',
+                                                                        borderRadius: '4px',
+                                                                        whiteSpace: 'nowrap'
+                                                                    }}>
+                                                                        Adv: ₹{adv.toLocaleString('en-IN')} ({isAdvPaid ? 'Paid' : 'Pending'})
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize: '0.68rem',
+                                                                        fontWeight: 800,
+                                                                        color: '#92400e',
+                                                                        background: '#fffbeb',
+                                                                        border: '1px solid #fed7aa',
+                                                                        padding: '1px 6px',
+                                                                        borderRadius: '4px',
+                                                                        whiteSpace: 'nowrap'
+                                                                    }}>
+                                                                        Due: ₹{balance.toLocaleString('en-IN')}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                                     {order.razorpay_payment_id && (
                                                         <div style={{ fontSize: '0.68rem', color: '#1d4ed8', fontFamily: 'monospace', fontWeight: 600, marginTop: '2px' }}>
                                                             {order.razorpay_payment_id}

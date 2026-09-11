@@ -289,7 +289,9 @@ a.btn,
     box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15) !important;
     overflow-y: auto !important;
     padding: 1.25rem 1rem 5rem !important;
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1.5rem !important;
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }

@@ -464,6 +464,7 @@
 .statusPROCESSING { background: transparent !important; color: #d97706; }
 .statusSHIPPED { background: transparent !important; color: #3730a3; }
 .statusCANCELLED { background: transparent !important; color: #dc2626; }
+.statusCANCELED { background: transparent !important; color: #dc2626; }
 .statusREFUNDED { background: transparent !important; color: #6b21a8; }
 
 .orderBody {

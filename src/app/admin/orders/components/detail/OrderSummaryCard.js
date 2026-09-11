@@ -114,6 +114,23 @@ export default function OrderSummaryCard({ selectedOrder, itemsTotal = 0 }) {
                         ₹{grandTotalVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                 </div>
+
+                {(Number(selectedOrder.cod_advance_required || 0) > 0 || Number(selectedOrder.advance_paid || 0) > 0) && (
+                    <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#fffbeb', borderRadius: '10px', border: '1px solid #fef3c7', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#92400e' }}>
+                            <span>Advance Paid (Razorpay):</span>
+                            <strong style={{ color: '#15803d' }}>
+                                ₹{Number(selectedOrder.advance_paid || selectedOrder.cod_advance_required || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#92400e' }}>
+                            <span>Cash Due on Delivery:</span>
+                            <strong style={{ color: '#b45309' }}>
+                                ₹{Number(selectedOrder.balance_amount !== undefined ? selectedOrder.balance_amount : Math.max(0, grandTotalVal - (selectedOrder.advance_paid || selectedOrder.cod_advance_required || 0))).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </strong>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -29,6 +29,7 @@ const PAGE_TITLES = {
     '/admin/coming-soon': 'Coming Soon Mode',
     '/admin/analytics': 'Analytics',
     '/admin/settings': 'Settings',
+    '/admin/settings/checkout': 'Checkout Settings',
     '/admin/shop-settings': 'Shop Settings',
     '/admin/users': 'User Management',
     '/admin/media': 'Media Gallery',

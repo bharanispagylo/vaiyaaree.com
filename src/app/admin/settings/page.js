@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Store, CreditCard, Bell, Globe, MapPin, Phone, Truck, Percent, Power, Instagram, Facebook } from 'lucide-react';
+import Link from 'next/link';
+import { Store, CreditCard, Bell, Globe, MapPin, Phone, Truck, Percent, Power, Instagram, Facebook, ArrowRight } from 'lucide-react';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('General');
 
     const tabs = [
         { label: 'General', icon: Store },
+        { label: 'Checkout & COD', icon: CreditCard },
         { label: 'Business & Tax', icon: Percent },
         { label: 'Shipping & Delivery', icon: Truck },
         { label: 'Social & Support', icon: Phone },
@@ -62,6 +64,73 @@ export default function SettingsPage() {
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Store Status</div>
                                         <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Turn off to stop accepting new orders temporarily.</div>
+                                    </div>
+                                    <label className="switch">
+                                        <input type="checkbox" defaultChecked />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/*  CHECKOUT & COD TAB  */}
+                    {activeTab === 'Checkout & COD' && (
+                        <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                                <h2 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <CreditCard size={20} color="hsl(var(--primary))" /> Checkout & Payment Gateway Settings
+                                </h2>
+                                <Link
+                                    href="/admin/settings/checkout"
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                        padding: '0.5rem 1rem', background: 'hsl(var(--primary))', color: '#fff',
+                                        borderRadius: '8px', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 700
+                                    }}
+                                >
+                                    Open Dedicated Checkout Settings & Simulator <ArrowRight size={15} />
+                                </Link>
+                            </div>
+                            <div style={{ display: 'grid', gap: '1.75rem', maxWidth: '650px' }}>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '1.25rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 700, marginBottom: '0.25rem', fontSize: '1rem' }}>Cash on Delivery (COD)</div>
+                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Enable or disable Cash on Delivery payment for shoppers at checkout.</div>
+                                    </div>
+                                    <label className="switch">
+                                        <input type="checkbox" defaultChecked />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
+                                <div>
+                                    <label className="label">COD Display Title</label>
+                                    <input className="input-field" defaultValue="Cash on Delivery (COD)" />
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                    <div>
+                                        <label className="label">COD Extra Handling Fee (₹)</label>
+                                        <input className="input-field" type="number" defaultValue="0" min="0" />
+                                    </div>
+                                    <div>
+                                        <label className="label">Minimum Order for COD (₹)</label>
+                                        <input className="input-field" type="number" defaultValue="0" min="0" />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '1rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Allow Guest Checkout</div>
+                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Customers can complete purchase without creating an account.</div>
+                                    </div>
+                                    <label className="switch">
+                                        <input type="checkbox" defaultChecked />
+                                        <span className="slider round"></span>
+                                    </label>
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', padding: '1rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid hsl(var(--border-subtle))' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Customer Order Delivery Notes</div>
+                                        <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))' }}>Display delivery notes / gifting instructions field during checkout.</div>
                                     </div>
                                     <label className="switch">
                                         <input type="checkbox" defaultChecked />

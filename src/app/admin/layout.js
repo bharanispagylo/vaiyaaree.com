@@ -9,10 +9,14 @@ export default function AdminLayout({ children }) {
     const isLoginPage = pathname === '/admin/login' || pathname === '/admin/login/forgot-password';
 
     if (isLoginPage) {
-        return <>{children}</>;
+        return <div className="admin-root-scope" style={{ fontFamily: 'var(--font-admin)' }}>{children}</div>;
     }
 
-    return <ProtectedAdminLayout pathname={pathname}>{children}</ProtectedAdminLayout>;
+    return (
+        <div className="admin-root-scope" style={{ fontFamily: 'var(--font-admin)' }}>
+            <ProtectedAdminLayout pathname={pathname}>{children}</ProtectedAdminLayout>
+        </div>
+    );
 }
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout
@@ -137,7 +141,7 @@ function ProtectedAdminLayout({ children, pathname }) {
     if (!mounted || !isAuthorized) return null;
 
     return (
-        <div className="admin-layout" style={{ fontFamily: 'var(--font-roboto)' }}>
+        <div className="admin-layout" style={{ fontFamily: 'var(--font-admin)' }}>
             <AdminSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Mobile Overlay */}

@@ -2,6 +2,7 @@ import pool, { withTransaction } from '@/lib/mysql.js';
 import { generateRefundId, logRefundStatus } from '@/services/refundService.js';
 import { getGatewaySettings } from '@/lib/settings.js';
 import { dispatchNotification, EVENT_TYPES } from '@/services/notificationEngine.js';
+import { processOrderCancellationRefund, ensureOrdersRefundSchema } from '@/services/orderRefundEngine.js';
 import crypto, { randomUUID } from 'crypto';
 
 let ordersSchemaChecked = false;
@@ -36,7 +37,7 @@ export async function POST(request) {
         const cancelReasonNote = reason ? `Reason: ${reason}` : 'Order cancelled by customer';
 
         const result = await withTransaction(async (conn) => {
-            await ensureOrdersSchema(conn);
+            await ensureOrdersRefundSchema(conn);
 
             // 1. Fetch & lock order
             const [orderRows] = await conn.query("SELECT * FROM `orders` WHERE `id` = ? FOR UPDATE", [orderId]);
@@ -197,179 +198,32 @@ export async function POST(request) {
                 }
             }
 
-            // 5. Payment Classification: Cash on Delivery (COD) vs Online Payment
-            const paymentMethodUpper = String(order.payment_method || '').toUpperCase();
-            const isCod = paymentMethodUpper === 'COD' || 
-                          paymentMethodUpper.includes('CASH ON DELIVERY') || 
-                          paymentMethodUpper === 'CASH' ||
-                          (!order.razorpay_payment_id && currentStatus !== 'PAID' && !['RAZORPAY', 'UPI', 'PHONEPE'].some(m => paymentMethodUpper.includes(m)));
+            // 5. Automatic Refund Processing for Online & COD Advance Payments
+            const refundResult = await processOrderCancellationRefund({
+                conn,
+                order,
+                cancelReason: cancelReasonNote,
+                actor: 'customer'
+            });
 
-            const isPaidOnline = !isCod && (
-                Boolean(order.razorpay_payment_id) || 
-                currentStatus === 'PAID' ||
-                ['RAZORPAY', 'ONLINE', 'UPI', 'PHONEPE', 'CARD'].some(m => paymentMethodUpper.includes(m))
-            );
-
-            // 6. Online Refund Processing (Razorpay / Admin Workflow)
-            let razorpayRefund = null;
-
-            if (isPaidOnline && order.razorpay_payment_id) {
-                try {
-                    const settings = await getGatewaySettings();
-                    const keyId = settings.razorpay_key_id;
-                    const keySecret = settings.razorpay_key_secret;
-
-                    // Only attempt direct Razorpay API if live credentials exist
-                    if (keyId && keySecret && !keyId.includes('placeholder') && !keySecret.includes('placeholder')) {
-                        const refundAmountPaise = Math.round(Number(order.total_amount) * 100);
-                        const authHeader = 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64');
-
-                        const rzpRes = await fetch(`https://api.razorpay.com/v1/payments/${order.razorpay_payment_id}/refund`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': authHeader
-                            },
-                            body: JSON.stringify({
-                                amount: refundAmountPaise,
-                                speed: 'optimum',
-                                notes: {
-                                    order_id: orderId,
-                                    reason: cancelReasonNote
-                                }
-                            })
-                        });
-
-                        const refundData = await rzpRes.json();
-                        if (rzpRes.ok && refundData.id) {
-                            razorpayRefund = refundData;
-                            console.log(`[RAZORPAY-REFUND-SUCCESS] Order #${orderId} refunded: ${refundData.id}`);
-                        } else {
-                            console.warn('[RAZORPAY-REFUND-NOTICE] Gateway response:', refundData?.error?.description || refundData);
-                        }
-                    }
-                } catch (rzpErr) {
-                    console.error('[RAZORPAY-REFUND-EXCEPTION]', rzpErr.message);
-                }
-            }
-
-            // 7. Determine Refund Status & Admin Notes
-            let refundStatusToSet = 'NOT_APPLICABLE';
-            let razorpayRefundId = razorpayRefund?.id || null;
-            let adminNoteText = '';
-
-            if (isCod) {
-                refundStatusToSet = 'NOT_APPLICABLE';
-                adminNoteText = `Order cancelled by customer. ${cancelReasonNote} (Cash on Delivery - No refund required).`;
-            } else if (isPaidOnline) {
-                if (razorpayRefund) {
-                    refundStatusToSet = 'REFUNDED';
-                    adminNoteText = `Order cancelled by customer. ${cancelReasonNote}. Razorpay Refund ID: ${razorpayRefund.id}`;
-                } else {
-                    refundStatusToSet = 'REFUND_REQUESTED';
-                    adminNoteText = `Order cancelled by customer. ${cancelReasonNote}. Online payment refund of ₹${Number(order.total_amount).toLocaleString('en-IN')} pending admin payout.`;
-                }
-            }
-
-            // Update orders table in MySQL
-            const refundAmountToStore = isPaidOnline ? order.total_amount : 0;
+            // 6. Explicitly set orders table status to CANCELLED and store cancel_reason
             await conn.query(
-                `UPDATE \`orders\` 
-                 SET \`status\` = 'CANCELLED', 
-                     \`refund_status\` = ?, 
-                     \`refund_amount\` = ?,
-                     \`razorpay_refund_id\` = ?,
-                     \`admin_notes\` = ?, 
-                     \`updated_at\` = NOW() 
-                 WHERE \`id\` = ?`,
-                [refundStatusToSet, refundAmountToStore, razorpayRefundId, adminNoteText, orderId]
+                "UPDATE `orders` SET `status` = 'CANCELLED', `cancel_reason` = COALESCE(?, `cancel_reason`), `updated_at` = NOW() WHERE `id` = ?",
+                [cancelReasonNote, orderId]
             );
 
-            // 8. Insert Order Status Log (Timeline Entry)
-            const logId = crypto.randomUUID ? crypto.randomUUID() : `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-            const logNote = isCod 
-                ? `Order cancelled by customer. ${cancelReasonNote}. Payment Method: Cash on Delivery (No refund required).`
-                : (razorpayRefund 
-                    ? `Order cancelled by customer. Refund of ₹${Number(order.total_amount).toLocaleString('en-IN')} initiated via Razorpay (Refund ID: ${razorpayRefund.id})`
-                    : `Order cancelled by customer. ${cancelReasonNote}. Online payment of ₹${Number(order.total_amount).toLocaleString('en-IN')} queued for Admin refund processing.`);
+            // Fetch freshly updated order row
+            const [finalOrderRows] = await conn.query("SELECT * FROM `orders` WHERE `id` = ?", [orderId]);
+            const finalOrder = finalOrderRows[0] || { ...order, status: 'CANCELLED', cancel_reason: cancelReasonNote };
 
-            await conn.query(
-                "INSERT INTO `order_status_logs` (`id`, `order_id`, `status`, `notes`, `created_at`) VALUES (?, ?, 'CANCELLED', ?, NOW())",
-                [logId, orderId, logNote]
-            );
-
-            // 9. For Paid Online Orders: Create Refund Record in refund_requests
-            let createdRefundCode = null;
-            if (isPaidOnline) {
-                const refundUuid = randomUUID();
-                const refundCode = await generateRefundId();
-                createdRefundCode = refundCode;
-                const now = new Date().toISOString().replace('T', ' ').replace('Z', '').split('.')[0];
-
-                // Prepare items_detail breakdown
-                const itemsDetail = items.map(item => ({
-                    order_item_id: item.id,
-                    product_id: item.product_id,
-                    product_name: item.product_name,
-                    variant_name: item.variant_name || null,
-                    quantity: parseInt(item.quantity, 10) || 1,
-                    unit_price: Number(item.price_at_time || item.price || 0),
-                    eligible_amount: Number(item.paid_price_per_unit ? item.paid_price_per_unit * (parseInt(item.quantity, 10) || 1) : (item.price || 0) * (parseInt(item.quantity, 10) || 1))
-                }));
-
-                await conn.query(`
-                    INSERT INTO \`refund_requests\` (
-                        \`id\`, \`refund_id\`, \`order_id\`, \`order_item_id\`, \`customer_id\`, \`reason\`, \`customer_note\`, 
-                        \`admin_note\`, \`requested_amount\`, \`approved_amount\`, \`return_status\`, \`refund_status\`, 
-                        \`razorpay_payment_id\`, \`razorpay_refund_id\`, \`refund_gateway\`, \`items_detail\`,
-                        \`requested_at\`, \`created_at\`, \`updated_at\`
-                    ) VALUES (
-                        ?, ?, ?, NULL, ?, 'Order Cancelled by Customer', ?, 
-                        ?, ?, ?, 'NOT_REQUIRED', ?, 
-                        ?, ?, ?, ?,
-                        ?, NOW(), NOW()
-                    )
-                `, [
-                    refundUuid,
-                    refundCode,
-                    orderId,
-                    order.customer_id || customerId || authenticatedCustomer?.id || 'guest',
-                    cancelReasonNote,
-                    adminNoteText,
-                    order.total_amount || 0,
-                    order.total_amount || 0,
-                    refundStatusToSet,
-                    order.razorpay_payment_id || null,
-                    razorpayRefundId,
-                    order.payment_method || 'Razorpay',
-                    JSON.stringify(itemsDetail),
-                    now
-                ]);
-
-                // Audit log in refund_status_logs
-                await logRefundStatus(
-                    refundUuid,
-                    null,
-                    refundStatusToSet,
-                    authenticatedCustomer?.name || 'Customer',
-                    'customer',
-                    `Order #${orderId} cancelled. Requested full refund of ₹${Number(order.total_amount).toLocaleString('en-IN')}`
-                );
-            }
-
-            // 10. Delete the used OTP
+            // 7. Delete the used OTP if applicable
             if (cleanPhone) {
                 await conn.query("DELETE FROM `otps` WHERE `phone` = ?", [cleanPhone]);
             }
 
             return {
-                order,
-                isCod,
-                isPaidOnline,
-                refundCode: createdRefundCode,
-                refundId: razorpayRefundId,
-                refundStatus: refundStatusToSet,
-                refundAmount: order.total_amount
+                order: finalOrder,
+                refundResult
             };
         });
 
@@ -378,57 +232,78 @@ export async function POST(request) {
             return new Response(JSON.stringify({
                 success: true,
                 message: `Order #${orderId} is already cancelled.`,
-                isCod: result.isCod,
                 refundStatus: result.refundStatus
             }), { status: 200 });
         }
 
         // Generate friendly user-facing confirmation message
         let successMessage = '';
-        if (result.isCod) {
+        const rf = result.refundResult || {};
+        if (rf.isCodAdvance) {
+            if (rf.gatewayRefunded) {
+                successMessage = `Order cancelled successfully. Your advance payment of ₹${Number(rf.refundAmount).toLocaleString('en-IN')} has been automatically refunded to your original payment method via Razorpay (Refund ID: ${rf.razorpayRefundId}).`;
+            } else {
+                successMessage = `Order cancelled successfully. Your advance payment refund of ₹${Number(rf.refundAmount).toLocaleString('en-IN')} has been queued and will be processed to your original payment account.`;
+            }
+        } else if (rf.refundStatus === 'NOT_APPLICABLE') {
             successMessage = 'Your Cash on Delivery order has been cancelled successfully. Since no payment was deducted, no refund is required.';
-        } else if (result.refundId) {
-            successMessage = `Order cancelled successfully. Instant refund of ₹${Number(result.refundAmount).toLocaleString('en-IN')} has been initiated via Razorpay (Refund ID: ${result.refundId}).`;
+        } else if (rf.gatewayRefunded) {
+            successMessage = `Order cancelled successfully. Full refund of ₹${Number(rf.refundAmount).toLocaleString('en-IN')} has been automatically processed via Razorpay (Refund ID: ${rf.razorpayRefundId}).`;
         } else {
-            successMessage = `Order cancelled successfully. A refund request of ₹${Number(result.refundAmount).toLocaleString('en-IN')} has been submitted and will be processed by our admin team to your original payment method.`;
+            successMessage = `Order cancelled successfully. A refund request of ₹${Number(rf.refundAmount || 0).toLocaleString('en-IN')} has been submitted and will be processed to your original payment method.`;
         }
 
         // Trigger async WhatsApp/Email order cancellation notifications
         try {
-            dispatchNotification(EVENT_TYPES.ORDER_CANCELLED_CUSTOMER, {
-                order: { ...result.order, status: 'CANCELLED', refund_status: result.refundStatus },
-                reason: cancelReasonNote,
-                refundAmount: result.refundAmount,
-                isCod: result.isCod,
-                refundCode: result.refundCode
-            }).catch(err => console.error('[CANCEL-NOTIFICATION-ASYNC-ERROR]', err));
+            await dispatchNotification({
+                eventType: EVENT_TYPES.ORDER_CANCELLED_CUSTOMER,
+                order: {
+                    ...result.order,
+                    status: 'CANCELLED',
+                    refund_status: rf.refundStatus,
+                    refund_amount: rf.refundAmount,
+                    razorpay_refund_id: rf.razorpayRefundId
+                },
+                extraData: {
+                    reason: cancelReasonNote,
+                    refundAmount: rf.refundAmount,
+                    refundStatus: rf.refundStatus,
+                    razorpayRefundId: rf.razorpayRefundId,
+                    isCodAdvance: rf.isCodAdvance
+                }
+            });
         } catch (notifErr) {
             console.error('[CANCEL-NOTIFICATION-TRIGGER-ERROR]', notifErr);
         }
 
         // If online payment refund is pending manual admin processing, notify admin
-        if (result.isPaidOnline && result.refundStatus === 'REFUND_REQUESTED') {
+        if (rf.refundStatus === 'REFUND_REQUESTED') {
             try {
-                dispatchNotification(EVENT_TYPES.REFUND_INITIATED, {
-                    order: { ...result.order, status: 'CANCELLED', refund_status: 'REFUND_REQUESTED' },
-                    refundAmount: result.refundAmount,
-                    refundCode: result.refundCode,
-                    reason: cancelReasonNote,
-                    adminNote: `Customer cancelled order. Manual refund of ₹${Number(result.refundAmount).toLocaleString('en-IN')} required. Refund Code: ${result.refundCode || 'N/A'}`
-                }).catch(err => console.error('[REFUND-ADMIN-NOTIFICATION-ERROR]', err));
+                await dispatchNotification({
+                    eventType: EVENT_TYPES.REFUND_INITIATED,
+                    order: {
+                        ...result.order,
+                        status: 'CANCELLED',
+                        refund_status: 'REFUND_REQUESTED',
+                        refund_amount: rf.refundAmount
+                    },
+                    extraData: {
+                        refundAmount: rf.refundAmount,
+                        reason: cancelReasonNote,
+                        adminNote: `Customer cancelled order. Manual refund of ₹${Number(rf.refundAmount).toLocaleString('en-IN')} required.`
+                    }
+                });
             } catch (notifErr) {
                 console.error('[REFUND-ADMIN-NOTIFICATION-TRIGGER-ERROR]', notifErr);
             }
         }
 
-        return new Response(JSON.stringify({ 
-            success: true, 
+        return new Response(JSON.stringify({
+            success: true,
+            status: 'CANCELLED',
             message: successMessage,
-            isCod: result.isCod,
-            refundCode: result.refundCode,
-            refundId: result.refundId,
-            refundStatus: result.refundStatus,
-            refundAmount: result.refundAmount
+            refund: rf,
+            order: result.order
         }), { status: 200 });
 
     } catch (err) {

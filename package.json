@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "cross-env UV_THREADPOOL_SIZE=4 NODE_OPTIONS=--max-old-space-size=4096 next dev --webpack",
     "build": "cross-env UV_THREADPOOL_SIZE=4 NODE_OPTIONS=--max-old-space-size=4096 next build --webpack",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",
@@ -28,6 +29,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "eslint": "^10.10.0",
+    "eslint-config-next": "^16.3.4"
   }
 }

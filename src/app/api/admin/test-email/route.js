@@ -6,13 +6,37 @@ export async function POST(request) {
         const body = await request.json().catch(() => ({}));
         const recipient = body.recipient || body.to || 'vaiyaaree@gmail.com';
 
-        const config = await getSmtpConfig();
+        let config = await getSmtpConfig();
+        let customTransporter = null;
+
+        if (body.smtpConfig && (body.smtpConfig.user || body.smtpConfig.host)) {
+            const host = (body.smtpConfig.host || config.host || 'smtp.gmail.com').trim();
+            const port = parseInt(body.smtpConfig.port || config.port || '587', 10);
+            const user = (body.smtpConfig.user !== undefined ? body.smtpConfig.user : config.user).trim();
+            const pass = (body.smtpConfig.pass !== undefined ? body.smtpConfig.pass : config.pass).trim().replace(/\s+/g, '');
+            const from = (body.smtpConfig.from || config.from || `"Vaiyaaree Sarees" <${user}>`).trim();
+            const secure = port === 465;
+
+            config = { host, port, user, pass, from, secure };
+
+            if (user && pass) {
+                const nodemailer = (await import('nodemailer')).default;
+                customTransporter = nodemailer.createTransport({
+                    host,
+                    port,
+                    secure,
+                    auth: { user, pass },
+                    tls: { rejectUnauthorized: false },
+                    connectionTimeout: 10000
+                });
+            }
+        }
 
         if (!config.user || !config.pass) {
             return NextResponse.json({
                 success: false,
                 status: 'LOGGED_ONLY',
-                message: 'SMTP credentials are not configured. Please configure SMTP User & App Password in Admin Settings or .env file.',
+                message: 'SMTP credentials are not configured. Please enter SMTP User & Password in the fields and try again.',
                 config: { host: config.host, port: config.port, user: config.user, from: config.from }
             }, { status: 400 });
         }
@@ -31,11 +55,26 @@ export async function POST(request) {
             </div>
         `;
 
-        const result = await sendEmail({
-            to: recipient,
-            subject: 'Vaiyaaree Sarees — SMTP Test Email Connection',
-            html: testHtml
-        });
+        let result;
+        if (customTransporter) {
+            try {
+                const info = await customTransporter.sendMail({
+                    from: config.from,
+                    to: recipient,
+                    subject: 'Vaiyaaree Sarees — SMTP Test Email Connection',
+                    html: testHtml
+                });
+                result = { success: true, messageId: info.messageId, status: 'SENT' };
+            } catch (sendErr) {
+                result = { success: false, error: sendErr.message, status: 'FAILED' };
+            }
+        } else {
+            result = await sendEmail({
+                to: recipient,
+                subject: 'Vaiyaaree Sarees — SMTP Test Email Connection',
+                html: testHtml
+            });
+        }
 
         if (result.success) {
             return NextResponse.json({

@@ -3,6 +3,7 @@ import pool, { withTransaction } from '@/lib/mysql';
 import { getNextOrderAndInvoiceId } from '@/lib/orderIdGenerator';
 import { calculateDiscounts } from '@/services/discountService';
 import { dispatchNotification, EVENT_TYPES } from '@/services/notificationEngine';
+import { ensureOrdersPaymentSchema } from '@/lib/orderSchemaHelper';
 
 export async function POST(request) {
     try {
@@ -57,11 +58,20 @@ export async function POST(request) {
         // under an explicit transaction with row-level locks and atomic commits/rollbacks.
         // ═════════════════════════════════════════════════════════════════════════
         const orderResult = await withTransaction(async (conn) => {
-            // 1. Fetch business state for GST calculation
-            const [bizRows] = await conn.query(
-                "SELECT `value` FROM `app_settings` WHERE `key` = 'business_state' LIMIT 1"
+            // Ensure schema contains payment & COD advance columns
+            await ensureOrdersPaymentSchema(conn);
+
+            // 1. Fetch business state & checkout/COD settings
+            const [settingRows] = await conn.query(
+                "SELECT `key`, `value` FROM `app_settings` WHERE `key` IN ('business_state', 'cod_enabled', 'cod_min_order', 'cod_max_order', 'cod_advance_enabled', 'cod_advance_amount')"
             );
-            const businessState = bizRows[0]?.value || 'Tamil Nadu';
+            const settingMap = {};
+            (settingRows || []).forEach(r => { settingMap[r.key] = r.value; });
+            const businessState = settingMap.business_state || 'Tamil Nadu';
+
+            if (paymentMethod === 'COD' && (settingMap.cod_enabled === 'false' || settingMap.cod_enabled === '0')) {
+                throw new Error('Cash on Delivery (COD) is currently disabled.');
+            }
 
             // 2. Pessimistic Row-Level Locking & Stock Verification (SELECT ... FOR UPDATE)
             let subtotal = 0;
@@ -170,6 +180,17 @@ export async function POST(request) {
                     variant_name: actualVariantName,
                     image_url: actualImageUrl
                 });
+            }
+
+            if (paymentMethod === 'COD') {
+                const minOrder = parseFloat(settingMap.cod_min_order) || 0;
+                const maxOrder = parseFloat(settingMap.cod_max_order) || 0;
+                if (minOrder > 0 && subtotal < minOrder) {
+                    throw new Error(`Cash on Delivery requires a minimum cart subtotal of ₹${minOrder}.`);
+                }
+                if (maxOrder > 0 && subtotal > maxOrder) {
+                    throw new Error(`Cash on Delivery is limited to orders up to ₹${maxOrder}.`);
+                }
             }
 
             // 3. Server-Side Discount Calculation (Calculates product/cart/coupon discounts & true taxableSubtotal)
@@ -345,11 +366,25 @@ export async function POST(request) {
                 }
             }
 
-            // 7. Insert Order Record
+            // 7. Calculate COD advance & remaining balance
+            const isCodAdvanceEnabled = settingMap.cod_advance_enabled === 'true' || settingMap.cod_advance_enabled === '1';
+            const codAdvanceSetting = parseFloat(settingMap.cod_advance_amount || 0);
+
+            let codAdvanceRequired = 0;
+            let advancePaid = 0;
+            let balanceAmount = totalAmount;
+
+            if (paymentMethod === 'COD') {
+                if (isCodAdvanceEnabled && codAdvanceSetting > 0) {
+                    codAdvanceRequired = Math.min(totalAmount, codAdvanceSetting);
+                    balanceAmount = Math.max(0, totalAmount - codAdvanceRequired);
+                }
+            }
+
             const deliveryAddressText = shippingAddress?.address_line || shippingAddress?.address || (typeof shippingAddress === 'string' ? shippingAddress : null);
             const billingAddressStr = billingAddress ? JSON.stringify(billingAddress) : null;
             const shippingAddressStr = shippingAddress ? JSON.stringify(shippingAddress) : null;
-            const initialStatus = paymentMethod === 'COD' ? 'PLACED' : 'AWAITING_PAYMENT';
+            const initialStatus = (paymentMethod === 'COD' && codAdvanceRequired === 0) ? 'PLACED' : 'AWAITING_PAYMENT';
 
             await conn.query(
                 `INSERT INTO \`orders\` (
@@ -359,7 +394,7 @@ export async function POST(request) {
                     \`coupon_code\`, \`total_amount\`, \`tax_amount\`, \`tax_type\`, \`cgst\`, \`sgst\`, \`igst\`,
                     \`cgst_amount\`, \`sgst_amount\`, \`igst_amount\`,
                     \`payment_method\`, \`source\`, \`shipping_cost\`, \`shipping_zone_id\`, \`shipping_state\`,
-                    \`customer_notes\`, \`admin_notes\`, \`created_at\`, \`updated_at\`
+                    \`customer_notes\`, \`admin_notes\`, \`cod_advance_required\`, \`advance_paid\`, \`balance_amount\`, \`created_at\`, \`updated_at\`
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
@@ -367,7 +402,7 @@ export async function POST(request) {
                     ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?,
                     ?, ?, ?, ?, ?,
-                    ?, ?, NOW(), NOW()
+                    ?, ?, ?, ?, ?, NOW(), NOW()
                 )`,
                 [
                     orderId,
@@ -402,7 +437,10 @@ export async function POST(request) {
                     validatedZoneId,
                     normShippingState,
                     customerNotes || null,
-                    adminNotes || null
+                    adminNotes || null,
+                    codAdvanceRequired,
+                    advancePaid,
+                    balanceAmount
                 ]
             );
 
@@ -524,6 +562,9 @@ export async function POST(request) {
                 orderId,
                 invoiceNo,
                 totalAmount,
+                codAdvanceRequired,
+                advancePaid,
+                balanceAmount,
                 subtotal,
                 taxAmount,
                 cgst,
@@ -544,35 +585,47 @@ export async function POST(request) {
         // These asynchronous side-effects run ONLY AFTER the database transaction
         // has successfully committed, preventing spurious emails/messages on failure.
         // ═════════════════════════════════════════════════════════════════════════
-        try {
-            await dispatchNotification({
-                eventType: EVENT_TYPES.ORDER_PLACED,
-                order: {
-                    id: orderResult.orderId,
-                    invoice_no: orderResult.invoiceNo,
-                    customer_name: orderResult.customerName,
-                    customer_phone: orderResult.customerPhone,
-                    customer_email: orderResult.customerEmail,
-                    total_amount: orderResult.totalAmount,
-                    subtotal: orderResult.subtotal,
-                    tax_amount: orderResult.taxAmount,
-                    shipping_fee: orderResult.shippingCost,
-                    payment_method: orderResult.paymentMethod,
-                    status: orderResult.initialStatus,
-                    shipping_address: shippingAddress,
-                    billing_address: billingAddress,
-                    order_items: orderResult.cartItems || []
-                }
-            });
-        } catch (notifErr) {
-            console.error('[ORDER-CREATE-NOTIF-ERROR] Notification dispatch failed:', notifErr);
+        // For online prepaid orders (e.g. Razorpay), notifications are deferred
+        // until the payment is verified to avoid premature confirmation.
+        const isPrepaidPending = (orderResult.paymentMethod === 'RAZORPAY' || orderResult.paymentMethod === 'ONLINE' || orderResult.initialStatus === 'AWAITING_PAYMENT') && source !== 'MANUAL';
+        if (!isPrepaidPending) {
+            try {
+                await dispatchNotification({
+                    eventType: EVENT_TYPES.ORDER_PLACED,
+                    order: {
+                        id: orderResult.orderId,
+                        invoice_no: orderResult.invoiceNo,
+                        customer_name: orderResult.customerName,
+                        customer_phone: orderResult.customerPhone,
+                        customer_email: orderResult.customerEmail,
+                        total_amount: orderResult.totalAmount,
+                        subtotal: orderResult.subtotal,
+                        tax_amount: orderResult.taxAmount,
+                        shipping_fee: orderResult.shippingCost,
+                        payment_method: orderResult.paymentMethod,
+                        status: orderResult.initialStatus,
+                        shipping_address: shippingAddress,
+                        billing_address: billingAddress,
+                        order_items: orderResult.cartItems || []
+                    }
+                });
+            } catch (notifErr) {
+                console.error('[ORDER-CREATE-NOTIF-ERROR] Notification dispatch failed:', notifErr);
+            }
+        } else {
+            console.log(`[ORDER-CREATE] Order #${orderResult.orderId} awaits payment (${orderResult.paymentMethod}). Postponing confirmation until verified.`);
         }
 
         return new Response(JSON.stringify({ 
             success: true, 
             orderId: orderResult.orderId,
             invoiceNo: orderResult.invoiceNo,
-            totalAmount: orderResult.totalAmount
+            totalAmount: orderResult.totalAmount,
+            codAdvanceRequired: orderResult.codAdvanceRequired,
+            advancePaid: orderResult.advancePaid,
+            balanceAmount: orderResult.balanceAmount,
+            paymentMethod: orderResult.paymentMethod,
+            status: orderResult.initialStatus
         }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
     } catch (err) {

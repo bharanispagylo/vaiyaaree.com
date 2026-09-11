@@ -62,6 +62,7 @@ const menuItems = [
         icon: Settings,
         children: [
             { name: 'Shop Settings', href: '/admin/shop-settings' },
+            { name: 'Checkout Settings', href: '/admin/settings/checkout' },
             { name: 'Navigation Menus', href: '/admin/menus' },
             { name: 'Home Page Builder', href: '/admin/settings/homepage-builder' },
             { name: 'Email Settings', href: '/admin/emails' },

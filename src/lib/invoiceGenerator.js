@@ -243,10 +243,19 @@ export async function generateInvoicePDF(order) {
     doc.setFont("helvetica", "normal");
     doc.text(formatOrderDate(order.created_at || Date.now(), { includeTime: false }), margin + 25, y + 15);
     
+    const isCodInvoice = (order.payment_method || '').toUpperCase() === 'COD' || (order.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+    const codAdvVal = Number(order.advance_paid || order.cod_advance_required || 0);
+    const codBalVal = Number(order.balance_amount !== undefined && order.balance_amount !== null ? order.balance_amount : Math.max(0, (order.total_amount || 0) - codAdvVal));
+    
+    let displayPayMethod = order.payment_method || 'N/A';
+    if (isCodInvoice && codAdvVal > 0) {
+        displayPayMethod = `COD (Adv: Rs.${codAdvVal}, Due: Rs.${codBalVal})`;
+    }
+
     doc.setFont("helvetica", "bold");
     doc.text("Payment Method:", 107, y + 5);
     doc.setFont("helvetica", "normal");
-    doc.text(order.payment_method || 'N/A', 137, y + 5);
+    doc.text(displayPayMethod, 137, y + 5);
 
     doc.setFont("helvetica", "bold");
     doc.text("Order Status:", 107, y + 10);
@@ -431,7 +440,8 @@ export async function generateInvoicePDF(order) {
     // Total Row
     doc.rect(margin, y, 190, 8);
     doc.setFont("helvetica", "bold");
-    doc.text("Total", 148, y + 5, { align: "right" });
+    doc.setFontSize(9);
+    doc.text("Total Invoice Value", 148, y + 5, { align: "right" });
     doc.text(totalQty.toString(), 160, y + 5, { align: "center" });
     doc.text((order.total_amount || 0).toFixed(2), 198, y + 5, { align: "right" });
     doc.line(150, y, 150, y + 8);
@@ -439,13 +449,79 @@ export async function generateInvoicePDF(order) {
 
     y += 8;
 
+    if (isCodInvoice && codAdvVal > 0) {
+        // Row for Advance Received
+        doc.setFillColor(245, 253, 245);
+        doc.rect(margin, y, 190, 7, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(21, 128, 61); // Green
+        doc.text("Less: Advance Received (Online / Paid):", 148, y + 4.5, { align: "right" });
+        doc.text(`-${codAdvVal.toFixed(2)}`, 198, y + 4.5, { align: "right" });
+        doc.line(150, y, 150, y + 7);
+        y += 7;
+
+        // Row for Balance Cash on Delivery
+        doc.setFillColor(254, 249, 235);
+        doc.rect(margin, y, 190, 7, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(180, 83, 9); // Amber
+        doc.text("BALANCE DUE ON DELIVERY (CASH):", 148, y + 4.5, { align: "right" });
+        doc.text(`Rs. ${codBalVal.toFixed(2)}`, 198, y + 4.5, { align: "right" });
+        doc.line(150, y, 150, y + 7);
+        y += 7;
+
+        doc.setTextColor(0); // Reset text color
+    } else if (isCodInvoice) {
+        // Pure COD without advance
+        doc.setFillColor(254, 249, 235);
+        doc.rect(margin, y, 190, 7, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(180, 83, 9); // Amber
+        doc.text("BALANCE DUE ON DELIVERY (CASH):", 148, y + 4.5, { align: "right" });
+        doc.text(`Rs. ${(order.total_amount || 0).toFixed(2)}`, 198, y + 4.5, { align: "right" });
+        doc.line(150, y, 150, y + 7);
+        y += 7;
+
+        doc.setTextColor(0); // Reset text color
+    }
+
     // Amount in words
-    doc.rect(margin, y, 190, 8);
-    doc.text("Amount Chargeable (in words):", 12, y + 5);
+    const wordsBoxHeight = isCodInvoice && codAdvVal > 0 ? 12 : 8;
+    doc.rect(margin, y, 190, wordsBoxHeight);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("Amount in Words (Total):", 12, y + 4.5);
     doc.setFont("helvetica", "normal");
-    doc.text(amountInWords(Math.round(order.total_amount || 0)), 65, y + 5);
+    doc.text(amountInWords(Math.round(order.total_amount || 0)), 56, y + 4.5);
+
+    if (isCodInvoice && codAdvVal > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(180, 83, 9);
+        doc.text("Cash Payable on Delivery:", 12, y + 9.5);
+        doc.setFont("helvetica", "normal");
+        doc.text(amountInWords(Math.round(codBalVal)), 56, y + 9.5);
+        doc.setTextColor(0);
+    }
     
-    y += 8;
+    y += wordsBoxHeight;
+
+    // Delivery / Courier Collection Notice for COD orders
+    if (isCodInvoice) {
+        doc.setFillColor(254, 252, 232);
+        doc.rect(margin, y, 190, 7, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(180, 83, 9);
+        const codNoticeMsg = codAdvVal > 0
+            ? `*** CASH ON DELIVERY NOTICE: Advance Rs. ${codAdvVal.toFixed(2)} Received Online. COLLECT RS. ${codBalVal.toFixed(2)} IN CASH UPON DELIVERY. ***`
+            : `*** CASH ON DELIVERY NOTICE: COLLECT RS. ${(order.total_amount || 0).toFixed(2)} IN CASH UPON DELIVERY. ***`;
+        doc.text(codNoticeMsg, 105, y + 4.5, { align: "center" });
+        doc.setTextColor(0);
+        y += 7;
+    }
 
     // Company Address & Bank Details Header Bar
     doc.setFillColor(240, 240, 240);

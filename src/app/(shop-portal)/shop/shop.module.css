@@ -24,15 +24,29 @@
     transition: all 0.3s ease;
     z-index: 100;
     overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-subtle)) transparent;
 }
 
 .shopSidebar::-webkit-scrollbar {
-    width: 0px;
+    width: 4px;
+}
+
+.shopSidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.shopSidebar::-webkit-scrollbar-thumb {
+    background: hsl(var(--text-main) / 0.12);
+    border-radius: 4px;
 }
 
 .sidebarSection {
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
+    width: 100%;
 }
 
 .sidebarTitle {
@@ -40,13 +54,36 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: hsl(var(--text-main));
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
     font-weight: 700;
     opacity: 0.9;
 }
 
 .categoryScrollWrap {
-    padding-right: 5px;
+    padding-right: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-subtle)) transparent;
+}
+
+.categoryScrollWrap::-webkit-scrollbar {
+    width: 4px;
+}
+
+.categoryScrollWrap::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.categoryScrollWrap::-webkit-scrollbar-thumb {
+    background: hsl(var(--text-main) / 0.15);
+    border-radius: 4px;
+}
+
+.categoryScrollWrap::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.4);
 }
 
 .categoryList {
@@ -55,7 +92,7 @@
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.5rem;
 }
 
 .categoryLink {
@@ -147,6 +184,191 @@
     background: hsl(var(--text-main) / 0.05);
     color: hsl(var(--text-main));
     border-color: hsl(var(--text-main) / 0.2);
+}
+
+/* ── SIDEBAR ORDER FILTER ── */
+.sidebarSortWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.sidebarSortIcon {
+    position: absolute;
+    left: 0.85rem;
+    color: hsl(var(--primary));
+    pointer-events: none;
+    z-index: 1;
+}
+
+.sidebarSelectArrow {
+    position: absolute;
+    right: 0.85rem;
+    color: hsl(var(--text-muted));
+    pointer-events: none;
+    z-index: 1;
+}
+
+.sidebarSortSelect {
+    width: 100%;
+    background: hsl(var(--text-main) / 0.04);
+    border: 1px solid hsl(var(--border-subtle));
+    color: hsl(var(--text-main));
+    padding: 0.75rem 2.2rem 0.75rem 2.4rem;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.sidebarSortSelect:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    background: hsl(var(--text-main) / 0.06);
+}
+
+.sidebarSortSelect:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 3px rgba(37, 163, 102, 0.12);
+}
+
+.sidebarSortSelect option {
+    background: hsl(var(--bg-card));
+    color: hsl(var(--text-main));
+    padding: 8px;
+}
+
+/* ── SIDEBAR PRICE FILTER ── */
+.sidebarPricePresets {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+}
+
+.sidebarPriceBtn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 0.75rem;
+    background: hsl(var(--text-main) / 0.03);
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: hsl(var(--text-muted));
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.sidebarPriceBtn:hover {
+    background: hsl(var(--primary) / 0.08);
+    border-color: hsl(var(--primary) / 0.3);
+    color: hsl(var(--primary));
+    padding-left: 0.9rem;
+}
+
+.sidebarPriceBtnActive {
+    background: hsl(var(--primary) / 0.12) !important;
+    border-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary)) !important;
+    font-weight: 700;
+}
+
+.priceCheckIcon {
+    color: hsl(var(--primary));
+}
+
+.sidebarCustomPriceWrap {
+    padding-top: 0.75rem;
+    border-top: 1px dashed hsl(var(--border-subtle));
+}
+
+.sidebarCustomPriceHeader {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: hsl(var(--text-dim));
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+}
+
+.sidebarCustomInputs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sidebarPriceField {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.45rem 0.55rem;
+    background: hsl(var(--text-main) / 0.03);
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: 8px;
+    transition: border-color 0.2s;
+}
+
+.sidebarPriceField:focus-within {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 2px rgba(37, 163, 102, 0.1);
+}
+
+.sidebarPriceField span {
+    font-size: 0.8rem;
+    color: hsl(var(--text-dim));
+    font-weight: 600;
+}
+
+.sidebarPriceField input {
+    width: 100%;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: hsl(var(--text-main));
+    padding: 0;
+    -moz-appearance: textfield;
+}
+
+.sidebarPriceField input::-webkit-outer-spin-button,
+.sidebarPriceField input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.sidebarPriceDash {
+    color: hsl(var(--text-dim));
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.sidebarPriceApplyBtn {
+    padding: 0.45rem 0.75rem;
+    background: hsl(var(--primary));
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.sidebarPriceApplyBtn:hover {
+    opacity: 0.9;
 }
 
 /* ── MAIN CONTENT ── */
@@ -701,6 +923,21 @@
         letter-spacing: 0.04em;
         box-shadow: 0 4px 12px rgba(93, 8, 33, 0.25);
     }
+
+    .sidebarPriceBtn {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #334155;
+    }
+
+    .sidebarPriceField {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+    }
+
+    .sidebarPriceField input {
+        color: #0f172a;
+    }
 }
 
 @media (max-width: 768px) {
@@ -759,14 +996,13 @@
         width: 100%;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        justify-content: space-between;
+        gap: 0.75rem;
     }
 
     .filterToggleBtn {
-        flex: 1;
-        justify-content: center;
-        padding: 0.6rem 0.5rem;
-        font-size: 0.82rem;
+        padding: 0.6rem 1.25rem;
+        font-size: 0.85rem;
         border-radius: 8px;
         background: #f5f4f0;
         border: 1px solid rgba(0, 0, 0, 0.08);
@@ -774,25 +1010,15 @@
         white-space: nowrap;
     }
 
-    .sortWrapper {
-        flex: 1;
-        width: 100%;
-    }
-
-    .sortSelect {
-        width: 100%;
-        padding: 0.6rem 0.5rem 0.6rem 2.1rem;
-        font-size: 0.82rem;
-        border-radius: 8px;
-        background: #f5f4f0;
-        border: 1px solid rgba(0, 0, 0, 0.08);
+    .sidebarSortSelect {
+        background: #f8fafc;
+        border-color: #e2e8f0;
         color: #1a1a1a;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
 
-    .sortIcon {
-        left: 0.6rem;
+    .sidebarSortSelect option {
+        background: #ffffff;
+        color: #1a1a1a;
     }
 
     .productsGrid {

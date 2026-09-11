@@ -93,6 +93,29 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                                 <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Payment Method :</div>
                                 <div style={{ fontWeight: 700, color: 'hsl(var(--text-main))', fontSize: '0.85rem' }}>{infoModalOrder.payment_method || '—'}</div>
                             </div>
+                            {(() => {
+                                const isCod = (infoModalOrder.payment_method || '').toUpperCase() === 'COD' || (infoModalOrder.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+                                const advRequired = Number(infoModalOrder.cod_advance_required || 0);
+                                const advPaid = Number(infoModalOrder.advance_paid || 0);
+                                if (isCod && (advRequired > 0 || advPaid > 0)) {
+                                    const adv = advPaid > 0 ? advPaid : advRequired;
+                                    const balance = Number(infoModalOrder.balance_amount !== undefined && infoModalOrder.balance_amount !== null ? infoModalOrder.balance_amount : Math.max(0, grandTotal - adv));
+                                    const isAdvPaid = advPaid > 0 || ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes((infoModalOrder.status || '').toUpperCase());
+                                    return (
+                                        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, color: isAdvPaid ? '#15803d' : '#b45309' }}>
+                                                <span>COD Advance:</span>
+                                                <span>₹{adv.toLocaleString('en-IN')} ({isAdvPaid ? 'Paid' : 'Pending'})</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 800, color: '#92400e' }}>
+                                                <span>Cash on Delivery:</span>
+                                                <span>₹{balance.toLocaleString('en-IN')}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
                             {infoModalOrder.razorpay_payment_id && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', fontWeight: 500 }}>Razorpay ID :</div>
@@ -188,6 +211,34 @@ export default function QuickOrderInfoModal({ infoModalOrder, onClose, allProduc
                                     ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                             </div>
+
+                            {(() => {
+                                const isCod = (infoModalOrder.payment_method || '').toUpperCase() === 'COD' || (infoModalOrder.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+                                const advRequired = Number(infoModalOrder.cod_advance_required || 0);
+                                const advPaid = Number(infoModalOrder.advance_paid || 0);
+                                if (isCod && (advRequired > 0 || advPaid > 0)) {
+                                    const adv = advPaid > 0 ? advPaid : advRequired;
+                                    const balance = Number(infoModalOrder.balance_amount !== undefined && infoModalOrder.balance_amount !== null ? infoModalOrder.balance_amount : Math.max(0, grandTotal - adv));
+                                    const isAdvPaid = advPaid > 0 || ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes((infoModalOrder.status || '').toUpperCase());
+                                    return (
+                                        <div style={{ marginTop: '0.4rem', padding: '0.65rem 0.75rem', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#92400e' }}>
+                                                <span>Advance Paid (Razorpay):</span>
+                                                <strong style={{ color: isAdvPaid ? '#15803d' : '#b45309' }}>
+                                                    ₹{adv.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {isAdvPaid ? '(Paid)' : '(Pending)'}
+                                                </strong>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#92400e' }}>
+                                                <span>Cash Due on Delivery:</span>
+                                                <strong style={{ color: '#b45309' }}>
+                                                    ₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </strong>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
                     </div>
 

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Truck, Search, Package, CheckCircle, MapPin, Download } from 'lucide-react';
-import { getOrderSourceBadge, getStatusIndex } from './profileHelpers';
+import { getOrderSourceBadge, getStatusIndex, renderCodPaymentBadges } from './profileHelpers';
 import { formatOrderDate } from '@/lib/dateUtils';
 import styles from '../profile.module.css';
 
@@ -116,10 +116,18 @@ export default function TrackOrderTab({
                                     Placed on {formatOrderDate(trackOrderData.created_at)}
                                 </span>
                             </div>
+                            <div style={{ marginTop: '6px' }}>
+                                {renderCodPaymentBadges(trackOrderData, true)}
+                            </div>
                         </div>
-                        <span className={`badge ${styles['status' + trackOrderData.status]}`} style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', fontWeight: 800, borderRadius: '20px' }}>
-                            {trackOrderData.status}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                            <span className={`badge ${styles['status' + trackOrderData.status]}`} style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', fontWeight: 800, borderRadius: '20px' }}>
+                                {trackOrderData.status}
+                            </span>
+                            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
+                                ₹{(trackOrderData.total_amount || 0).toLocaleString('en-IN')}
+                            </span>
+                        </div>
                     </div>
 
                     {/* 4-Step Progress Timeline */}

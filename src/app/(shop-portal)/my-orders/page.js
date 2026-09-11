@@ -6,6 +6,7 @@ import { Package, Clock, MapPin, Tag, MessageCircle, ChevronRight, Search, Chevr
 import { useShop } from '@/context/ShopContext';
 import { formatOrderDate } from '@/lib/dateUtils';
 import Link from 'next/link';
+import { renderCodPaymentBadges } from '../profile/components/profileHelpers';
 import styles from './orders.module.css';
 
 export default function MyOrdersPage() {
@@ -144,7 +145,8 @@ export default function MyOrdersPage() {
     const getStatusIcon = (status) => {
         switch(status) {
             case 'DELIVERED': return <CheckCircle size={14} className={styles.statusIconDelivered} />;
-            case 'CANCELLED': return <XCircle size={14} className={styles.statusIconCancelled} />;
+            case 'CANCELLED':
+            case 'CANCELED': return <XCircle size={14} className={styles.statusIconCancelled} />;
             case 'SHIPPED': return <Package size={14} className={styles.statusIconShipped} />;
             default: return <Clock size={14} className={styles.statusIconPending} />;
         }
@@ -263,7 +265,8 @@ export default function MyOrdersPage() {
                                                 </div>
                                             </td>
                                             <td className={styles.totalCell}>
-                                                ₹{order.total_amount?.toLocaleString()}
+                                                <div>₹{order.total_amount?.toLocaleString()}</div>
+                                                {renderCodPaymentBadges(order)}
                                             </td>
                                             <td className={styles.sourceCell}>
                                                 <span className={`${styles.sourceBadge} ${orderSource === 'WEBSITE' ? styles.sourceWeb : orderSource === 'MANUAL' ? styles.sourceManual : styles.sourceWhatsApp}`}>
@@ -272,11 +275,11 @@ export default function MyOrdersPage() {
                                                 </span>
                                             </td>
                                             <td className={styles.statusCell}>
-                                                <span className={`${styles.statusBadge} ${styles[`status${order.status}`]}`}>
-                                                    {getStatusIcon(order.status)}
-                                                    {order.status}
-                                                </span>
-                                            </td>
+                                                 <span className={`${styles.statusBadge} ${styles[`status${order.status}`]}`}>
+                                                     {getStatusIcon(order.status)}
+                                                     {['CANCELLED', 'CANCELED'].includes((order.status || '').toUpperCase()) ? 'CANCELED' : order.status}
+                                                 </span>
+                                             </td>
                                             <td className={styles.actionCell} onClick={e => e.stopPropagation()}>
                                                 <div className={styles.actionButtons} style={{ justifyContent: 'flex-end' }}>
                                                     <a 

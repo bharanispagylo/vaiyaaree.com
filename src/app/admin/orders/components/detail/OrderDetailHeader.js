@@ -78,6 +78,34 @@ export default function OrderDetailHeader({
                             <CreditCard size={12} /> Razorpay: {razorpayPaymentId}
                         </span>
                     )}
+                    {(() => {
+                        const isCod = (selectedOrder.payment_method || '').toUpperCase() === 'COD' || (selectedOrder.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+                        const advRequired = Number(selectedOrder.cod_advance_required || 0);
+                        const advPaid = Number(selectedOrder.advance_paid || 0);
+                        if (isCod && (advRequired > 0 || advPaid > 0)) {
+                            const adv = advPaid > 0 ? advPaid : advRequired;
+                            const total = Number(selectedOrder.total_amount || 0);
+                            const balance = Number(selectedOrder.balance_amount !== undefined && selectedOrder.balance_amount !== null ? selectedOrder.balance_amount : Math.max(0, total - adv));
+                            const isAdvPaid = advPaid > 0 || ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes((selectedOrder.status || '').toUpperCase());
+                            return (
+                                <span style={{
+                                    padding: '0.2rem 0.65rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 800,
+                                    background: isAdvPaid ? '#ecfdf5' : '#fffbeb',
+                                    border: `1px solid ${isAdvPaid ? '#a7f3d0' : '#fde68a'}`,
+                                    color: isAdvPaid ? '#047857' : '#b45309',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}>
+                                    <CreditCard size={12} /> COD: ₹{adv.toLocaleString('en-IN')} Advance ({isAdvPaid ? 'Paid' : 'Pending'}) | ₹{balance.toLocaleString('en-IN')} Due on Delivery
+                                </span>
+                            );
+                        }
+                        return null;
+                    })()}
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '6px', flexWrap: 'wrap' }}>
                     <span>Placed on <strong>{toIST(selectedOrder.created_at)}</strong></span>

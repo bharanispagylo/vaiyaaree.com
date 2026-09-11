@@ -1,5 +1,6 @@
 import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import { notifyOrderSuccess } from '@/services/whatsappService';
+import { dispatchNotification, EVENT_TYPES } from '@/services/notificationEngine';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 // import { sendWhatsAppText } from '@/lib/whatsapp';
@@ -65,9 +66,32 @@ export async function GET(request) {
                 })
                 .eq('id', orderId);
 
+            // Trigger Customer & Admin Notifications now that payment is confirmed
+            try {
+                await dispatchNotification({
+                    eventType: EVENT_TYPES.ORDER_PLACED,
+                    order: {
+                        ...order,
+                        status: 'PAID',
+                        payment_method: 'PhonePe',
+                        transaction_id: txnId,
+                        order_items: order?.order_items || []
+                    },
+                    extraData: {
+                        skipCustomerWhatsApp: true
+                    }
+                });
+            } catch (notifErr) {
+                console.error('[PHONEPE-NOTIF-ERROR]', notifErr);
+            }
+
             // Send WhatsApp confirmation via centralized helper
             if (order?.customer_phone) {
-                await notifyOrderSuccess(orderId);
+                try {
+                    await notifyOrderSuccess(orderId, true);
+                } catch (waErr) {
+                    console.error('[PHONEPE-WA-ERROR]', waErr);
+                }
             }
 
             // Redirect to thank you page

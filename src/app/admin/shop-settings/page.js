@@ -6,11 +6,12 @@ import {
     Store, Save, Image, FileText, MapPin,
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
     Upload, Globe, Phone, Mail, Clock, ArrowRight, CreditCard, ShieldCheck, Lock,
-    MessageCircle, Bot, Sparkles, Radio, ShieldAlert
+    MessageCircle, Bot, Sparkles, Radio, ShieldAlert, Truck, Sliders, Type, Palette
 } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
 import MediaPicker from '@/components/MediaPicker';
+import { GOOGLE_FONTS_LIST, FONT_PAIRING_PRESETS, getGoogleFontsStylesheetUrl } from '@/lib/googleFontsList';
 
 export default function ShopSettingsPage() {
     const { fetchComingSoon } = useShop();
@@ -23,6 +24,26 @@ export default function ShopSettingsPage() {
     const [testEmailRecipient, setTestEmailRecipient] = useState('vaiyaaree@gmail.com');
     const [testingEmail, setTestingEmail] = useState(false);
 
+    const activeBodyFont = settings.theme_font_body || 'Plus Jakarta Sans';
+    const activeHeadingFont = settings.theme_font_heading || 'Cinzel';
+
+    // Live preview: Dynamically load Google Fonts into Admin for immediate rendering
+    useEffect(() => {
+        if (!hasMounted) return;
+        const linkId = 'admin-preview-google-fonts';
+        let link = document.getElementById(linkId);
+        const url = getGoogleFontsStylesheetUrl(activeBodyFont, activeHeadingFont);
+        if (!link) {
+            link = document.createElement('link');
+            link.id = linkId;
+            link.rel = 'stylesheet';
+            link.href = url;
+            document.head.appendChild(link);
+        } else if (link.href !== url) {
+            link.href = url;
+        }
+    }, [activeBodyFont, activeHeadingFont, hasMounted]);
+
     const handleSendTestEmail = async () => {
         if (!testEmailRecipient || !testEmailRecipient.trim()) {
             setNotification({ message: 'Please enter a valid recipient email address', type: 'error' });
@@ -34,10 +55,19 @@ export default function ShopSettingsPage() {
             const res = await fetch('/api/admin/test-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ recipient: testEmailRecipient.trim() })
+                body: JSON.stringify({ 
+                    recipient: testEmailRecipient.trim(),
+                    smtpConfig: {
+                        host: settings.smtp_host,
+                        port: settings.smtp_port,
+                        user: settings.smtp_user,
+                        pass: settings.smtp_pass,
+                        from: settings.smtp_from
+                    }
+                })
             });
             const data = await res.json();
-            if (data.success) {
+            if (res.ok && data.success) {
                 setNotification({ message: data.message || 'Test email sent successfully!', type: 'success' });
             } else {
                 setNotification({ message: data.message || data.error || 'Failed to send test email', type: 'error' });
@@ -63,16 +93,26 @@ export default function ShopSettingsPage() {
 
             if (error) throw error;
 
-            const settingsMap = {};
-            data.forEach(item => {
-                let val = item.value;
-                if (typeof val === 'string') {
-                    val = val.replaceAll('vaiyaaree.official@gmail.com', 'vaiyaaree@gmail.com')
-                        .replaceAll('vaiyaaree.cbe@gmail.com', 'vaiyaaree@gmail.com')
-                        .replaceAll('info@vaiyaaree.com', 'vaiyaaree@gmail.com');
-                }
-                settingsMap[item.key] = val;
-            });
+            const defaultSettings = {
+                smtp_host: 'smtp.gmail.com',
+                smtp_port: '587',
+                smtp_user: '',
+                smtp_pass: '',
+                smtp_from: '"Vaiyaaree Sarees" <vaiyaaree@gmail.com>',
+                support_email: 'vaiyaaree@gmail.com',
+                support_phone: '918667793292',
+                theme_font_body: 'Plus Jakarta Sans',
+                theme_font_heading: 'Cinzel'
+            };
+
+            const settingsMap = { ...defaultSettings };
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    if (item && item.key) {
+                        settingsMap[item.key] = item.value !== null && item.value !== undefined ? String(item.value) : '';
+                    }
+                });
+            }
             setSettings(settingsMap);
         } catch (err) {
             console.error(err);
@@ -106,6 +146,8 @@ export default function ShopSettingsPage() {
             if (typeof window !== 'undefined') {
                 localStorage.setItem('vaiyaaree_communication_channel', settings.communication_channel || 'whatsapp');
                 localStorage.setItem('vaiyaaree_wa_chatbot_enabled', settings.wa_chatbot_enabled || 'true');
+                localStorage.setItem('vaiyaaree_theme_font_body', settings.theme_font_body || 'Plus Jakarta Sans');
+                localStorage.setItem('vaiyaaree_theme_font_heading', settings.theme_font_heading || 'Cinzel');
                 window.dispatchEvent(new Event('vaiyaaree_settings_updated'));
                 window.dispatchEvent(new Event('storage'));
             }
@@ -326,19 +368,309 @@ export default function ShopSettingsPage() {
                             <label><Mail size={14} color="hsl(var(--primary))" /> Store Support Email (Used in Email Mode)</label>
                             <input
                                 type="email"
-                                value={settings.support_email || settings.coming_soon_email || 'vaiyaaree@gmail.com'}
+                                value={settings.support_email ?? ''}
                                 onChange={(e) => handleUpdate('support_email', e.target.value)}
-                                placeholder="vaiyaaree@gmail.com"
+                                placeholder="support@vaiyaaree.com"
                             />
                         </div>
                         <div className="field-group">
                             <label><Phone size={14} color="hsl(var(--primary))" /> Store WhatsApp / Support Mobile</label>
                             <input
                                 type="tel"
-                                value={settings.support_phone || settings.coming_soon_whatsapp || '918667793292'}
+                                value={settings.support_phone ?? ''}
                                 onChange={(e) => handleUpdate('support_phone', e.target.value)}
                                 placeholder="918667793292"
                             />
+                        </div>
+                    </div>
+                </section>
+
+                {/* Storefront Typography & Google Fonts Section */}
+                <section className="settings-card card shadow-premium full-width" style={{ borderLeft: '6px solid #4f46e5', background: 'linear-gradient(180deg, rgba(79, 70, 229, 0.02) 0%, #ffffff 100%)' }}>
+                    <div className="card-header" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Type size={22} color="#4f46e5" />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Storefront Typography & Google Fonts</h3>
+                                <p style={{ margin: '2px 0 0', fontSize: '0.84rem', color: '#64748b' }}>
+                                    Customize your storefront font dynamically using Google Fonts. Choose separate fonts for titles & body text, or pick a 1-click designer pairing.
+                                </p>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{
+                                fontSize: '0.75rem', fontWeight: 800, padding: '0.35rem 0.85rem', borderRadius: '20px',
+                                background: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe', letterSpacing: '0.04em'
+                            }}>
+                                HEADINGS: {activeHeadingFont.toUpperCase()}
+                            </span>
+                            <span style={{
+                                fontSize: '0.75rem', fontWeight: 800, padding: '0.35rem 0.85rem', borderRadius: '20px',
+                                background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', letterSpacing: '0.04em'
+                            }}>
+                                BODY: {activeBodyFont.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Quick 1-Click Designer Font Pairings */}
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Sparkles size={14} color="#f59e0b" />
+                            <span>1-Click Designer Font Pairings (Recommended for Saree Store)</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
+                            {FONT_PAIRING_PRESETS.map((preset) => {
+                                const isSelected = activeHeadingFont === preset.heading && activeBodyFont === preset.body;
+                                return (
+                                    <div
+                                        key={preset.id}
+                                        onClick={() => {
+                                            handleUpdate('theme_font_heading', preset.heading);
+                                            handleUpdate('theme_font_body', preset.body);
+                                        }}
+                                        style={{
+                                            cursor: 'pointer',
+                                            padding: '1rem 1.15rem',
+                                            borderRadius: '14px',
+                                            border: `2px solid ${isSelected ? '#4f46e5' : '#e2e8f0'}`,
+                                            background: isSelected ? '#f5f3ff' : '#ffffff',
+                                            boxShadow: isSelected ? '0 4px 14px rgba(79, 70, 229, 0.15)' : 'none',
+                                            transition: 'all 0.2s ease',
+                                            position: 'relative'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                                            <strong style={{ fontSize: '0.92rem', color: isSelected ? '#4338ca' : '#0f172a' }}>{preset.name}</strong>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 800, background: isSelected ? '#e0e7ff' : '#f1f5f9', color: isSelected ? '#4338ca' : '#64748b', padding: '2px 6px', borderRadius: '4px' }}>
+                                                {preset.badge}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.78rem', color: '#475569', marginBottom: '4px' }}>
+                                            <span style={{ fontWeight: 700 }}>Title:</span> {preset.heading} + <span style={{ fontWeight: 700 }}>Body:</span> {preset.body}
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '0.73rem', color: '#64748b', lineHeight: 1.35 }}>
+                                            {preset.tagline}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Font Selectors (Dropdown + Custom Write-In Option) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                        {/* 1. Body & UI Font */}
+                        <div className="field-group">
+                            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span><Type size={14} color="#4f46e5" /> Storefront Body & UI Font</span>
+                                <span style={{ fontSize: '0.7rem', color: '#6366f1', textTransform: 'none', fontWeight: 600 }}>Google Fonts</span>
+                            </label>
+                            <select
+                                value={GOOGLE_FONTS_LIST.some(f => f.name.toLowerCase() === activeBodyFont.toLowerCase()) ? activeBodyFont : 'custom'}
+                                onChange={(e) => {
+                                    if (e.target.value !== 'custom') {
+                                        handleUpdate('theme_font_body', e.target.value);
+                                    }
+                                }}
+                                style={{
+                                    width: '100%', padding: '0.85rem 1rem', background: '#ffffff',
+                                    border: '1.5px solid #cbd5e1', borderRadius: '12px', fontSize: '0.95rem',
+                                    fontWeight: 600, color: '#0f172a', outline: 'none'
+                                }}
+                            >
+                                <optgroup label="Modern Sans-Serif (Recommended for Body)">
+                                    {GOOGLE_FONTS_LIST.filter(f => f.category === 'Sans-Serif').map(f => (
+                                        <option key={f.name} value={f.name}>
+                                            {f.name} — {f.description}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="Royal & Classic Serif">
+                                    {GOOGLE_FONTS_LIST.filter(f => f.category === 'Serif').map(f => (
+                                        <option key={f.name} value={f.name}>
+                                            {f.name} — {f.description}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="Distinctive Display">
+                                    {GOOGLE_FONTS_LIST.filter(f => f.category === 'Display').map(f => (
+                                        <option key={f.name} value={f.name}>
+                                            {f.name} — {f.description}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <option value="custom">✏️ Custom Google Font Name...</option>
+                            </select>
+
+                            {/* Optional Custom Font Write-in */}
+                            <div style={{ marginTop: '0.5rem' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Or type any Google Font name (e.g. Poppins, Manrope, Nunito Sans)"
+                                    value={settings.theme_font_body || ''}
+                                    onChange={(e) => handleUpdate('theme_font_body', e.target.value)}
+                                    style={{
+                                        fontSize: '0.85rem', padding: '0.6rem 0.85rem', borderRadius: '8px',
+                                        border: '1px solid #e2e8f0', background: '#f8fafc'
+                                    }}
+                                />
+                            </div>
+                            <p className="hint">Controls all storefront product cards, descriptions, menus, cart, checkout, buttons and paragraph text.</p>
+                        </div>
+
+                        {/* 2. Heading & Title Font */}
+                        <div className="field-group">
+                            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span><Palette size={14} color="#4f46e5" /> Storefront Headings & Titles Font</span>
+                                <span style={{ fontSize: '0.7rem', color: '#6366f1', textTransform: 'none', fontWeight: 600 }}>Google Fonts</span>
+                            </label>
+                            <select
+                                value={GOOGLE_FONTS_LIST.some(f => f.name.toLowerCase() === activeHeadingFont.toLowerCase()) ? activeHeadingFont : 'custom'}
+                                onChange={(e) => {
+                                    if (e.target.value !== 'custom') {
+                                        handleUpdate('theme_font_heading', e.target.value);
+                                    }
+                                }}
+                                style={{
+                                    width: '100%', padding: '0.85rem 1rem', background: '#ffffff',
+                                    border: '1.5px solid #cbd5e1', borderRadius: '12px', fontSize: '0.95rem',
+                                    fontWeight: 600, color: '#0f172a', outline: 'none'
+                                }}
+                            >
+                                <optgroup label="Royal & Editorial Serif (Recommended for Saree Titles)">
+                                    {GOOGLE_FONTS_LIST.filter(f => f.category === 'Serif').map(f => (
+                                        <option key={f.name} value={f.name}>
+                                            {f.name} — {f.description}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="Modern Sans-Serif">
+                                    {GOOGLE_FONTS_LIST.filter(f => f.category === 'Sans-Serif').map(f => (
+                                        <option key={f.name} value={f.name}>
+                                            {f.name} — {f.description}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <optgroup label="Distinctive Display">
+                                    {GOOGLE_FONTS_LIST.filter(f => f.category === 'Display').map(f => (
+                                        <option key={f.name} value={f.name}>
+                                            {f.name} — {f.description}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                                <option value="custom">✏️ Custom Google Font Name...</option>
+                            </select>
+
+                            {/* Optional Custom Font Write-in */}
+                            <div style={{ marginTop: '0.5rem' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Or type any Google Font name (e.g. Cinzel, Playfair Display)"
+                                    value={settings.theme_font_heading || ''}
+                                    onChange={(e) => handleUpdate('theme_font_heading', e.target.value)}
+                                    style={{
+                                        fontSize: '0.85rem', padding: '0.6rem 0.85rem', borderRadius: '8px',
+                                        border: '1px solid #e2e8f0', background: '#f8fafc'
+                                    }}
+                                />
+                            </div>
+                            <p className="hint">Controls storefront banner headlines, category titles, section headings (H1-H6), and hero banners.</p>
+                        </div>
+                    </div>
+
+                    {/* Live Storefront Font Render Preview Box */}
+                    <div style={{
+                        padding: '1.5rem',
+                        borderRadius: '16px',
+                        background: '#fdfbf7',
+                        border: '1.5px dashed #cbd5e1',
+                        boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.02)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #ebdcd0', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
+                                <strong style={{ fontSize: '0.8rem', color: '#2b2623', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Live Storefront Typography Preview
+                                </strong>
+                            </div>
+                            <span style={{ fontSize: '0.75rem', color: '#6e645e' }}>
+                                Headings: <strong style={{ color: '#0f172a' }}>{activeHeadingFont}</strong> | Body: <strong style={{ color: '#0f172a' }}>{activeBodyFont}</strong>
+                            </span>
+                        </div>
+
+                        {/* Rendered live with inline fontFamily styles using selected Google Fonts */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <div style={{
+                                fontFamily: `"${activeHeadingFont}", serif`,
+                                fontSize: '1.85rem',
+                                fontWeight: 700,
+                                color: '#2b2623',
+                                lineHeight: 1.2
+                            }}>
+                                Pure Kanjivaram Handloom Silk Sarees
+                            </div>
+
+                            <div style={{
+                                fontFamily: `"${activeHeadingFont}", serif`,
+                                fontSize: '1.15rem',
+                                fontWeight: 600,
+                                color: '#a06650',
+                                letterSpacing: '0.02em'
+                            }}>
+                                Woven with Authentic Zari & Timeless Indian Heritage
+                            </div>
+
+                            <p style={{
+                                fontFamily: `"${activeBodyFont}", sans-serif`,
+                                fontSize: '0.95rem',
+                                color: '#6e645e',
+                                lineHeight: 1.6,
+                                margin: 0
+                            }}>
+                                Discover the finest selection of handcrafted silk and soft cotton sarees at Vaiyaaree. Each masterpiece is authentically hand-woven with pure zari borders, intricate pallu detailing, and celebratory elegance tailored for festive weddings and royal occasions.
+                            </p>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    style={{
+                                        fontFamily: `"${activeBodyFont}", sans-serif`,
+                                        background: '#a06650',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        padding: '0.65rem 1.4rem',
+                                        borderRadius: '50px',
+                                        fontWeight: 700,
+                                        fontSize: '0.85rem',
+                                        cursor: 'default'
+                                    }}
+                                >
+                                    Explore Saree Collection &rarr;
+                                </button>
+                                <span style={{
+                                    fontFamily: `"${activeBodyFont}", sans-serif`,
+                                    fontSize: '1.1rem',
+                                    fontWeight: 800,
+                                    color: '#2b2623'
+                                }}>
+                                    ₹4,499.00
+                                </span>
+                                <span style={{
+                                    fontFamily: `"${activeBodyFont}", sans-serif`,
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    background: '#fef3c7',
+                                    color: '#b45309',
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    letterSpacing: '0.04em'
+                                }}>
+                                    100% PURE SILK CERTIFIED
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -477,8 +809,8 @@ export default function ShopSettingsPage() {
                             <label>SMTP Host Server</label>
                             <input
                                 type="text"
-                                placeholder="smtp.gmail.com"
-                                value={settings.smtp_host || 'smtp.gmail.com'}
+                                placeholder="mail.vaiyaaree.com or smtp.gmail.com"
+                                value={settings.smtp_host ?? ''}
                                 onChange={(e) => handleUpdate('smtp_host', e.target.value)}
                             />
                         </div>
@@ -486,8 +818,8 @@ export default function ShopSettingsPage() {
                             <label>SMTP Port</label>
                             <input
                                 type="text"
-                                placeholder="587"
-                                value={settings.smtp_port || '587'}
+                                placeholder="587 (TLS) or 465 (SSL)"
+                                value={settings.smtp_port ?? ''}
                                 onChange={(e) => handleUpdate('smtp_port', e.target.value)}
                             />
                         </div>
@@ -495,27 +827,27 @@ export default function ShopSettingsPage() {
                             <label>SMTP Sender Email / User</label>
                             <input
                                 type="email"
-                                placeholder="vaiyaaree@gmail.com"
-                                value={settings.smtp_user || ''}
+                                placeholder="orders@vaiyaaree.com"
+                                value={settings.smtp_user ?? ''}
                                 onChange={(e) => handleUpdate('smtp_user', e.target.value)}
                             />
                         </div>
                         <div className="field-group">
-                            <label>Gmail App Password (16-char)</label>
+                            <label>SMTP Password / App Password</label>
                             <input
                                 type="password"
-                                placeholder="voix hxje uahf slti"
-                                value={settings.smtp_pass || ''}
+                                placeholder="Webmail password or Gmail App Password"
+                                value={settings.smtp_pass ?? ''}
                                 onChange={(e) => handleUpdate('smtp_pass', e.target.value)}
                             />
-                            <p className="hint">For Gmail: Enable 2-Step Verification & generate an App Password at myaccount.google.com/apppasswords</p>
+                            <p className="hint">For custom hosting: enter your webmail password. For Gmail: enter 16-character App Password.</p>
                         </div>
                         <div className="field-group full-width">
                             <label>Sender From Header Title</label>
                             <input
                                 type="text"
-                                placeholder='"Vaiyaaree Sarees" <vaiyaaree@gmail.com>'
-                                value={settings.smtp_from || '"Vaiyaaree Sarees" <vaiyaaree@gmail.com>'}
+                                placeholder='"Vaiyaaree Sarees" <orders@vaiyaaree.com>'
+                                value={settings.smtp_from ?? ''}
                                 onChange={(e) => handleUpdate('smtp_from', e.target.value)}
                             />
                         </div>
@@ -601,6 +933,216 @@ export default function ShopSettingsPage() {
                                 }}></span>
                             </span>
                         </label>
+                    </div>
+                </section>
+
+                {/* Checkout & Cash on Delivery (COD) Settings Card */}
+                <section className="settings-card card shadow-premium full-width" style={{ borderLeft: `6px solid ${settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? '#16a34a' : '#ef4444'}` }}>
+                    <div className="card-header" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{
+                                width: '38px', height: '38px', borderRadius: '10px',
+                                background: settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? '#dcfce7' : '#fee2e2',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <Truck size={20} color={settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? '#16a34a' : '#ef4444'} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Checkout & Cash on Delivery (COD) Settings</h3>
+                                <p style={{ margin: '2px 0 0', fontSize: '0.84rem', color: '#64748b' }}>
+                                    Enable or disable Cash on Delivery (COD), configure order limits, handling fees, and checkout policies.
+                                </p>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span style={{
+                                fontSize: '0.75rem', fontWeight: 800, padding: '0.35rem 0.85rem', borderRadius: '20px', letterSpacing: '0.04em',
+                                background: settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? '#f0fdf4' : '#fef2f2',
+                                color: settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? '#16a34a' : '#b91c1c',
+                                border: `1px solid ${settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? '#bbf7d0' : '#fecaca'}`
+                            }}>
+                                {settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? '● COD ENABLED' : '○ COD DISABLED'}
+                            </span>
+
+                            <label className="toggle-switch" style={{ position: 'relative', display: 'inline-block', width: '56px', height: '30px', margin: 0 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings.cod_enabled !== 'false' && settings.cod_enabled !== '0'}
+                                    onChange={(e) => handleUpdate('cod_enabled', e.target.checked ? 'true' : 'false')}
+                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                />
+                                <span style={{
+                                    position: 'absolute', cursor: 'pointer', inset: 0,
+                                    backgroundColor: settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? '#16a34a' : '#cbd5e1',
+                                    borderRadius: '30px', transition: '0.3s'
+                                }}>
+                                    <span style={{
+                                        position: 'absolute', content: '""', height: '22px', width: '22px', left: '4px', bottom: '4px',
+                                        backgroundColor: 'white', borderRadius: '50%', transition: '0.3s',
+                                        transform: settings.cod_enabled !== 'false' && settings.cod_enabled !== '0' ? 'translateX(26px)' : 'none',
+                                        boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                    }}></span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginTop: '1rem' }}>
+                        <div className="field-group">
+                            <label>COD Display Title</label>
+                            <input
+                                type="text"
+                                value={settings.cod_title || 'Cash on Delivery (COD)'}
+                                onChange={(e) => handleUpdate('cod_title', e.target.value)}
+                                placeholder="Cash on Delivery (COD)"
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label>COD Extra Fee / Surcharge (₹)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                value={settings.cod_fee !== undefined ? settings.cod_fee : '0'}
+                                onChange={(e) => handleUpdate('cod_fee', e.target.value)}
+                                placeholder="0"
+                            />
+                            <p className="hint">Optional fee added when COD is selected (0 = free).</p>
+                        </div>
+                        <div className="field-group">
+                            <label>Minimum Order for COD (₹)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                value={settings.cod_min_order !== undefined ? settings.cod_min_order : '0'}
+                                onChange={(e) => handleUpdate('cod_min_order', e.target.value)}
+                                placeholder="0"
+                            />
+                            <p className="hint">0 = no minimum required.</p>
+                        </div>
+                        <div className="field-group">
+                            <label>Maximum Order for COD (₹)</label>
+                            <input
+                                type="number"
+                                min="0"
+                                value={settings.cod_max_order !== undefined ? settings.cod_max_order : '0'}
+                                onChange={(e) => handleUpdate('cod_max_order', e.target.value)}
+                                placeholder="0"
+                            />
+                            <p className="hint">0 = unlimited cart total.</p>
+                        </div>
+                    </div>
+
+                    {/* COD Advance Payment via Razorpay Sub-Section */}
+                    <div style={{
+                        marginTop: '1.5rem',
+                        padding: '1.25rem',
+                        background: settings.cod_advance_enabled === 'true' ? '#f0fdf4' : '#f8fafc',
+                        border: `1px solid ${settings.cod_advance_enabled === 'true' ? '#bbf7d0' : '#e2e8f0'}`,
+                        borderRadius: '12px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: settings.cod_advance_enabled === 'true' ? '1rem' : 0 }}>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>⚡</span> Require Partial Advance Payment via Razorpay for COD
+                                </h4>
+                                <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                    Customers must pay a fixed advance amount online via Razorpay/UPI to confirm their COD order. The remaining balance is collected in cash upon delivery.
+                                </p>
+                            </div>
+                            <label className="toggle-switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '26px', margin: 0 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings.cod_advance_enabled === 'true'}
+                                    onChange={(e) => handleUpdate('cod_advance_enabled', e.target.checked ? 'true' : 'false')}
+                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                />
+                                <span style={{
+                                    position: 'absolute', cursor: 'pointer', inset: 0,
+                                    backgroundColor: settings.cod_advance_enabled === 'true' ? '#16a34a' : '#cbd5e1',
+                                    borderRadius: '30px', transition: '0.3s'
+                                }}>
+                                    <span style={{
+                                        position: 'absolute', content: '""', height: '18px', width: '18px', left: '4px', bottom: '4px',
+                                        backgroundColor: 'white', borderRadius: '50%', transition: '0.3s',
+                                        transform: settings.cod_advance_enabled === 'true' ? 'translateX(24px)' : 'none',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                    }}></span>
+                                </span>
+                            </label>
+                        </div>
+
+                        {settings.cod_advance_enabled === 'true' && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', marginTop: '0.5rem' }}>
+                                <div className="field-group">
+                                    <label style={{ fontWeight: 700 }}>Advance Amount to Pay Online (₹)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={settings.cod_advance_amount !== undefined ? settings.cod_advance_amount : '200'}
+                                        onChange={(e) => handleUpdate('cod_advance_amount', e.target.value)}
+                                        placeholder="200"
+                                    />
+                                    <p className="hint">The customer pays this amount via Razorpay. Automatically capped at order total if cart total is less.</p>
+                                </div>
+                                <div className="field-group" style={{ gridColumn: '1 / -1' }}>
+                                    <label style={{ fontWeight: 700 }}>Note Below COD Button (Frontend Checkout)</label>
+                                    <textarea
+                                        rows={2}
+                                        value={settings.cod_advance_note !== undefined ? settings.cod_advance_note : 'A partial advance of ₹{amount} is required online via UPI/Card to confirm your COD order. The remaining balance of ₹{balance} will be collected in cash upon delivery.'}
+                                        onChange={(e) => handleUpdate('cod_advance_note', e.target.value)}
+                                        placeholder="Pay ₹{amount} advance online to confirm. Pay balance ₹{balance} on delivery."
+                                        style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                                    />
+                                    <p className="hint">This note will appear directly below the COD button/option in checkout. Supports <code>{'{amount}'}</code> and <code>{'{balance}'}</code> variables.</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div style={{
+                        marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid #f1f5f9',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem'
+                    }}>
+                        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 600 }}>
+                                <input
+                                    type="checkbox"
+                                    style={{ width: 'auto', margin: 0 }}
+                                    checked={settings.guest_checkout_enabled !== 'false'}
+                                    onChange={(e) => handleUpdate('guest_checkout_enabled', e.target.checked ? 'true' : 'false')}
+                                />
+                                Allow Guest Checkout
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 600 }}>
+                                <input
+                                    type="checkbox"
+                                    style={{ width: 'auto', margin: 0 }}
+                                    checked={settings.checkout_order_notes_enabled !== 'false'}
+                                    onChange={(e) => handleUpdate('checkout_order_notes_enabled', e.target.checked ? 'true' : 'false')}
+                                />
+                                Enable Order Delivery Notes
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 600 }}>
+                                <input
+                                    type="checkbox"
+                                    style={{ width: 'auto', margin: 0 }}
+                                    checked={settings.checkout_create_account_enabled !== 'false'}
+                                    onChange={(e) => handleUpdate('checkout_create_account_enabled', e.target.checked ? 'true' : 'false')}
+                                />
+                                Allow Account Creation at Checkout
+                            </label>
+                        </div>
+
+                        <Link
+                            href="/admin/settings/checkout"
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                padding: '0.65rem 1.25rem', backgroundColor: 'hsl(var(--primary))', color: '#ffffff',
+                                borderRadius: '10px', textDecoration: 'none', fontWeight: 700, fontSize: '0.86rem'
+                            }}
+                        >
+                            Open Full Checkout Settings & Simulator <ArrowRight size={16} />
+                        </Link>
                     </div>
                 </section>
             </div>

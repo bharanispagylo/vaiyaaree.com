@@ -15,7 +15,7 @@ export async function POST(request) {
         // Fetch the order and its items from MySQL
         const { data: order, error } = await mysqlClient
             .from('orders')
-            .select('id, total_amount, total_discount, tax_amount, shipping_cost, customer_name, customer_phone, order_items(*)')
+            .select('id, total_amount, total_discount, tax_amount, shipping_cost, customer_name, customer_phone, payment_method, cod_advance_required, order_items(*)')
             .eq('id', orderId)
             .single();
 
@@ -48,8 +48,12 @@ export async function POST(request) {
         }
         // --- End Price Verification ---
 
-        // ALWAYS use the server-verified expectedTotal for Razorpay initialization
-        const finalPayableAmount = expectedTotal > 0 ? expectedTotal : order.total_amount;
+        // Check if this is a COD order with advance required:
+        const isCodAdvance = order.payment_method === 'COD' && parseFloat(order.cod_advance_required || 0) > 0;
+        // ALWAYS use the server-verified payable amount for Razorpay initialization
+        const finalPayableAmount = isCodAdvance 
+            ? parseFloat(order.cod_advance_required)
+            : (expectedTotal > 0 ? expectedTotal : order.total_amount);
 
         // Detect if keys are placeholders or missing
         const isPlaceholder = (key) => !key || key.includes('PASTE_YOUR_KEY');
@@ -63,6 +67,7 @@ export async function POST(request) {
                 currency: 'INR',
                 keyId: 'rzp_test_placeholder',
                 orderDetails: order,
+                isCodAdvance,
                 testMode: true
             });
         }
@@ -81,6 +86,7 @@ export async function POST(request) {
                 orderId: orderId,
                 customerName: order.customer_name,
                 customerPhone: order.customer_phone,
+                paymentType: isCodAdvance ? 'COD_ADVANCE' : 'FULL_PAYMENT'
             }
         });
 

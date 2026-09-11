@@ -14,6 +14,10 @@ export default function OrderMetricsStrip({
     const activeItemCount = orderItems.reduce((sum, item) => sum + Math.max(0, Number(item.quantity || 0) - Number(item.returned_quantity || 0)), 0);
     const isPaid = ['PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes((selectedOrder.status || '').toUpperCase());
 
+    const isCodAdvance = (selectedOrder.payment_method || '').toUpperCase() === 'COD' && (Number(selectedOrder.cod_advance_required || 0) > 0 || Number(selectedOrder.advance_paid || 0) > 0);
+    const advancePaidVal = Number(selectedOrder.advance_paid || 0);
+    const balanceDueVal = Number(selectedOrder.balance_amount !== undefined ? selectedOrder.balance_amount : Math.max(0, totalAmount - advancePaidVal));
+
     return (
         <div style={{
             display: 'grid',
@@ -72,8 +76,8 @@ export default function OrderMetricsStrip({
                     width: '42px',
                     height: '42px',
                     borderRadius: '12px',
-                    background: isPaid ? '#eff6ff' : '#fef2f2',
-                    color: isPaid ? '#1d4ed8' : '#dc2626',
+                    background: isCodAdvance ? (advancePaidVal > 0 ? '#ecfdf5' : '#fffbeb') : (isPaid ? '#eff6ff' : '#fef2f2'),
+                    color: isCodAdvance ? (advancePaidVal > 0 ? '#059669' : '#d97706') : (isPaid ? '#1d4ed8' : '#dc2626'),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -89,9 +93,11 @@ export default function OrderMetricsStrip({
                         <span style={{
                             fontSize: '0.85rem',
                             fontWeight: 800,
-                            color: isPaid ? '#15803d' : '#b91c1c'
+                            color: isCodAdvance ? (advancePaidVal > 0 ? '#15803d' : '#b45309') : (isPaid ? '#15803d' : '#b91c1c')
                         }}>
-                            {isPaid ? (isPaidOnline ? 'Razorpay Paid' : 'Paid (Direct)') : 'Awaiting Payment'}
+                            {isCodAdvance 
+                                ? (advancePaidVal > 0 ? `COD Advance Paid (₹${advancePaidVal})` : 'Awaiting COD Advance')
+                                : (isPaid ? (isPaidOnline ? 'Razorpay Paid' : 'Paid (Direct)') : 'Awaiting Payment')}
                         </span>
                     </div>
                     {razorpayPaymentId && (
@@ -101,6 +107,42 @@ export default function OrderMetricsStrip({
                     )}
                 </div>
             </div>
+
+            {/* 2b. COD Balance Due Card (when applicable) */}
+            {isCodAdvance && (
+                <div style={{
+                    background: '#ffffff',
+                    padding: '1rem 1.25rem',
+                    borderRadius: '14px',
+                    border: '1px solid #fed7aa',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                }}>
+                    <div style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '12px',
+                        background: '#fff7ed',
+                        color: '#ea580c',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                    }}>
+                        <AlertCircle size={20} />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '0.72rem', color: '#9a3412', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Cash Due on Delivery
+                        </div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#c2410c', marginTop: '2px' }}>
+                            ₹{balanceDueVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 3. Fulfillment Status Card */}
             <div style={{

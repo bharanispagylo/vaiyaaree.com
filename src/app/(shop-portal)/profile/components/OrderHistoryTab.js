@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { History, Eye, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getOrderSourceBadge } from './profileHelpers';
+import { getOrderSourceBadge, renderCodPaymentBadges, isCancelledStatus } from './profileHelpers';
 import { formatOrderDate } from '@/lib/dateUtils';
 import styles from '../profile.module.css';
 
@@ -23,33 +23,42 @@ export default function OrderHistoryTab({
     return (
         <section className={styles.profileSection}>
             <div className={styles.sectionHeader}>
-                <div>
-                    <h3 className={styles.sectionTitle}><History size={20} /> Order History</h3>
-                    <p className={styles.sectionSubtitle}>Your past delivered and completed orders</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ padding: '0.5rem', background: '#f5f3ff', borderRadius: '10px', color: '#7e22ce' }}>
+                        <History size={20} />
+                    </div>
+                    <div>
+                        <h3 className={styles.sectionTitle} style={{ margin: 0 }}>Order History & Delivered Orders</h3>
+                        <p className={styles.sectionSubtitle} style={{ margin: 0 }}>Past completed, delivered, and cancelled orders</p>
+                    </div>
                 </div>
             </div>
 
             {loadingOrders ? (
-                <div className={styles.loadingState}>Loading order history...</div>
+                <div style={{ textAlign: 'center', padding: '3rem 0', color: 'hsl(var(--text-muted))' }}>
+                    <History size={32} className="spin" style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                    <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>Loading order history...</p>
+                </div>
             ) : pastOrders.length === 0 ? (
-                <div className={styles.emptyState}>
-                    <History size={48} style={{ opacity: 0.2 }} />
-                    <p>No past order history</p>
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', background: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+                    <History size={48} style={{ opacity: 0.2, marginBottom: '0.75rem', color: 'hsl(var(--text-muted))' }} />
+                    <h4 style={{ fontWeight: 800, fontSize: '1.05rem', color: 'hsl(var(--text-main))', margin: '0 0 0.25rem' }}>No Order History</h4>
+                    <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', margin: 0 }}>You don't have any past delivered or cancelled orders yet.</p>
                 </div>
             ) : (
-                <div className={styles.tableContainer}>
-                    {/* Desktop Table View */}
-                    <div className={styles.desktopTableView}>
-                        <table className={styles.dataTable}>
+                <>
+                    {/* Desktop / Tablet Table View */}
+                    <div className={styles.desktopOrdersTableWrapper}>
+                        <table className={styles.ordersTable}>
                             <thead>
                                 <tr>
-                                    <th>INVOICE NO</th>
-                                    <th>DATE</th>
-                                    <th>ITEMS</th>
-                                    <th>TOTAL</th>
-                                    <th>SOURCE</th>
-                                    <th>STATUS</th>
-                                    <th style={{ textAlign: 'right' }}>ACTION</th>
+                                    <th>Order Reference</th>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th>Total & Payment</th>
+                                    <th>Source</th>
+                                    <th>Status</th>
+                                    <th style={{ textAlign: 'right' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -58,6 +67,8 @@ export default function OrderHistoryTab({
                                     const itemsList = order.order_items || [];
                                     const firstItemName = itemsList[0]?.product_name || 'Item';
                                     const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                                    const isCancelled = isCancelledStatus(order.status);
+                                    const displayStatus = isCancelled ? 'CANCELED' : order.status;
 
                                     return (
                                         <tr key={order.id}>
@@ -82,14 +93,27 @@ export default function OrderHistoryTab({
                                                 </div>
                                             </td>
                                             <td style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
-                                                ₹{(order.total_amount || 0).toLocaleString('en-IN')}
+                                                <div>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                {renderCodPaymentBadges(order)}
                                             </td>
                                             <td style={{ whiteSpace: 'nowrap' }}>
                                                 {getOrderSourceBadge(order)}
                                             </td>
                                             <td style={{ whiteSpace: 'nowrap' }}>
-                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: 0, background: 'transparent', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                                    {order.status}
+                                                <span
+                                                    className={`${styles.orderStatusBadge} ${styles['status' + (isCancelled ? 'CANCELLED' : order.status)]}`}
+                                                    style={{
+                                                        padding: isCancelled ? '2px 7px' : 0,
+                                                        background: isCancelled ? '#fef2f2' : 'transparent',
+                                                        borderRadius: isCancelled ? '6px' : 0,
+                                                        border: isCancelled ? '1px solid #fecdd3' : 'none',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 800,
+                                                        whiteSpace: 'nowrap',
+                                                        color: isCancelled ? '#dc2626' : undefined
+                                                    }}
+                                                >
+                                                    {displayStatus}
                                                 </span>
                                             </td>
                                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -130,6 +154,8 @@ export default function OrderHistoryTab({
                             const itemsList = order.order_items || [];
                             const firstItemName = itemsList[0]?.product_name || 'Item';
                             const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                            const isCancelled = isCancelledStatus(order.status);
+                            const displayStatus = isCancelled ? 'CANCELED' : order.status;
 
                             return (
                                 <div key={order.id} className={styles.mobileOrderCard}>
@@ -142,8 +168,20 @@ export default function OrderHistoryTab({
                                                 {formatOrderDate(order.created_at, { includeTime: false })}
                                             </div>
                                         </div>
-                                        <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: 0, background: 'transparent', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                            {order.status}
+                                        <span
+                                            className={`${styles.orderStatusBadge} ${styles['status' + (isCancelled ? 'CANCELLED' : order.status)]}`}
+                                            style={{
+                                                padding: isCancelled ? '2px 7px' : 0,
+                                                background: isCancelled ? '#fef2f2' : 'transparent',
+                                                borderRadius: isCancelled ? '6px' : 0,
+                                                border: isCancelled ? '1px solid #fecdd3' : 'none',
+                                                fontSize: '0.78rem',
+                                                fontWeight: 800,
+                                                whiteSpace: 'nowrap',
+                                                color: isCancelled ? '#dc2626' : undefined
+                                            }}
+                                        >
+                                            {displayStatus}
                                         </span>
                                     </div>
 
@@ -155,7 +193,10 @@ export default function OrderHistoryTab({
                                             </span>
                                         </div>
                                         <div className={styles.mobilePriceSource}>
-                                            <div className={styles.mobilePrice}>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                            <div>
+                                                <div className={styles.mobilePrice}>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                {renderCodPaymentBadges(order, true)}
+                                            </div>
                                             {getOrderSourceBadge(order)}
                                         </div>
                                     </div>
@@ -218,7 +259,7 @@ export default function OrderHistoryTab({
                             </button>
                         </div>
                     </div>
-                </div>
+                </>
             )}
         </section>
     );

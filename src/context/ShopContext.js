@@ -1354,26 +1354,59 @@ export function ShopProvider({ children }) {
                 } else {
                     // Create new customer
                     try {
-                        const { data: newCustomer, error: createError } = await mysqlClient
-                            .from('customers')
-                            .insert({
-                                phone: cleanDigits,
-                                country_code: checkoutForm.billingCountryCode || '+91',
-                                name: checkoutForm.billingName,
-                                email: checkoutForm.billingEmail || null,
-                                address: checkoutForm.billingAddress,
-                                city: checkoutForm.billingCity,
-                                state: checkoutForm.billingState,
-                                pincode: checkoutForm.billingPincode,
-                                role: 'user',
-                                is_verified: false
-                            })
-                            .select()
-                            .single();
+                        let registered = false;
+                        if (checkoutForm.createAccount && checkoutForm.accountPassword && checkoutForm.accountPassword.trim().length >= 6) {
+                            try {
+                                const regRes = await fetch('/api/auth/customer/register', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        name: (checkoutForm.billingName || '').trim(),
+                                        email: (checkoutForm.billingEmail || '').trim().toLowerCase(),
+                                        phone: cleanDigits,
+                                        country_code: checkoutForm.billingCountryCode || '+91',
+                                        password: checkoutForm.accountPassword.trim()
+                                    })
+                                });
+                                const regData = await regRes.json();
+                                if (regRes.ok && regData.success && regData.customer) {
+                                    currentCustomer = regData.customer;
+                                    customerId = regData.customer.id;
+                                    registered = true;
+                                    showToast('Account created successfully!', 'success');
+                                } else {
+                                    console.warn('[CHECKOUT] Registration notice:', regData.error);
+                                    if (regData.error && !regData.error.includes('already exists')) {
+                                        showToast(regData.error, 'info');
+                                    }
+                                }
+                            } catch (rErr) {
+                                console.warn('[CHECKOUT] Registration failed during checkout:', rErr);
+                            }
+                        }
 
-                        if (createError) throw createError;
-                        customerId = newCustomer?.id || `cust_${cleanDigits}`;
-                        currentCustomer = newCustomer || { id: customerId, phone: cleanDigits, name: checkoutForm.billingName };
+                        if (!registered) {
+                            const { data: newCustomer, error: createError } = await mysqlClient
+                                .from('customers')
+                                .insert({
+                                    phone: cleanDigits,
+                                    country_code: checkoutForm.billingCountryCode || '+91',
+                                    name: checkoutForm.billingName,
+                                    email: checkoutForm.billingEmail || null,
+                                    address: checkoutForm.billingAddress,
+                                    city: checkoutForm.billingCity,
+                                    state: checkoutForm.billingState,
+                                    pincode: checkoutForm.billingPincode,
+                                    role: 'user',
+                                    is_verified: false
+                                })
+                                .select()
+                                .single();
+
+                            if (createError) throw createError;
+                            customerId = newCustomer?.id || `cust_${cleanDigits}`;
+                            currentCustomer = newCustomer || { id: customerId, phone: cleanDigits, name: checkoutForm.billingName };
+                        }
                     } catch (cErr) {
                         console.warn('[CHECKOUT] Could not auto-insert customer row, fallback to phone ID:', cErr);
                         customerId = `cust_${cleanDigits}`;
@@ -1454,7 +1487,8 @@ export function ShopProvider({ children }) {
                 shippingZoneId: taxDetails.activeZone?.id,
                 shippingState: checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState,
                 shippingCountry: shippingCountry,
-                couponCode: appliedCoupon?.couponCode || null
+                couponCode: appliedCoupon?.couponCode || null,
+                customerNotes: checkoutForm.customerNotes || null
             };
 
             const createRes = await fetch('/api/orders/create', {
@@ -1481,10 +1515,14 @@ export function ShopProvider({ children }) {
 
             const finalOrderData = {
                 orderId: assignedOrderId,
+                invoiceNo: createData?.invoiceNo,
                 billingName: checkoutForm.billingName,
                 billingPhone: checkoutForm.billingPhone,
                 customerName: checkoutForm.billingName,
                 total: createData?.totalAmount !== undefined ? createData.totalAmount : Math.round(taxDetails.totalOrder),
+                codAdvanceRequired: Number(createData?.codAdvanceRequired || 0),
+                advancePaid: Number(createData?.advancePaid || 0),
+                balanceAmount: createData?.balanceAmount !== undefined ? Number(createData.balanceAmount) : createData?.totalAmount,
                 subtotal: taxDetails.taxableSubtotal !== undefined ? taxDetails.taxableSubtotal : (taxDetails.subtotal || Math.max(0, taxDetails.totalOrder - taxDetails.shipping - ((taxDetails.cgst || 0) + (taxDetails.sgst || 0) + (taxDetails.igst || 0)))),
                 cgst: taxDetails.cgst,
                 sgst: taxDetails.sgst,
@@ -1493,8 +1531,9 @@ export function ShopProvider({ children }) {
             };
 
             const isOnlinePayment = effectiveMethod === 'RAZORPAY' || effectiveMethod === 'ONLINE';
+            const requiresCodAdvance = effectiveMethod === 'COD' && Number(createData?.codAdvanceRequired || 0) > 0;
 
-            if (!isOnlinePayment) {
+            if (!isOnlinePayment && !requiresCodAdvance) {
                 clearCartAfterSuccess();
                 showToast('Order Placed Successfully!', 'success');
 

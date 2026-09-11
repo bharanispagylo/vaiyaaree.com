@@ -124,18 +124,39 @@ export function getStatusConfig(status, order = {}) {
                 ctaLabel: 'Share Feedback / View Order',
                 ctaUrlSuffix: `profile/orders/${order.id || ''}`
             };
-        case 'CANCELLED':
+        case 'CANCELLED': {
+            const isCodOrder = String(order.payment_method || '').toUpperCase() === 'COD' || String(order.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+            const codAdvVal = Number(order.advance_paid || order.cod_advance_required || 0);
+            const refAmt = Number(order.refund_amount !== undefined && order.refund_amount !== null ? order.refund_amount : (isCodOrder ? codAdvVal : (order.total_amount || 0)));
+            const refId = order.razorpay_refund_id || null;
+
+            let cancelBanner = '';
+            if (order.refund_status === 'REFUNDED' || refId) {
+                cancelBanner = isCodOrder && codAdvVal > 0
+                    ? `An automatic refund of <strong>₹${codAdvVal.toLocaleString('en-IN')}.00</strong> for your partial advance payment has been successfully credited back to your original payment account via Razorpay${refId ? ` (Refund ID: <strong>${refId}</strong>)` : ''}.`
+                    : `An automatic refund of <strong>₹${refAmt.toLocaleString('en-IN')}.00</strong> has been successfully credited back to your original payment account via Razorpay${refId ? ` (Refund ID: <strong>${refId}</strong>)` : ''}.`;
+            } else if (order.refund_status === 'REFUND_REQUESTED' || (refAmt > 0 && !isCodOrder) || (isCodOrder && codAdvVal > 0)) {
+                cancelBanner = isCodOrder && codAdvVal > 0
+                    ? `A refund of <strong>₹${codAdvVal.toLocaleString('en-IN')}.00</strong> for your COD partial advance payment has been initiated back to your original payment method.`
+                    : `A refund of <strong>₹${refAmt.toLocaleString('en-IN')}.00</strong> has been initiated back to your original payment method.`;
+            } else {
+                cancelBanner = isCodOrder
+                    ? `As this order was placed under Cash on Delivery with no advance payment, no refund was required.`
+                    : `Your order has been cancelled successfully.`;
+            }
+
             return {
                 title: 'Order Cancelled',
-                subtitle: `Order ${invNo} has been cancelled as requested.`,
+                subtitle: `Order ${invNo} has been cancelled.`,
                 heroBadge: 'CANCELLED',
                 badgeBg: '#fee2e2',
                 badgeColor: '#dc2626',
                 timelineStep: -1,
-                bannerNote: `If this was a pre-paid order, a full refund of <strong>${amountStr}</strong> has been initiated back to your original payment method.`,
+                bannerNote: cancelBanner,
                 ctaLabel: 'Visit Store',
                 ctaUrlSuffix: 'shop'
             };
+        }
         case 'RETURN':
             return {
                 title: 'Return / Replacement Initiated',
@@ -188,6 +209,14 @@ function parseAddr(raw) {
     return null;
 }
 
+const spacerHtml = (h = 24) => `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; border-collapse: collapse; margin: 0; padding: 0;">
+        <tr>
+            <td height="${h}" style="height: ${h}px; line-height: ${h}px; font-size: 1px; padding: 0; mso-line-height-rule: exactly;">&nbsp;</td>
+        </tr>
+    </table>
+`;
+
 export function buildOrderStatusEmailHtml({
     order = {},
     status = 'PLACED',
@@ -233,6 +262,19 @@ export function buildOrderStatusEmailHtml({
     const shippingCost = Number(order.shipping_cost || 0);
     const taxAmount = Number(order.tax_amount || 0);
     const grandTotal = Number(order.total_amount || (subtotal - totalDiscount + shippingCost + taxAmount));
+
+    // COD with Advance Calculation
+    const isCodMethod = (order.payment_method || '').toUpperCase() === 'COD' || (order.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+    const codAdvanceRequired = Number(order.cod_advance_required || 0);
+    const codAdvancePaid = Number(order.advance_paid || 0);
+    const hasCodAdvance = isCodMethod && (codAdvanceRequired > 0 || codAdvancePaid > 0);
+    const effectiveCodAdvance = codAdvancePaid > 0 ? codAdvancePaid : codAdvanceRequired;
+    const codBalanceDue = Number(
+        order.balance_amount !== undefined && order.balance_amount !== null
+            ? order.balance_amount
+            : Math.max(0, grandTotal - effectiveCodAdvance)
+    );
+    const isCodAdvancePaid = codAdvancePaid > 0 || ['PLACED', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(String(effectiveStatus).toUpperCase());
 
     // Direct Target URLs
     const cleanBaseUrl = (baseUrl || 'https://vaiyaaree.com').replace(/\/$/, '');
@@ -293,21 +335,21 @@ export function buildOrderStatusEmailHtml({
 
         return `
             <tr>
-                <td style="padding: 14px 0; border-bottom: 1px solid #f1f5f9; vertical-align: middle;">
+                <td style="padding: 16px 0; border-bottom: 1px solid #f1f5f9; vertical-align: middle;">
                     <table cellpadding="0" cellspacing="0" border="0" width="100%">
                         <tr>
-                            <td width="64" style="vertical-align: top; padding-right: 14px;">
+                            <td width="64" style="vertical-align: top; padding-right: 16px;">
                                 ${imageCellHtml}
                             </td>
                             <td style="vertical-align: top;">
                                 <div style="font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.35;">${itemName}</div>
-                                ${variantName ? `<div style="font-size: 12px; color: #64748b; margin-top: 3px; font-weight: 600;">Option: <span style="color: #475569; background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">${variantName}</span></div>` : ''}
-                                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Qty: <strong>${qty}</strong> × ₹${unitPrice.toLocaleString('en-IN')}</div>
+                                ${variantName ? `<div style="font-size: 12px; color: #64748b; margin-top: 4px; font-weight: 600;">Option: <span style="color: #475569; background: #f1f5f9; padding: 2px 7px; border-radius: 4px;">${variantName}</span></div>` : ''}
+                                <div style="font-size: 12px; color: #64748b; margin-top: 5px;">Qty: <strong>${qty}</strong> × ₹${unitPrice.toLocaleString('en-IN')}</div>
                             </td>
                         </tr>
                     </table>
                 </td>
-                <td align="right" style="padding: 14px 0; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: 15px; font-weight: 800; color: #0f172a;">
+                <td align="right" style="padding: 16px 0; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: 15px; font-weight: 800; color: #0f172a;">
                     ₹${lineTotal.toLocaleString('en-IN')}
                 </td>
             </tr>
@@ -325,22 +367,23 @@ export function buildOrderStatusEmailHtml({
         ];
 
         timelineHtml = `
+            ${spacerHtml(22)}
             <!-- TIMELINE PROGRESS BAR -->
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0 26px 0; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 12px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 14px; border-collapse: separate;">
                 <tr>
-                    <td align="center">
-                        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                    <td align="center" style="padding: 20px 14px 18px 14px;">
+                        <table cellpadding="0" cellspacing="0" border="0" width="100%" role="presentation">
                             <tr>
                                 ${steps.map(step => {
             const isDone = step.idx <= config.timelineStep;
             const circleBg = isDone ? '#5d0821' : '#e2e8f0';
-            const circleColor = isDone ? '#ffffff' : '#000000';
-            const textColor = isDone ? '#5d0821' : '#000000';
+            const circleColor = isDone ? '#ffffff' : '#475569';
+            const textColor = isDone ? '#5d0821' : '#64748b';
             const fontWeight = isDone ? '800' : '600';
 
             return `
-                                        <td align="center" style="vertical-align: top; width: 25%;">
-                                            <div style="width: 28px; height: 28px; line-height: 28px; border-radius: 50%; background-color: ${circleBg}; color: ${circleColor}; font-size: 12px; font-weight: 800; margin: 0 auto 6px auto; text-align: center;">
+                                        <td align="center" style="vertical-align: top; width: 25%; padding: 0 4px;">
+                                            <div style="width: 32px; height: 32px; line-height: 32px; border-radius: 50%; background-color: ${circleBg}; color: ${circleColor}; font-size: 13px; font-weight: 800; margin: 0 auto 8px auto; text-align: center; box-shadow: ${isDone ? '0 3px 8px rgba(93, 8, 33, 0.25)' : 'none'};">
                                                 ${isDone ? '✓' : (step.idx + 1)}
                                             </div>
                                             <div style="font-size: 11px; font-weight: ${fontWeight}; color: ${textColor}; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -354,6 +397,7 @@ export function buildOrderStatusEmailHtml({
                     </td>
                 </tr>
             </table>
+            ${spacerHtml(22)}
         `;
     }
 
@@ -362,20 +406,20 @@ export function buildOrderStatusEmailHtml({
     if (order.tracking_number || order.courier_name || effectiveStatus === 'SHIPPED') {
         trackingCardHtml = `
             <!-- COURIER & LIVE TRACKING CARD -->
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 18px 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 14px; border-collapse: separate;">
                 <tr>
-                    <td>
-                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <td style="padding: 18px 22px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
                             <tr>
-                                <td>
-                                    <div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">🚚 LOGISTICS & LIVE TRACKING</div>
-                                    <div style="font-size: 15px; font-weight: 800; color: #14532d;">
-                                        ${order.courier_name || 'BlueDart / Delhivery'} — <span style="font-family: monospace; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">${order.tracking_number || 'AWB-PENDING'}</span>
+                                <td style="vertical-align: middle;">
+                                    <div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">🚚 LOGISTICS & LIVE TRACKING</div>
+                                    <div style="font-size: 15px; font-weight: 800; color: #14532d; line-height: 1.35;">
+                                        ${order.courier_name || 'BlueDart / Delhivery'} — <span style="font-family: monospace, monospace; background: #dcfce7; padding: 3px 9px; border-radius: 6px; font-size: 13.5px; border: 1px solid #86efac; display: inline-block;">${order.tracking_number || 'AWB-PENDING'}</span>
                                     </div>
                                 </td>
                                 ${order.tracking_url ? `
-                                <td align="right" style="vertical-align: middle;">
-                                    <a href="${order.tracking_url}" target="_blank" style="background: #15803d; color: #ffffff; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; display: inline-block;">
+                                <td align="right" style="vertical-align: middle; padding-left: 16px;">
+                                    <a href="${order.tracking_url}" target="_blank" style="background: #15803d; color: #ffffff; padding: 10px 18px; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-block; white-space: nowrap; box-shadow: 0 3px 8px rgba(21, 128, 61, 0.25);">
                                         Track Carrier &rarr;
                                     </a>
                                 </td>` : ''}
@@ -384,6 +428,7 @@ export function buildOrderStatusEmailHtml({
                     </td>
                 </tr>
             </table>
+            ${spacerHtml(22)}
         `;
     }
 
@@ -400,10 +445,10 @@ export function buildOrderStatusEmailHtml({
                 img { border: 0; outline: none; text-decoration: none; }
                 @media only screen and (max-width: 620px) {
                     .email-wrapper { padding: 10px !important; width: 100% !important; }
-                    .email-inner { padding: 20px 16px !important; }
+                    .email-inner { padding: 22px 18px !important; }
                     .header-title { font-size: 20px !important; }
                     .hero-title { font-size: 20px !important; }
-                    .stack-mobile { display: block !important; width: 100% !important; margin-bottom: 12px !important; }
+                    .stack-mobile { display: block !important; width: 100% !important; margin-bottom: 14px !important; text-align: left !important; padding: 10px 16px !important; }
                 }
             </style>
         </head>
@@ -416,7 +461,7 @@ export function buildOrderStatusEmailHtml({
                             
                             <!-- 1. LUXURY TOP BRAND BANNER -->
                             <tr>
-                                <td style="background: linear-gradient(135deg, #5d0821 0%, #3e0516 100%); padding: 30px 24px; text-align: center; border-bottom: 3px solid #dfaa5b;">
+                                <td style="background: linear-gradient(135deg, #5d0821 0%, #3e0516 100%); padding: 32px 24px; text-align: center; border-bottom: 3px solid #dfaa5b;">
                                     <div style="font-size: 26px; font-weight: 900; color: #ffffff; letter-spacing: 2px; text-transform: uppercase;">
                                         ${shopName}
                                     </div>
@@ -428,17 +473,17 @@ export function buildOrderStatusEmailHtml({
 
                             <!-- 2. STATUS HERO & GREETING BANNER -->
                             <tr>
-                                <td class="email-inner" style="padding: 30px 28px 20px 28px;">
-                                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <td class="email-inner" style="padding: 32px 30px 24px 30px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
                                         <tr>
-                                            <td>
-                                                <div style="display: inline-block; background-color: ${config.badgeBg}; color: ${config.badgeColor}; font-size: 12px; font-weight: 800; padding: 5px 14px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+                                            <td style="padding-bottom: 2px;">
+                                                <div style="display: inline-block; background-color: ${config.badgeBg}; color: ${config.badgeColor}; font-size: 12px; font-weight: 800; padding: 6px 15px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
                                                     ${config.heroBadge}
                                                 </div>
-                                                <h2 class="hero-title" style="margin: 0 0 6px 0; font-size: 23px; font-weight: 900; color: #0f172a; line-height: 1.3;">
+                                                <h2 class="hero-title" style="margin: 0 0 8px 0; font-size: 24px; font-weight: 900; color: #0f172a; line-height: 1.3;">
                                                     ${config.title}
                                                 </h2>
-                                                <p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.55;">
+                                                <p style="margin: 0; font-size: 14.5px; color: #475569; line-height: 1.55;">
                                                     Hello <strong>${customerName}</strong>, ${config.subtitle}
                                                 </p>
                                             </td>
@@ -446,59 +491,102 @@ export function buildOrderStatusEmailHtml({
                                     </table>
 
                                     <!-- TIMELINE (IF APPLICABLE) -->
-                                    ${timelineHtml}
+                                    ${timelineHtml || spacerHtml(20)}
 
                                     <!-- NOTICE BOX -->
-                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fafbfc; border-left: 4px solid #5d0821; border-radius: 8px; padding: 14px 16px; margin-bottom: 22px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background: #fafbfc; border-left: 4px solid #5d0821; border-top: 1px solid #eef2f6; border-right: 1px solid #eef2f6; border-bottom: 1px solid #eef2f6; border-radius: 8px; border-collapse: separate;">
                                         <tr>
-                                            <td style="font-size: 13px; color: #334155; line-height: 1.5;">
+                                            <td style="padding: 16px 20px; font-size: 13.5px; color: #334155; line-height: 1.6;">
                                                 ${config.bannerNote}
-                                                ${customNotes ? `<div style="margin-top: 6px; font-weight: 600; color: #5d0821;">${customNotes}</div>` : ''}
+                                                ${customNotes ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-weight: 600; color: #5d0821;">${customNotes}</div>` : ''}
                                             </td>
                                         </tr>
                                     </table>
+
+                                    ${hasCodAdvance ? `
+                                    ${spacerHtml(16)}
+                                    <!-- COD ADVANCE NOTICE BOX -->
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; border-collapse: separate;">
+                                        <tr>
+                                            <td style="padding: 16px 20px;">
+                                                <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                                                    <tr>
+                                                        <td width="36" style="vertical-align: top; padding-right: 12px; font-size: 24px; line-height: 1;">
+                                                            💵
+                                                        </td>
+                                                        <td style="vertical-align: top;">
+                                                            <div style="font-size: 13px; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                                                                Cash on Delivery (COD) Payment Summary
+                                                            </div>
+                                                            <div style="font-size: 13.5px; color: #78350f; line-height: 1.55;">
+                                                                Advance Payment of <strong>₹${effectiveCodAdvance.toLocaleString('en-IN')}.00</strong> ${isCodAdvancePaid ? 'has been received successfully via Razorpay' : 'is recorded'}. The remaining balance of <strong style="color: #5d0821; font-size: 15px;">₹${codBalanceDue.toLocaleString('en-IN')}.00</strong> is to be paid in cash to our courier delivery executive upon receiving your saree package.
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    ` : ''}
+                                    ${spacerHtml(22)}
 
                                     <!-- TRACKING DETAILS IF SHIPPED -->
                                     ${trackingCardHtml}
 
                                     <!-- 3. ORDER OVERVIEW META CARD -->
-                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; margin-bottom: 24px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; border-collapse: separate;">
                                         <tr>
-                                            <td width="50%" class="stack-mobile" style="vertical-align: top;">
-                                                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">ORDER REFERENCE</div>
-                                                <div style="font-size: 16px; font-weight: 900; color: #5d0821; font-family: monospace, sans-serif; margin-top: 2px;">${invoiceNo}</div>
-                                                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Placed: ${orderDateStr}</div>
+                                            <td width="50%" class="stack-mobile" style="vertical-align: top; padding: 18px 16px 18px 20px;">
+                                                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em;">ORDER REFERENCE</div>
+                                                <div style="font-size: 16px; font-weight: 900; color: #5d0821; font-family: monospace, sans-serif; margin-top: 4px;">${invoiceNo}</div>
+                                                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Placed: ${orderDateStr}</div>
                                             </td>
-                                            <td width="50%" class="stack-mobile" style="vertical-align: top; text-align: right;">
-                                                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">PAYMENT METHOD</div>
-                                                <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 2px;">${order.payment_method || 'Online Razorpay / UPI'}</div>
-                                                <div style="font-size: 12px; font-weight: 700; color: ${order.payment_status === 'PAID' ? '#16a34a' : '#d97706'}; margin-top: 2px;">
+                                            <td width="50%" class="stack-mobile" style="vertical-align: top; text-align: right; padding: 18px 20px 18px 16px;">
+                                                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em;">PAYMENT METHOD</div>
+                                                <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 4px;">${hasCodAdvance ? 'Cash on Delivery (COD)' : (order.payment_method || 'Online Razorpay / UPI')}</div>
+                                                ${hasCodAdvance ? `
+                                                <div style="margin-top: 5px;">
+                                                    <span style="font-size: 11px; font-weight: 800; color: ${isCodAdvancePaid ? '#15803d' : '#b45309'}; background: ${isCodAdvancePaid ? '#dcfce7' : '#fef3c7'}; padding: 2px 8px; border-radius: 4px; display: inline-block;">
+                                                        ✓ ₹${effectiveCodAdvance.toLocaleString('en-IN')} Advance ${isCodAdvancePaid ? 'Paid' : 'Pending'}
+                                                    </span>
+                                                    <div style="font-size: 11.5px; font-weight: 800; color: #b45309; margin-top: 3px;">
+                                                        ₹${codBalanceDue.toLocaleString('en-IN')} Due on Delivery
+                                                    </div>
+                                                </div>
+                                                ` : `
+                                                <div style="font-size: 12px; font-weight: 800; color: ${order.payment_status === 'PAID' ? '#16a34a' : '#d97706'}; margin-top: 4px; display: inline-block; background: ${order.payment_status === 'PAID' ? '#dcfce7' : '#fef3c7'}; padding: 2px 8px; border-radius: 4px;">
                                                     ${order.payment_status || 'PENDING'}
                                                 </div>
+                                                `}
                                             </td>
                                         </tr>
                                     </table>
+                                    ${spacerHtml(24)}
 
                                     <!-- 4. ORDERED ITEMS TABLE -->
-                                    <div style="font-size: 12px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;">
+                                    <div style="font-size: 12px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;">
                                         ORDERED ITEMS (${items.length})
                                     </div>
-                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%;">
                                         ${itemsRowsHtml}
                                     </table>
+                                    ${spacerHtml(24)}
 
                                     <!-- 5. FINANCIAL SUMMARY CARD -->
-                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 24px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 14px; border-collapse: separate;">
                                         <tr>
-                                            <td style="padding: 4px 0; font-size: 13px; color: #64748b;">Items Subtotal</td>
-                                            <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${subtotal.toLocaleString('en-IN')}.00</td>
-                                        </tr>
-                                        ${totalDiscount > 0 ? `
-                                        <tr>
-                                            <td style="padding: 4px 0; font-size: 13px; color: #16a34a; font-weight: 700;">Offers & Discounts Applied</td>
-                                            <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #16a34a;">-₹${totalDiscount.toLocaleString('en-IN')}.00</td>
-                                        </tr>` : ''}
-                                        ${(() => {
+                                            <td style="padding: 20px 22px;">
+                                                <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                                                    <tr>
+                                                        <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">Items Subtotal</td>
+                                                        <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">₹${subtotal.toLocaleString('en-IN')}.00</td>
+                                                    </tr>
+                                                    ${totalDiscount > 0 ? `
+                                                    <tr>
+                                                        <td style="padding: 5px 0; font-size: 13.5px; color: #16a34a; font-weight: 700;">Offers & Discounts Applied</td>
+                                                        <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #16a34a;">-₹${totalDiscount.toLocaleString('en-IN')}.00</td>
+                                                    </tr>` : ''}
+                                                    ${(() => {
             if (taxAmount <= 0) return '';
             const emailTaxType = order.tax_type || '';
             const emailRawCgst = Number(order.cgst_amount || order.cgst || 0);
@@ -520,90 +608,115 @@ export function buildOrderStatusEmailHtml({
             if (emailIsIgst) {
                 const igstDisplay = emailRawIgst > 0 ? emailRawIgst : taxAmount;
                 return `<tr>
-                                                    <td style="padding: 4px 0; font-size: 13px; color: #64748b;">IGST (5%)</td>
-                                                    <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${igstDisplay.toLocaleString('en-IN')}.00</td>
-                                                </tr>`;
+                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">IGST (5%)</td>
+                                                                <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">₹${igstDisplay.toLocaleString('en-IN')}.00</td>
+                                                            </tr>`;
             } else {
                 const cgstDisplay = emailRawCgst > 0 ? emailRawCgst : Math.round(taxAmount / 2);
                 const sgstDisplay = emailRawSgst > 0 ? emailRawSgst : Math.round(taxAmount / 2);
                 return `<tr>
-                                                    <td style="padding: 4px 0; font-size: 13px; color: #64748b;">CGST (2.5%)</td>
-                                                    <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${cgstDisplay.toLocaleString('en-IN')}.00</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 4px 0; font-size: 13px; color: #64748b;">SGST (2.5%)</td>
-                                                    <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: #0f172a;">₹${sgstDisplay.toLocaleString('en-IN')}.00</td>
-                                                </tr>`;
+                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">CGST (2.5%)</td>
+                                                                <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">₹${cgstDisplay.toLocaleString('en-IN')}.00</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">SGST (2.5%)</td>
+                                                                <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">₹${sgstDisplay.toLocaleString('en-IN')}.00</td>
+                                                            </tr>`;
             }
         })()}
-                                        <tr>
-                                            <td style="padding: 4px 0; font-size: 13px; color: #64748b;">Shipping & Delivery</td>
-                                            <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 700; color: ${shippingCost === 0 ? '#16a34a' : '#0f172a'};">
-                                                ${shippingCost === 0 ? 'FREE' : `₹${shippingCost.toLocaleString('en-IN')}.00`}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td style="padding: 12px 0 0 0; border-top: 1px solid #e2e8f0; font-size: 16px; font-weight: 900; color: #0f172a;">
-                                                Total Paid / Payable
-                                            </td>
-                                            <td align="right" style="padding: 12px 0 0 0; border-top: 1px solid #e2e8f0; font-size: 18px; font-weight: 900; color: #5d0821;">
-                                                ₹${grandTotal.toLocaleString('en-IN')}.00
+                                                    <tr>
+                                                        <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">Shipping & Delivery</td>
+                                                        <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: ${shippingCost === 0 ? '#16a34a' : '#0f172a'};">
+                                                             ${shippingCost === 0 ? 'FREE' : `₹${shippingCost.toLocaleString('en-IN')}.00`}
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding: 14px 0 0 0; border-top: 1px solid #e2e8f0; font-size: 15px; font-weight: 800; color: #0f172a;">
+                                                            Total Order Amount
+                                                        </td>
+                                                        <td align="right" style="padding: 14px 0 0 0; border-top: 1px solid #e2e8f0; font-size: 17px; font-weight: 800; color: #0f172a;">
+                                                            ₹${grandTotal.toLocaleString('en-IN')}.00
+                                                        </td>
+                                                    </tr>
+                                                    ${hasCodAdvance ? `
+                                                    <tr>
+                                                        <td style="padding: 8px 0 0 0; font-size: 13.5px; font-weight: 700; color: #15803d;">
+                                                            ✓ Advance Paid (Razorpay / Online)
+                                                        </td>
+                                                        <td align="right" style="padding: 8px 0 0 0; font-size: 14px; font-weight: 800; color: #15803d;">
+                                                            -₹${effectiveCodAdvance.toLocaleString('en-IN')}.00
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding: 12px 0 0 0; border-top: 1px dashed #cbd5e1; font-size: 16px; font-weight: 900; color: #92400e;">
+                                                            💵 Cash Due on Delivery
+                                                        </td>
+                                                        <td align="right" style="padding: 12px 0 0 0; border-top: 1px dashed #cbd5e1; font-size: 20px; font-weight: 900; color: #5d0821;">
+                                                            ₹${codBalanceDue.toLocaleString('en-IN')}.00
+                                                        </td>
+                                                    </tr>
+                                                    ` : ''}
+                                                </table>
                                             </td>
                                         </tr>
                                     </table>
+                                    ${spacerHtml(24)}
 
                                     <!-- 6. DELIVERY ADDRESS CARD -->
-                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 28px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; border-collapse: separate;">
                                         <tr>
-                                            <td>
-                                                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">📍 DELIVERY ADDRESS</div>
-                                                <div style="font-size: 14px; font-weight: 800; color: #0f172a;">${customerName}</div>
-                                                <div style="font-size: 13px; color: #334155; line-height: 1.5; margin-top: 3px;">
+                                            <td style="padding: 20px 22px;">
+                                                <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;">📍 DELIVERY ADDRESS</div>
+                                                <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${customerName}</div>
+                                                <div style="font-size: 13.5px; color: #334155; line-height: 1.55; margin-top: 4px;">
                                                     ${customerAddressText}
                                                 </div>
-                                                ${customerPhone ? `<div style="font-size: 13px; color: #64748b; margin-top: 6px;">Phone: <strong>${customerPhone}</strong></div>` : ''}
+                                                ${customerPhone ? `<div style="font-size: 13px; color: #64748b; margin-top: 8px;">Phone: <strong style="color: #0f172a;">${customerPhone}</strong></div>` : ''}
                                             </td>
                                         </tr>
                                     </table>
+                                    ${spacerHtml(26)}
 
                                     <!-- 7. PRIMARY CALL-TO-ACTION BUTTON -->
-                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%;">
                                         <tr>
-                                            <td align="center">
-                                                <a href="${ctaDirectUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #5d0821, #400516); color: #ffffff; padding: 14px 34px; border-radius: 12px; font-size: 14px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 6px 18px rgba(93, 8, 33, 0.28);">
+                                            <td align="center" style="padding: 4px 0;">
+                                                <a href="${ctaDirectUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #5d0821, #400516); color: #ffffff; padding: 15px 36px; border-radius: 12px; font-size: 14px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 6px 18px rgba(93, 8, 33, 0.28);">
                                                     ${config.ctaLabel} &rarr;
                                                 </a>
                                             </td>
                                         </tr>
                                     </table>
+                                    ${spacerHtml(24)}
 
                                     <!-- 8. ATTACHMENT & WHATSAPP SUPPORT PILL -->
-                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f8fafc; border-radius: 12px; padding: 14px 16px; border: 1px dashed #cbd5e1; margin-bottom: 10px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1; border-collapse: separate;">
                                         <tr>
-                                            <td align="center" style="font-size: 13px; color: #475569;">
+                                            <td align="center" style="padding: 16px 20px; font-size: 13px; color: #475569; line-height: 1.6;">
                                                 📄 <strong>Tax Invoice PDF:</strong> Attached to this email for your accounting records.
                                                 <br/>
                                                 💬 Need instant help? <a href="${whatsAppHelpUrl}" target="_blank" style="color: #15803d; font-weight: 700; text-decoration: underline;">Chat with us on WhatsApp</a>
                                             </td>
                                         </tr>
                                     </table>
+                                    ${spacerHtml(12)}
 
                                 </td>
                             </tr>
 
                             <!-- 9. LUXURY FOOTER -->
                             <tr>
-                                <td style="background-color: #fdfbf7; border-top: 1px solid #f0e6d2; padding: 24px; text-align: center;">
+                                <td style="background-color: #fdfbf7; border-top: 1px solid #f0e6d2; padding: 30px 24px; text-align: center;">
                                     <div style="font-size: 14px; font-weight: 800; color: #5d0821; text-transform: uppercase; letter-spacing: 1px;">
                                         ${shopName}
                                     </div>
-                                    <div style="font-size: 12px; color: #64748b; margin-top: 4px; line-height: 1.5;">
+                                    <div style="font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.55;">
                                         ${shopAddress}
                                     </div>
-                                    <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                                    <div style="font-size: 12px; color: #64748b; margin-top: 6px;">
                                         Email: <a href="mailto:${shopEmail}" style="color: #5d0821; font-weight: 700; text-decoration: none;">${shopEmail}</a> | Phone: <strong style="color: #0f172a;">+91 ${shopPhone}</strong>
                                     </div>
-                                    <div style="font-size: 11px; color: #000000; margin-top: 14px; border-top: 1px solid #f0e6d2; padding-top: 12px;">
+                                    <div style="font-size: 11px; color: #94a3b8; margin-top: 16px; border-top: 1px solid #f0e6d2; padding-top: 14px;">
                                         &copy; ${new Date().getFullYear()} ${shopName}. All rights reserved. Handcrafted with pride in India.
                                     </div>
                                 </td>
@@ -629,6 +742,9 @@ export function getSampleDemoOrder(status = 'PLACED') {
         customer_phone: '9876543210',
         payment_method: 'Razorpay (UPI / Card)',
         payment_status: ['PLACED', 'AWAITING_PAYMENT'].includes(status) ? 'PENDING' : 'PAID',
+        cod_advance_required: 0,
+        advance_paid: 0,
+        balance_amount: 6552,
         courier_name: 'BlueDart Express',
         tracking_number: 'BD-884920194IN',
         tracking_url: 'https://www.bluedart.com',

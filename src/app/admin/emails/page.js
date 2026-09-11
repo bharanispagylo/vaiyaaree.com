@@ -22,6 +22,23 @@ export default function EmailSimulatorPage() {
     const [previewHtml, setPreviewHtml] = useState('');
     const [previewSubject, setPreviewSubject] = useState('');
     const [previewLoading, setPreviewLoading] = useState(true);
+    const iframeRef = useRef(null);
+
+    const handleIframeLoad = () => {
+        try {
+            if (iframeRef.current?.contentWindow?.document?.body) {
+                const scrollH = iframeRef.current.contentWindow.document.body.scrollHeight;
+                if (scrollH && scrollH > 400) {
+                    iframeRef.current.style.height = `${scrollH + 30}px`;
+                }
+            }
+        } catch (e) { }
+    };
+
+    useEffect(() => {
+        const timer = setTimeout(handleIframeLoad, 100);
+        return () => clearTimeout(timer);
+    }, [previewHtml, viewMode]);
 
     // Test send state
     const [recipientEmail, setRecipientEmail] = useState('');
@@ -392,9 +409,11 @@ export default function EmailSimulatorPage() {
                             </div>
                         ) : (
                             <iframe
+                                ref={iframeRef}
                                 srcDoc={previewHtml}
                                 title="Order Status Email Preview"
                                 className={styles.previewFrame}
+                                onLoad={handleIframeLoad}
                                 style={{
                                     width: viewMode === 'mobile' ? '375px' : '650px'
                                 }}

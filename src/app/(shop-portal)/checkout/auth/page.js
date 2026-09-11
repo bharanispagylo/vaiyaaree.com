@@ -11,6 +11,7 @@ import {
 import { useShop } from '@/context/ShopContext';
 import { COUNTRY_CODES, DEFAULT_COUNTRY_CODE } from '@/lib/countryCodes';
 import { sanitizeCustomerSession } from '@/lib/authSanitizer';
+import { mysqlClient } from '@/lib/mysqlClient';
 import styles from './auth.module.css';
 
 function CheckoutAuthContent() {
@@ -52,9 +53,23 @@ function CheckoutAuthContent() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+    const [guestCheckoutEnabled, setGuestCheckoutEnabled] = useState(true);
 
     useEffect(() => {
         setMounted(true);
+        const fetchGuestSetting = async () => {
+            try {
+                const { data } = await mysqlClient
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'guest_checkout_enabled')
+                    .maybeSingle();
+                if (data && (data.value === 'false' || data.value === '0')) {
+                    setGuestCheckoutEnabled(false);
+                }
+            } catch (e) {}
+        };
+        fetchGuestSetting();
     }, []);
 
     // If user is already logged in, redirect directly to checkout
@@ -106,7 +121,10 @@ function CheckoutAuthContent() {
 
     const handleContinueAsGuest = () => {
         if (typeof window !== 'undefined') {
-            sessionStorage.setItem('vaiyaaree_checkout_guest', 'true');
+            try {
+                sessionStorage.setItem('vaiyaaree_checkout_guest', 'true');
+                localStorage.setItem('vaiyaaree_checkout_guest', 'true');
+            } catch (e) { }
         }
         router.push('/checkout?guest=true');
     };
@@ -738,22 +756,26 @@ function CheckoutAuthContent() {
                         )}
 
                         {/* ── GUEST CHECKOUT PROMOTION ────────────────────────── */}
-                        <div className={styles.divider}>
-                            <span>OR</span>
-                        </div>
+                        {guestCheckoutEnabled && (
+                            <>
+                                <div className={styles.divider}>
+                                    <span>OR</span>
+                                </div>
 
-                        <div className={styles.guestCard}>
-                            <button
-                                type="button"
-                                onClick={handleContinueAsGuest}
-                                className={styles.guestBtn}
-                            >
-                                ⚡ Continue as Guest Checkout <ArrowRight size={17} />
-                            </button>
-                            <p className={styles.guestHint}>
-                                No password needed. You can enter your shipping address directly and place your order.
-                            </p>
-                        </div>
+                                <div className={styles.guestCard}>
+                                    <button
+                                        type="button"
+                                        onClick={handleContinueAsGuest}
+                                        className={styles.guestBtn}
+                                    >
+                                        ⚡ Continue as Guest Checkout <ArrowRight size={17} />
+                                    </button>
+                                    <p className={styles.guestHint}>
+                                        No password needed. You can enter your shipping address directly and place your order.
+                                    </p>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* RIGHT COLUMN: ORDER SUMMARY MINI-CARD */}
@@ -807,21 +829,7 @@ function CheckoutAuthContent() {
                             <span style={{ color: '#5d0821' }}>₹{finalTotal.toLocaleString('en-IN')}.00</span>
                         </div>
 
-                        {/* Trust Highlights */}
-                        <div className={styles.trustList}>
-                            <div className={styles.trustItem}>
-                                <ShieldCheck size={18} className={styles.trustIcon} />
-                                <span><strong>100% Authentic Handloom Silks</strong> direct from master weavers.</span>
-                            </div>
-                            <div className={styles.trustItem}>
-                                <Truck size={18} className={styles.trustIcon} />
-                                <span><strong>Insured Shipping</strong> with live notifications & tracking.</span>
-                            </div>
-                            <div className={styles.trustItem}>
-                                <Sparkles size={18} className={styles.trustIcon} />
-                                <span><strong>256-Bit Encrypted Payments</strong> via Razorpay, UPI & NetBanking.</span>
-                            </div>
-                        </div>
+
                     </div>
 
                 </div>

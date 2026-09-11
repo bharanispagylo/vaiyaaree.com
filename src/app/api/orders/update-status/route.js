@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import pool, { withTransaction } from '@/lib/mysql';
 import { verifyAdmin } from '@/lib/auth';
 import { dispatchNotification, EVENT_TYPES } from '@/services/notificationEngine';
+import { processOrderCancellationRefund, ensureOrdersRefundSchema } from '@/services/orderRefundEngine';
 
 export async function POST(request) {
     try {
@@ -37,6 +38,8 @@ export async function POST(request) {
         // ACID TRANSACTION EXECUTION FOR ADMIN STATUS UPDATES
         // ═════════════════════════════════════════════════════════════════════════
         const updatedOrderResult = await withTransaction(async (conn) => {
+            await ensureOrdersRefundSchema(conn);
+
             // 1. Get and lock order record
             const [orderRows] = await conn.query(
                 "SELECT * FROM `orders` WHERE `id` = ? FOR UPDATE",
@@ -196,25 +199,42 @@ export async function POST(request) {
                 updateParams
             );
 
-            // 5. Insert into order_status_logs
-            const logId = crypto.randomUUID ? crypto.randomUUID() : `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-            const noteText = notes || (courierName ? `Shipped via ${courierName} (Tracking: ${trackingNumber || 'N/A'})` : cancelReason ? `Order cancelled. Reason: ${cancelReason}` : `Status updated to ${status} via Admin Dashboard`);
-            await conn.query(
-                "INSERT INTO `order_status_logs` (`id`, `order_id`, `status`, `notes`, `created_at`) VALUES (?, ?, ?, ?, NOW())",
-                [logId, orderId, status, noteText]
-            );
+            // 5. Automatic Refund Processing for Online & COD Advance Payments if Cancelled
+            let refundResult = null;
+            if (status === 'CANCELLED' && oldStatus !== 'CANCELLED') {
+                refundResult = await processOrderCancellationRefund({
+                    conn,
+                    order: { ...order, status: 'CANCELLED' },
+                    cancelReason: cancelReason || adminNotes || notes || 'Cancelled by admin',
+                    actor: 'admin'
+                });
+            } else {
+                // Insert into order_status_logs for other status updates (cancellation logged inside refund engine)
+                const logId = crypto.randomUUID ? crypto.randomUUID() : `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+                const noteText = notes || (courierName ? `Shipped via ${courierName} (Tracking: ${trackingNumber || 'N/A'})` : `Status updated to ${status} via Admin Dashboard`);
+                await conn.query(
+                    "INSERT INTO `order_status_logs` (`id`, `order_id`, `status`, `notes`, `created_at`) VALUES (?, ?, ?, ?, NOW())",
+                    [logId, orderId, status, noteText]
+                );
+            }
 
             // Fetch latest updated order for notification
             const [finalOrderRows] = await conn.query("SELECT * FROM `orders` WHERE `id` = ?", [orderId]);
             const finalOrder = finalOrderRows[0] || order;
             finalOrder.order_items = items;
 
-            return finalOrder;
+            return {
+                finalOrder,
+                refundResult
+            };
         });
 
         // ═════════════════════════════════════════════════════════════════════════
         // POST-COMMIT: Trigger Notification Engine
         // ═════════════════════════════════════════════════════════════════════════
+        const finalOrder = updatedOrderResult.finalOrder;
+        const refundResult = updatedOrderResult.refundResult;
+
         let engineEventType = null;
         switch (status) {
             case 'PAID': engineEventType = EVENT_TYPES.PAYMENT_SUCCESS; break;
@@ -232,21 +252,30 @@ export async function POST(request) {
         try {
             await dispatchNotification({
                 eventType: engineEventType,
-                order: updatedOrderResult,
+                order: finalOrder,
                 extraData: {
-                    courierName: courierName || updatedOrderResult.courier_name,
-                    trackingNumber: trackingNumber || updatedOrderResult.tracking_number,
-                    trackingUrl: trackingUrl || updatedOrderResult.tracking_url
+                    courierName: courierName || finalOrder.courier_name,
+                    trackingNumber: trackingNumber || finalOrder.tracking_number,
+                    trackingUrl: trackingUrl || finalOrder.tracking_url,
+                    refundStatus: refundResult?.refundStatus,
+                    refundAmount: refundResult?.refundAmount,
+                    razorpayRefundId: refundResult?.razorpayRefundId,
+                    isCodAdvance: refundResult?.isCodAdvance
                 }
             });
         } catch (notifError) {
             console.error('[STATUS-UPDATE-NOTIF-ERROR]', notifError);
         }
 
+        const successMessage = refundResult?.message
+            ? refundResult.message
+            : `Order updated to ${status} with ACID transaction guarantee and notification triggered`;
+
         return new Response(JSON.stringify({
             success: true,
-            message: `Order updated to ${status} with ACID transaction guarantee and notification triggered`,
-            order: updatedOrderResult
+            message: successMessage,
+            order: finalOrder,
+            refund: refundResult
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }

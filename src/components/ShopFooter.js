@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Mail, MapPin, Instagram, Sparkles, ChevronUp } from 'lucide-react';
 import { RangoliOrnament, LotusMotif } from '@/components/RangoliMotif';
 import styles from './ShopFooter.module.css';
@@ -27,12 +28,12 @@ const ShopFooter = () => {
                 {/* Column 1: Logo & Heritage Story */}
                 <div className={styles.footerColumn}>
                     <Link href="/" className={styles.footerLogo}>
-                        <img 
+                        <Image 
                             src="/images/vaiyaaree-logo.png" 
                             alt="Vaiyaaree" 
+                            width={54}
+                            height={54}
                             className={styles.logoImg} 
-                            onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
-                            suppressHydrationWarning
                         />
                         <div className={styles.footerBrandGroup}>
                             <span className={styles.footerBrandName}>VAIYAAREE</span>

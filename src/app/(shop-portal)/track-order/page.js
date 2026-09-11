@@ -199,7 +199,7 @@ function TrackContent() {
             if (!res.ok) throw new Error(data.error || 'Cancellation failed');
 
             setShowCancelModal(false);
-            showToast('Order cancelled successfully', 'success');
+            showToast(data.message || 'Order cancelled successfully', 'success');
             fetchTrackingOrder(order.id);
         } catch (err) {
             console.error('Cancel Order Error:', err);

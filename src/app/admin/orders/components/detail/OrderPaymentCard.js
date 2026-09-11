@@ -13,16 +13,25 @@ export default function OrderPaymentCard({
     copiedField,
     onCopyText
 }) {
-    if (!isPaidOnline && !razorpayPaymentId) return null;
+    const isCod = (selectedOrder.payment_method || '').toUpperCase() === 'COD' || (selectedOrder.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+    const advRequired = Number(selectedOrder.cod_advance_required || 0);
+    const advPaid = Number(selectedOrder.advance_paid || 0);
+    const hasCodAdvance = isCod && (advRequired > 0 || advPaid > 0);
+    const totalAmount = Number(selectedOrder.total_amount || 0);
+    const activeAdvance = advPaid > 0 ? advPaid : advRequired;
+    const balanceDue = Number(selectedOrder.balance_amount !== undefined && selectedOrder.balance_amount !== null ? selectedOrder.balance_amount : Math.max(0, totalAmount - activeAdvance));
+
+    if (!isPaidOnline && !razorpayPaymentId && !isCod) return null;
 
     const isOrderPaid = ['PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes((selectedOrder.status || '').toUpperCase());
+    const isAdvancePaid = advPaid > 0 || isOrderPaid;
 
     return (
         <div className="card-sub" style={{ 
             padding: '1.25rem', 
             background: '#ffffff', 
             borderRadius: '16px', 
-            border: '1px solid #bfdbfe',
+            border: isCod ? (hasCodAdvance ? '1px solid #fde68a' : '1px solid #cbd5e1') : '1px solid #bfdbfe',
             boxShadow: '0 4px 20px -2px rgba(59, 130, 246, 0.08)',
             overflow: 'hidden',
             position: 'relative'
@@ -34,7 +43,11 @@ export default function OrderPaymentCard({
                 left: 0,
                 right: 0,
                 height: '4px',
-                background: 'linear-gradient(90deg, #0284c7, #2563eb, #4f46e5)'
+                background: hasCodAdvance 
+                    ? 'linear-gradient(90deg, #10b981, #d97706, #b45309)'
+                    : isCod 
+                        ? 'linear-gradient(90deg, #d97706, #b45309)'
+                        : 'linear-gradient(90deg, #0284c7, #2563eb, #4f46e5)'
             }} />
 
             {/* Card Header */}
@@ -44,12 +57,16 @@ export default function OrderPaymentCard({
                         width: '34px',
                         height: '34px',
                         borderRadius: '10px',
-                        background: 'linear-gradient(135deg, #0284c7, #1e40af)',
+                        background: hasCodAdvance 
+                            ? 'linear-gradient(135deg, #10b981, #d97706)'
+                            : isCod 
+                                ? 'linear-gradient(135deg, #d97706, #b45309)'
+                                : 'linear-gradient(135deg, #0284c7, #1e40af)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         color: '#ffffff',
-                        boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                     }}>
                         <CreditCard size={18} />
                     </div>
@@ -64,17 +81,40 @@ export default function OrderPaymentCard({
                             alignItems: 'center',
                             gap: '6px'
                         }}>
-                            Razorpay Payment Details
+                            {hasCodAdvance 
+                                ? 'COD with Advance Payment Details' 
+                                : isCod 
+                                    ? 'Cash on Delivery (COD) Details' 
+                                    : 'Razorpay Payment Details'}
                         </h4>
                         <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
-                            Online Payment Gateway Verification
+                            {hasCodAdvance 
+                                ? 'Partial Online Advance via Razorpay + Cash Balance on Delivery' 
+                                : isCod 
+                                    ? 'Cash Collected upon Delivery' 
+                                    : 'Online Payment Gateway Verification'}
                         </div>
                     </div>
                 </div>
 
                 {/* Status Pill */}
                 <div>
-                    {isOrderPaid ? (
+                    {hasCodAdvance ? (
+                        <span style={{
+                            padding: '0.25rem 0.65rem',
+                            borderRadius: '20px',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            background: isAdvancePaid ? '#ecfdf5' : '#fffbeb',
+                            border: `1px solid ${isAdvancePaid ? '#a7f3d0' : '#fde68a'}`,
+                            color: isAdvancePaid ? '#047857' : '#b45309',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                        }}>
+                            <CheckCircle2 size={13} /> {isAdvancePaid ? `Advance Paid (₹${activeAdvance})` : 'Awaiting Advance'}
+                        </span>
+                    ) : isOrderPaid ? (
                         <span style={{
                             padding: '0.25rem 0.65rem',
                             borderRadius: '20px',
@@ -122,6 +162,32 @@ export default function OrderPaymentCard({
                     )}
                 </div>
             </div>
+
+            {/* COD Advance Courier Alert Box */}
+            {hasCodAdvance && (
+                <div style={{
+                    marginBottom: '1rem',
+                    padding: '0.85rem 1rem',
+                    background: '#fffbeb',
+                    border: '1.5px solid #fde68a',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            📦 Courier Cash Collection Instruction
+                        </span>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 900, color: '#b45309' }}>
+                            Collect ₹{balanceDue.toLocaleString('en-IN')}.00 in Cash
+                        </span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#78350f', lineHeight: 1.4 }}>
+                        Customer paid ₹{activeAdvance.toLocaleString('en-IN')}.00 advance online via Razorpay. Remaining ₹{balanceDue.toLocaleString('en-IN')}.00 must be collected upon physical delivery.
+                    </div>
+                </div>
+            )}
 
             {/* Details Box */}
             <div style={{ 
@@ -243,18 +309,29 @@ export default function OrderPaymentCard({
                 }}>
                     <div>
                         <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
-                            Captured Amount
+                            {(selectedOrder.payment_method || '').toUpperCase() === 'COD' && Number(selectedOrder.cod_advance_required || 0) > 0
+                                ? 'Advance Captured'
+                                : 'Captured Amount'}
                         </span>
                         <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#16a34a' }}>
-                            ₹{Number(selectedOrder.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ₹{Number(
+                                (selectedOrder.payment_method || '').toUpperCase() === 'COD' && (Number(selectedOrder.advance_paid || 0) > 0 || Number(selectedOrder.cod_advance_required || 0) > 0)
+                                    ? (selectedOrder.advance_paid || selectedOrder.cod_advance_required)
+                                    : (selectedOrder.total_amount || 0)
+                            ).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
+                        {(selectedOrder.payment_method || '').toUpperCase() === 'COD' && Number(selectedOrder.balance_amount || 0) > 0 && (
+                            <span style={{ display: 'block', fontSize: '0.72rem', color: '#b45309', fontWeight: 600, marginTop: '2px' }}>
+                                (₹{Number(selectedOrder.balance_amount).toLocaleString('en-IN')} Cash Due on Delivery)
+                            </span>
+                        )}
                     </div>
                     <div>
                         <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
                             Payment Gateway
                         </span>
                         <span style={{ fontWeight: 700, color: '#1e40af', fontSize: '0.82rem' }}>
-                            Razorpay Standard
+                            {(selectedOrder.payment_method || '').toUpperCase() === 'COD' ? 'Razorpay (COD Advance)' : 'Razorpay Standard'}
                         </span>
                     </div>
                 </div>
@@ -293,41 +370,72 @@ export default function OrderPaymentCard({
                 </div>
 
                 {/* Refund info if applicable */}
-                {razorpayRefundId && (
-                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.65rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                Razorpay Refund ID
+                {(razorpayRefundId || selectedOrder.refund_status || Number(selectedOrder.refund_amount || 0) > 0) && (
+                    <div style={{ borderTop: '1px solid #fecaca', paddingTop: '0.75rem', marginTop: '0.25rem', background: '#fff5f5', padding: '0.75rem', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Refund Information
                             </span>
-                            <button
-                                type="button"
-                                onClick={() => onCopyText(razorpayRefundId, 'refund_id')}
-                                style={{
-                                    background: copiedField === 'refund_id' ? '#dcfce7' : '#ffffff',
-                                    border: `1px solid ${copiedField === 'refund_id' ? '#86efac' : '#cbd5e1'}`,
-                                    color: copiedField === 'refund_id' ? '#15803d' : '#475569',
-                                    borderRadius: '6px',
-                                    padding: '2px 8px',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
-                                }}
-                            >
-                                {copiedField === 'refund_id' ? <Check size={12} /> : <Copy size={12} />}
-                                {copiedField === 'refund_id' ? 'Copied' : 'Copy'}
-                            </button>
+                            <span style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 800,
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                background: selectedOrder.refund_status === 'REFUNDED' || razorpayRefundId ? '#dcfce7' : '#fef3c7',
+                                color: selectedOrder.refund_status === 'REFUNDED' || razorpayRefundId ? '#15803d' : '#b45309',
+                                textTransform: 'uppercase'
+                            }}>
+                                {selectedOrder.refund_status === 'REFUNDED' || razorpayRefundId ? 'Refunded' : (selectedOrder.refund_status || 'Refund Requested')}
+                            </span>
                         </div>
-                        <div style={{ 
-                            fontFamily: 'monospace',
-                            fontWeight: 700, 
-                            color: '#991b1b',
-                            fontSize: '0.82rem'
-                        }}>
-                            {razorpayRefundId}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: razorpayRefundId ? '6px' : '0' }}>
+                            <div>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Refunded Amount</span>
+                                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#b91c1c' }}>
+                                    ₹{Number(selectedOrder.refund_amount || (hasCodAdvance ? activeAdvance : totalAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Refund Channel</span>
+                                <span style={{ fontWeight: 700, fontSize: '0.78rem', color: '#334155' }}>
+                                    {hasCodAdvance ? 'COD Advance Refund' : 'Razorpay Original Method'}
+                                </span>
+                            </div>
                         </div>
+
+                        {razorpayRefundId && (
+                            <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #fca5a5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#7f1d1d', textTransform: 'uppercase', display: 'block' }}>
+                                        Razorpay Refund ID
+                                    </span>
+                                    <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#991b1b', fontSize: '0.8rem' }}>
+                                        {razorpayRefundId}
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => onCopyText(razorpayRefundId, 'refund_id')}
+                                    style={{
+                                        background: copiedField === 'refund_id' ? '#dcfce7' : '#ffffff',
+                                        border: `1px solid ${copiedField === 'refund_id' ? '#86efac' : '#fca5a5'}`,
+                                        color: copiedField === 'refund_id' ? '#15803d' : '#991b1b',
+                                        borderRadius: '6px',
+                                        padding: '2px 8px',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    {copiedField === 'refund_id' ? <Check size={12} /> : <Copy size={12} />}
+                                    {copiedField === 'refund_id' ? 'Copied' : 'Copy'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

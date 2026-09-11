@@ -1,8 +1,8 @@
 import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
 import crypto from 'crypto';
 import { notifyOrderSuccess } from '@/services/whatsappService';
-// import { sendWhatsAppText } from '@/lib/whatsapp';
-
+import { dispatchNotification, EVENT_TYPES } from '@/services/notificationEngine';
+import { ensureOrdersPaymentSchema } from '@/lib/orderSchemaHelper';
 import { getGatewaySettings } from '@/lib/settings';
 
 export async function POST(request) {
@@ -32,30 +32,7 @@ export async function POST(request) {
         }
         // --- End Signature Verification ---
 
-let ordersSchemaChecked = false;
-async function ensureOrdersPaymentSchema() {
-    if (ordersSchemaChecked) return;
-    try {
-        const { default: pool } = await import('@/lib/mysql.js');
-        const [orderIdCol] = await pool.query("SHOW COLUMNS FROM `orders` LIKE 'razorpay_order_id'");
-        if (!orderIdCol || orderIdCol.length === 0) {
-            await pool.query("ALTER TABLE `orders` ADD COLUMN `razorpay_order_id` VARCHAR(100) NULL AFTER `razorpay_payment_id`");
-        }
-        const [sigCol] = await pool.query("SHOW COLUMNS FROM `orders` LIKE 'razorpay_signature'");
-        if (!sigCol || sigCol.length === 0) {
-            await pool.query("ALTER TABLE `orders` ADD COLUMN `razorpay_signature` VARCHAR(255) NULL AFTER `razorpay_order_id`");
-        }
-        const [paidAtCol] = await pool.query("SHOW COLUMNS FROM `orders` LIKE 'paid_at'");
-        if (!paidAtCol || paidAtCol.length === 0) {
-            await pool.query("ALTER TABLE `orders` ADD COLUMN `paid_at` DATETIME NULL AFTER `razorpay_signature`");
-        }
-        ordersSchemaChecked = true;
-    } catch (e) {
-        // Safe to ignore if columns already exist
-    }
-}
-
-        // Fetch order details for WhatsApp message
+        // Fetch order details
         const { data: order, error: fetchError } = await mysqlClient
             .from('orders')
             .select('*, order_items(*)')
@@ -69,23 +46,35 @@ async function ensureOrdersPaymentSchema() {
         // Ensure database table has necessary payment metadata columns
         await ensureOrdersPaymentSchema();
 
-        // IDEMPOTENCY CHECK: If order is already PAID and already has payment id saved
-        if (order.status === 'PAID' && order.razorpay_payment_id) {
+        const isCodAdvance = order.payment_method === 'COD';
+
+        // IDEMPOTENCY CHECK
+        if (isCodAdvance && (order.status === 'PLACED' || order.status === 'CONFIRMED' || order.status === 'SHIPPED') && order.razorpay_payment_id) {
+            console.log(`[PAYMENT-VERIFY] COD Advance for Order #${orderId} already verified. Returning idempotent success.`);
+            return Response.json({ success: true, orderId, alreadyVerified: true });
+        }
+        if (!isCodAdvance && order.status === 'PAID' && order.razorpay_payment_id) {
             console.log(`[PAYMENT-VERIFY] Order #${orderId} already verified and marked as PAID. Returning idempotent success.`);
             return Response.json({ success: true, orderId, alreadyVerified: true });
         }
 
         const nowIso = new Date().toISOString();
+        const advanceAmount = isCodAdvance ? parseFloat(order.cod_advance_required || 0) : parseFloat(order.total_amount || 0);
+        const balanceAmount = isCodAdvance ? Math.max(0, parseFloat(order.total_amount || 0) - advanceAmount) : 0;
+        const targetStatus = isCodAdvance ? 'PLACED' : 'PAID';
+
         const updatePayload = {
-            status: 'PAID',
-            payment_method: 'Razorpay',
+            status: targetStatus,
+            payment_method: isCodAdvance ? 'COD' : 'Razorpay',
             razorpay_payment_id: razorpay_payment_id,
+            advance_paid: advanceAmount,
+            balance_amount: balanceAmount,
             paid_at: nowIso
         };
         if (razorpay_order_id) updatePayload.razorpay_order_id = razorpay_order_id;
         if (razorpay_signature) updatePayload.razorpay_signature = razorpay_signature;
 
-        // Mark order as PAID in MySQL
+        // Update order in MySQL
         const { error: updateError } = await mysqlClient
             .from('orders')
             .update(updatePayload)
@@ -97,15 +86,21 @@ async function ensureOrdersPaymentSchema() {
             // Record in Order Activity Timeline Logs
             try {
                 const logId = crypto.randomUUID ? crypto.randomUUID() : `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-                const notesList = [
-                    `Payment completed successfully via Razorpay (Payment ID: ${razorpay_payment_id})`,
-                    razorpay_order_id ? `Razorpay Order ID: ${razorpay_order_id}` : null
-                ].filter(Boolean).join(' | ');
+                const notesList = isCodAdvance
+                    ? [
+                        `COD Advance payment of ₹${advanceAmount} received via Razorpay (Payment ID: ${razorpay_payment_id})`,
+                        `Remaining cash balance ₹${balanceAmount} due on delivery`,
+                        razorpay_order_id ? `Razorpay Order ID: ${razorpay_order_id}` : null
+                    ].filter(Boolean).join(' | ')
+                    : [
+                        `Payment completed successfully via Razorpay (Payment ID: ${razorpay_payment_id})`,
+                        razorpay_order_id ? `Razorpay Order ID: ${razorpay_order_id}` : null
+                    ].filter(Boolean).join(' | ');
 
                 await mysqlClient.from('order_status_logs').insert({
                     id: logId,
                     order_id: orderId,
-                    status: 'PAID',
+                    status: targetStatus,
                     notes: notesList,
                     created_at: nowIso
                 });
@@ -114,9 +109,34 @@ async function ensureOrdersPaymentSchema() {
             }
         }
 
+        // Trigger Customer & Admin Notifications now that payment is confirmed
+        try {
+            await dispatchNotification({
+                eventType: EVENT_TYPES.ORDER_PLACED,
+                order: {
+                    ...order,
+                    status: targetStatus,
+                    payment_method: isCodAdvance ? 'COD' : 'Razorpay',
+                    razorpay_payment_id: razorpay_payment_id,
+                    advance_paid: advanceAmount,
+                    balance_amount: balanceAmount,
+                    order_items: order.order_items || []
+                },
+                extraData: {
+                    skipCustomerWhatsApp: true // notifyOrderSuccess below handles rich WhatsApp with saree images & PDF bill
+                }
+            });
+        } catch (notifErr) {
+            console.error('[PAYMENT-VERIFY-NOTIF-ERROR] Notification dispatch failed:', notifErr);
+        }
+
         // Send WhatsApp confirmation message to customer via centralized helper
         if (order.customer_phone) {
-            await notifyOrderSuccess(orderId);
+            try {
+                await notifyOrderSuccess(orderId, true);
+            } catch (waErr) {
+                console.error('[PAYMENT-VERIFY-WA-ERROR]', waErr);
+            }
         }
 
         return Response.json({ success: true, orderId });

@@ -3,6 +3,8 @@ import { Providers } from './providers';
 import { mysqlClient } from '@/lib/mysqlClient';
 import WhatsAppWidget from '@/components/WhatsAppWidget';
 import ComingSoonGuard from '@/components/ComingSoonGuard';
+import StorefrontDynamicFontLoader from '@/components/StorefrontDynamicFontLoader';
+import { getGoogleFontsStylesheetUrl } from '@/lib/googleFontsList';
 
 export const metadata = {
     title: "Vaiyaaree | Premium Saree Collection",
@@ -14,6 +16,8 @@ export const revalidate = 0;
 
 export default async function RootLayout({ children }) {
     let initialComingSoon = null;
+    let themeFontBody = 'Plus Jakarta Sans';
+    let themeFontHeading = 'Cinzel';
 
     try {
         const { data } = await mysqlClient
@@ -30,12 +34,21 @@ export default async function RootLayout({ children }) {
                 'coming_soon_instagram',
                 'coming_soon_facebook',
                 'shop_logo',
-                'shop_name'
+                'shop_name',
+                'theme_font_body',
+                'theme_font_heading'
             ]);
 
         if (data && data.length > 0) {
             const map = {};
             data.forEach(item => { map[item.key] = item.value; });
+
+            if (map.theme_font_body && map.theme_font_body.trim()) {
+                themeFontBody = map.theme_font_body.trim();
+            }
+            if (map.theme_font_heading && map.theme_font_heading.trim()) {
+                themeFontHeading = map.theme_font_heading.trim();
+            }
 
             const enabled = map.coming_soon_enabled === 'true' || 
                             map.coming_soon_enabled === '1' || 
@@ -58,8 +71,10 @@ export default async function RootLayout({ children }) {
             }
         }
     } catch (e) {
-        console.error('[ROOT-LAYOUT-SSR-COMING-SOON-ERROR]', e);
+        console.error('[ROOT-LAYOUT-SSR-SETTINGS-ERROR]', e);
     }
+
+    const googleFontsHref = getGoogleFontsStylesheetUrl(themeFontBody, themeFontHeading);
 
     return (
         <html lang="en" suppressHydrationWarning>
@@ -67,11 +82,22 @@ export default async function RootLayout({ children }) {
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 <link 
-                    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Cormorant+Infant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" 
+                    href={googleFontsHref}
                     rel="stylesheet" 
                 />
+                <style id="vaiyaaree-ssr-theme-fonts" dangerouslySetInnerHTML={{
+                    __html: `
+                        :root {
+                            --font-body: "${themeFontBody}", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                            --font-primary: "${themeFontBody}", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                            --font-heading: "${themeFontHeading}", "${themeFontBody}", serif !important;
+                            --font-serif-royal: "${themeFontHeading}", "Cinzel", serif !important;
+                        }
+                    `
+                }} />
             </head>
             <body suppressHydrationWarning>
+                <StorefrontDynamicFontLoader bodyFont={themeFontBody} headingFont={themeFontHeading} />
                 <ComingSoonGuard initialSettings={initialComingSoon}>
                     <Providers>
                         {children}

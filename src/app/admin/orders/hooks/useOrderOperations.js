@@ -118,8 +118,9 @@ export function useOrderOperations({
                 }
 
                 fetchOrders();
+                const notifyMsg = data.refund?.message || `Order updated to ${newStatus}`;
                 setNotification({
-                    message: `Order updated to ${newStatus}`,
+                    message: notifyMsg,
                     type: 'success'
                 });
             } else {
@@ -592,20 +593,9 @@ export function useOrderOperations({
                 })
             });
 
+            const resData = await res.json();
             if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || 'Failed to cancel order');
-            }
-
-            const { error: refundError } = await mysqlClient.from('refunds').insert({
-                order_id: selectedOrder.id,
-                amount: selectedOrder.total_amount || 0,
-                reason: `Order Cancelled: ${cancelReason.trim()}`,
-                status: 'REQUESTED'
-            });
-
-            if (refundError) {
-                console.error('Refund tracking error:', refundError);
+                throw new Error(resData.error || 'Failed to cancel order');
             }
 
             const orderIdToSync = selectedOrder.id;
@@ -617,7 +607,21 @@ export function useOrderOperations({
             if (freshOrder) setSelectedOrder(freshOrder);
             if (updatedLogs) setOrderActivityLogs(updatedLogs);
 
-            setNotification({ message: 'Order cancelled and successfully updated', type: 'success' });
+            let cancelToast = 'Order cancelled successfully';
+            if (resData.refund) {
+                const rf = resData.refund;
+                if (rf.gatewayRefunded) {
+                    cancelToast = `Order cancelled! ₹${Number(rf.refundAmount).toLocaleString('en-IN')} automatically refunded via Razorpay (Refund ID: ${rf.razorpayRefundId})`;
+                } else if (rf.isCodAdvance) {
+                    cancelToast = `Order cancelled! COD advance refund of ₹${Number(rf.refundAmount).toLocaleString('en-IN')} ${rf.refundStatus === 'REFUNDED' ? 'refunded via Razorpay' : 'queued for admin processing'}`;
+                } else if (rf.refundStatus === 'NOT_APPLICABLE') {
+                    cancelToast = 'COD order cancelled successfully. No refund required.';
+                } else if (rf.refundStatus === 'REFUND_REQUESTED') {
+                    cancelToast = `Order cancelled. ₹${Number(rf.refundAmount).toLocaleString('en-IN')} queued for manual refund.`;
+                }
+            }
+
+            setNotification({ message: cancelToast, type: 'success' });
             setShowCancelModal(false);
             setCancelReason('');
             fetchOrders();

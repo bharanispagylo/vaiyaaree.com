@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { ShoppingBag, Package, Eye, XCircle, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getOrderSourceBadge } from './profileHelpers';
+import { getOrderSourceBadge, renderCodPaymentBadges, isCancelledStatus } from './profileHelpers';
 import { formatOrderDate } from '@/lib/dateUtils';
 import styles from '../profile.module.css';
 
@@ -64,6 +64,8 @@ export default function ActiveOrdersTab({
                                     const itemsList = order.order_items || [];
                                     const firstItemName = itemsList[0]?.product_name || 'Item';
                                     const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                                    const isCancelled = isCancelledStatus(order.status);
+                                    const displayStatus = isCancelled ? 'CANCELED' : order.status;
 
                                     return (
                                         <tr key={order.id}>
@@ -88,14 +90,27 @@ export default function ActiveOrdersTab({
                                                 </div>
                                             </td>
                                             <td style={{ fontWeight: 800, fontSize: '0.85rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
-                                                ₹{(order.total_amount || 0).toLocaleString('en-IN')}
+                                                <div>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                {renderCodPaymentBadges(order)}
                                             </td>
                                             <td style={{ whiteSpace: 'nowrap' }}>
                                                 {getOrderSourceBadge(order)}
                                             </td>
                                             <td style={{ whiteSpace: 'nowrap' }}>
-                                                <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: 0, background: 'transparent', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                                    {order.status}
+                                                <span
+                                                    className={`${styles.orderStatusBadge} ${styles['status' + (isCancelled ? 'CANCELLED' : order.status)]}`}
+                                                    style={{
+                                                        padding: isCancelled ? '2px 7px' : 0,
+                                                        background: isCancelled ? '#fef2f2' : 'transparent',
+                                                        borderRadius: isCancelled ? '6px' : 0,
+                                                        border: isCancelled ? '1px solid #fecdd3' : 'none',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 800,
+                                                        whiteSpace: 'nowrap',
+                                                        color: isCancelled ? '#dc2626' : undefined
+                                                    }}
+                                                >
+                                                    {displayStatus}
                                                 </span>
                                             </td>
                                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -107,7 +122,7 @@ export default function ActiveOrdersTab({
                                                     >
                                                         <Eye size={12} /> Details
                                                     </Link>
-                                                    {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PROCESSING'].includes((order.status || '').toUpperCase()) && (
+                                                    {!isCancelled && ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PROCESSING'].includes((order.status || '').toUpperCase()) && (
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -152,6 +167,8 @@ export default function ActiveOrdersTab({
                             const itemsList = order.order_items || [];
                             const firstItemName = itemsList[0]?.product_name || 'Item';
                             const totalItems = itemsList.reduce((sum, item) => sum + (item.quantity || 1), 0);
+                            const isCancelled = isCancelledStatus(order.status);
+                            const displayStatus = isCancelled ? 'CANCELED' : order.status;
 
                             return (
                                 <div key={order.id} className={styles.mobileOrderCard}>
@@ -164,8 +181,20 @@ export default function ActiveOrdersTab({
                                                 {formatOrderDate(order.created_at, { includeTime: false })}
                                             </div>
                                         </div>
-                                        <span className={`${styles.orderStatusBadge} ${styles['status' + order.status]}`} style={{ padding: 0, background: 'transparent', fontSize: '0.78rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                                            {order.status}
+                                        <span
+                                            className={`${styles.orderStatusBadge} ${styles['status' + (isCancelled ? 'CANCELLED' : order.status)]}`}
+                                            style={{
+                                                padding: isCancelled ? '2px 7px' : 0,
+                                                background: isCancelled ? '#fef2f2' : 'transparent',
+                                                borderRadius: isCancelled ? '6px' : 0,
+                                                border: isCancelled ? '1px solid #fecdd3' : 'none',
+                                                fontSize: '0.78rem',
+                                                fontWeight: 800,
+                                                whiteSpace: 'nowrap',
+                                                color: isCancelled ? '#dc2626' : undefined
+                                            }}
+                                        >
+                                            {displayStatus}
                                         </span>
                                     </div>
 
@@ -177,7 +206,10 @@ export default function ActiveOrdersTab({
                                             </span>
                                         </div>
                                         <div className={styles.mobilePriceSource}>
-                                            <div className={styles.mobilePrice}>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                            <div>
+                                                <div className={styles.mobilePrice}>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                {renderCodPaymentBadges(order, true)}
+                                            </div>
                                             {getOrderSourceBadge(order)}
                                         </div>
                                     </div>
@@ -190,7 +222,7 @@ export default function ActiveOrdersTab({
                                         >
                                             <Eye size={13} /> Details
                                         </Link>
-                                        {['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PROCESSING'].includes((order.status || '').toUpperCase()) && (
+                                        {!isCancelled && ['PLACED', 'PAID', 'PENDING', 'AWAITING_PAYMENT', 'CONFIRMED', 'PROCESSING'].includes((order.status || '').toUpperCase()) && (
                                             <button
                                                 type="button"
                                                 onClick={() => {

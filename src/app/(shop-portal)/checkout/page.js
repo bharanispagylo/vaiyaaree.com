@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
-import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock, Sparkles, Mail } from 'lucide-react';
+import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock, Sparkles, Mail, Eye, EyeOff } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ModalPortal from '@/components/ModalPortal';
 import Link from 'next/link';
@@ -16,7 +16,16 @@ export default function CheckoutPage() {
     const [pageMounted, setPageMounted] = useState(false);
     const [placing, setPlacing] = useState(false);
     const [orderData, setOrderData] = useState(null);
-    const [isGuestMode, setIsGuestMode] = useState(false);
+    const [isGuestMode, setIsGuestMode] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('guest') === 'true' ||
+                   sessionStorage.getItem('vaiyaaree_checkout_guest') === 'true' ||
+                   localStorage.getItem('vaiyaaree_checkout_guest') === 'true';
+        }
+        return false;
+    });
+    const [showAccountPassword, setShowAccountPassword] = useState(false);
     const [couponInput, setCouponInput] = useState('');
     const [applyingCoupon, setApplyingCoupon] = useState(false);
 
@@ -24,12 +33,27 @@ export default function CheckoutPage() {
         setPageMounted(true);
         if (typeof window !== 'undefined') {
             const hasGuestParam = searchParams?.get('guest') === 'true';
-            const hasGuestSession = sessionStorage.getItem('vaiyaaree_checkout_guest') === 'true';
+            const hasGuestSession = sessionStorage.getItem('vaiyaaree_checkout_guest') === 'true' ||
+                                    localStorage.getItem('vaiyaaree_checkout_guest') === 'true';
             if (hasGuestParam || hasGuestSession) {
                 setIsGuestMode(true);
+                try {
+                    sessionStorage.setItem('vaiyaaree_checkout_guest', 'true');
+                    localStorage.setItem('vaiyaaree_checkout_guest', 'true');
+                } catch (e) {}
             }
         }
     }, [searchParams]);
+
+    const isGuest = useMemo(() => {
+        if (isGuestMode) return true;
+        if (typeof window !== 'undefined') {
+            return searchParams?.get('guest') === 'true' ||
+                   sessionStorage.getItem('vaiyaaree_checkout_guest') === 'true' ||
+                   localStorage.getItem('vaiyaaree_checkout_guest') === 'true';
+        }
+        return false;
+    }, [isGuestMode, searchParams]);
 
     // Refresh live shipping rates directly from DB on checkout mount
     useEffect(() => {
@@ -45,21 +69,83 @@ export default function CheckoutPage() {
             return hasCode && isActive;
         });
     }, [activeDiscountRules]);
+
     const [paymentSettings, setPaymentSettings] = useState({
         razorpay_enabled: true,
         razorpay_key_id: '',
         razorpay_title: 'Pay Online (UPI, Credit/Debit Cards, NetBanking)',
-        default_gateway: 'razorpay'
+        default_gateway: 'razorpay',
+        cod_enabled: true,
+        cod_title: 'Cash on Delivery (COD)',
+        cod_description: 'Pay when you receive the product',
+        cod_fee: 0,
+        cod_min_order: 0,
+        cod_max_order: 0,
+        cod_advance_enabled: false,
+        cod_advance_amount: 0,
+        cod_advance_note: 'Pay ₹{amount} advance online to confirm your COD order. Balance ₹{balance} is payable upon delivery.',
+        checkout_order_notes_enabled: true,
+        checkout_create_account_enabled: true
     });
+
+    const isCodEligible = useMemo(() => {
+        if (!paymentSettings.cod_enabled) return false;
+        const sub = Number(cartTotal || 0);
+        if (paymentSettings.cod_min_order > 0 && sub < paymentSettings.cod_min_order) return false;
+        if (paymentSettings.cod_max_order > 0 && sub > paymentSettings.cod_max_order) return false;
+        return true;
+    }, [paymentSettings.cod_enabled, paymentSettings.cod_min_order, paymentSettings.cod_max_order, cartTotal]);
+
+    const codIneligibilityNotice = useMemo(() => {
+        if (!paymentSettings.cod_enabled) return 'Cash on Delivery is currently unavailable.';
+        const sub = Number(cartTotal || 0);
+        if (paymentSettings.cod_min_order > 0 && sub < paymentSettings.cod_min_order) {
+            return `COD is available on orders above ₹${paymentSettings.cod_min_order.toLocaleString('en-IN')}`;
+        }
+        if (paymentSettings.cod_max_order > 0 && sub > paymentSettings.cod_max_order) {
+            return `COD is not available on orders above ₹${paymentSettings.cod_max_order.toLocaleString('en-IN')}`;
+        }
+        return '';
+    }, [paymentSettings.cod_enabled, paymentSettings.cod_min_order, paymentSettings.cod_max_order, cartTotal]);
+
+    const effectiveCodFee = useMemo(() => {
+        if (checkoutForm.paymentMethod === 'COD' && paymentSettings.cod_enabled && isCodEligible) {
+            return Math.max(0, Number(paymentSettings.cod_fee || 0));
+        }
+        return 0;
+    }, [checkoutForm.paymentMethod, paymentSettings.cod_enabled, paymentSettings.cod_fee, isCodEligible]);
+
+    const finalOrderTotal = useMemo(() => {
+        return Math.max(0, Math.round((taxDetails.totalOrder || 0) + effectiveCodFee));
+    }, [taxDetails.totalOrder, effectiveCodFee]);
+
+    const codAdvanceDetails = useMemo(() => {
+        if (!paymentSettings.cod_advance_enabled || Number(paymentSettings.cod_advance_amount || 0) <= 0) {
+            return { required: false, amount: 0, balance: finalOrderTotal, note: '' };
+        }
+        const advance = Math.min(finalOrderTotal, Number(paymentSettings.cod_advance_amount));
+        const balance = Math.max(0, finalOrderTotal - advance);
+        const template = paymentSettings.cod_advance_note || 'Pay ₹{amount} advance online to confirm your COD order. Balance ₹{balance} is payable upon delivery.';
+        const noteText = template
+            .replace(/\{amount\}/g, `₹${advance.toLocaleString('en-IN')}`)
+            .replace(/\{balance\}/g, `₹${balance.toLocaleString('en-IN')}`);
+        return {
+            required: true,
+            amount: advance,
+            balance: balance,
+            note: noteText
+        };
+    }, [paymentSettings.cod_advance_enabled, paymentSettings.cod_advance_amount, paymentSettings.cod_advance_note, finalOrderTotal]);
 
     const isUserLoggedIn = Boolean(user && user.id);
 
     // Redirect to dedicated checkout auth page if not logged in and not guest
     useEffect(() => {
-        if (!isSessionLoading && !isUserLoggedIn && !isGuestMode) {
+        if (!pageMounted || isSessionLoading) return;
+        if (!isUserLoggedIn && !isGuest) {
             router.replace('/checkout/auth');
         }
-    }, [isSessionLoading, isUserLoggedIn, isGuestMode, router]);
+    }, [pageMounted, isSessionLoading, isUserLoggedIn, isGuest, router]);
 
     // Fetch Payment Gateway Settings on mount
     useEffect(() => {
@@ -70,18 +156,41 @@ export default function CheckoutPage() {
                     const map = {};
                     data.forEach(s => { map[s.key] = s.value; });
                     const rzpEnabled = map.razorpay_enabled !== 'false';
-                    const defGateway = map.default_gateway || (rzpEnabled ? 'razorpay' : 'cod');
+                    const codEnabled = map.cod_enabled !== 'false' && map.cod_enabled !== '0';
+                    const codFee = Math.max(0, parseFloat(map.cod_fee) || 0);
+                    const codMinOrder = Math.max(0, parseFloat(map.cod_min_order) || 0);
+                    const codMaxOrder = Math.max(0, parseFloat(map.cod_max_order) || 0);
+                    const codAdvanceEnabled = map.cod_advance_enabled === 'true' || map.cod_advance_enabled === '1';
+                    const codAdvanceAmount = Math.max(0, parseFloat(map.cod_advance_amount) || 0);
+                    const codAdvanceNote = map.cod_advance_note || 'Pay ₹{amount} advance online to confirm your COD order. Balance ₹{balance} is payable upon delivery.';
+                    const defGateway = map.default_gateway || (rzpEnabled ? 'razorpay' : (codEnabled ? 'cod' : 'razorpay'));
+
                     setPaymentSettings({
                         razorpay_enabled: rzpEnabled,
                         razorpay_key_id: map.razorpay_key_id || '',
                         razorpay_title: map.razorpay_title || 'Pay Online (UPI, Cards, NetBanking)',
-                        default_gateway: defGateway
+                        default_gateway: defGateway,
+                        cod_enabled: codEnabled,
+                        cod_title: map.cod_title || 'Cash on Delivery (COD)',
+                        cod_description: map.cod_description || 'Pay when you receive the product',
+                        cod_fee: codFee,
+                        cod_min_order: codMinOrder,
+                        cod_max_order: codMaxOrder,
+                        cod_advance_enabled: codAdvanceEnabled,
+                        cod_advance_amount: codAdvanceAmount,
+                        cod_advance_note: codAdvanceNote,
+                        checkout_order_notes_enabled: map.checkout_order_notes_enabled !== 'false',
+                        checkout_create_account_enabled: map.checkout_create_account_enabled !== 'false'
                     });
 
-                    // Set default payment method if not selected
+                    // Set default payment method if not selected or if selected is COD but COD is disabled
                     setCheckoutForm(p => {
+                        if (!codEnabled && p.paymentMethod === 'COD') {
+                            return { ...p, paymentMethod: 'RAZORPAY' };
+                        }
                         if (!p.paymentMethod) {
-                            return { ...p, paymentMethod: defGateway === 'cod' || !rzpEnabled ? 'COD' : 'RAZORPAY' };
+                            const initialMethod = (defGateway === 'cod' && codEnabled) ? 'COD' : (rzpEnabled ? 'RAZORPAY' : (codEnabled ? 'COD' : 'RAZORPAY'));
+                            return { ...p, paymentMethod: initialMethod };
                         }
                         return p;
                     });
@@ -567,11 +676,32 @@ export default function CheckoutPage() {
             return;
         }
 
-        const selectedMethod = checkoutForm.paymentMethod || 'COD';
+        // Validate create account password if requested during guest checkout
+        if (!isUserLoggedIn && checkoutForm.createAccount) {
+            if (!checkoutForm.accountPassword || checkoutForm.accountPassword.trim().length < 6) {
+                showToast('Please enter a password of at least 6 characters to create your account.', 'error');
+                return;
+            }
+        }
 
+        const selectedMethod = checkoutForm.paymentMethod || (paymentSettings.cod_enabled && isCodEligible ? 'COD' : 'RAZORPAY');
+
+        if (selectedMethod === 'COD') {
+            if (!paymentSettings.cod_enabled) {
+                showToast('Cash on Delivery is currently disabled. Please select an online payment option.', 'error');
+                return;
+            }
+            if (!isCodEligible) {
+                showToast(codIneligibilityNotice || 'Cash on Delivery is not available for this order amount.', 'error');
+                return;
+            }
+        }
+
+        let isOpeningRazorpay = false;
         setPlacing(true);
         try {
             if (selectedMethod === 'RAZORPAY') {
+                isOpeningRazorpay = true;
                 // Step 1: Create Order Record in MySQL
                 const createdOrder = await placeOrder('RAZORPAY');
                 if (!createdOrder || !createdOrder.orderId) {
@@ -651,10 +781,90 @@ export default function CheckoutPage() {
                 }
             } else {
                 // Cash on Delivery Flow
-                const data = await placeOrder('COD');
-                if (data) {
+                const createdOrder = await placeOrder('COD');
+                if (!createdOrder || !createdOrder.orderId) {
+                    throw new Error('Could not create order. Please try again.');
+                }
+
+                // If COD Advance payment is required:
+                if (createdOrder.codAdvanceRequired > 0) {
+                    isOpeningRazorpay = true;
+                    // Create Razorpay order (server charges cod_advance_required)
+                    const rzpRes = await fetch('/api/payment/create-order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId: createdOrder.orderId })
+                    });
+
+                    const rzpData = await rzpRes.json();
+                    if (!rzpRes.ok || rzpData.error) {
+                        throw new Error(rzpData.error || 'Failed to initialize payment gateway for COD advance payment.');
+                    }
+
+                    if (typeof window !== 'undefined' && window.Razorpay) {
+                        const options = {
+                            key: rzpData.keyId,
+                            amount: rzpData.amount,
+                            currency: rzpData.currency || 'INR',
+                            name: 'Vaiyaaree Sarees',
+                            description: `COD Advance for Order #${createdOrder.orderId}`,
+                            order_id: rzpData.razorpayOrderId,
+                            handler: async function (response) {
+                                setPlacing(true);
+                                try {
+                                    const verifyRes = await fetch('/api/payment/verify', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            razorpay_order_id: response.razorpay_order_id,
+                                            razorpay_payment_id: response.razorpay_payment_id,
+                                            razorpay_signature: response.razorpay_signature,
+                                            orderId: createdOrder.orderId
+                                        })
+                                    });
+                                    const verifyData = await verifyRes.json();
+                                    if (verifyData.success) {
+                                        clearCartAfterSuccess();
+                                        setOrderData({
+                                            ...createdOrder,
+                                            payment_method: 'Cash on Delivery (COD)',
+                                            advance_paid: createdOrder.codAdvanceRequired,
+                                            balance_amount: createdOrder.balanceAmount,
+                                            razorpay_payment_id: response.razorpay_payment_id
+                                        });
+                                        showToast('Advance payment received! Your COD order is confirmed.', 'success');
+                                    } else {
+                                        showToast(verifyData.error || 'Advance payment verification failed. Your cart is preserved.', 'error');
+                                    }
+                                } catch (verifyErr) {
+                                    showToast('Verification Error: ' + verifyErr.message, 'error');
+                                } finally {
+                                    setPlacing(false);
+                                }
+                            },
+                            modal: {
+                                ondismiss: function () {
+                                    setPlacing(false);
+                                    showToast('Advance payment window closed. You can retry paying the advance to confirm.', 'info');
+                                }
+                            },
+                            prefill: {
+                                name: checkoutForm.billingName,
+                                email: checkoutForm.billingEmail,
+                                contact: checkoutForm.billingPhone
+                            },
+                            theme: { color: '#5d0821' }
+                        };
+
+                        const rzp = new window.Razorpay(options);
+                        rzp.open();
+                    } else {
+                        throw new Error('Razorpay SDK loading. Please refresh and try again.');
+                    }
+                } else {
+                    // Full COD without advance
                     setOrderData({
-                        ...data,
+                        ...createdOrder,
                         payment_method: 'Cash on Delivery (COD)'
                     });
                     showToast('Your Placed Order Confirmed!', 'success');
@@ -663,8 +873,9 @@ export default function CheckoutPage() {
         } catch (err) {
             console.error('Checkout Error:', err);
             showToast(err.message || 'Failed to place order', 'error');
+            setPlacing(false);
         } finally {
-            if (selectedMethod !== 'RAZORPAY') {
+            if (!isOpeningRazorpay) {
                 setPlacing(false);
             }
         }
@@ -695,7 +906,7 @@ export default function CheckoutPage() {
         );
     }
 
-    if (!isSessionLoading && !isUserLoggedIn && !isGuestMode && !orderData) {
+    if (!isSessionLoading && !isUserLoggedIn && !isGuest && !orderData) {
         return (
             <div className={styles.emptyCheckout} style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem' }}>
                 <Loader2 size={36} className={`${styles.spinnerRing} animate-spin`} style={{ color: '#5d0821' }} />
@@ -709,7 +920,7 @@ export default function CheckoutPage() {
             <div className={styles.checkoutLayout}>
                 <div className={styles.checkoutLeft}>
                     {/* GUEST BANNER */}
-                    {!isUserLoggedIn && isGuestMode && (
+                    {!isUserLoggedIn && isGuest && (
                         <div style={{
                             background: '#f8fafc',
                             border: '1px solid #cbd5e1',
@@ -926,6 +1137,55 @@ export default function CheckoutPage() {
                             </div>
                         </section>
 
+                {/* OPTIONAL ACCOUNT CREATION FOR GUEST */}
+                {!isUserLoggedIn && paymentSettings.checkout_create_account_enabled && (
+                    <div className={styles.createAccountCard}>
+                        <label className={styles.createAccountCheckboxLabel}>
+                            <input 
+                                type="checkbox"
+                                checked={Boolean(checkoutForm.createAccount)}
+                                onChange={e => setCheckoutForm(p => ({ ...p, createAccount: e.target.checked }))}
+                                className={styles.accountCheckbox}
+                            />
+                            <span className={styles.createAccountText}>
+                                <strong>Create an account?</strong> (Save your details for live order tracking & faster reordering)
+                            </span>
+                        </label>
+
+                        {checkoutForm.createAccount && (
+                            <div className={styles.accountPasswordSection}>
+                                <div className={styles.formGroup}>
+                                    <label>
+                                        CREATE PASSWORD <span className={styles.requiredStar}>*</span>
+                                    </label>
+                                    <div style={{ position: 'relative' }}>
+                                        <input 
+                                            type={showAccountPassword ? "text" : "password"}
+                                            value={checkoutForm.accountPassword || ''}
+                                            onChange={e => setCheckoutForm(p => ({ ...p, accountPassword: e.target.value }))}
+                                            placeholder="Choose a password (min 6 characters)"
+                                            minLength={6}
+                                            required={checkoutForm.createAccount}
+                                            className={styles.passwordInput}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAccountPassword(!showAccountPassword)}
+                                            aria-label="Toggle password visibility"
+                                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                                        >
+                                            {showAccountPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '6px', display: 'block' }}>
+                                        Your account will be registered automatically using your billing email & phone when placing this order.
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* SHIPPING ADDRESS SECTION */}
                 <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
                             <h3 className={styles.cardTitle}>Shipping Details</h3>
@@ -1113,6 +1373,26 @@ export default function CheckoutPage() {
                                 </div>
                             </div>
                         </section>
+
+                {/* OPTIONAL ORDER DELIVERY NOTES */}
+                {paymentSettings.checkout_order_notes_enabled && (
+                    <section className={styles.checkoutCard} style={{ marginTop: '1.5rem' }}>
+                        <h3 className={styles.cardTitle}>Order Notes & Delivery Instructions (Optional)</h3>
+                        <div style={{ marginTop: '0.75rem' }}>
+                            <textarea
+                                rows={3}
+                                value={checkoutForm.customerNotes || ''}
+                                onChange={e => setCheckoutForm(p => ({ ...p, customerNotes: e.target.value }))}
+                                placeholder="Notes about your order, e.g. special delivery instructions, apartment gate code, or gift note."
+                                style={{
+                                    width: '100%', padding: '0.85rem 1rem', borderRadius: '10px',
+                                    border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none',
+                                    fontFamily: 'inherit', resize: 'vertical'
+                                }}
+                            />
+                        </div>
+                    </section>
+                )}
 
                 <p className={styles.privacyNote}>
                     Your personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.
@@ -1304,12 +1584,32 @@ export default function CheckoutPage() {
                             </span>
                         </div>
 
+                        {effectiveCodFee > 0 && (
+                            <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 600 }}>
+                                <span>COD Convenience Fee</span>
+                                <span>+₹{effectiveCodFee.toLocaleString('en-IN')}.00</span>
+                            </div>
+                        )}
+
                         <div className={styles.summaryTotalRow}>
                             <span>Total</span>
                             <span className={styles.totalPrice}>
-                                ₹{Math.max(0, Math.round(taxDetails.totalOrder)).toLocaleString('en-IN')}.00
+                                ₹{finalOrderTotal.toLocaleString('en-IN')}.00
                             </span>
                         </div>
+
+                        {checkoutForm.paymentMethod === 'COD' && codAdvanceDetails.required && (
+                            <div className={styles.codAdvanceSplit}>
+                                <div className={styles.codAdvanceSplitRow}>
+                                    <span>Advance to pay now (Razorpay):</span>
+                                    <strong style={{ color: '#0f172a' }}>₹{codAdvanceDetails.amount.toLocaleString('en-IN')}.00</strong>
+                                </div>
+                                <div className={styles.codAdvanceSplitRow}>
+                                    <span>Cash due on delivery:</span>
+                                    <strong style={{ color: '#b45309' }}>₹{codAdvanceDetails.balance.toLocaleString('en-IN')}.00</strong>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className={styles.summaryPaymentWrapper}>
@@ -1334,31 +1634,69 @@ export default function CheckoutPage() {
                             </div>
                         )}
 
-                        <div 
-                            className={`${styles.summaryPaymentOption} ${checkoutForm.paymentMethod === 'COD' ? styles.codSelected : ''}`}
-                            onClick={() => setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }))}
-                            role="button"
-                            tabIndex={0}
-                        >
-                            <div className={`${styles.customCheckbox} ${checkoutForm.paymentMethod === 'COD' ? styles.checkboxChecked : ''}`}>
-                                {checkoutForm.paymentMethod === 'COD' && <Check size={13} strokeWidth={3.5} />}
-                            </div>
-                            <Truck size={20} className={styles.truckIcon} />
-                            <div className={styles.paymentTextGroup}>
-                                <div className={styles.paymentOptionTitle}>Cash on Delivery (COD)</div>
-                                <div className={styles.paymentOptionDesc}>Pay when you receive the product</div>
-                            </div>
-                        </div>
+                        {paymentSettings.cod_enabled && (
+                            <>
+                                <div 
+                                    className={`${styles.summaryPaymentOption} ${checkoutForm.paymentMethod === 'COD' ? styles.codSelected : ''}`}
+                                    onClick={() => {
+                                        if (isCodEligible) {
+                                            setCheckoutForm(p => ({ ...p, paymentMethod: 'COD' }));
+                                        } else {
+                                            showToast(codIneligibilityNotice || 'COD is not eligible for this order.', 'error');
+                                        }
+                                    }}
+                                    role="button"
+                                    tabIndex={0}
+                                    style={!isCodEligible ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                                >
+                                    <div className={`${styles.customCheckbox} ${checkoutForm.paymentMethod === 'COD' ? styles.checkboxChecked : ''}`}>
+                                        {checkoutForm.paymentMethod === 'COD' && <Check size={13} strokeWidth={3.5} />}
+                                    </div>
+                                    <Truck size={20} className={styles.truckIcon} />
+                                    <div className={styles.paymentTextGroup} style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div className={styles.paymentOptionTitle}>{paymentSettings.cod_title || 'Cash on Delivery (COD)'}</div>
+                                            {paymentSettings.cod_fee > 0 && isCodEligible && (
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '1px 6px', borderRadius: '6px' }}>
+                                                    +₹{paymentSettings.cod_fee} fee
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className={styles.paymentOptionDesc}>
+                                            {!isCodEligible ? codIneligibilityNotice : (paymentSettings.cod_description || 'Pay when you receive the product')}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Custom Note displayed directly beneath COD button in frontend */}
+                                {isCodEligible && codAdvanceDetails.required && codAdvanceDetails.note && (
+                                    <div className={styles.codAdvanceNoteBox}>
+                                        <Sparkles size={16} color="#d97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 700, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                <span>COD Advance Notice</span>
+                                                <span className={styles.codAdvanceBadge}>₹{codAdvanceDetails.amount.toLocaleString('en-IN')} Advance</span>
+                                            </div>
+                                            <div>{codAdvanceDetails.note}</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
 
                     <button className={styles.placeOrderBtn} onClick={handlePlaceOrder} disabled={placing}>
                         {placing ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                 <Loader2 size={18} className={styles.spinnerRing} style={{ color: '#ffffff' }} />
-                                {checkoutForm.paymentMethod === 'RAZORPAY' ? 'Processing...' : 'Placing Order...'}
+                                {checkoutForm.paymentMethod === 'RAZORPAY' || (checkoutForm.paymentMethod === 'COD' && codAdvanceDetails.required) ? 'Processing Payment...' : 'Placing Order...'}
                             </span>
                         ) : (
-                            checkoutForm.paymentMethod === 'RAZORPAY' ? 'Pay Online & Place Order' : 'Place Order'
+                            checkoutForm.paymentMethod === 'RAZORPAY' 
+                                ? 'Pay Online & Place Order' 
+                                : (checkoutForm.paymentMethod === 'COD' && codAdvanceDetails.required 
+                                    ? `Pay ₹${codAdvanceDetails.amount.toLocaleString('en-IN')} Advance & Place COD Order` 
+                                    : 'Place Order')
                         )}
                     </button>
                     <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
@@ -1375,10 +1713,12 @@ export default function CheckoutPage() {
                             <Loader2 size={42} className={styles.spinnerRing} strokeWidth={2.5} />
                         </div>
                         <h2 className={styles.modalTitle}>
-                            {checkoutForm.paymentMethod === 'RAZORPAY' ? 'Processing Payment...' : 'Placing Your Order...'}
+                            {checkoutForm.paymentMethod === 'RAZORPAY' || (checkoutForm.paymentMethod === 'COD' && codAdvanceDetails.required) 
+                                ? 'Processing Advance Payment...' 
+                                : 'Placing Your Order...'}
                         </h2>
                         <p className={styles.modalSubtitle}>
-                            {checkoutForm.paymentMethod === 'RAZORPAY'
+                            {checkoutForm.paymentMethod === 'RAZORPAY' || (checkoutForm.paymentMethod === 'COD' && codAdvanceDetails.required)
                                 ? 'Connecting to secure payment gateway. Please complete the transaction in the Razorpay window.'
                                 : 'Please wait while we confirm your order details and reserve your items.'}
                         </p>
@@ -1439,10 +1779,26 @@ export default function CheckoutPage() {
                             {orderData.total !== undefined && (
                                 <div className={styles.modalOrderRow}>
                                     <span>Total Amount</span>
-                                    <strong style={{ color: '#16a34a', fontSize: '1.05rem' }}>
+                                    <strong style={{ color: '#0f172a', fontSize: '1.05rem' }}>
                                         ₹{Number(orderData.total).toLocaleString()}.00
                                     </strong>
                                 </div>
+                            )}
+                            {(orderData.codAdvanceRequired > 0 || orderData.advance_paid > 0) && (
+                                <>
+                                    <div className={styles.modalOrderRow}>
+                                        <span>Advance Paid (Razorpay)</span>
+                                        <strong style={{ color: '#16a34a' }}>
+                                            ₹{Number(orderData.advance_paid || orderData.codAdvanceRequired).toLocaleString('en-IN')}.00
+                                        </strong>
+                                    </div>
+                                    <div className={styles.modalOrderRow}>
+                                        <span>Cash Due on Delivery</span>
+                                        <strong style={{ color: '#b45309' }}>
+                                            ₹{Number(orderData.balance_amount !== undefined ? orderData.balance_amount : (orderData.total - (orderData.advance_paid || orderData.codAdvanceRequired))).toLocaleString('en-IN')}.00
+                                        </strong>
+                                    </div>
+                                </>
                             )}
                         </div>
 

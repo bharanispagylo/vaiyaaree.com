@@ -268,7 +268,7 @@ export async function dispatchNotification({
     }
 
     // 4. Dispatch Customer WhatsApp
-    if (customerPhone && content.customerWhatsApp) {
+    if (customerPhone && content.customerWhatsApp && !extraData?.skipCustomerWhatsApp) {
         const waRes = await sendWithDuplicateCheck({
             orderId,
             returnId,
@@ -637,6 +637,10 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             const notifTax = Number(order?.tax_amount || 0);
             const notifShipping = Number(order?.shipping_cost || 0);
 
+            const isCodNotif = (order?.payment_method || '').toUpperCase() === 'COD' || (order?.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+            const notifAdv = Number(order?.advance_paid || order?.cod_advance_required || 0);
+            const notifBal = Number(order?.balance_amount !== undefined && order?.balance_amount !== null ? order?.balance_amount : Math.max(0, (order?.total_amount || 0) - notifAdv));
+
             let notifSummaryText = '';
             if (notifSubtotal > 0) {
                 notifSummaryText = `\n\n🧾 *Order Summary:*\n` +
@@ -645,9 +649,20 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
                     (notifTax > 0 ? `• GST: ₹${notifTax.toLocaleString('en-IN')}\n` : '') +
                     `• Shipping: ${notifShipping > 0 ? `₹${notifShipping.toLocaleString('en-IN')}` : 'Free (₹0.00)'}\n` +
                     `• *Grand Total: ${totalAmount}*`;
+
+                if (isCodNotif && notifAdv > 0) {
+                    notifSummaryText += `\n• *Advance Paid (Razorpay): ₹${notifAdv.toLocaleString('en-IN')} (Paid)*\n` +
+                        `• *Cash Due on Delivery: ₹${notifBal.toLocaleString('en-IN')}*`;
+                } else if (isCodNotif) {
+                    notifSummaryText += `\n• *Cash Due on Delivery: ${totalAmount}*`;
+                }
             }
 
-            customerWhatsApp = `🌸 *Order Confirmed!* 🌸\n\nDear ${customerName},\nYour order *${displayInv}* has been placed successfully!${notifSummaryText ? notifSummaryText : `\nTotal Amount: *${totalAmount}*`}\n\nWe are preparing your saree collection for dispatch. Thank you for shopping with ${brand}! ✨`;
+            const codCustMsg = isCodNotif && notifAdv > 0
+                ? `\n\n💡 *Delivery Tip:* Your partial advance of *₹${notifAdv.toLocaleString('en-IN')}* has been received online. Please keep *₹${notifBal.toLocaleString('en-IN')}* in cash or UPI ready when your delivery partner arrives.`
+                : '';
+
+            customerWhatsApp = `🌸 *Order Confirmed!* 🌸\n\nDear ${customerName},\nYour order *${displayInv}* has been placed successfully!${notifSummaryText ? notifSummaryText : `\nTotal Amount: *${totalAmount}*`}${codCustMsg}\n\nWe are preparing your saree collection for dispatch. Thank you for shopping with ${brand}! ✨`;
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'PLACED', shopName: brand }),
@@ -660,7 +675,10 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
                 };
             }
             isAdminEvent = true;
-            adminWhatsApp = `🔔 *NEW ORDER ALERT* 🔔\n\nOrder: *${displayInv}*\nCustomer: ${customerName} (${order?.customer_phone || ''})\nPayment Method: ${order?.payment_method || 'COD'}${notifSummaryText ? notifSummaryText : `\nTotal: *${totalAmount}*`}`;
+            const codAdminNotice = isCodNotif && notifAdv > 0
+                ? `\n💰 *Advance Paid:* ₹${notifAdv.toLocaleString('en-IN')}\n💵 *Balance Due (COD):* ₹${notifBal.toLocaleString('en-IN')}`
+                : '';
+            adminWhatsApp = `🔔 *NEW ORDER ALERT* 🔔\n\nOrder: *${displayInv}*\nCustomer: ${customerName} (${order?.customer_phone || ''})\nPayment Method: ${order?.payment_method || 'COD'}${codAdminNotice}${notifSummaryText ? notifSummaryText : `\nTotal: *${totalAmount}*`}`;
             adminEmail = {
                 subject: `[ADMIN ALERT] New Order Received - ${displayInv}`,
                 html: renderAdminAlertHtml({
@@ -672,7 +690,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
                     customerPhone: customerPhoneVal,
                     customerEmail: customerEmailVal,
                     totalAmount,
-                    paymentMethod: paymentMethodVal,
+                    paymentMethod: isCodNotif && notifAdv > 0 ? `COD (Adv Paid: ₹${notifAdv}, Due: ₹${notifBal})` : paymentMethodVal,
                     items: orderItemsVal,
                     actionUrl: `${appUrl}/admin/orders`
                 })
@@ -861,8 +879,26 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             break;
 
         case EVENT_TYPES.ORDER_CANCELLED_CUSTOMER:
-        case EVENT_TYPES.ORDER_CANCELLED_ADMIN:
-            customerWhatsApp = `❌ *Order Cancelled* ❌\n\nDear ${customerName}, order *${displayInv}* has been cancelled.\nIf payment was deducted, refund processing has been initiated.`;
+        case EVENT_TYPES.ORDER_CANCELLED_ADMIN: {
+            const refStatus = order?.refund_status || extraData.refundStatus || 'NOT_APPLICABLE';
+            const refAmt = Number(order?.refund_amount !== undefined && order?.refund_amount !== null ? order.refund_amount : (extraData.refundAmount || 0));
+            const rzpRefId = order?.razorpay_refund_id || extraData.razorpayRefundId || null;
+            const isCodOrder = (order?.payment_method || '').toUpperCase() === 'COD' || (order?.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+            const codAdvVal = Number(order?.advance_paid || order?.cod_advance_required || 0);
+            const isAdvRefund = isCodOrder && (codAdvVal > 0 || (refAmt > 0 && refAmt !== Number(order?.total_amount || 0)));
+
+            let refundNotice = '';
+            if (refStatus === 'REFUNDED' && (refAmt > 0 || codAdvVal > 0)) {
+                const finalRefAmt = refAmt > 0 ? refAmt : codAdvVal;
+                refundNotice = `\n\n💰 *Refund Processed:* An automatic refund of *₹${finalRefAmt.toLocaleString('en-IN')}*${isAdvRefund ? ' (COD advance payment)' : ''} has been sent back to your original payment method via Razorpay${rzpRefId ? ` (Refund ID: *${rzpRefId}*)` : ''}.`;
+            } else if (refStatus === 'REFUND_REQUESTED' && (refAmt > 0 || codAdvVal > 0)) {
+                const finalRefAmt = refAmt > 0 ? refAmt : codAdvVal;
+                refundNotice = `\n\n💰 *Refund Initiated:* A refund of *₹${finalRefAmt.toLocaleString('en-IN')}*${isAdvRefund ? ' (COD advance payment)' : ''} has been initiated and will be credited to your account within 2-5 business days.`;
+            } else if (isCodOrder && codAdvVal === 0 && refAmt === 0) {
+                refundNotice = `\n\nℹ️ *Note:* As this was a Cash on Delivery order with no advance payment, no refund was required.`;
+            }
+
+            customerWhatsApp = `❌ *Order Cancelled* ❌\n\nDear ${customerName},\nYour order *${displayInv}* has been cancelled.${refundNotice}\n\nWe look forward to serving you again soon! ✨`;
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'CANCELLED', shopName: brand }),
@@ -871,11 +907,14 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             } else {
                 customerEmail = {
                     subject: `Order Cancelled - ${displayInv}`,
-                    html: `<p>Order ${displayInv} has been cancelled.</p>`
+                    html: `<p>Order ${displayInv} has been cancelled.${refundNotice ? `<br/>${refundNotice}` : ''}</p>`
                 };
             }
             isAdminEvent = true;
-            adminWhatsApp = `❌ *ORDER CANCELLED*\n\nOrder: *${displayInv}*\nCustomer: ${customerName}`;
+            const adminRefundNotice = refStatus === 'REFUNDED'
+                ? `\n💰 *Refund Sent:* ₹${(refAmt || codAdvVal).toLocaleString('en-IN')} via Razorpay (${rzpRefId || 'Success'})`
+                : (refStatus === 'REFUND_REQUESTED' ? `\n⚠️ *Manual Refund Required:* ₹${(refAmt || codAdvVal).toLocaleString('en-IN')}` : '');
+            adminWhatsApp = `❌ *ORDER CANCELLED*\n\nOrder: *${displayInv}*\nCustomer: ${customerName}${adminRefundNotice}`;
             adminEmail = {
                 subject: `[ADMIN ALERT] Order Cancelled - ${displayInv}`,
                 html: renderAdminAlertHtml({
@@ -889,10 +928,17 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
                     totalAmount,
                     paymentMethod: paymentMethodVal,
                     items: orderItemsVal,
+                    extraDetails: [
+                        { label: 'Refund Status', value: refStatus },
+                        ...(refAmt > 0 || codAdvVal > 0 ? [{ label: 'Refund Amount', value: `₹${(refAmt || codAdvVal).toLocaleString('en-IN')}` }] : []),
+                        ...(rzpRefId ? [{ label: 'Razorpay Refund ID', value: rzpRefId }] : []),
+                        ...(extraData?.reason ? [{ label: 'Cancellation Reason', value: extraData.reason }] : [])
+                    ],
                     actionUrl: `${appUrl}/admin/orders`
                 })
             };
             break;
+        }
 
         case EVENT_TYPES.RETURN_REQUESTED:
         case EVENT_TYPES.RETURN_APPROVED:

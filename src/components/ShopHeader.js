@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ShoppingCart, User, LogOut, Menu, X, Package, Settings, Truck, Heart, Activity, Search, Sparkles, Phone, ChevronDown } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
@@ -132,12 +133,13 @@ export default function ShopHeader() {
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
                         <Link href="/" className={styles.logoLink}>
-                            <img 
+                            <Image 
                                 src="/images/vaiyaaree-logo.png" 
                                 alt="Vaiyaaree" 
+                                width={48}
+                                height={48}
                                 className={styles.logoImg} 
-                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }} 
-                                suppressHydrationWarning 
+                                priority
                             />
                             <div className={styles.logoBrandBlock}>
                                 <span className={styles.logoBrandName}>VAIYAAREE</span>

@@ -178,6 +178,10 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
             filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
         } else if (sortBy === 'price-desc') {
             filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+        } else if (sortBy === 'name-asc') {
+            filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        } else if (sortBy === 'name-desc') {
+            filtered.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
         } else {
             // Default & 'newness': Date DESC (latest first), then Product_No / ID DESC
             const getSortKey = (p) => {
@@ -237,7 +241,7 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
             {isSidebarOpen && <div className={styles.sidebarOverlay} onClick={() => setIsSidebarOpen(false)} />}
 
             {/* Sidebar */}
-            <aside className={`${styles.shopSidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
+            <aside className={`${styles.shopSidebar} ${isSidebarOpen ? `${styles.sidebarOpen} shopSidebarOpen` : ''} shopSidebar`}>
                 <div className={styles.sidebarHeaderMobile}>
                     <h3>FILTERS</h3>
                     <button onClick={() => setIsSidebarOpen(false)} className={styles.sidebarCloseBtnMobile} aria-label="Close filters">
@@ -246,8 +250,28 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                 </div>
 
                 <div className={styles.sidebarSection}>
+                    <h3 className={styles.sidebarTitle}>ORDER BY</h3>
+                    <div className={styles.sidebarSortWrapper}>
+                        <ArrowUpDown size={15} className={styles.sidebarSortIcon} />
+                        <select
+                            value={sortBy}
+                            onChange={e => setSortBy(e.target.value)}
+                            className={styles.sidebarSortSelect}
+                            aria-label="Order products by"
+                        >
+                            <option value="newness">Sort by latest</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                            <option value="name-asc">Alphabetical: A-Z</option>
+                            <option value="name-desc">Alphabetical: Z-A</option>
+                        </select>
+                        <ChevronDown size={14} className={styles.sidebarSelectArrow} />
+                    </div>
+                </div>
+
+                <div className={styles.sidebarSection}>
                     <h3 className={styles.sidebarTitle}>COLLECTIONS</h3>
-                    <div className={styles.categoryScrollWrap}>
+                    <div className={styles.categoryScrollWrap} style={{ maxHeight: '200px', overflowY: 'auto' }}>
                         <ul className={styles.categoryList}>
                             {categories.map(cat => (
                                 <li
@@ -275,8 +299,77 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                 </div>
 
                 <div className={styles.sidebarSection}>
+                    <h3 className={styles.sidebarTitle}>FILTER BY PRICE</h3>
+                    <div className={styles.sidebarPricePresets}>
+                        {[
+                            { label: 'All Prices', min: 0, max: 1000000 },
+                            { label: 'Under ₹2,000', min: 0, max: 2000 },
+                            { label: '₹2,000 – ₹5,000', min: 2000, max: 5000 },
+                            { label: '₹5,000 – ₹10,000', min: 5000, max: 10000 },
+                            { label: 'Above ₹10,000', min: 10000, max: 1000000 },
+                        ].map(bracket => {
+                            const isAll = bracket.min === 0 && bracket.max === 1000000;
+                            const isActive = (priceRange.min === bracket.min && priceRange.max === bracket.max) || (isAll && priceRange.min === 0 && priceRange.max === 1000000);
+                            return (
+                                <button
+                                    key={bracket.label}
+                                    type="button"
+                                    className={`${styles.sidebarPriceBtn} ${isActive ? styles.sidebarPriceBtnActive : ''}`}
+                                    onClick={() => {
+                                        setPriceRange({ min: bracket.min, max: bracket.max });
+                                        setTempPriceRange({ min: bracket.min, max: bracket.max });
+                                    }}
+                                >
+                                    <span>{bracket.label}</span>
+                                    {isActive && <Check size={14} className={styles.priceCheckIcon} />}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className={styles.sidebarCustomPriceWrap}>
+                        <div className={styles.sidebarCustomPriceHeader}>CUSTOM RANGE</div>
+                        <div className={styles.sidebarCustomInputs}>
+                            <div className={styles.sidebarPriceField}>
+                                <span>₹</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Min"
+                                    value={tempPriceRange.min === 0 ? '' : tempPriceRange.min}
+                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
+                                    onChange={e => setTempPriceRange({ ...tempPriceRange, min: e.target.value !== '' ? parseFloat(e.target.value) : 0 })}
+                                    aria-label="Minimum price"
+                                />
+                            </div>
+                            <span className={styles.sidebarPriceDash}>–</span>
+                            <div className={styles.sidebarPriceField}>
+                                <span>₹</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Max"
+                                    value={tempPriceRange.max === 1000000 ? '' : tempPriceRange.max}
+                                    onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }}
+                                    onChange={e => setTempPriceRange({ ...tempPriceRange, max: e.target.value !== '' ? parseFloat(e.target.value) : 1000000 })}
+                                    aria-label="Maximum price"
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                className={styles.sidebarPriceApplyBtn}
+                                onClick={applyPriceFilter}
+                                title="Apply custom price range"
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className={styles.sidebarSection}>
                     <h3 className={styles.sidebarTitle}>BRAND</h3>
-                    <div className={styles.categoryScrollWrap} style={{ maxHeight: '150px' }}>
+                    <div className={styles.categoryScrollWrap} style={{ maxHeight: '160px', overflowY: 'auto' }}>
                         <ul className={styles.categoryList}>
                             {availableBrands.map(brand => (
                                 <li
@@ -285,6 +378,23 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                                     className={`${styles.categoryLink} ${selectedBrand === brand ? styles.categoryLinkActive : ''}`}
                                 >
                                     {brand}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                <div className={styles.sidebarSection}>
+                    <h3 className={styles.sidebarTitle}>TYPE OF SAREE</h3>
+                    <div className={styles.categoryScrollWrap} style={{ maxHeight: '160px', overflowY: 'auto' }}>
+                        <ul className={styles.categoryList}>
+                            {availableSareeTypes.map(type => (
+                                <li
+                                    key={type}
+                                    onClick={() => setSelectedType(type)}
+                                    className={`${styles.categoryLink} ${selectedType === type ? styles.categoryLinkActive : ''}`}
+                                >
+                                    {type}
                                 </li>
                             ))}
                         </ul>
@@ -303,7 +413,7 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                     </label>
                 </div>
 
-                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || searchQuery || showInStockOnly || priceRange.min > 0 || priceRange.max < 1000000) && (
+                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || searchQuery || showInStockOnly || priceRange.min > 0 || priceRange.max < 1000000 || sortBy !== 'newness') && (
                     <button onClick={clearAllFilters} className={styles.sidebarClearBtn}>
                         RESET ALL FILTERS
                     </button>
@@ -357,19 +467,6 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                         >
                             <Filter size={16} /> Filters
                         </button>
-
-                        <div className={styles.sortWrapper}>
-                            <ArrowUpDown size={15} className={styles.sortIcon} />
-                            <select
-                                value={sortBy}
-                                onChange={e => setSortBy(e.target.value)}
-                                className={styles.sortSelect}
-                            >
-                                <option value="newness">Sort by latest</option>
-                                <option value="price-asc">Price: Low to High</option>
-                                <option value="price-desc">Price: High to Low</option>
-                            </select>
-                        </div>
                     </div>
                 </div>
 
@@ -469,7 +566,7 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                 )}
 
                 {/* Active Filter Badges */}
-                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || (priceRange.min > 0 || priceRange.max < 1000000)) && (
+                {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedType !== 'All' || (priceRange.min > 0 || priceRange.max < 1000000) || sortBy !== 'newness') && (
                     <div className={styles.activeFiltersRow}>
                         {selectedCategory !== 'All' && (
                             <span className={styles.activeFilterTag}>
@@ -484,6 +581,20 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                         {selectedType !== 'All' && (
                             <span className={styles.activeFilterTag}>
                                 {selectedType} <X size={12} onClick={() => setSelectedType('All')} />
+                            </span>
+                        )}
+                        {(priceRange.min > 0 || priceRange.max < 1000000) && (
+                            <span className={styles.activeFilterTag}>
+                                Price: {priceRange.min > 0 ? `₹${priceRange.min.toLocaleString('en-IN')}` : '₹0'} – {priceRange.max < 1000000 ? `₹${priceRange.max.toLocaleString('en-IN')}` : 'Above'}
+                                <X size={12} onClick={() => {
+                                    setPriceRange({ min: 0, max: 1000000 });
+                                    setTempPriceRange({ min: 0, max: 1000000 });
+                                }} />
+                            </span>
+                        )}
+                        {sortBy !== 'newness' && (
+                            <span className={styles.activeFilterTag}>
+                                Order: {sortBy === 'price-asc' ? 'Price: Low to High' : sortBy === 'price-desc' ? 'Price: High to Low' : sortBy === 'name-asc' ? 'A-Z' : sortBy === 'name-desc' ? 'Z-A' : sortBy} <X size={12} onClick={() => setSortBy('newness')} />
                             </span>
                         )}
                     </div>
