@@ -32,6 +32,24 @@ export async function GET(request, { params }) {
         const ext = filename.split('.').pop()?.toLowerCase() || 'jpg';
         const mimeType = MIME_TYPES[ext] || 'image/jpeg';
 
+        // 0. Check if file has been marked as deleted
+        try {
+            const fullUrl = `/uploads/${relativePath}`;
+            const [delRows] = await pool.query(
+                'SELECT `id` FROM `deleted_media` WHERE `filename` = ? OR `url` = ? OR `url` LIKE ? LIMIT 1',
+                [filename, fullUrl, `%${filename}`]
+            );
+            if (delRows && delRows.length > 0) {
+                return new NextResponse('File deleted', {
+                    status: 404,
+                    headers: {
+                        'Cache-Control': 'no-store, no-cache, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+            }
+        } catch (_) {}
+
         // 1. Try serving from exact local disk path or candidate alternative upload directories
         try {
             const candidatePaths = [

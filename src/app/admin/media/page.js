@@ -47,8 +47,13 @@ export default function MediaLibraryPage() {
         setLoading(true);
         try {
             const token = localStorage.getItem('cast_prince_admin') || '';
-            const res = await fetch('/api/admin/upload', {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await fetch(`/api/admin/upload?_t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
             });
             const data = await res.json();
 

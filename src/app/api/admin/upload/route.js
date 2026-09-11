@@ -40,6 +40,17 @@ async function initMediaTable() {
                 INDEX \`idx_url\` (\`url\`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS \`deleted_media\` (
+                \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+                \`filename\` VARCHAR(255) NOT NULL UNIQUE,
+                \`url\` VARCHAR(500) NOT NULL,
+                \`deleted_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX \`idx_del_filename\` (\`filename\`),
+                INDEX \`idx_del_url\` (\`url\`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        `);
     } catch (e) {
         console.warn('[UPLOAD initMediaTable warning]:', e?.message);
     }
@@ -56,6 +67,28 @@ export async function GET(request) {
         await ensureDirs();
         await initMediaTable();
 
+        // 0. Load deleted files list to prevent deleted files from resurrecting on Vercel
+        const deletedSet = new Set();
+        try {
+            const [delRows] = await pool.query('SELECT `filename`, `url` FROM `deleted_media`');
+            if (delRows && delRows.length > 0) {
+                for (const dr of delRows) {
+                    if (dr.filename) deletedSet.add(dr.filename.toLowerCase().trim());
+                    if (dr.url) deletedSet.add(dr.url.toLowerCase().trim());
+                }
+            }
+        } catch (delErr) {
+            console.warn('[UPLOAD GET deleted_media Warning]:', delErr?.message);
+        }
+
+        const isDeleted = (filename, url) => {
+            if (!filename && !url) return false;
+            const fn = (filename || '').toLowerCase().trim();
+            const u = (url || '').toLowerCase().trim();
+            const base = path.basename(u);
+            return deletedSet.has(fn) || deletedSet.has(u) || deletedSet.has(base);
+        };
+
         const uniqueFilesMap = new Map();
 
         // 1. Fetch from MySQL Database (persistent across Vercel deployments)
@@ -65,6 +98,7 @@ export async function GET(request) {
             );
             if (rows && rows.length > 0) {
                 for (const r of rows) {
+                    if (isDeleted(r.name, r.url)) continue;
                     uniqueFilesMap.set(r.url, {
                         id: `db-${r.id}`,
                         name: r.name,
@@ -86,8 +120,9 @@ export async function GET(request) {
                 const files = await fs.readdir(wmPath);
                 for (const f of files) {
                     try {
-                        const stat = await fs.stat(path.join(wmPath, f));
                         const url = `/uploads/media/with-watermark/${f}`;
+                        if (isDeleted(f, url)) continue;
+                        const stat = await fs.stat(path.join(wmPath, f));
                         if (!uniqueFilesMap.has(url)) {
                             uniqueFilesMap.set(url, {
                                 id: `wm-${f}`,
@@ -110,8 +145,9 @@ export async function GET(request) {
                 const files = await fs.readdir(noWmPath);
                 for (const f of files) {
                     try {
-                        const stat = await fs.stat(path.join(noWmPath, f));
                         const url = `/uploads/media/without-watermark/${f}`;
+                        if (isDeleted(f, url)) continue;
+                        const stat = await fs.stat(path.join(noWmPath, f));
                         if (!uniqueFilesMap.has(url)) {
                             uniqueFilesMap.set(url, {
                                 id: `nowm-${f}`,
@@ -130,7 +166,13 @@ export async function GET(request) {
         const finalFilesList = Array.from(uniqueFilesMap.values());
         finalFilesList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        return NextResponse.json({ files: finalFilesList });
+        return NextResponse.json({ files: finalFilesList }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
 
     } catch (err) {
         console.error('GET Error:', err);
@@ -355,6 +397,11 @@ export async function POST(request) {
 
         // Update settings list asynchronously
         try {
+            // Un-blacklist in deleted_media if it was previously deleted
+            try {
+                await pool.query('DELETE FROM `deleted_media` WHERE `filename` = ? OR `url` = ? OR `url` LIKE ?', [fileName, finalRelativeUrl, `%${fileName}`]);
+            } catch (_) {}
+
             const mode = formData.get('mode');
             const targetKeys = [isNowWatermarked ? 'watermark_images' : 'no_watermark_images'];
             if (mode === 'gallery') {
@@ -402,6 +449,8 @@ export async function DELETE(request) {
             return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
         }
 
+        await initMediaTable();
+
         const body = await request.json();
         const { fileName, fileNames, url, urls } = body;
 
@@ -430,16 +479,31 @@ export async function DELETE(request) {
                 deletedCount++;
             } catch (_) {}
 
+            // Record in deleted_media to permanently prevent resurrection on Vercel / serverless
+            try {
+                await pool.query(
+                    'INSERT INTO `deleted_media` (`filename`, `url`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `deleted_at` = CURRENT_TIMESTAMP',
+                    [basename, urlStr]
+                );
+            } catch (delErr) {
+                console.warn('[DELETE deleted_media insert warning]:', delErr?.message);
+            }
+
             // Try local disk deletion if present
             try {
                 const p1 = path.join(uploadBaseDir, 'with-watermark', basename);
                 const p2 = path.join(uploadBaseDir, 'without-watermark', basename);
+                const p3 = path.join(process.cwd(), 'public', 'uploads', basename);
+                const p4 = path.join(process.cwd(), 'public', 'uploads', 'products', basename);
                 if (existsSync(p1)) await fs.unlink(p1);
                 if (existsSync(p2)) await fs.unlink(p2);
+                if (existsSync(p3)) await fs.unlink(p3);
+                if (existsSync(p4)) await fs.unlink(p4);
             } catch (_) {}
 
             deletedUrls.push(urlStr);
             deletedUrls.push(item);
+            deletedUrls.push(basename);
         }
 
         // Clean up from app_settings lists
@@ -471,6 +535,11 @@ export async function DELETE(request) {
             totalRequested: targets.length,
             errors: errors.length > 0 ? errors : undefined,
             message: `Successfully deleted image(s).`
+        }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate',
+                'Pragma': 'no-cache'
+            }
         });
 
     } catch (err) {
