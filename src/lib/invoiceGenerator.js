@@ -393,58 +393,77 @@ export async function generateInvoicePDF(order) {
         y = itemsStartY + 12; // minimum height
     }
 
-    // Additional charges & Discounts
+    // Draw borders & column lines for product items area only
+    const itemsEndY = y;
+    doc.rect(margin, itemsStartY, 190, itemsEndY - itemsStartY);
+    doc.line(22, itemsStartY, 22, itemsEndY);
+    doc.line(120, itemsStartY, 120, itemsEndY);
+    doc.line(150, itemsStartY, 150, itemsEndY);
+    doc.line(170, itemsStartY, 170, itemsEndY);
+
+    // Summary breakdown rows (Discounts, Taxes, Shipping)
+    const summaryStartY = itemsEndY;
     const discountDetails = getDiscountDetails(order);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+
     if (discountDetails.length > 0) {
         discountDetails.forEach(disc => {
             if (disc.amount > 0) {
-                doc.text(disc.label, 148, y + 5, { align: "right" });
-                doc.text(`-${disc.amount.toFixed(2)}`, 198, y + 5, { align: "right" });
-                y += 7;
+                doc.rect(margin, y, 190, 6.5);
+                doc.line(170, y, 170, y + 6.5);
+                doc.setTextColor(21, 128, 61); // Green tint for discount
+                doc.text(disc.label, 168, y + 4.5, { align: "right" });
+                doc.text(`-${disc.amount.toFixed(2)}`, 198, y + 4.5, { align: "right" });
+                doc.setTextColor(0);
+                y += 6.5;
             }
         });
     }
     if (order.cgst > 0) {
-        doc.text("CGST:", 148, y + 5, { align: "right" });
-        doc.text(parseFloat(order.cgst).toFixed(2), 198, y + 5, { align: "right" });
-        y += 7;
+        doc.rect(margin, y, 190, 6.5);
+        doc.line(170, y, 170, y + 6.5);
+        doc.text("CGST:", 168, y + 4.5, { align: "right" });
+        doc.text(parseFloat(order.cgst).toFixed(2), 198, y + 4.5, { align: "right" });
+        y += 6.5;
     }
     if (order.sgst > 0) {
-        doc.text("SGST:", 148, y + 5, { align: "right" });
-        doc.text(parseFloat(order.sgst).toFixed(2), 198, y + 5, { align: "right" });
-        y += 7;
+        doc.rect(margin, y, 190, 6.5);
+        doc.line(170, y, 170, y + 6.5);
+        doc.text("SGST:", 168, y + 4.5, { align: "right" });
+        doc.text(parseFloat(order.sgst).toFixed(2), 198, y + 4.5, { align: "right" });
+        y += 6.5;
     }
     if (order.igst > 0) {
-        doc.text("IGST:", 148, y + 5, { align: "right" });
-        doc.text(parseFloat(order.igst).toFixed(2), 198, y + 5, { align: "right" });
-        y += 7;
+        doc.rect(margin, y, 190, 6.5);
+        doc.line(170, y, 170, y + 6.5);
+        doc.text("IGST:", 168, y + 4.5, { align: "right" });
+        doc.text(parseFloat(order.igst).toFixed(2), 198, y + 4.5, { align: "right" });
+        y += 6.5;
     }
     if ((!order.cgst && !order.sgst && !order.igst) && order.tax_amount > 0) {
-        doc.text("Tax:", 148, y + 5, { align: "right" });
-        doc.text(parseFloat(order.tax_amount).toFixed(2), 198, y + 5, { align: "right" });
-        y += 7;
+        doc.rect(margin, y, 190, 6.5);
+        doc.line(170, y, 170, y + 6.5);
+        doc.text("Tax:", 168, y + 4.5, { align: "right" });
+        doc.text(parseFloat(order.tax_amount).toFixed(2), 198, y + 4.5, { align: "right" });
+        y += 6.5;
     }
     if (order.shipping_cost > 0) {
-        doc.text("Shipping Cost:", 148, y + 5, { align: "right" });
-        doc.text(parseFloat(order.shipping_cost).toFixed(2), 198, y + 5, { align: "right" });
-        y += 7;
+        doc.rect(margin, y, 190, 6.5);
+        doc.line(170, y, 170, y + 6.5);
+        doc.text("Shipping Cost:", 168, y + 4.5, { align: "right" });
+        doc.text(parseFloat(order.shipping_cost).toFixed(2), 198, y + 4.5, { align: "right" });
+        y += 6.5;
     }
-    
-    // Draw borders for items area
-    doc.rect(margin, itemsStartY, 190, y - itemsStartY);
-    doc.line(22, itemsStartY, 22, y);
-    doc.line(120, itemsStartY, 120, y);
-    doc.line(150, itemsStartY, 150, y);
-    doc.line(170, itemsStartY, 170, y);
 
     // Total Row
-    doc.rect(margin, y, 190, 8);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(margin, y, 190, 8, "FD");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text("Total Invoice Value", 148, y + 5, { align: "right" });
-    doc.text(totalQty.toString(), 160, y + 5, { align: "center" });
-    doc.text((order.total_amount || 0).toFixed(2), 198, y + 5, { align: "right" });
-    doc.line(150, y, 150, y + 8);
+    doc.text("Total Invoice Value", 168, y + 5.2, { align: "right" });
+    doc.text((order.total_amount || 0).toFixed(2), 198, y + 5.2, { align: "right" });
     doc.line(170, y, 170, y + 8);
 
     y += 8;
@@ -456,9 +475,9 @@ export async function generateInvoicePDF(order) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
         doc.setTextColor(21, 128, 61); // Green
-        doc.text("Less: Advance Received (Online / Paid):", 148, y + 4.5, { align: "right" });
+        doc.text("Less: Advance Received (Online / Paid):", 168, y + 4.5, { align: "right" });
         doc.text(`-${codAdvVal.toFixed(2)}`, 198, y + 4.5, { align: "right" });
-        doc.line(150, y, 150, y + 7);
+        doc.line(170, y, 170, y + 7);
         y += 7;
 
         // Row for Balance Cash on Delivery
@@ -467,9 +486,9 @@ export async function generateInvoicePDF(order) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
         doc.setTextColor(180, 83, 9); // Amber
-        doc.text("BALANCE DUE ON DELIVERY (CASH):", 148, y + 4.5, { align: "right" });
+        doc.text("BALANCE DUE ON DELIVERY (CASH):", 168, y + 4.5, { align: "right" });
         doc.text(`Rs. ${codBalVal.toFixed(2)}`, 198, y + 4.5, { align: "right" });
-        doc.line(150, y, 150, y + 7);
+        doc.line(170, y, 170, y + 7);
         y += 7;
 
         doc.setTextColor(0); // Reset text color
@@ -480,9 +499,9 @@ export async function generateInvoicePDF(order) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
         doc.setTextColor(180, 83, 9); // Amber
-        doc.text("BALANCE DUE ON DELIVERY (CASH):", 148, y + 4.5, { align: "right" });
+        doc.text("BALANCE DUE ON DELIVERY (CASH):", 168, y + 4.5, { align: "right" });
         doc.text(`Rs. ${(order.total_amount || 0).toFixed(2)}`, 198, y + 4.5, { align: "right" });
-        doc.line(150, y, 150, y + 7);
+        doc.line(170, y, 170, y + 7);
         y += 7;
 
         doc.setTextColor(0); // Reset text color

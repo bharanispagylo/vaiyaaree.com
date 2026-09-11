@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { formatDisplayPhoneNumber, enrichOrderItems } from '../utils/ordersHelpers';
+import { formatDisplayPhoneNumber, enrichOrderItems, parseCourierDetails } from '../utils/ordersHelpers';
 
 export function useOrderOperations({
     selectedOrder,
@@ -58,14 +58,33 @@ export function useOrderOperations({
     const [isPrintingLabels, setIsPrintingLabels] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(null);
 
+    // Default standard couriers for quick fallback
+    const DEFAULT_COURIERS = [
+        { id: 'bluedart', name: 'Blue Dart', tracking_url_template: 'https://www.bluedart.com/tracking/{awb}' },
+        { id: 'delhivery', name: 'Delhivery', tracking_url_template: 'https://www.delhivery.com/track/package/{awb}' },
+        { id: 'dtdc', name: 'DTDC', tracking_url_template: 'https://www.dtdc.in/tracking.asp?trno={awb}' },
+        { id: 'indiapost', name: 'India Post', tracking_url_template: 'https://www.indiapost.gov.in/_layouts/15/dop.portal.tracking/trackconsignment.aspx' },
+        { id: 'ecomexpress', name: 'Ecom Express', tracking_url_template: 'https://ecomexpress.in/tracking/?awb_full={awb}' },
+        { id: 'ekart', name: 'Ekart Logistics', tracking_url_template: 'https://ekartlogistics.com/shipmenttrack/{awb}' },
+        { id: 'professional', name: 'The Professional Couriers', tracking_url_template: 'https://www.tpcindia.com/tracking.aspx' },
+        { id: 'xpressbees', name: 'Xpressbees', tracking_url_template: 'https://www.xpressbees.com/track?isawb=Yes&trackid={awb}' },
+        { id: 'shadowfax', name: 'Shadowfax', tracking_url_template: 'https://tracker.shadowfax.in/#/track?awb={awb}' },
+        { id: 'stcourier', name: 'ST Courier', tracking_url_template: 'https://stcourier.com/track/track_details/{awb}' }
+    ];
+
     // Load active couriers
     useEffect(() => {
         const fetchCouriers = async () => {
             try {
                 const { data } = await mysqlClient.from('couriers').select('*').eq('is_active', true).order('name');
-                setCouriers(data || []);
+                if (data && data.length > 0) {
+                    setCouriers(data);
+                } else {
+                    setCouriers(DEFAULT_COURIERS);
+                }
             } catch (err) {
                 console.error('Fetch couriers error:', err);
+                setCouriers(DEFAULT_COURIERS);
             }
         };
         fetchCouriers();
@@ -137,21 +156,31 @@ export function useOrderOperations({
 
     // 2. Courier Assignment
     const openCourierModal = (order, fromTable = false) => {
-        if (!order || ['CANCELLED', 'REFUNDED', 'REFUND_REQUESTED'].includes((order.status || '').toUpperCase())) {
-            return;
-        }
+        if (!order) return;
+        
         setSelectedOrder(order);
         setIsCourierFromTable(fromTable);
         setIsCourierSaved(false);
         setCourierModalError('');
         setNotification(null);
+        
+        const details = parseCourierDetails(order);
+        const courierName = details.name || '';
+        const trackingNumber = details.trackingNumber || '';
+        const trackingUrl = details.trackingUrl || '';
+
         setShippingForm({
-            courier_name: order.courier_name || '',
-            tracking_number: order.tracking_number || '',
-            tracking_url: order.tracking_url || ''
+            courier_name: courierName,
+            tracking_number: trackingNumber,
+            tracking_url: trackingUrl
         });
-        const matched = couriers.find(c => c.name === order.courier_name);
-        setSelectedCourierId(matched ? matched.id : (order.courier_name ? 'CUSTOM' : ''));
+
+        const matched = (couriers && couriers.length > 0 ? couriers : DEFAULT_COURIERS).find(c => 
+            (c.id && String(c.id).toLowerCase() === courierName.toLowerCase()) ||
+            (c.name && c.name.toLowerCase() === courierName.toLowerCase())
+        );
+        
+        setSelectedCourierId(matched ? matched.id : (courierName ? 'CUSTOM' : ''));
         setShowShippingForm(true);
     };
 

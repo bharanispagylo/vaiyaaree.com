@@ -587,60 +587,42 @@ export default function InvoicesPage() {
                                         
                                         {/* Additional charges & Discounts */}
                                         {getDiscountDetails(selectedInvoice).map((disc, idx) => (
-                                            <tr key={`disc-${idx}`}>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>
+                                            <tr key={`disc-${idx}`} style={{ borderTop: '1px solid #e5e7eb' }}>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold', color: '#16a34a' }}>
                                                     {disc.label}
                                                 </td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ padding: '5px', textAlign: 'right', color: '#dc2626' }}>
+                                                <td style={{ padding: '5px', textAlign: 'right', color: '#dc2626', fontWeight: '600' }}>
                                                     -{disc.amount.toFixed(2)}
                                                 </td>
                                             </tr>
                                         ))}
                                         {selectedInvoice.shipping_cost > 0 && (
-                                            <tr>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>Shipping Cost:</td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <tr style={{ borderTop: '1px solid #e5e7eb' }}>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>Shipping Cost:</td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.shipping_cost).toFixed(2)}</td>
                                             </tr>
                                         )}
                                         {selectedInvoice.cgst > 0 && (
-                                            <tr>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>CGST:</td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <tr style={{ borderTop: '1px solid #e5e7eb' }}>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>CGST:</td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.cgst).toFixed(2)}</td>
                                             </tr>
                                         )}
                                         {selectedInvoice.sgst > 0 && (
-                                            <tr>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>SGST:</td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <tr style={{ borderTop: '1px solid #e5e7eb' }}>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>SGST:</td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.sgst).toFixed(2)}</td>
                                             </tr>
                                         )}
                                         {selectedInvoice.igst > 0 && (
-                                            <tr>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>IGST:</td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <tr style={{ borderTop: '1px solid #e5e7eb' }}>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>IGST:</td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.igst).toFixed(2)}</td>
                                             </tr>
                                         )}
                                         {((!selectedInvoice.cgst && !selectedInvoice.sgst && !selectedInvoice.igst) && selectedInvoice.tax_amount > 0) && (
-                                            <tr>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px', textAlign: 'right', fontWeight: 'bold' }}>Tax:</td>
-                                                <td style={{ borderRight: '1px solid black', padding: '5px' }}></td>
+                                            <tr style={{ borderTop: '1px solid #e5e7eb' }}>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>Tax:</td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.tax_amount).toFixed(2)}</td>
                                             </tr>
                                         )}

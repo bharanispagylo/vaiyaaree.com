@@ -31,11 +31,26 @@ export async function POST(req) {
                 .maybeSingle();
 
             if (dbOrder) {
-                if (dbOrder.order_items) {
-                    dbOrder.order_items = dbOrder.order_items.map(it => ({
-                        ...it,
-                        image_url: it.image_url || it.products?.image_url || ''
-                    }));
+                if (Array.isArray(dbOrder.order_items) && dbOrder.order_items.length > 0) {
+                    const prodIds = dbOrder.order_items.map(it => it.product_id || it.id).filter(Boolean);
+                    if (prodIds.length > 0) {
+                        try {
+                            const { data: prods } = await mysqlClient
+                                .from('products')
+                                .select('id, name, title, sku, product_no, image_url, images, gallery_image, gallery_images')
+                                .in('id', [...new Set(prodIds)]);
+                            if (prods && prods.length > 0) {
+                                const prodMap = {};
+                                prods.forEach(p => { prodMap[p.id] = p; });
+                                dbOrder.order_items = dbOrder.order_items.map(it => ({
+                                    ...it,
+                                    products: prodMap[it.product_id || it.id] || it.products || null
+                                }));
+                            }
+                        } catch (pErr) {
+                            console.error('[EMAIL TEST] Products fetch error:', pErr);
+                        }
+                    }
                 }
                 order = dbOrder;
             }

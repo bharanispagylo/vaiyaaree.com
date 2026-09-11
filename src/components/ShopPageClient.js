@@ -262,8 +262,8 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                             <option value="newness">Sort by latest</option>
                             <option value="price-asc">Price: Low to High</option>
                             <option value="price-desc">Price: High to Low</option>
-                            <option value="name-asc">Alphabetical: A-Z</option>
-                            <option value="name-desc">Alphabetical: Z-A</option>
+                            <option value="name-desc">Alphabetical: A-Z</option>
+                            <option value="name-asc">Alphabetical: Z-A</option>
                         </select>
                         <ChevronDown size={14} className={styles.sidebarSelectArrow} />
                     </div>
@@ -620,14 +620,14 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                         </div>
                         {filteredProducts.length > ITEMS_PER_PAGE && (
                             <div className={styles.paginationWrapper} style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '3rem', borderTop: '1px solid #e2e8f0', paddingTop: '2rem' }}>
-                                <button 
+                                <button
                                     onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                                     disabled={currentPage === 1}
                                     style={{ padding: '0.5rem 1rem', background: currentPage === 1 ? '#f1f5f9' : '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#475569' }}
                                 >
                                     Previous
                                 </button>
-                                
+
                                 {Array.from({ length: Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) }).map((_, i) => (
                                     <button
                                         key={i}
@@ -638,7 +638,7 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                                     </button>
                                 ))}
 
-                                <button 
+                                <button
                                     onClick={() => handlePageChange(Math.min(Math.ceil(filteredProducts.length / ITEMS_PER_PAGE), currentPage + 1))}
                                     disabled={currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)}
                                     style={{ padding: '0.5rem 1rem', background: currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) ? '#f1f5f9' : '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#475569' }}

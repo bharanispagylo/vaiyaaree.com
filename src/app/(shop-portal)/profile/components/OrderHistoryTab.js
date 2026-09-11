@@ -48,17 +48,17 @@ export default function OrderHistoryTab({
             ) : (
                 <>
                     {/* Desktop / Tablet Table View */}
-                    <div className={styles.desktopOrdersTableWrapper}>
-                        <table className={styles.ordersTable}>
+                    <div className={styles.tableContainer}>
+                        <table className={styles.dataTable}>
                             <thead>
                                 <tr>
-                                    <th>Order Reference</th>
-                                    <th>Date</th>
-                                    <th>Items</th>
-                                    <th>Total & Payment</th>
-                                    <th>Source</th>
-                                    <th>Status</th>
-                                    <th style={{ textAlign: 'right' }}>Actions</th>
+                                    <th style={{ minWidth: '120px' }}>Order Reference</th>
+                                    <th style={{ minWidth: '95px' }}>Date</th>
+                                    <th style={{ minWidth: '150px' }}>Items</th>
+                                    <th style={{ minWidth: '160px' }}>Total & Payment</th>
+                                    <th style={{ minWidth: '90px' }}>Source</th>
+                                    <th style={{ minWidth: '110px' }}>Status</th>
+                                    <th style={{ minWidth: '220px', textAlign: 'right' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -78,22 +78,24 @@ export default function OrderHistoryTab({
                                                     style={{ textDecoration: 'none' }}
                                                     title="View full order details"
                                                 >
-                                                    <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--primary))', fontFamily: 'monospace, sans-serif', textDecoration: 'underline' }}>{displayInv}</div>
+                                                    <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'hsl(var(--primary))', fontFamily: 'monospace, sans-serif', textDecoration: 'underline' }}>{displayInv}</div>
                                                 </Link>
                                             </td>
-                                            <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                            <td style={{ color: 'hsl(var(--text-muted))', fontSize: '0.80rem', whiteSpace: 'nowrap' }}>
                                                 {formatOrderDate(order.created_at, { includeTime: false })}
                                             </td>
-                                            <td style={{ whiteSpace: 'nowrap' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                                    <span style={{ fontWeight: 700, fontSize: '0.84rem' }}>{totalItems} item(s)</span>
-                                                    <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={firstItemName}>
+                                            <td>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'hsl(var(--text-main))' }}>{totalItems} item(s)</span>
+                                                    <span style={{ fontSize: '0.74rem', color: 'hsl(var(--text-muted))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }} title={firstItemName}>
                                                         {firstItemName}{itemsList.length > 1 ? ` +${itemsList.length - 1} more` : ''}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
-                                                <div>₹{(order.total_amount || 0).toLocaleString('en-IN')}</div>
+                                            <td>
+                                                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'hsl(var(--text-main))', whiteSpace: 'nowrap' }}>
+                                                    ₹{(order.total_amount || 0).toLocaleString('en-IN')}
+                                                </div>
                                                 {renderCodPaymentBadges(order)}
                                             </td>
                                             <td style={{ whiteSpace: 'nowrap' }}>
@@ -102,26 +104,16 @@ export default function OrderHistoryTab({
                                             <td style={{ whiteSpace: 'nowrap' }}>
                                                 <span
                                                     className={`${styles.orderStatusBadge} ${styles['status' + (isCancelled ? 'CANCELLED' : order.status)]}`}
-                                                    style={{
-                                                        padding: isCancelled ? '2px 7px' : 0,
-                                                        background: isCancelled ? '#fef2f2' : 'transparent',
-                                                        borderRadius: isCancelled ? '6px' : 0,
-                                                        border: isCancelled ? '1px solid #fecdd3' : 'none',
-                                                        fontSize: '0.78rem',
-                                                        fontWeight: 800,
-                                                        whiteSpace: 'nowrap',
-                                                        color: isCancelled ? '#dc2626' : undefined
-                                                    }}
                                                 >
                                                     {displayStatus}
                                                 </span>
                                             </td>
                                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-end' }}>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                                                     <Link
                                                         href={`/profile/orders/${order.id}`}
                                                         className={styles.actionBtnOutline}
-                                                        style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap', background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce', textDecoration: 'none' }}
+                                                        style={{ background: '#faf5ff', borderColor: '#d8b4fe', color: '#7e22ce' }}
                                                     >
                                                         <Eye size={12} /> Details
                                                     </Link>
@@ -134,7 +126,6 @@ export default function OrderHistoryTab({
                                                             handleTrackSearch(order.id);
                                                         }}
                                                         className={styles.actionBtnOutline}
-                                                        style={{ padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}
                                                     >
                                                         Track Order <ArrowRight size={13} />
                                                     </button>

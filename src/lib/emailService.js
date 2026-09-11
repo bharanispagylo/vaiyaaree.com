@@ -215,7 +215,7 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
             if (!Array.isArray(items) || items.length === 0) {
                 const { data: dbItems } = await mysqlClient
                     .from('order_items')
-                    .select('*')
+                    .select('*, products(*)')
                     .eq('order_id', order.id);
                 if (dbItems && dbItems.length > 0) {
                     items = dbItems;
@@ -227,11 +227,9 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
                 const variantIdsToFetch = [];
 
                 items.forEach(it => {
-                    if (!it.image_url) {
-                        if (it.variant_id) variantIdsToFetch.push(it.variant_id);
-                        if (it.product_id) prodIdsToFetch.push(it.product_id);
-                        if (it.id && !it.product_id) prodIdsToFetch.push(it.id);
-                    }
+                    if (it.variant_id) variantIdsToFetch.push(it.variant_id);
+                    if (it.product_id) prodIdsToFetch.push(it.product_id);
+                    if (it.id && !it.product_id) prodIdsToFetch.push(it.id);
                 });
 
                 let variantImageMap = {};
@@ -241,11 +239,16 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
                     try {
                         const { data: vRows } = await mysqlClient
                             .from('product_variants')
-                            .select('id, image_url')
+                            .select('id, product_id, name, sku, image_url, images, image')
                             .in('id', [...new Set(variantIdsToFetch)]);
                         if (vRows) {
                             vRows.forEach(v => {
-                                if (v.image_url) variantImageMap[v.id] = v.image_url;
+                                const vImg = v.image_url || v.image || (Array.isArray(v.images) ? v.images[0] : null);
+                                if (vImg) {
+                                    variantImageMap[v.id] = vImg;
+                                    if (v.sku) variantImageMap[v.sku] = vImg;
+                                    if (v.name) variantImageMap[v.name] = vImg;
+                                }
                             });
                         }
                     } catch (vErr) { }
@@ -255,13 +258,34 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
                     try {
                         const { data: pRows } = await mysqlClient
                             .from('products')
-                            .select('id, image_url, name')
+                            .select('id, name, title, sku, product_no, image_url, images, gallery_image, gallery_images')
                             .in('id', [...new Set(prodIdsToFetch)]);
                         if (pRows) {
                             pRows.forEach(p => {
-                                if (p.image_url) {
-                                    productImageMap[p.id] = p.image_url;
-                                    if (p.name) productImageMap[p.name] = p.image_url;
+                                let pImg = p.image_url || p.gallery_image || '';
+                                if (!pImg && p.images) {
+                                    try {
+                                        const parsed = typeof p.images === 'string' ? JSON.parse(p.images) : p.images;
+                                        if (Array.isArray(parsed) && parsed.length > 0) pImg = parsed[0];
+                                    } catch (_) {
+                                        pImg = String(p.images).split(',')[0].trim();
+                                    }
+                                }
+                                if (!pImg && p.gallery_images) {
+                                    try {
+                                        const parsed = typeof p.gallery_images === 'string' ? JSON.parse(p.gallery_images) : p.gallery_images;
+                                        if (Array.isArray(parsed) && parsed.length > 0) pImg = parsed[0];
+                                    } catch (_) {
+                                        pImg = String(p.gallery_images).split(',')[0].trim();
+                                    }
+                                }
+
+                                if (pImg) {
+                                    productImageMap[p.id] = pImg;
+                                    if (p.name) productImageMap[p.name] = pImg;
+                                    if (p.title) productImageMap[p.title] = pImg;
+                                    if (p.sku) productImageMap[p.sku] = pImg;
+                                    if (p.product_no) productImageMap[p.product_no] = pImg;
                                 }
                             });
                         }
@@ -272,10 +296,14 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
                     const prodId = it.product_id || it.id;
                     const variantId = it.variant_id || it.variantId;
                     const resolvedImg = it.image_url
+                        || it.image
+                        || it.imageUrl
                         || (variantId && variantImageMap[variantId])
                         || (prodId && productImageMap[prodId])
                         || (it.product_name && productImageMap[it.product_name])
                         || (it.name && productImageMap[it.name])
+                        || it.products?.image_url
+                        || it.product?.image_url
                         || '';
 
                     return {

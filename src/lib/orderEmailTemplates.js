@@ -209,6 +209,97 @@ function parseAddr(raw) {
     return null;
 }
 
+export function resolveItemImageUrl(item, appDomain = 'https://vaiyaaree.com') {
+    if (!item) return '';
+
+    // Collect all potential image properties across order_items, joined products, and product variants
+    const candidates = [
+        item.image_url,
+        item.image,
+        item.imageUrl,
+        item.variant_image_url,
+        item.variant?.image_url,
+        item.products?.image_url,
+        item.products?.gallery_image,
+        item.products?.gallery_images,
+        item.products?.images,
+        item.product?.image_url,
+        item.product?.gallery_image,
+        item.product?.gallery_images,
+        item.product?.images,
+        item.images,
+        item.gallery_images,
+        item.gallery_image
+    ];
+
+    let foundUrl = '';
+
+    for (const cand of candidates) {
+        if (!cand) continue;
+        if (typeof cand === 'string') {
+            const trimmed = cand.trim();
+            if (!trimmed) continue;
+            // Check if JSON array string like '["/uploads/..."]' or '["https://..."]'
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]) {
+                        foundUrl = String(parsed[0]).trim();
+                        break;
+                    }
+                } catch (_) {}
+            }
+            // Comma-separated or regular string
+            const firstPart = trimmed.split(',')[0].trim().replace(/^[\[\]"']+|[\[\]"']+$/g, '').trim();
+            if (firstPart) {
+                foundUrl = firstPart;
+                break;
+            }
+        } else if (Array.isArray(cand) && cand.length > 0 && cand[0]) {
+            foundUrl = String(cand[0]).trim().replace(/^[\[\]"']+|[\[\]"']+$/g, '').trim();
+            if (foundUrl) break;
+        }
+    }
+
+    if (!foundUrl) return '';
+
+    // Clean any remaining brackets / quotes
+    foundUrl = foundUrl.replace(/^[\[\]"']+|[\[\]"']+$/g, '').trim();
+    if (!foundUrl) return '';
+
+    // Remote CDN / external URLs (Cloudinary, Unsplash, Supabase, S3, etc.)
+    if (foundUrl.startsWith('http://') || foundUrl.startsWith('https://')) {
+        if (foundUrl.includes('localhost') || foundUrl.includes('127.0.0.1')) {
+            try {
+                const u = new URL(foundUrl);
+                foundUrl = u.pathname;
+            } catch (_) {}
+        } else {
+            return foundUrl;
+        }
+    }
+
+    if (foundUrl.startsWith('//')) {
+        return `https:${foundUrl}`;
+    }
+
+    // Ensure leading slash for relative paths
+    let cleanPath = foundUrl.startsWith('/') ? foundUrl : `/${foundUrl}`;
+
+    // Normalize watermark and media paths
+    if (cleanPath.includes('/without-watermark/')) {
+        cleanPath = cleanPath.replace('/without-watermark/', '/with-watermark/');
+    }
+    if (cleanPath.startsWith('/with-watermark/')) {
+        cleanPath = `/uploads/media${cleanPath}`;
+    } else if (cleanPath.startsWith('/without-watermark/')) {
+        cleanPath = `/uploads/media${cleanPath}`;
+    }
+
+    const domain = (appDomain || 'https://vaiyaaree.com').replace(/\/$/, '');
+    return `${domain}${cleanPath}`;
+}
+
 const spacerHtml = (h = 24) => `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; border-collapse: collapse; margin: 0; padding: 0;">
         <tr>
@@ -291,30 +382,7 @@ export function buildOrderStatusEmailHtml({
 
     // Generate Items HTML Rows
     const itemsRowsHtml = items.map((item, idx) => {
-        const rawImg = item.image_url || item.image || item.imageUrl || item.products?.image_url || item.product?.image_url || '';
-        let imgUrl = rawImg ? String(rawImg).split(',')[0].trim() : '';
-        if (!imgUrl && item.products?.images) {
-            try {
-                const parsed = typeof item.products.images === 'string' ? JSON.parse(item.products.images) : item.products.images;
-                if (Array.isArray(parsed) && parsed.length > 0) imgUrl = parsed[0];
-            } catch (e) { }
-        }
-
-        // Never display sample/stock images for real customer orders
-        if (order.id !== 'WEB-1042' && imgUrl && imgUrl.includes('images.unsplash.com')) {
-            imgUrl = '';
-        }
-
-        // Convert relative URLs to absolute public URLs for email clients (Gmail, Outlook, Apple Mail)
-        if (imgUrl) {
-            if (imgUrl.startsWith('//')) {
-                imgUrl = `https:${imgUrl}`;
-            } else if (imgUrl.startsWith('/')) {
-                imgUrl = `${appDomain}${imgUrl}`;
-            } else if (!imgUrl.startsWith('http://') && !imgUrl.startsWith('https://')) {
-                imgUrl = `${appDomain}/${imgUrl}`;
-            }
-        }
+        const imgUrl = resolveItemImageUrl(item, appDomain);
 
         const itemName = item.product_name || item.name || item.title || 'Pure Handloom Silk Saree';
         const variantName = item.variant_name || item.variantName || item.variant || '';
@@ -327,7 +395,7 @@ export function buildOrderStatusEmailHtml({
             ? `<img src="${imgUrl}" alt="${itemName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 10px; object-fit: cover; border: 1px solid #e2e8f0; display: block;" />`
             : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="width: 64px; height: 64px; background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px;">
                 <tr>
-                    <td align="center" valign="middle" style="font-size: 11px; font-weight: 700; color: #000000; text-transform: uppercase; line-height: 1.2;">
+                    <td align="center" valign="middle" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; line-height: 1.2;">
                         No<br/>Image
                     </td>
                 </tr>

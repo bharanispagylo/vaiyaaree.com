@@ -15,7 +15,6 @@ import AccountTab from './components/AccountTab';
 import RefundsTab from './components/RefundsTab';
 import ReturnsTab from './components/ReturnsTab';
 import CancelOrderModal from './components/CancelOrderModal';
-import ProfileSupportCard from './components/ProfileSupportCard';
 import { sanitizeCustomerSession } from '@/lib/authSanitizer';
 import styles from './profile.module.css';
 
@@ -1024,11 +1023,6 @@ export default function ProfilePage() {
                         />
                     )}
                 </div>
-
-                {/* Profile Sidebar */}
-                <aside className={styles.profileSidebar}>
-                    <ProfileSupportCard />
-                </aside>
             </div>
 
             {/* Cancel Order Confirmation Modal */}
