@@ -28,12 +28,12 @@ function hasSpecificOrderLookup(payload) {
         return true;
     }
     if (Array.isArray(payload.filters)) {
-        const allowedCols = ['id', 'invoice_no', 'customer_id', 'customer_phone', 'customer_email'];
+        const allowedCols = ['id', 'invoice_no', 'customer_id', 'customer_phone', 'customer_email', 'order_number', 'phone'];
         for (const f of payload.filters) {
             if (!f) continue;
             // Or filters e.g. { type: 'or', val: 'customer_id.eq.xxx,customer_phone.in.(...)' }
             if (f.type === 'or') {
-                if (typeof f.val === 'string' && /(id|invoice_no|customer_id|customer_phone|customer_email)/i.test(f.val)) {
+                if (typeof f.val === 'string' && /(id|invoice_no|customer_id|customer_phone|customer_email|order_number|phone)/i.test(f.val)) {
                     return true;
                 }
             }
@@ -222,11 +222,13 @@ export async function POST(request) {
                 );
             }
 
-            // 6. Enforce is_active = 1 for public products queries to prevent exposure of disabled items
+            // 6. Enforce inactive products filtering for public catalog queries
             if (table === 'products') {
                 if (!Array.isArray(payload.filters)) payload.filters = [];
-                payload.filters = payload.filters.filter(f => !(f && (f.col === 'is_active' || f.col === '`is_active`')));
-                payload.filters.push({ type: 'eq', col: 'is_active', val: 1 });
+                const hasActiveFilter = payload.filters.some(f => f && (f.col === 'is_active' || f.col === '`is_active`'));
+                if (!hasActiveFilter) {
+                    payload.filters.push({ type: 'neq', col: 'is_active', val: 0 });
+                }
             }
 
             // Execute read query and sanitize if app_settings or customers

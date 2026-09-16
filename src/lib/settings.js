@@ -11,23 +11,23 @@ export async function getAdminSettings() {
 
         const settings = {};
         data.forEach(item => {
-            settings[item.key] = item.value;
+            settings[item.key] = typeof item.value === 'string' ? item.value.trim() : item.value;
         });
 
         // Use database value if it exists, otherwise fall back to environment variables
         return {
-            admin_username: settings.admin_username || process.env.ADMIN_USERNAME,
+            admin_username: (settings.admin_username || process.env.ADMIN_USERNAME || '').trim(),
             admin_password: settings.admin_password || process.env.ADMIN_PASSWORD,
-            admin_recovery_pin: settings.admin_recovery_pin || process.env.ADMIN_RECOVERY_PIN,
-            admin_email: settings.admin_email || process.env.ADMIN_EMAIL
+            admin_recovery_pin: (settings.admin_recovery_pin || process.env.ADMIN_RECOVERY_PIN || '').trim(),
+            admin_email: (settings.admin_email || process.env.ADMIN_EMAIL || '').trim()
         };
     } catch (err) {
         console.error('Error in getAdminSettings:', err);
         return {
-            admin_username: process.env.ADMIN_USERNAME,
+            admin_username: (process.env.ADMIN_USERNAME || '').trim(),
             admin_password: process.env.ADMIN_PASSWORD,
-            admin_recovery_pin: process.env.ADMIN_RECOVERY_PIN,
-            admin_email: process.env.ADMIN_EMAIL
+            admin_recovery_pin: (process.env.ADMIN_RECOVERY_PIN || '').trim(),
+            admin_email: (process.env.ADMIN_EMAIL || '').trim()
         };
     }
 }
@@ -48,27 +48,29 @@ export async function getGatewaySettings() {
         if (error) throw error;
 
         const settings = {};
-        data.forEach(item => {
-            settings[item.key] = item.value;
+        (data || []).forEach(item => {
+            settings[item.key] = typeof item.value === 'string' ? item.value.trim() : item.value;
         });
 
-        const mode = settings.razorpay_mode || 'test';
-        const activeKeyId = mode === 'live'
+        const mode = (settings.razorpay_mode || 'test').trim().toLowerCase();
+        const activeKeyId = (mode === 'live'
             ? (settings.razorpay_live_key_id || settings.razorpay_key_id || process.env.RAZORPAY_LIVE_KEY_ID || process.env.RAZORPAY_KEY_ID)
-            : (settings.razorpay_test_key_id || settings.razorpay_key_id || process.env.RAZORPAY_TEST_KEY_ID || process.env.RAZORPAY_KEY_ID);
+            : (settings.razorpay_test_key_id || settings.razorpay_key_id || process.env.RAZORPAY_TEST_KEY_ID || process.env.RAZORPAY_KEY_ID)
+        )?.trim() || '';
 
-        const activeKeySecret = mode === 'live'
+        const activeKeySecret = (mode === 'live'
             ? (settings.razorpay_live_key_secret || settings.razorpay_key_secret || process.env.RAZORPAY_LIVE_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET)
-            : (settings.razorpay_test_key_secret || settings.razorpay_key_secret || process.env.RAZORPAY_TEST_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET);
+            : (settings.razorpay_test_key_secret || settings.razorpay_key_secret || process.env.RAZORPAY_TEST_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET)
+        )?.trim() || '';
 
         return {
             razorpay_mode: mode,
             razorpay_key_id: activeKeyId,
             razorpay_key_secret: activeKeySecret,
-            razorpay_test_key_id: settings.razorpay_test_key_id || settings.razorpay_key_id || '',
-            razorpay_test_key_secret: settings.razorpay_test_key_secret || settings.razorpay_key_secret || '',
-            razorpay_live_key_id: settings.razorpay_live_key_id || '',
-            razorpay_live_key_secret: settings.razorpay_live_key_secret || '',
+            razorpay_test_key_id: (settings.razorpay_test_key_id || settings.razorpay_key_id || '').trim(),
+            razorpay_test_key_secret: (settings.razorpay_test_key_secret || settings.razorpay_key_secret || '').trim(),
+            razorpay_live_key_id: (settings.razorpay_live_key_id || '').trim(),
+            razorpay_live_key_secret: (settings.razorpay_live_key_secret || '').trim(),
             razorpay_enabled: settings.razorpay_enabled !== 'false',
             razorpay_title: settings.razorpay_title || 'Pay Online (UPI, Cards, NetBanking)',
             default_gateway: settings.default_gateway || 'razorpay'
@@ -77,8 +79,8 @@ export async function getGatewaySettings() {
         console.error('Error in getGatewaySettings:', err);
         return {
             razorpay_mode: 'test',
-            razorpay_key_id: process.env.RAZORPAY_KEY_ID,
-            razorpay_key_secret: process.env.RAZORPAY_KEY_SECRET,
+            razorpay_key_id: (process.env.RAZORPAY_KEY_ID || '').trim(),
+            razorpay_key_secret: (process.env.RAZORPAY_KEY_SECRET || '').trim(),
             razorpay_enabled: true
         };
     }

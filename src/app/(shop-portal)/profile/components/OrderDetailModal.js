@@ -71,6 +71,16 @@ export default function OrderDetailModal({
     const codBal = Number(order.balance_amount !== undefined && order.balance_amount !== null ? order.balance_amount : Math.max(0, finalTotal - codAdv));
     const isCodWithAdvance = isCod && codAdv > 0;
     const isCodPure = isCod && codAdv === 0;
+    const isPaidOnline = !isCod && (
+        order.payment_status === 'PAID' ||
+        order.status === 'PAID' ||
+        Boolean(order.razorpay_payment_id) ||
+        Boolean(order.transaction_id)
+    );
+    const isAwaitingOnline = !isCod && (
+        order.status === 'AWAITING_PAYMENT' ||
+        order.payment_status === 'AWAITING_PAYMENT'
+    );
 
     const timelineSteps = [
         { stage: 'PLACED', label: 'Order Placed', icon: <Package size={18} /> },
@@ -241,17 +251,33 @@ export default function OrderDetailModal({
                                         )}
                                         {!isCod && (
                                             <div style={{ marginTop: '2px' }}>
-                                                <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '5px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
-                                                    💳 Refunded: ₹{(Number(order.refund_amount) || finalTotal).toLocaleString('en-IN')} via Razorpay
-                                                </span>
+                                                {(order.payment_status === 'PAID' || order.status === 'PAID' || order.refund_status === 'REFUNDED' || order.razorpay_refund_id || Number(order.refund_amount) > 0) ? (
+                                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '5px', background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                                                        💳 {order.refund_status === 'REFUNDED' || order.razorpay_refund_id ? 'Refunded' : 'Refund Pending'}: ₹{(Number(order.refund_amount) || finalTotal).toLocaleString('en-IN')} via Razorpay
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 6px', borderRadius: '5px', background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                                                        ✕ Cancelled (Unpaid)
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                     </div>
                                 ) : (
                                     <>
                                         <div style={{ fontSize: '0.78rem', color: 'hsl(var(--text-muted, #64748b))', fontWeight: 700 }}>
-                                            Payment: <strong style={{ color: order.payment_status === 'PAID' ? '#16a34a' : (isCodWithAdvance ? '#2563eb' : 'inherit') }}>
-                                                {isCodWithAdvance ? 'ADVANCE PAID' : (order.payment_status || 'PENDING')}
+                                            Payment: <strong style={{
+                                                color: isCodWithAdvance
+                                                    ? '#2563eb'
+                                                    : (isPaidOnline || order.payment_status === 'PAID' || order.status === 'PAID')
+                                                        ? '#16a34a'
+                                                        : (isAwaitingOnline ? '#d97706' : (order.payment_status === 'FAILED' ? '#dc2626' : '#d97706'))
+                                            }}>
+                                                {isCodWithAdvance
+                                                    ? 'ADVANCE PAID'
+                                                    : ((isPaidOnline || order.payment_status === 'PAID' || order.status === 'PAID')
+                                                        ? 'PAID'
+                                                        : (isAwaitingOnline ? 'AWAITING PAYMENT' : (order.payment_status || 'PENDING')))}
                                             </strong> ({isCod ? 'Cash on Delivery' : (order.payment_method || 'Online')})
                                         </div>
                                         {isCodWithAdvance && (
@@ -688,7 +714,7 @@ export default function OrderDetailModal({
                                             fontWeight: 900,
                                             color: 'hsl(var(--text-main, #0f172a))'
                                         }}>
-                                            <span>Total Paid</span>
+                                            <span>{(isAwaitingOnline || (!isPaidOnline && !isCod && order.payment_status === 'PENDING')) ? 'Total Payable' : 'Total Paid'}</span>
                                             <span style={{ color: 'hsl(var(--primary, #5d0821))' }}>₹{finalTotal.toLocaleString()}.00</span>
                                         </div>
                                     )

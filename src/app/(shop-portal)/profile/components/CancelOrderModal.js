@@ -71,9 +71,9 @@ export default function CancelOrderModal({
                     {/* Payment & Refund Notice based on COD vs Online Paid */}
                     {(() => {
                         const payMethod = String(cancelModalOrder.payment_method || '').toUpperCase();
-                        const isCod = payMethod === 'COD' || 
-                                      payMethod.includes('CASH') || 
-                                      (!cancelModalOrder.razorpay_payment_id && cancelModalOrder.status !== 'PAID' && !['RAZORPAY', 'UPI', 'PHONEPE'].some(m => payMethod.includes(m)));
+                        const isCod = payMethod === 'COD' || payMethod.includes('CASH');
+                        const isPaid = cancelModalOrder.payment_status === 'PAID' || cancelModalOrder.status === 'PAID' || Boolean(cancelModalOrder.razorpay_payment_id);
+                        const isAwaiting = cancelModalOrder.status === 'AWAITING_PAYMENT' || cancelModalOrder.payment_status === 'AWAITING_PAYMENT' || cancelModalOrder.payment_status === 'PENDING';
 
                         if (isCod) {
                             return (
@@ -82,6 +82,17 @@ export default function CancelOrderModal({
                                         💵 Cash on Delivery Order
                                     </div>
                                     No payment was deducted for this order. Cancelling will immediately void the order and restore product stock with no refund needed.
+                                </div>
+                            );
+                        }
+
+                        if (isAwaiting && !isPaid) {
+                            return (
+                                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#475569', lineHeight: 1.45 }}>
+                                    <div style={{ fontWeight: 800, marginBottom: '3px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        ⏳ Unpaid Online Order ({cancelModalOrder.payment_method || 'Razorpay'})
+                                    </div>
+                                    Payment was not completed for this order. Cancelling will immediately void the order with no refund required.
                                 </div>
                             );
                         }

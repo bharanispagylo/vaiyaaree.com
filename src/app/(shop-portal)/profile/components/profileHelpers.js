@@ -91,6 +91,19 @@ export function renderPaymentInfo(order, isCompact = false) {
     const hasRefundId = Boolean(order.razorpay_refund_id);
     const refundStatus = String(order.refund_status || '').toUpperCase();
     const isRefunded = refundStatus === 'REFUNDED' || hasRefundId;
+    const statusUpper = String(order.status || '').toUpperCase();
+    const paymentStatusUpper = String(order.payment_status || '').toUpperCase();
+
+    const methodRaw = String(order.payment_method || '').toUpperCase();
+    const gatewayLabel = methodRaw.includes('PHONEPE')
+        ? 'PhonePe'
+        : methodRaw.includes('UPI')
+        ? 'UPI'
+        : 'Razorpay';
+
+    const isPaid = paymentStatusUpper === 'PAID' || ['PAID', 'CONFIRMED', 'PROCESSING', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(statusUpper);
+    const isAwaitingPayment = statusUpper === 'AWAITING_PAYMENT' || paymentStatusUpper === 'AWAITING_PAYMENT' || (paymentStatusUpper === 'PENDING' && statusUpper !== 'PAID');
+    const isPaymentFailed = paymentStatusUpper === 'FAILED';
 
     if (isCancelled) {
         if (isCodWithAdvance) {
@@ -118,11 +131,21 @@ export function renderPaymentInfo(order, isCompact = false) {
         }
 
         // Online / Razorpay / Prepaid cancelled
-        const displayRefundVal = refundAmount > 0 ? refundAmount : total;
+        if (isPaid || isRefunded || refundAmount > 0) {
+            const displayRefundVal = refundAmount > 0 ? refundAmount : total;
+            return (
+                <div style={{ marginTop: '3px' }}>
+                    <span style={{ fontSize: '0.70rem', fontWeight: 800, color: isRefunded ? '#15803d' : '#b45309', background: isRefunded ? '#dcfce7' : '#fef3c7', border: `1px solid ${isRefunded ? '#bbf7d0' : '#fde68a'}`, padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '3px', width: 'fit-content' }}>
+                        💳 {isRefunded ? 'Refunded' : 'Refund Pending'}: ₹{displayRefundVal.toLocaleString('en-IN')} ({gatewayLabel})
+                    </span>
+                </div>
+            );
+        }
+
         return (
             <div style={{ marginTop: '3px' }}>
-                <span style={{ fontSize: '0.70rem', fontWeight: 800, color: isRefunded ? '#15803d' : '#b45309', background: isRefunded ? '#dcfce7' : '#fef3c7', border: `1px solid ${isRefunded ? '#bbf7d0' : '#fde68a'}`, padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '3px', width: 'fit-content' }}>
-                    💳 {isRefunded ? 'Refunded' : 'Refund Pending'}: ₹{displayRefundVal.toLocaleString('en-IN')} (Razorpay)
+                <span style={{ fontSize: '0.70rem', fontWeight: 700, color: '#64748b', background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap', display: 'inline-block', width: 'fit-content' }}>
+                    ✕ Cancelled (Unpaid)
                 </span>
             </div>
         );
@@ -151,11 +174,32 @@ export function renderPaymentInfo(order, isCompact = false) {
         );
     }
 
-    if (order.payment_status === 'PAID' || String(order.payment_method || '').toUpperCase() === 'RAZORPAY') {
+    // Online payment states: Paid vs Awaiting Payment vs Failed
+    if (isPaid && !isAwaitingPayment) {
         return (
             <div style={{ marginTop: '3px' }}>
                 <span style={{ fontSize: '0.70rem', fontWeight: 800, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap', display: 'inline-block', width: 'fit-content' }}>
-                    ✓ Paid Online (Razorpay)
+                    ✓ Paid Online ({gatewayLabel})
+                </span>
+            </div>
+        );
+    }
+
+    if (isPaymentFailed) {
+        return (
+            <div style={{ marginTop: '3px' }}>
+                <span style={{ fontSize: '0.70rem', fontWeight: 800, color: '#b91c1c', background: '#fee2e2', border: '1px solid #fecaca', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap', display: 'inline-block', width: 'fit-content' }}>
+                    ✕ Payment Failed ({gatewayLabel})
+                </span>
+            </div>
+        );
+    }
+
+    if (isAwaitingPayment || statusUpper === 'AWAITING_PAYMENT') {
+        return (
+            <div style={{ marginTop: '3px' }}>
+                <span style={{ fontSize: '0.70rem', fontWeight: 800, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '1px 6px', borderRadius: '4px', whiteSpace: 'nowrap', display: 'inline-block', width: 'fit-content' }}>
+                    ⏳ Awaiting Payment ({gatewayLabel})
                 </span>
             </div>
         );

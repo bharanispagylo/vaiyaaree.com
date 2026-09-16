@@ -18,11 +18,12 @@ export async function POST(request) {
 
         // --- Signature Verification ---
         // We generate our own signature and compare it with Razorpay's signature when real keys exist.
+        const keySecret = (settings.razorpay_key_secret || '').trim();
         const isPlaceholder = (key) => !key || key.includes('PASTE_YOUR_KEY') || key.includes('placeholder');
-        if (settings.razorpay_key_secret && !isPlaceholder(settings.razorpay_key_secret)) {
+        if (keySecret && !isPlaceholder(keySecret)) {
             const body = `${razorpay_order_id}|${razorpay_payment_id}`;
             const expectedSignature = crypto
-                .createHmac('sha256', settings.razorpay_key_secret)
+                .createHmac('sha256', keySecret)
                 .update(body)
                 .digest('hex');
 
@@ -47,6 +48,7 @@ export async function POST(request) {
         await ensureOrdersPaymentSchema();
 
         const isCodAdvance = order.payment_method === 'COD';
+        const targetStatus = isCodAdvance ? 'PLACED' : 'PAID';
 
         // IDEMPOTENCY CHECK
         if (isCodAdvance && (order.status === 'PLACED' || order.status === 'CONFIRMED' || order.status === 'SHIPPED') && order.razorpay_payment_id) {
@@ -61,10 +63,11 @@ export async function POST(request) {
         const nowIso = new Date().toISOString();
         const advanceAmount = isCodAdvance ? parseFloat(order.cod_advance_required || 0) : parseFloat(order.total_amount || 0);
         const balanceAmount = isCodAdvance ? Math.max(0, parseFloat(order.total_amount || 0) - advanceAmount) : 0;
-        const targetStatus = isCodAdvance ? 'PLACED' : 'PAID';
+        const paymentStatus = isCodAdvance ? (balanceAmount > 0 ? 'PARTIALLY_PAID' : 'PAID') : 'PAID';
 
         const updatePayload = {
             status: targetStatus,
+            payment_status: paymentStatus,
             payment_method: isCodAdvance ? 'COD' : 'Razorpay',
             razorpay_payment_id: razorpay_payment_id,
             advance_paid: advanceAmount,
@@ -116,10 +119,12 @@ export async function POST(request) {
                 order: {
                     ...order,
                     status: targetStatus,
+                    payment_status: paymentStatus,
                     payment_method: isCodAdvance ? 'COD' : 'Razorpay',
                     razorpay_payment_id: razorpay_payment_id,
                     advance_paid: advanceAmount,
                     balance_amount: balanceAmount,
+                    paid_at: nowIso,
                     order_items: order.order_items || []
                 },
                 extraData: {

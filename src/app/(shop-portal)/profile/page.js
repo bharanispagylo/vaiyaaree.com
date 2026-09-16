@@ -223,14 +223,18 @@ export default function ProfilePage() {
                 }
             } catch (e) {}
 
+            if (orClauses.length === 0) {
+                setOrders([]);
+                setLoadingOrders(false);
+                return;
+            }
+
             let query = mysqlClient
                 .from('orders')
                 .select('*, order_items(*, products(id, image_url, name))')
                 .order('created_at', { ascending: false });
 
-            if (orClauses.length > 0) {
-                query = query.or(orClauses.join(','));
-            }
+            query = query.or(orClauses.join(','));
 
             let { data, error } = await query;
 
@@ -341,6 +345,12 @@ export default function ProfilePage() {
                     else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
                 }
 
+                if (!user.id && phoneVariations.length === 0) {
+                    setRefunds([]);
+                    setLoadingRefunds(false);
+                    return;
+                }
+
                 let oQuery = mysqlClient.from('orders').select('id');
                 if (user.id && phoneVariations.length > 0) {
                     oQuery = oQuery.or(`customer_id.eq.${user.id},customer_phone.in.(${phoneVariations.join(',')})`);
@@ -394,6 +404,12 @@ export default function ProfilePage() {
                     phoneVariations.push(digits);
                     if (digits.length === 10) phoneVariations.push('91' + digits);
                     else if (digits.length === 12 && digits.startsWith('91')) phoneVariations.push(digits.substring(2));
+                }
+
+                if (!user.id && phoneVariations.length === 0) {
+                    setReturnRequests([]);
+                    setLoadingReturns(false);
+                    return;
                 }
 
                 let oQuery = mysqlClient.from('orders').select('id');

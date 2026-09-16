@@ -43,6 +43,12 @@ export async function ensureOrdersPaymentSchema(connection = pool) {
             await client.query("ALTER TABLE `orders` ADD COLUMN `balance_amount` DECIMAL(10,2) DEFAULT 0 AFTER `advance_paid`");
         }
 
+        // 7. payment_status
+        const [payStatusCol] = await client.query("SHOW COLUMNS FROM `orders` LIKE 'payment_status'");
+        if (!payStatusCol || payStatusCol.length === 0) {
+            await client.query("ALTER TABLE `orders` ADD COLUMN `payment_status` VARCHAR(50) DEFAULT 'PENDING' AFTER `status`");
+        }
+
         ordersSchemaChecked = true;
     } catch (e) {
         // Safe to ignore if columns already exist or race conditions

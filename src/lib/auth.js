@@ -87,8 +87,14 @@ export async function verifyAdmin(request) {
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
         token = authHeader.slice(7).trim();
-    } else {
+    } else if (request.headers.get('x-admin-token')) {
         token = request.headers.get('x-admin-token')?.trim();
+    } else {
+        try {
+            const cookieHeader = request.headers.get('cookie') || '';
+            const match = cookieHeader.match(/(?:^|;\s*)(?:admin_session|cast_prince_admin|vaiyaaree_admin)=([^;]+)/);
+            if (match) token = decodeURIComponent(match[1]).trim();
+        } catch (_) {}
     }
 
     if (!token) {

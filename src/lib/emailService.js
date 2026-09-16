@@ -568,7 +568,7 @@ export async function sendAdminLoginOTP(toEmail, otp, username = 'Administrator'
     }
 }
 
-export async function sendAdminPasswordResetSuccessEmail(toEmail) {
+export async function sendAdminPasswordResetSuccessEmail(toEmail, resetTime = new Date()) {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
         console.log(`[ADMIN-OTP-DEV] Password reset notification logged for ${toEmail}`);
         return { success: true };
@@ -588,15 +588,19 @@ export async function sendAdminPasswordResetSuccessEmail(toEmail) {
     const logoAtt = getLogoAttachment();
     const attachments = logoAtt ? [logoAtt] : [];
 
-    const formattedDate = new Date().toLocaleString('en-IN', {
-        day: 'numeric',
-        month: 'numeric',
+    const dateObj = resetTime ? (resetTime instanceof Date ? resetTime : new Date(resetTime)) : new Date();
+    const validDate = isNaN(dateObj.getTime()) ? new Date() : dateObj;
+
+    const formattedDate = validDate.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
         year: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
         hour12: true
-    });
+    }) + ' IST';
 
     const mailOptions = {
         from: process.env.SMTP_FROM || '"Vaiyaaree Sarees Security" <security@vaiyaaree.com>',

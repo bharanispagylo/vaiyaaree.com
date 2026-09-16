@@ -249,6 +249,16 @@ export default function OrderDetailPage() {
     const codBal = Number(order.balance_amount !== undefined && order.balance_amount !== null ? order.balance_amount : Math.max(0, finalTotal - codAdv));
     const isCodWithAdvance = isCod && codAdv > 0;
     const isCodPure = isCod && codAdv === 0;
+    const isPaidOnline = !isCod && (
+        order.payment_status === 'PAID' ||
+        order.status === 'PAID' ||
+        Boolean(order.razorpay_payment_id) ||
+        Boolean(order.transaction_id)
+    );
+    const isAwaitingOnline = !isCod && (
+        order.status === 'AWAITING_PAYMENT' ||
+        order.payment_status === 'AWAITING_PAYMENT'
+    );
 
     const timelineSteps = [
         { stage: 'PLACED', label: 'Order Placed', icon: <Package size={18} /> },
@@ -338,9 +348,15 @@ export default function OrderDetailPage() {
                                         </span>
                                     )}
                                     {!isCod && (
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '2px 8px', borderRadius: '6px', background: (order.refund_status === 'REFUNDED' || order.razorpay_refund_id) ? '#dcfce7' : '#fef3c7', color: (order.refund_status === 'REFUNDED' || order.razorpay_refund_id) ? '#15803d' : '#b45309', border: `1px solid ${(order.refund_status === 'REFUNDED' || order.razorpay_refund_id) ? '#bbf7d0' : '#fde68a'}` }}>
-                                            💳 Refunded: ₹{(Number(order.refund_amount) || finalTotal).toLocaleString('en-IN')} via Razorpay
-                                        </span>
+                                        (order.payment_status === 'PAID' || order.status === 'PAID' || order.refund_status === 'REFUNDED' || order.razorpay_refund_id || Number(order.refund_amount) > 0) ? (
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '2px 8px', borderRadius: '6px', background: (order.refund_status === 'REFUNDED' || order.razorpay_refund_id) ? '#dcfce7' : '#fef3c7', color: (order.refund_status === 'REFUNDED' || order.razorpay_refund_id) ? '#15803d' : '#b45309', border: `1px solid ${(order.refund_status === 'REFUNDED' || order.razorpay_refund_id) ? '#bbf7d0' : '#fde68a'}` }}>
+                                                💳 {order.refund_status === 'REFUNDED' || order.razorpay_refund_id ? 'Refunded' : 'Refund Pending'}: ₹{(Number(order.refund_amount) || finalTotal).toLocaleString('en-IN')} via Razorpay
+                                            </span>
+                                        ) : (
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                                                ✕ Cancelled (Unpaid)
+                                            </span>
+                                        )
                                     )}
                                     {isCodPure && (
                                         <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>
@@ -352,8 +368,18 @@ export default function OrderDetailPage() {
                         ) : (
                             <>
                                 <div className={styles.paymentInfo}>
-                                    Payment: <strong style={{ color: order.payment_status === 'PAID' ? '#16a34a' : (isCodWithAdvance ? '#2563eb' : 'inherit') }}>
-                                        {isCodWithAdvance ? 'ADVANCE PAID' : (order.payment_status || 'PENDING')}
+                                    Payment: <strong style={{
+                                        color: isCodWithAdvance
+                                            ? '#2563eb'
+                                            : (isPaidOnline || order.payment_status === 'PAID' || order.status === 'PAID')
+                                                ? '#16a34a'
+                                                : (isAwaitingOnline ? '#d97706' : (order.payment_status === 'FAILED' ? '#dc2626' : '#d97706'))
+                                    }}>
+                                        {isCodWithAdvance
+                                            ? 'ADVANCE PAID'
+                                            : ((isPaidOnline || order.payment_status === 'PAID' || order.status === 'PAID')
+                                                ? 'PAID'
+                                                : (isAwaitingOnline ? 'AWAITING PAYMENT' : (order.payment_status || 'PENDING')))}
                                     </strong> ({isCod ? 'Cash on Delivery' : (order.payment_method || 'Online')})
                                 </div>
                                 {isCodWithAdvance && (
@@ -757,7 +783,7 @@ export default function OrderDetailPage() {
                                 </div>
                             ) : (
                                 <div className={styles.billTotalRow}>
-                                    <span>Total Paid (Online)</span>
+                                    <span>{(isAwaitingOnline || (!isPaidOnline && !isCod && order.payment_status === 'PENDING')) ? 'Total Payable (Online)' : 'Total Paid (Online)'}</span>
                                     <span style={{ color: 'hsl(var(--primary, #5d0821))' }}>₹{finalTotal.toLocaleString()}.00</span>
                                 </div>
                             )
@@ -887,7 +913,7 @@ export default function OrderDetailPage() {
                                     </div>
                                     Your partial advance payment of <strong>₹{codAdv.toLocaleString('en-IN')}</strong> will be automatically refunded back to your original payment method via Razorpay upon cancellation.
                                 </div>
-                            ) : (order.payment_status === 'PAID' || order.payment_method === 'Razorpay' || order.payment_method === 'RAZORPAY') ? (
+                            ) : (order.payment_status === 'PAID' || order.status === 'PAID') ? (
                                 <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#166534', lineHeight: 1.45 }}>
                                     <div style={{ fontWeight: 800, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         💳 Automatic Instant Razorpay Refund
@@ -896,7 +922,7 @@ export default function OrderDetailPage() {
                                 </div>
                             ) : (
                                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#64748b' }}>
-                                    ℹ️ Cash on Delivery Order. No advance payment was made, so no refund is required.
+                                    ℹ️ {isCod ? 'Cash on Delivery Order. No advance payment was made, so no refund is required.' : 'Payment was not completed for this order, so no refund is required upon cancellation.'}
                                 </div>
                             )}
 

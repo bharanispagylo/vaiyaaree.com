@@ -185,7 +185,7 @@ class MySQLQueryBuilder {
                 try {
                     const reqHeaders = { 'Content-Type': 'application/json' };
                     try {
-                        const adminToken = localStorage.getItem('cast_prince_admin');
+                        const adminToken = localStorage.getItem('cast_prince_admin') || localStorage.getItem('vaiyaaree_admin');
                         if (adminToken) {
                             reqHeaders['Authorization'] = `Bearer ${adminToken}`;
                         }

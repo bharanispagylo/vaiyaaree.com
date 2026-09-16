@@ -61,6 +61,7 @@ export async function GET(request) {
                 .from('orders')
                 .update({
                     status: 'PAID',
+                    payment_status: 'PAID',
                     payment_method: 'PhonePe',
                     transaction_id: txnId,
                 })
@@ -73,6 +74,7 @@ export async function GET(request) {
                     order: {
                         ...order,
                         status: 'PAID',
+                        payment_status: 'PAID',
                         payment_method: 'PhonePe',
                         transaction_id: txnId,
                         order_items: order?.order_items || []

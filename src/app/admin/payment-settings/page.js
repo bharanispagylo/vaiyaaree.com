@@ -98,7 +98,7 @@ export default function AdminPaymentSettingsPage() {
 
             const updates = Object.entries(payload).map(([key, value]) => ({
                 key,
-                value: value?.toString() || '',
+                value: typeof value === 'string' ? value.trim() : (value?.toString() || ''),
                 updated_at: new Date().toISOString()
             }));
 

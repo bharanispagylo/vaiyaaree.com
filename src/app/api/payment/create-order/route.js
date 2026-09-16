@@ -1,7 +1,7 @@
 import Razorpay from 'razorpay';
-import { mysqlClient, mysqlAdmin } from '@/lib/mysqlClient';
-
+import { mysqlClient } from '@/lib/mysqlClient';
 import { getGatewaySettings } from '@/lib/settings';
+import { ensureOrdersPaymentSchema } from '@/lib/orderSchemaHelper';
 
 export async function POST(request) {
     try {
@@ -11,6 +11,9 @@ export async function POST(request) {
         if (!orderId) {
             return Response.json({ error: 'Missing orderId' }, { status: 400 });
         }
+
+        // Ensure orders table has payment metadata columns
+        await ensureOrdersPaymentSchema();
 
         // Fetch the order and its items from MySQL
         const { data: order, error } = await mysqlClient
@@ -23,17 +26,34 @@ export async function POST(request) {
             return Response.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        // --- Amazon-style Security: Server-side Price Verification ---
-        // Verify that the total_amount matches actual product prices + taxes/shipping from DB.
+        // Fetch items safely with fallback if relation was not populated
+        let items = Array.isArray(order.order_items) ? order.order_items : [];
+        if (items.length === 0) {
+            const { data: dbItems } = await mysqlClient.from('order_items').select('*').eq('order_id', orderId);
+            items = dbItems || [];
+        }
+
+        // --- Server-side Price Verification ---
         let calculatedItemsTotal = 0;
-        for (const item of order.order_items) {
+        for (const item of items) {
+            let unitPrice = null;
             if (item.variant_id) {
-                const { data: variant } = await mysqlClient.from('product_variants').select('price').eq('id', item.variant_id).single();
-                calculatedItemsTotal += (variant?.price || 0) * item.quantity;
-            } else {
-                const { data: product } = await mysqlClient.from('products').select('price').eq('id', item.product_id).single();
-                calculatedItemsTotal += (product?.price || 0) * item.quantity;
+                const { data: variant } = await mysqlClient.from('product_variants').select('price').eq('id', item.variant_id).maybeSingle();
+                if (variant && variant.price !== undefined && variant.price !== null) {
+                    unitPrice = parseFloat(variant.price);
+                }
             }
+            if (unitPrice === null && item.product_id) {
+                const { data: product } = await mysqlClient.from('products').select('price').eq('id', item.product_id).maybeSingle();
+                if (product && product.price !== undefined && product.price !== null) {
+                    unitPrice = parseFloat(product.price);
+                }
+            }
+            if (unitPrice === null) {
+                unitPrice = parseFloat(item.price_at_time || item.price || item.paid_price_per_unit || 0);
+            }
+            const qty = parseInt(item.quantity || item.qty, 10) || 1;
+            calculatedItemsTotal += unitPrice * qty;
         }
 
         const discountTotal = parseFloat(order.total_discount || 0);
@@ -55,9 +75,11 @@ export async function POST(request) {
             ? parseFloat(order.cod_advance_required)
             : (expectedTotal > 0 ? expectedTotal : order.total_amount);
 
-        // Detect if keys are placeholders or missing
-        const isPlaceholder = (key) => !key || key.includes('PASTE_YOUR_KEY');
-        const hasValidKeys = !isPlaceholder(settings.razorpay_key_id) && !isPlaceholder(settings.razorpay_key_secret);
+        // Detect if keys are placeholders or missing (with trimming)
+        const keyId = (settings.razorpay_key_id || '').trim();
+        const keySecret = (settings.razorpay_key_secret || '').trim();
+        const isPlaceholder = (key) => !key || key.includes('PASTE_YOUR_KEY') || key.includes('placeholder');
+        const hasValidKeys = !isPlaceholder(keyId) && !isPlaceholder(keySecret);
 
         if (!hasValidKeys) {
             console.log('Using Razorpay Test Mode Fallback');
@@ -72,23 +94,30 @@ export async function POST(request) {
             });
         }
 
-        const razorpay = new Razorpay({
-            key_id: settings.razorpay_key_id,
-            key_secret: settings.razorpay_key_secret,
-        });
+        let rzpOrder;
+        try {
+            const razorpay = new Razorpay({
+                key_id: keyId,
+                key_secret: keySecret,
+            });
 
-        // Create Razorpay order using server-verified payable amount
-        const rzpOrder = await razorpay.orders.create({
-            amount: Math.round(finalPayableAmount * 100), // amount in paise
-            currency: 'INR',
-            receipt: `receipt_${orderId}`,
-            notes: {
-                orderId: orderId,
-                customerName: order.customer_name,
-                customerPhone: order.customer_phone,
-                paymentType: isCodAdvance ? 'COD_ADVANCE' : 'FULL_PAYMENT'
-            }
-        });
+            // Create Razorpay order using server-verified payable amount
+            rzpOrder = await razorpay.orders.create({
+                amount: Math.round(finalPayableAmount * 100), // amount in paise
+                currency: 'INR',
+                receipt: `receipt_${orderId}`,
+                notes: {
+                    orderId: String(orderId),
+                    customerName: order.customer_name || 'Customer',
+                    customerPhone: order.customer_phone || '',
+                    paymentType: isCodAdvance ? 'COD_ADVANCE' : 'FULL_PAYMENT'
+                }
+            });
+        } catch (gatewayErr) {
+            const description = gatewayErr.error?.description || gatewayErr.description || gatewayErr.message || 'Failed to initialize payment gateway';
+            console.error('[RAZORPAY-INIT-ERROR]', description, gatewayErr);
+            return Response.json({ error: description }, { status: 400 });
+        }
 
         // Store razorpay order ID in our DB for verification later
         await mysqlClient
@@ -99,9 +128,10 @@ export async function POST(request) {
         return Response.json({
             razorpayOrderId: rzpOrder.id,
             amount: rzpOrder.amount,
-            currency: rzpOrder.currency,
-            keyId: settings.razorpay_key_id,
+            currency: rzpOrder.currency || 'INR',
+            keyId: keyId,
             orderDetails: order,
+            isCodAdvance
         });
 
     } catch (err) {

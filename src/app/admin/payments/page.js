@@ -138,7 +138,7 @@ export default function PaymentGatewayPage() {
         try {
             const updates = Object.entries(gatewaySettings).map(([key, value]) => ({
                 key,
-                value: value?.toString() || '',
+                value: typeof value === 'string' ? value.trim() : (value?.toString() || ''),
                 updated_at: new Date().toISOString()
             }));
 

@@ -113,23 +113,17 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                 if (!found && mysqlClient) {
                     const rawParam = decodeURIComponent(String(id)).trim().replace(/\/$/, '');
 
-                    // A. Direct Slug match
-                    const { data: directSlug } = await mysqlClient.from('products').select('*').eq('slug', rawParam).eq('is_active', true).maybeSingle();
-                    if (directSlug) found = directSlug;
-
-                    // B. Direct ID match
-                    if (!found) {
-                        const { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).eq('is_active', true).maybeSingle();
-                        if (directData) found = directData;
-                    }
+                    // A. Direct ID match
+                    let { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
+                    if (directData) found = directData;
 
                     // C. Direct SKU or product_no match
                     if (!found) {
-                        const { data: directSku } = await mysqlClient.from('products').select('*').eq('sku', rawParam).eq('is_active', true).maybeSingle();
+                        const { data: directSku } = await mysqlClient.from('products').select('*').eq('sku', rawParam).maybeSingle();
                         if (directSku) found = directSku;
                     }
                     if (!found) {
-                        const { data: directNo } = await mysqlClient.from('products').select('*').eq('product_no', rawParam).eq('is_active', true).maybeSingle();
+                        const { data: directNo } = await mysqlClient.from('products').select('*').eq('product_no', rawParam).maybeSingle();
                         if (directNo) found = directNo;
                     }
 
@@ -138,14 +132,14 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                         const lastHyphen = rawParam.lastIndexOf('-');
                         if (lastHyphen !== -1) {
                             const identifier = rawParam.substring(lastHyphen + 1);
-                            const { data: byNo } = await mysqlClient.from('products').select('*').eq('product_no', identifier).eq('is_active', true).maybeSingle();
+                            const { data: byNo } = await mysqlClient.from('products').select('*').eq('product_no', identifier).maybeSingle();
                             if (byNo) found = byNo;
                             if (!found) {
-                                const { data: bySku } = await mysqlClient.from('products').select('*').eq('sku', identifier).eq('is_active', true).maybeSingle();
+                                const { data: bySku } = await mysqlClient.from('products').select('*').eq('sku', identifier).maybeSingle();
                                 if (bySku) found = bySku;
                             }
                             if (!found) {
-                                const { data: byId } = await mysqlClient.from('products').select('*').eq('id', identifier).eq('is_active', true).maybeSingle();
+                                const { data: byId } = await mysqlClient.from('products').select('*').eq('id', identifier).maybeSingle();
                                 if (byId) found = byId;
                             }
                         }
@@ -153,7 +147,7 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
 
                     // E. Full list fallback match by slug
                     if (!found) {
-                        const { data: allP } = await mysqlClient.from('products').select('*').eq('is_active', true);
+                        const { data: allP } = await mysqlClient.from('products').select('*');
                         if (allP && allP.length > 0) {
                             found = findProductBySlugOrId(id, allP);
                         }

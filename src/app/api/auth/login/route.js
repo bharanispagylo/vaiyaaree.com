@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import pool from '@/lib/mysql';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { getAdminSettings } from '@/lib/settings';
 import { verifyPassword, hashPassword } from '@/lib/hash';
@@ -29,27 +30,55 @@ export async function POST(req) {
         const rateLimitError = enforceRateLimit(req, 'admin_login', username || 'guest', 5, 60000);
         if (rateLimitError) return rateLimitError;
 
-        if (!username || !username.trim() || !password) {
+        if (!username || !String(username).trim() || !password) {
             return NextResponse.json({ error: 'Username and password are required.' }, { status: 400 });
         }
 
-        const cleanUsername = username.trim();
+        const cleanUsername = String(username).trim();
+        const cleanPassword = String(password);
+        const trimmedPassword = cleanPassword.trim();
         
-        // 1. Try to find in admin_users table
-        const { data: user, error: userError } = await mysqlClient
-            .from('admin_users')
-            .select('*')
-            .or(`username.eq.${cleanUsername},email.eq.${cleanUsername}`)
-            .eq('is_active', true)
-            .maybeSingle();
+        // 1. Try to find in admin_users table (supports case-insensitivity)
+        let user = null;
+        try {
+            const { data } = await mysqlClient
+                .from('admin_users')
+                .select('*')
+                .or(`username.eq.${cleanUsername},email.eq.${cleanUsername}`)
+                .eq('is_active', true)
+                .maybeSingle();
+            user = data;
+        } catch (queryErr) {
+            console.warn('[AUTH] admin_users query warning:', queryErr?.message);
+        }
+
+        // Direct SQL fallback if mysqlClient did not resolve due to casing
+        if (!user) {
+            try {
+                const [rows] = await pool.query(
+                    'SELECT * FROM admin_users WHERE (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)) AND is_active = 1 LIMIT 1',
+                    [cleanUsername, cleanUsername]
+                );
+                if (rows && rows.length > 0) {
+                    user = rows[0];
+                }
+            } catch (dbErr) {
+                console.warn('[AUTH] Direct admin_users query fallback warning:', dbErr?.message);
+            }
+        }
 
         if (user) {
-            const isValid = verifyPassword(password, user.password);
+            const isValid = verifyPassword(cleanPassword, user.password) ||
+                            (trimmedPassword !== cleanPassword && verifyPassword(trimmedPassword, user.password));
 
             if (isValid) {
+                const effectivePassword = (trimmedPassword !== cleanPassword && verifyPassword(trimmedPassword, user.password))
+                    ? trimmedPassword
+                    : cleanPassword;
+
                 // Lazy migration to PBKDF2 if password is using old hash or plaintext
                 if (!user.password || !user.password.startsWith('pbkdf2:')) {
-                    const newPbkdf2Hash = hashPassword(password);
+                    const newPbkdf2Hash = hashPassword(effectivePassword);
                     await mysqlClient.from('admin_users').update({ 
                         password: newPbkdf2Hash,
                         updated_at: new Date().toISOString()
@@ -119,18 +148,28 @@ export async function POST(req) {
                     token,
                     source: 'db_users'
                 });
-            } else {
-                return NextResponse.json({ error: 'Invalid credentials. Please check your username and password.' }, { status: 401 });
             }
         }
 
-        // 2. Fallback to settings mechanism
+        // 2. Fallback to settings mechanism (supports case-insensitivity and PBKDF2/plain/SHA256)
         const { admin_username, admin_password, admin_email } = await getAdminSettings();
-        const masterUsername = admin_username || process.env.ADMIN_USERNAME || 'vaiyaaree';
-        const masterPassword = admin_password || process.env.ADMIN_PASSWORD || 'saree2024';
-        const masterEmail = admin_email || process.env.ADMIN_EMAIL || 'vaiyaaree@gmail.com';
+        const masterUsername = String(admin_username || process.env.ADMIN_USERNAME || 'vaiyaaree').trim();
+        const masterPassword = String(admin_password || process.env.ADMIN_PASSWORD || 'saree2024').trim();
+        const masterEmail = String(admin_email || process.env.ADMIN_EMAIL || 'vaiyaaree@gmail.com').trim();
 
-        if ((cleanUsername === masterUsername || (masterEmail && cleanUsername === masterEmail)) && password === masterPassword) {
+        const isMasterUserMatch = (
+            cleanUsername.toLowerCase() === masterUsername.toLowerCase() ||
+            (masterEmail && cleanUsername.toLowerCase() === masterEmail.toLowerCase())
+        );
+
+        const isMasterPasswordMatch = isMasterUserMatch && (
+            cleanPassword === masterPassword ||
+            trimmedPassword === masterPassword ||
+            verifyPassword(cleanPassword, masterPassword) ||
+            verifyPassword(trimmedPassword, masterPassword)
+        );
+
+        if (isMasterUserMatch && isMasterPasswordMatch) {
             const token = createAdminSessionToken({
                 id: 'master_admin',
                 username: masterUsername,

@@ -48,8 +48,9 @@ export async function generateMetadata({ params }) {
         return METADATA_NOT_FOUND;
     }
     const baseUrl = getBaseUrl();
+    const isExplicitlyInactive = p => !p || p.is_active === 0 || p.is_active === false || String(p.is_active) === '0';
 
-    if (!product || product.is_active === 0 || product.is_active === false || String(product.is_active) === '0' || !product.is_active) {
+    if (isExplicitlyInactive(product)) {
         return {
             title: 'Product Not Found | Vaiyaaree Sarees',
             description: 'The requested product is currently unavailable or does not exist.',
@@ -128,7 +129,8 @@ export default async function ProductPage({ params }) {
     }
     const baseUrl = getBaseUrl();
 
-    if (!product || product.is_active === 0 || product.is_active === false || String(product.is_active) === '0' || !product.is_active) {
+    const isExplicitlyInactive = p => !p || p.is_active === 0 || p.is_active === false || String(p.is_active) === '0';
+    if (isExplicitlyInactive(product)) {
         notFound();
     }
 
