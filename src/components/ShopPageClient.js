@@ -262,8 +262,8 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                             <option value="newness">Sort by latest</option>
                             <option value="price-asc">Price: Low to High</option>
                             <option value="price-desc">Price: High to Low</option>
-                            <option value="name-desc">Alphabetical: A-Z</option>
-                            <option value="name-asc">Alphabetical: Z-A</option>
+                            <option value="name-asc">Alphabetical: A-Z</option>
+                            <option value="name-desc">Alphabetical: Z-A</option>
                         </select>
                         <ChevronDown size={14} className={styles.sidebarSelectArrow} />
                     </div>
