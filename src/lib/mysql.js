@@ -24,6 +24,8 @@ function createPool() {
         dateStrings: true,
         timezone: '+05:30',
         connectTimeout: 15000,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 10000,
         maxAllowedPacket: 67108864 // 64MB packet support
     });
 
@@ -59,6 +61,14 @@ export async function query(sql, params = []) {
     try {
         return await pool.query(sql, params);
     } catch (err) {
+        if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
+            try {
+                return await pool.query(sql, params);
+            } catch (retryErr) {
+                console.error('[MYSQL POOL RETRY QUERY ERROR]', retryErr);
+                throw retryErr;
+            }
+        }
         console.error('[MYSQL POOL QUERY ERROR]', {
             code: err.code,
             message: err.message,

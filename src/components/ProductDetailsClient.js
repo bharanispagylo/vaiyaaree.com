@@ -117,6 +117,12 @@ export default function ProductDetailsClient({ initialProduct = null, initialVar
                     let { data: directData } = await mysqlClient.from('products').select('*').eq('id', rawParam).maybeSingle();
                     if (directData) found = directData;
 
+                    // B. Direct custom slug match
+                    if (!found) {
+                        const { data: directSlug } = await mysqlClient.from('products').select('*').eq('slug', rawParam).maybeSingle();
+                        if (directSlug) found = directSlug;
+                    }
+
                     // C. Direct SKU or product_no match
                     if (!found) {
                         const { data: directSku } = await mysqlClient.from('products').select('*').eq('sku', rawParam).maybeSingle();

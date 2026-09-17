@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import ShopPageClient from '@/components/ShopPageClient';
 import pool from '@/lib/mysql';
+import { getProductSlug } from '@/lib/productUrl';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -115,7 +116,7 @@ export default async function ShopPage() {
             'itemListElement': initialProducts.slice(0, 12).map((p, idx) => ({
                 '@type': 'ListItem',
                 'position': idx + 1,
-                'url': `${baseUrl}/product/${p.slug || p.id}/`,
+                'url': `${baseUrl}/product/${getProductSlug(p)}/`,
                 'name': p.name
             }))
         }

@@ -39,35 +39,69 @@ export function getProductUrl(product) {
  * - UUID: "05134b15-bc05-4d11-82b2-a7b9ee2c695b"
  */
 export function findProductBySlugOrId(param, productsList = []) {
-    if (!param) return null;
-    const rawParam = decodeURIComponent(String(param)).trim().replace(/\/$/, '').toLowerCase();
+    if (!param || !Array.isArray(productsList) || productsList.length === 0) return null;
+    const rawParam = decodeURIComponent(String(param)).trim().replace(/\/$/, '');
+    const cleanLower = rawParam.toLowerCase();
+    const slugParam = slugify(rawParam);
 
     // 0. Direct match on custom slug column
-    let found = productsList.find(p => p.slug && slugify(p.slug) === rawParam);
+    let found = productsList.find(p => p.slug && (
+        String(p.slug).trim().toLowerCase() === cleanLower ||
+        slugify(p.slug) === slugParam ||
+        slugify(p.slug) === cleanLower
+    ));
     if (found) return found;
 
     // 1. Direct UUID or exact ID match
-    found = productsList.find(p => String(p.id).toLowerCase() === rawParam);
+    found = productsList.find(p =>
+        String(p.id).trim().toLowerCase() === cleanLower ||
+        slugify(p.id) === slugParam
+    );
     if (found) return found;
 
     // 2. Direct SKU or product_no match
-    found = productsList.find(p => String(p.product_no).toLowerCase() === rawParam || String(p.sku).toLowerCase() === rawParam);
+    found = productsList.find(p =>
+        (p.product_no && String(p.product_no).trim().toLowerCase() === cleanLower) ||
+        (p.sku && String(p.sku).trim().toLowerCase() === cleanLower) ||
+        (p.product_no && slugify(p.product_no) === slugParam) ||
+        (p.sku && slugify(p.sku) === slugParam)
+    );
     if (found) return found;
 
     // 3. Match exact getProductSlug(p)
-    found = productsList.find(p => getProductSlug(p).toLowerCase() === rawParam);
+    found = productsList.find(p => {
+        const pSlug = getProductSlug(p);
+        return pSlug.toLowerCase() === cleanLower || slugify(pSlug) === slugParam;
+    });
     if (found) return found;
 
-    // 4. Extract trailing identifier after last hyphen
-    const lastHyphenIdx = rawParam.lastIndexOf('-');
+    // 4. Match product name slugified directly (for non-numbered URLs)
+    found = productsList.find(p => p.name && slugify(p.name) === slugParam);
+    if (found) return found;
+
+    // 5. Match by trailing SKU / product_no / ID in slug
+    for (const p of productsList) {
+        const pNo = p.product_no ? slugify(p.product_no) : '';
+        const pSku = p.sku ? slugify(p.sku) : '';
+        const pId = p.id ? slugify(p.id) : '';
+
+        if (pNo && (slugParam === pNo || slugParam.endsWith(`-${pNo}`))) return p;
+        if (pSku && (slugParam === pSku || slugParam.endsWith(`-${pSku}`))) return p;
+        if (pId && (slugParam === pId || slugParam.endsWith(`-${pId}`))) return p;
+    }
+
+    // 6. Extract trailing identifier after last hyphen
+    const lastHyphenIdx = slugParam.lastIndexOf('-');
     if (lastHyphenIdx !== -1) {
-        const identifier = rawParam.substring(lastHyphenIdx + 1);
-        found = productsList.find(p =>
-            String(p.id).toLowerCase() === identifier ||
-            String(p.product_no).toLowerCase() === identifier ||
-            String(p.sku).toLowerCase() === identifier
-        );
-        if (found) return found;
+        const identifier = slugParam.substring(lastHyphenIdx + 1);
+        if (identifier) {
+            found = productsList.find(p =>
+                String(p.id).toLowerCase() === identifier ||
+                String(p.product_no || '').toLowerCase() === identifier ||
+                String(p.sku || '').toLowerCase() === identifier
+            );
+            if (found) return found;
+        }
     }
 
     return null;
