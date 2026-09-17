@@ -5,7 +5,7 @@ import {
     Upload, Trash2, Search, Loader2, Image as ImageIcon,
     X, Check, Copy, Grid, List as ListIcon, RefreshCw, Plus,
     Star, Layout, Droplets, Sparkles, ZoomIn, CheckSquare, Square,
-    AlertTriangle
+    AlertTriangle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { parseUploadResponse, validateImageFile } from '@/lib/uploadHelper';
@@ -28,6 +28,8 @@ export default function MediaLibraryPage() {
     const [analyzing, setAnalyzing] = useState(false);
     const [zoomedImage, setZoomedImage] = useState(null);
     const [confirmAction, setConfirmAction] = useState(null); // { type, title, message, onConfirm, isDanger }
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(48); // 24, 48, 96, 120
     const fileInputRef = useRef(null);
 
     const formatFileSize = (bytes) => {
@@ -162,15 +164,23 @@ export default function MediaLibraryPage() {
         );
     };
 
-    const handleSelectAll = () => {
-        const visibleUrls = filteredFiles.map(f => f.url);
-        const allSelected = visibleUrls.every(u => selectedUrls.includes(u));
+    const handleSelectPage = () => {
+        const pageUrls = paginatedFiles.map(f => f.url);
+        const allSelected = pageUrls.length > 0 && pageUrls.every(u => selectedUrls.includes(u));
         if (allSelected) {
-            // Deselect visible
-            setSelectedUrls(prev => prev.filter(u => !visibleUrls.includes(u)));
+            setSelectedUrls(prev => prev.filter(u => !pageUrls.includes(u)));
         } else {
-            // Select all visible
-            setSelectedUrls(prev => [...new Set([...prev, ...visibleUrls])]);
+            setSelectedUrls(prev => [...new Set([...prev, ...pageUrls])]);
+        }
+    };
+
+    const handleSelectAll = () => {
+        const allUrls = filteredFiles.map(f => f.url);
+        const allSelected = allUrls.length > 0 && allUrls.every(u => selectedUrls.includes(u));
+        if (allSelected) {
+            setSelectedUrls(prev => prev.filter(u => !allUrls.includes(u)));
+        } else {
+            setSelectedUrls(prev => [...new Set([...prev, ...allUrls])]);
         }
     };
 
@@ -376,11 +386,24 @@ export default function MediaLibraryPage() {
         return true;
     });
 
+    // Reset pagination to page 1 whenever search, active filter tab, or page size changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeGroup, pageSize]);
+
+    const totalItems = filteredFiles.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const startIndex = (validCurrentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalItems);
+    const paginatedFiles = filteredFiles.slice(startIndex, endIndex);
+
     const actualWatermarkCount = files.filter(f => Boolean(f.hasWatermark || f.has_watermark || watermarkImages.includes(f.url) || (f.folder && f.folder.includes('with-watermark')))).length;
     const actualNoWatermarkCount = files.filter(f => !Boolean(f.hasWatermark || f.has_watermark || watermarkImages.includes(f.url) || (f.folder && f.folder.includes('with-watermark')))).length;
     
+    const isAllPageSelected = paginatedFiles.length > 0 && paginatedFiles.every(f => selectedUrls.includes(f.url));
+    const isSomePageSelected = paginatedFiles.some(f => selectedUrls.includes(f.url));
     const isAllVisibleSelected = filteredFiles.length > 0 && filteredFiles.every(f => selectedUrls.includes(f.url));
-    const isSomeVisibleSelected = filteredFiles.some(f => selectedUrls.includes(f.url));
 
     useEffect(() => {
         if (notification) {
@@ -455,15 +478,30 @@ export default function MediaLibraryPage() {
                             </span>
                             <span style={{ color: 'rgba(255,255,255,0.4)' }}>•</span>
                             <button
-                                onClick={handleSelectAll}
+                                onClick={handleSelectPage}
                                 style={{
                                     background: 'none', border: 'none', color: '#dfaa5b',
                                     cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
                                     textDecoration: 'underline'
                                 }}
                             >
-                                {isAllVisibleSelected ? 'Deselect All' : `Select All (${filteredFiles.length})`}
+                                {isAllPageSelected ? 'Deselect Page' : `Select Page (${paginatedFiles.length})`}
                             </button>
+                            {totalPages > 1 && (
+                                <>
+                                    <span style={{ color: 'rgba(255,255,255,0.4)' }}>•</span>
+                                    <button
+                                        onClick={handleSelectAll}
+                                        style={{
+                                            background: 'none', border: 'none', color: '#dfaa5b',
+                                            cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
+                                            textDecoration: 'underline'
+                                        }}
+                                    >
+                                        {isAllVisibleSelected ? 'Deselect All' : `Select All (${filteredFiles.length})`}
+                                    </button>
+                                </>
+                            )}
                             <button
                                 onClick={clearSelection}
                                 style={{
@@ -546,27 +584,53 @@ export default function MediaLibraryPage() {
                             />
                         </div>
 
-                        {/* Select All Toggle Button */}
-                        <button
-                            onClick={handleSelectAll}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '0.55rem 1rem',
-                                borderRadius: '10px',
-                                border: '1px solid hsl(var(--border-subtle))',
-                                background: isAllVisibleSelected ? '#27302b' : '#ffffff',
-                                color: isAllVisibleSelected ? '#ffffff' : '#27302b',
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                                fontSize: '0.82rem',
-                                transition: 'all 0.2s ease'
-                            }}
-                        >
-                            {isAllVisibleSelected ? <CheckSquare size={16} color="#d47a06" /> : isSomeVisibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-                            <span>{isAllVisibleSelected ? 'Deselect All' : 'Select All'}</span>
-                        </button>
+                        {/* Select Page / Select All Toggle Button */}
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={handleSelectPage}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '0.55rem 0.9rem',
+                                    borderRadius: '10px',
+                                    border: '1px solid hsl(var(--border-subtle))',
+                                    background: isAllPageSelected ? '#27302b' : '#ffffff',
+                                    color: isAllPageSelected ? '#ffffff' : '#27302b',
+                                    cursor: 'pointer',
+                                    fontWeight: 700,
+                                    fontSize: '0.82rem',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                title="Select or deselect all items on current page"
+                            >
+                                {isAllPageSelected ? <CheckSquare size={16} color="#d47a06" /> : isSomePageSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                                <span>{isAllPageSelected ? 'Deselect Page' : `Select Page (${paginatedFiles.length})`}</span>
+                            </button>
+                            {totalPages > 1 && (
+                                <button
+                                    onClick={handleSelectAll}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '0.55rem 0.9rem',
+                                        borderRadius: '10px',
+                                        border: '1px solid hsl(var(--border-subtle))',
+                                        background: isAllVisibleSelected ? '#27302b' : '#f8fafc',
+                                        color: isAllVisibleSelected ? '#ffffff' : '#475569',
+                                        cursor: 'pointer',
+                                        fontWeight: 700,
+                                        fontSize: '0.82rem',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                    title="Select or deselect all matching items across all pages"
+                                >
+                                    <CheckSquare size={15} color={isAllVisibleSelected ? "#d47a06" : "#64748b"} />
+                                    <span>{isAllVisibleSelected ? 'Deselect All' : `All (${totalItems})`}</span>
+                                </button>
+                            )}
+                        </div>
 
                         {/* View Mode Switcher */}
                         <div style={{ display: 'flex', gap: '0.4rem', background: '#f1f5f9', padding: '0.35rem', borderRadius: '10px' }}>
@@ -664,7 +728,7 @@ export default function MediaLibraryPage() {
                     </div>
                 ) : viewMode === 'grid' ? (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.5rem' }}>
-                        {filteredFiles.map((file) => {
+                        {paginatedFiles.map((file) => {
                             const isSelected = selectedUrls.includes(file.url);
                             return (
                                 <div
@@ -803,8 +867,8 @@ export default function MediaLibraryPage() {
                                     <th style={{ width: '40px', padding: '0.75rem 1rem' }}>
                                         <input
                                             type="checkbox"
-                                            checked={isAllVisibleSelected}
-                                            onChange={handleSelectAll}
+                                            checked={isAllPageSelected}
+                                            onChange={handleSelectPage}
                                             style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                                         />
                                     </th>
@@ -816,7 +880,7 @@ export default function MediaLibraryPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredFiles.map((file) => {
+                                {paginatedFiles.map((file) => {
                                     const isSelected = selectedUrls.includes(file.url);
                                     return (
                                         <tr 
@@ -884,6 +948,144 @@ export default function MediaLibraryPage() {
                                 })}
                             </tbody>
                         </table>
+                    </div>
+                )}
+
+                {/* Pagination Controls */}
+                {totalItems > 0 && (
+                    <div style={{
+                        marginTop: '2rem',
+                        padding: '1.25rem 1.5rem',
+                        background: '#ffffff',
+                        borderRadius: '16px',
+                        border: '1px solid hsl(var(--border-subtle))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                    }}>
+                        {/* Left: Stats & Page size */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.86rem', color: '#64748b', fontWeight: 600 }}>
+                                Showing <strong style={{ color: '#27302b' }}>{startIndex + 1} - {endIndex}</strong> of <strong style={{ color: '#27302b' }}>{totalItems}</strong> images
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Per page:</span>
+                                <select
+                                    value={pageSize}
+                                    onChange={(e) => {
+                                        setPageSize(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="admin-input"
+                                    style={{
+                                        padding: '0.35rem 0.65rem',
+                                        fontSize: '0.82rem',
+                                        borderRadius: '8px',
+                                        fontWeight: 700,
+                                        color: '#27302b',
+                                        background: '#f8fafc',
+                                        border: '1px solid #cbd5e1',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value={24}>24</option>
+                                    <option value={48}>48</option>
+                                    <option value={96}>96</option>
+                                    <option value={120}>120</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Middle / Right: Page navigation buttons */}
+                        {totalPages > 1 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                {/* Previous Button */}
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={validCurrentPage === 1}
+                                    className="btn btn-secondary"
+                                    style={{
+                                        padding: '0.45rem 0.85rem',
+                                        fontSize: '0.82rem',
+                                        opacity: validCurrentPage === 1 ? 0.4 : 1,
+                                        cursor: validCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        borderRadius: '8px',
+                                        fontWeight: 700
+                                    }}
+                                >
+                                    <ChevronLeft size={16} /> Prev
+                                </button>
+
+                                {/* Numbered Pages */}
+                                {(() => {
+                                    const pages = [];
+                                    const range = 2;
+                                    pages.push(1);
+                                    if (validCurrentPage > range + 2) pages.push('...');
+                                    for (let i = Math.max(2, validCurrentPage - range); i <= Math.min(totalPages - 1, validCurrentPage + range); i++) {
+                                        pages.push(i);
+                                    }
+                                    if (validCurrentPage < totalPages - range - 1) pages.push('...');
+                                    if (totalPages > 1) pages.push(totalPages);
+
+                                    return pages.map((page, i) => (
+                                        page === '...' ? (
+                                            <span key={`dots-${i}`} style={{ color: '#94a3b8', padding: '0 0.35rem', fontWeight: 700 }}>...</span>
+                                        ) : (
+                                            <button
+                                                key={page}
+                                                onClick={() => setCurrentPage(page)}
+                                                style={{
+                                                    minWidth: '36px',
+                                                    height: '36px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: '0 0.5rem',
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: 700,
+                                                    borderRadius: '8px',
+                                                    background: validCurrentPage === page ? '#27302b' : '#ffffff',
+                                                    color: validCurrentPage === page ? '#ffffff' : '#475569',
+                                                    border: validCurrentPage === page ? 'none' : '1px solid #e2e8f0',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease',
+                                                    boxShadow: validCurrentPage === page ? '0 3px 8px rgba(39, 48, 43, 0.25)' : 'none'
+                                                }}
+                                            >
+                                                {page}
+                                            </button>
+                                        )
+                                    ));
+                                })()}
+
+                                {/* Next Button */}
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={validCurrentPage === totalPages}
+                                    className="btn btn-secondary"
+                                    style={{
+                                        padding: '0.45rem 0.85rem',
+                                        fontSize: '0.82rem',
+                                        opacity: validCurrentPage === totalPages ? 0.4 : 1,
+                                        cursor: validCurrentPage === totalPages ? 'not-allowed' : 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        borderRadius: '8px',
+                                        fontWeight: 700
+                                    }}
+                                >
+                                    Next <ChevronRight size={16} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
