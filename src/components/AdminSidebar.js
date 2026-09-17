@@ -19,7 +19,15 @@ const menuItems = [
             { name: 'Refund Requests', href: '/admin/refunds' }
         ]
     },
-    { name: 'Products', href: '/admin/products', icon: ShoppingCart },
+    {
+        name: 'Products',
+        icon: ShoppingCart,
+        children: [
+            { name: 'All Products', href: '/admin/products' },
+            { name: 'Product Migration', href: '/admin/products/migrate' },
+            { name: 'Add Product', href: '/admin/products/new' }
+        ]
+    },
     { name: 'Categories', href: '/admin/categories', icon: Layers },
     { name: 'Discount Rule', href: '/admin/discounts', icon: Tag },
     { name: 'Media Library', href: '/admin/media', icon: ImageIcon },

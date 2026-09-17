@@ -9,7 +9,8 @@ import {
     Package, User, Phone, Calendar, Search, ChevronDown, ChevronUp,
     MessageSquare, ExternalLink, RotateCcw, IndianRupee, TrendingUp,
     ChevronLeft, ChevronRight, Truck, Eye, X, Check, Camera, ClipboardCheck,
-    ShieldAlert, AlertTriangle, Send, MapPin, Image as ImageIcon, List, FileText
+    ShieldAlert, AlertTriangle, Send, MapPin, Image as ImageIcon, List, FileText,
+    Trash2, Loader2
 } from 'lucide-react';
 
 // ─── STATUS CONFIG ───────────────────────────────────────────────────────────
@@ -105,6 +106,11 @@ export default function AdminReturnsPage() {
     const [previewImage, setPreviewImage] = useState(null);
     const ITEMS_PER_PAGE = 12;
 
+    // Multi-select & Delete States
+    const [selectedReturnIds, setSelectedReturnIds] = useState([]);
+    const [confirmDelete, setConfirmDelete] = useState(null); // { ids: string[], title: string }
+    const [isDeleting, setIsDeleting] = useState(false);
+
     // Detail Modal state
     const [detailReturn, setDetailReturn] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
@@ -131,6 +137,58 @@ export default function AdminReturnsPage() {
     const [notificationPhone, setNotificationPhone] = useState('');
     const [notificationEmail, setNotificationEmail] = useState('');
     const [sendingNotification, setSendingNotification] = useState(false);
+
+    const toggleSelectReturn = (id, e) => {
+        if (e) e.stopPropagation();
+        setSelectedReturnIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAllOnPage = (e) => {
+        if (e.target.checked) {
+            const pageIds = returns.map(r => r.id);
+            setSelectedReturnIds(prev => Array.from(new Set([...prev, ...pageIds])));
+        } else {
+            const pageIds = returns.map(r => r.id);
+            setSelectedReturnIds(prev => prev.filter(id => !pageIds.includes(id)));
+        }
+    };
+
+    const handleDeleteConfirmed = async () => {
+        if (!confirmDelete || !confirmDelete.ids || confirmDelete.ids.length === 0 || isDeleting) return;
+        const idsToDelete = confirmDelete.ids;
+        setIsDeleting(true);
+
+        try {
+            const token = localStorage.getItem('cast_prince_admin') || '';
+            const res = await fetch('/api/admin/returns/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ ids: idsToDelete })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to delete return requests');
+
+            showNotification(`${idsToDelete.length} return request(s) deleted successfully`, 'success');
+            setSelectedReturnIds(prev => prev.filter(id => !idsToDelete.includes(id)));
+            setConfirmDelete(null);
+            if (detailReturn && idsToDelete.includes(detailReturn.id)) {
+                setDetailReturn(null);
+            }
+            fetchReturns();
+            fetchStatusCounts();
+        } catch (err) {
+            console.error('Delete Returns Error:', err);
+            showNotification(err.message || 'Failed to delete return requests', 'error');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     function openNotificationModal(ret) {
         const r = ret || detailReturn;
@@ -758,9 +816,66 @@ export default function AdminReturnsPage() {
 
             {/* Table */}
             <div style={{ background: 'hsl(var(--bg-card))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', overflowX: 'auto', marginBottom: '2rem' }}>
-                <div style={{ padding: '1rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                     <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Return Requests ({totalCount})</h2>
                 </div>
+
+                {/* Bulk Selection Bar */}
+                {selectedReturnIds.length > 0 && (
+                    <div className="animate-enter" style={{
+                        padding: '0.75rem 1.5rem',
+                        background: '#1e293b',
+                        color: '#ffffff',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                                {selectedReturnIds.length} {selectedReturnIds.length === 1 ? 'Return Request' : 'Return Requests'} Selected
+                            </span>
+                            <button
+                                onClick={() => setSelectedReturnIds([])}
+                                style={{
+                                    background: 'transparent',
+                                    border: '1px solid rgba(255,255,255,0.3)',
+                                    color: '#cbd5e1',
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <button
+                                onClick={() => setConfirmDelete({ ids: selectedReturnIds, title: `${selectedReturnIds.length} Return Requests` })}
+                                className="btn"
+                                style={{
+                                    background: '#ef4444',
+                                    color: '#ffffff',
+                                    padding: '0.45rem 1rem',
+                                    borderRadius: '8px',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    border: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Trash2 size={15} /> Delete Selected ({selectedReturnIds.length})
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {loading ? (
                     <div style={{ padding: '4rem', textAlign: 'center' }}>
                         <RefreshCcw size={28} style={{ animation: 'spin 1s linear infinite', opacity: 0.4 }} />
@@ -774,6 +889,15 @@ export default function AdminReturnsPage() {
                     <table style={{ width: '100%', margin: 0 }}>
                         <thead>
                             <tr>
+                                <th style={{ width: '40px', padding: '0.85rem 0.75rem', textAlign: 'center' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={returns.length > 0 && returns.every(r => selectedReturnIds.includes(r.id))}
+                                        onChange={handleSelectAllOnPage}
+                                        style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--primary))' }}
+                                        aria-label="Select all returns on page"
+                                    />
+                                </th>
                                 <th>RETURN ID / INVOICE</th>
                                 <th>CUSTOMER</th>
                                 <th>PRODUCT</th>
@@ -797,9 +921,27 @@ export default function AdminReturnsPage() {
                                 const isPendingRequest = ['RETURN_REQUESTED', 'PENDING'].includes(r.status);
                                 const isApprovedRequest = ['RETURN_APPROVED', 'APPROVED'].includes(r.status);
                                 const isShippedRequest = ['CUSTOMER_SHIPPED', 'IN_TRANSIT'].includes(r.status);
+                                const isSelected = selectedReturnIds.includes(r.id);
 
                                 return (
-                                    <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => openDetail(r)}>
+                                    <tr
+                                        key={r.id}
+                                        style={{
+                                            cursor: 'pointer',
+                                            transition: 'background 0.2s',
+                                            background: isSelected ? 'hsl(var(--primary) / 0.06)' : 'transparent'
+                                        }}
+                                        onClick={() => openDetail(r)}
+                                    >
+                                        <td style={{ width: '40px', padding: '0.85rem 0.75rem', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => toggleSelectReturn(r.id, e)}
+                                                style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--primary))' }}
+                                                aria-label={`Select return request ${r.return_id || r.id}`}
+                                            />
+                                        </td>
                                         <td>
                                             <div style={{ fontWeight: 700, color: '#4f46e5', fontSize: '0.85rem' }}>{invNo}</div>
                                             <div style={{ fontSize: '0.72rem', color: '#000000' }}>{r.return_id || `#${String(r.id).slice(0, 8)}`}</div>
@@ -867,7 +1009,7 @@ export default function AdminReturnsPage() {
                                                                 e.stopPropagation();
                                                                 const reason = prompt('Enter rejection reason for customer:', 'Does not meet return conditions.');
                                                                 if (reason !== null) performDirectRowAction(r.id, 'reject', reason);
-                                                            }}
+                                                             }}
                                                             disabled={actionLoading}
                                                             title="Reject Return Request"
                                                             style={{
@@ -906,6 +1048,24 @@ export default function AdminReturnsPage() {
                                                 >
                                                     <Eye size={13} /> View
                                                 </button>
+
+                                                <button
+                                                    onClick={e => {
+                                                        e.stopPropagation();
+                                                        setConfirmDelete({
+                                                            ids: [r.id],
+                                                            title: r.return_id || `Return #${String(r.id).slice(0, 8)}`
+                                                        });
+                                                    }}
+                                                    title="Delete Return Request"
+                                                    style={{
+                                                        padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #fee2e2',
+                                                        background: '#fff', cursor: 'pointer', color: '#dc2626',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -935,7 +1095,7 @@ export default function AdminReturnsPage() {
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '2rem 1rem' }} onClick={() => setDetailReturn(null)}>
                         <div style={{ background: 'hsl(var(--bg-card))', borderRadius: '16px', width: '100%', maxWidth: '800px', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
                             {/* Modal Header */}
-                            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                                 <div>
                                     <div style={{ fontWeight: 800, fontSize: '1.15rem' }}>
                                         {detailReturn.return_id || `Return #${String(detailReturn.id).slice(0, 8)}`}
@@ -945,9 +1105,33 @@ export default function AdminReturnsPage() {
                                         Requested on: {formatAppDate(detailReturn.created_at, true)}
                                     </div>
                                 </div>
-                                <button onClick={() => setDetailReturn(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '0.4rem', cursor: 'pointer' }}>
-                                    <X size={20} />
-                                </button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <button
+                                        onClick={() => setConfirmDelete({
+                                            ids: [detailReturn.id],
+                                            title: detailReturn.return_id || `Return #${String(detailReturn.id).slice(0, 8)}`
+                                        })}
+                                        style={{
+                                            background: '#fee2e2',
+                                            border: '1px solid #fecaca',
+                                            borderRadius: '8px',
+                                            padding: '0.45rem 0.85rem',
+                                            color: '#dc2626',
+                                            cursor: 'pointer',
+                                            fontWeight: 700,
+                                            fontSize: '0.8rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.35rem'
+                                        }}
+                                        title="Delete Return Request"
+                                    >
+                                        <Trash2 size={14} /> Delete
+                                    </button>
+                                    <button onClick={() => setDetailReturn(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '0.4rem', cursor: 'pointer' }}>
+                                        <X size={20} />
+                                    </button>
+                                </div>
                             </div>
 
                             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -1311,6 +1495,87 @@ export default function AdminReturnsPage() {
                                     }}
                                 >
                                     {sendingNotification ? 'Sending...' : 'Send'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </ModalPortal>
+            )}
+
+            {/* ─── Delete Confirmation Modal ────────────────────────────────────── */}
+            {confirmDelete && (
+                <ModalPortal>
+                    <div
+                        style={{
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+                            backdropFilter: 'blur(4px)', zIndex: 100000,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: '1.5rem', animation: 'fadeIn 0.2s ease-out'
+                        }}
+                        onClick={() => !isDeleting && setConfirmDelete(null)}
+                    >
+                        <div
+                            style={{
+                                background: '#ffffff', borderRadius: '16px', maxWidth: '440px', width: '100%',
+                                padding: '1.75rem', boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+                                border: '1px solid #fee2e2'
+                            }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
+                                <div style={{
+                                    width: '44px', height: '44px', borderRadius: '12px',
+                                    background: '#fee2e2', color: '#ef4444',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    <Trash2 size={22} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>
+                                        Delete Return Request{confirmDelete.ids?.length > 1 ? 's' : ''}?
+                                    </h3>
+                                    <p style={{ margin: '0.4rem 0 0', fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
+                                        Are you sure you want to permanently delete <strong style={{ color: '#0f172a' }}>{confirmDelete.title || `${confirmDelete.ids?.length} return request(s)`}</strong>?
+                                        This will also remove all associated images, shipping data, and status logs. This action cannot be undone.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                                <button
+                                    onClick={() => setConfirmDelete(null)}
+                                    disabled={isDeleting}
+                                    style={{
+                                        padding: '0.6rem 1.25rem', borderRadius: '10px',
+                                        border: '1.5px solid #cbd5e1', background: '#ffffff',
+                                        color: '#475569', fontWeight: 700, fontSize: '0.875rem',
+                                        cursor: isDeleting ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteConfirmed}
+                                    disabled={isDeleting}
+                                    style={{
+                                        padding: '0.6rem 1.4rem', borderRadius: '10px',
+                                        border: 'none', background: '#ef4444',
+                                        color: '#ffffff', fontWeight: 700, fontSize: '0.875rem',
+                                        cursor: isDeleting ? 'not-allowed' : 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                        boxShadow: '0 4px 14px rgba(239, 68, 68, 0.3)'
+                                    }}
+                                >
+                                    {isDeleting ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> Deleting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 size={16} /> Delete Permanently
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>

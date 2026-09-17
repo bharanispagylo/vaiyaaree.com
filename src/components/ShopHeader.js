@@ -33,6 +33,13 @@ export default function ShopHeader() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isCartAlerting, setIsCartAlerting] = useState(false);
+    const [headerBranding, setHeaderBranding] = useState({
+        shop_logo: '/images/vaiyaaree-logo.png',
+        header_logo_text: 'VAIYAAREE',
+        header_logo_caption: 'SILKS & WEAVES',
+        header_announcement_text: 'FREE ALL-INDIA SHIPPING • 100% AUTHENTIC HANDLOOM SILKS',
+        header_phone: '+91 86677 93292'
+    });
     const [navItems, setNavItems] = useState([
         { id: 'item_home', title: 'Home', url: '/', target: '_self', children: [] },
         { id: 'item_shop', title: 'Shop Collections', url: '/shop', target: '_self', children: [] },
@@ -46,6 +53,7 @@ export default function ShopHeader() {
     useEffect(() => {
         setMounted(true);
         let isMounted = true;
+        
         async function fetchMenu() {
             try {
                 const res = await fetch('/api/navigation/menu?location=primary');
@@ -59,7 +67,23 @@ export default function ShopHeader() {
                 console.warn('[SHOP-HEADER] Dynamic menu fetch failed, using default:', err);
             }
         }
+
+        async function fetchHeaderBranding() {
+            try {
+                const res = await fetch('/api/header-settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (isMounted && data.success && data.settings) {
+                        setHeaderBranding(prev => ({ ...prev, ...data.settings }));
+                    }
+                }
+            } catch (err) {
+                console.warn('[SHOP-HEADER] Header settings fetch failed:', err);
+            }
+        }
+
         fetchMenu();
+        fetchHeaderBranding();
         return () => { isMounted = false; };
     }, []);
 
@@ -104,6 +128,12 @@ export default function ShopHeader() {
 
     const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
+    const logoSrc = headerBranding.shop_logo ? (
+        headerBranding.shop_logo.startsWith('http') || headerBranding.shop_logo.startsWith('/')
+            ? headerBranding.shop_logo
+            : `/images/${headerBranding.shop_logo}`
+    ) : '/images/vaiyaaree-logo.png';
+
     return (
         <div className={styles.headerContainer} suppressHydrationWarning>
             {/* Top Royal Indian Announcement Bar */}
@@ -112,13 +142,13 @@ export default function ShopHeader() {
                     <div className={styles.topBarLeft}>
                         <span className={styles.topBarIconText}>
                             <Sparkles size={12} className={styles.goldSparkle} />
-                            FREE ALL-INDIA SHIPPING • 100% AUTHENTIC HANDLOOM SILKS
+                            {headerBranding.header_announcement_text || 'FREE ALL-INDIA SHIPPING • 100% AUTHENTIC HANDLOOM SILKS'}
                         </span>
                     </div>
                     <div className={styles.topBarRight}>
-                        <a href="tel:+918667793292" className={styles.topBarPhoneLink}>
+                        <a href={`tel:${(headerBranding.header_phone || '+91 86677 93292').replace(/\s+/g, '')}`} className={styles.topBarPhoneLink}>
                             <Phone size={11} className={styles.goldSparkle} />
-                            +91 86677 93292
+                            {formatPhoneDisplay(headerBranding.header_phone) || '+91 86677 93292'}
                         </a>
                         <span className={styles.topBarSep}>|</span>
                         <Link href="/about-us" className={styles.topBarLink}>WEAVER'S STORY</Link>
@@ -133,17 +163,19 @@ export default function ShopHeader() {
                             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
                         <Link href="/" className={styles.logoLink}>
-                            <Image 
-                                src="/images/vaiyaaree-logo.png" 
-                                alt="Vaiyaaree" 
+                            <img 
+                                src={logoSrc} 
+                                alt={headerBranding.header_logo_text || "Vaiyaaree"} 
                                 width={48}
                                 height={48}
                                 className={styles.logoImg} 
-                                priority
+                                style={{ objectFit: 'contain' }}
                             />
                             <div className={styles.logoBrandBlock}>
-                                <span className={styles.logoBrandName}>VAIYAAREE</span>
-                                <span className={styles.logoTagline}>SILKS & WEAVES</span>
+                                <span className={styles.logoBrandName}>{headerBranding.header_logo_text || 'VAIYAAREE'}</span>
+                                {headerBranding.header_logo_caption && (
+                                    <span className={styles.logoTagline}>{headerBranding.header_logo_caption}</span>
+                                )}
                             </div>
                         </Link>
                     </div>

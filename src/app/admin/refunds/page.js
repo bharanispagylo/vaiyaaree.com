@@ -8,7 +8,8 @@ import ModalPortal from '@/components/ModalPortal';
 import { 
     ArrowLeft, RefreshCcw, Clock, CheckCircle, XCircle, AlertCircle, 
     IndianRupee, Package, User, Phone, Calendar, Search, Filter,
-    ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink, ChevronLeft, ChevronRight, Truck, Camera
+    ChevronDown, ChevronUp, MessageSquare, Mail, ExternalLink, ChevronLeft, ChevronRight, Truck, Camera,
+    Trash2, Loader2
 } from 'lucide-react';
 
 export default function RefundsPage() {
@@ -42,6 +43,12 @@ export default function RefundsPage() {
     const [notification, setNotification] = useState(null);
     const [refundsPage, setRefundsPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
+
+    // Multi-select & Delete States
+    const [selectedRefundIds, setSelectedRefundIds] = useState([]);
+    const [confirmDelete, setConfirmDelete] = useState(null); // { ids: string[], title: string }
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const [statusCounts, setStatusCounts] = useState({
         total: 0,
         requested: 0,
@@ -50,6 +57,59 @@ export default function RefundsPage() {
         refunded: 0
     });
     const REFUNDS_PER_PAGE = 10;
+
+    const toggleSelectRefund = (id, e) => {
+        if (e) e.stopPropagation();
+        setSelectedRefundIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAllOnPage = (e) => {
+        if (e.target.checked) {
+            const pageIds = refunds.map(r => r.id);
+            setSelectedRefundIds(prev => Array.from(new Set([...prev, ...pageIds])));
+        } else {
+            const pageIds = refunds.map(r => r.id);
+            setSelectedRefundIds(prev => prev.filter(id => !pageIds.includes(id)));
+        }
+    };
+
+    const handleDeleteConfirmed = async () => {
+        if (!confirmDelete || !confirmDelete.ids || confirmDelete.ids.length === 0 || isDeleting) return;
+        const idsToDelete = confirmDelete.ids;
+        setIsDeleting(true);
+
+        try {
+            const token = localStorage.getItem('cast_prince_admin') || '';
+            const res = await fetch('/api/admin/refunds/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ ids: idsToDelete })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to delete refund requests');
+
+            showNotification(`${idsToDelete.length} refund request(s) deleted successfully`, 'success');
+            setSelectedRefundIds(prev => prev.filter(id => !idsToDelete.includes(id)));
+            setConfirmDelete(null);
+            if (selectedRefund && idsToDelete.includes(selectedRefund.id)) {
+                setSelectedRefund(null);
+                setShowDetailModal(false);
+            }
+            fetchRefunds();
+            fetchStatusCounts();
+        } catch (err) {
+            console.error('Delete Refunds Error:', err);
+            showNotification(err.message || 'Failed to delete refund requests', 'error');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -390,6 +450,62 @@ export default function RefundsPage() {
 
             {/* Refunds Table */}
             <div style={{ background: 'hsl(var(--bg-card))', borderRadius: '12px', border: '1px solid hsl(var(--border-subtle))', overflowX: 'auto' }}>
+                {/* Bulk Selection Bar */}
+                {selectedRefundIds.length > 0 && (
+                    <div className="animate-enter" style={{
+                        padding: '0.75rem 1.5rem',
+                        background: '#1e293b',
+                        color: '#ffffff',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                                {selectedRefundIds.length} {selectedRefundIds.length === 1 ? 'Refund Request' : 'Refund Requests'} Selected
+                            </span>
+                            <button
+                                onClick={() => setSelectedRefundIds([])}
+                                style={{
+                                    background: 'transparent',
+                                    border: '1px solid rgba(255,255,255,0.3)',
+                                    color: '#cbd5e1',
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <button
+                                onClick={() => setConfirmDelete({ ids: selectedRefundIds, title: `${selectedRefundIds.length} Refund Requests` })}
+                                className="btn"
+                                style={{
+                                    background: '#ef4444',
+                                    color: '#ffffff',
+                                    padding: '0.45rem 1rem',
+                                    borderRadius: '8px',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    border: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Trash2 size={15} /> Delete Selected ({selectedRefundIds.length})
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {loading ? (
                     <div style={{ padding: '4rem', textAlign: 'center', color: 'hsl(var(--text-muted))' }}>
                         <RefreshCcw size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '1rem' }} />
@@ -404,6 +520,15 @@ export default function RefundsPage() {
                     <table style={{ width: '100%', margin: 0 }}>
                         <thead>
                             <tr>
+                                <th style={{ width: '40px', padding: '0.85rem 0.75rem', textAlign: 'center' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={refunds.length > 0 && refunds.every(r => selectedRefundIds.includes(r.id))}
+                                        onChange={handleSelectAllOnPage}
+                                        style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--primary))' }}
+                                        aria-label="Select all refunds on page"
+                                    />
+                                </th>
                                 <th>Refund ID</th>
                                 <th>Invoice No</th>
                                 <th>Customer</th>
@@ -424,9 +549,29 @@ export default function RefundsPage() {
                                 const displayInv = refund.orders?.invoice_no 
                                     ? (refund.orders.invoice_no.startsWith('#') ? refund.orders.invoice_no : `#${refund.orders.invoice_no}`)
                                     : `#${String(refund.order_id).replace(/^[A-Z]+-/, 'INV-')}`;
+                                const isSelected = selectedRefundIds.includes(refund.id);
 
                                 return (
-                                    <tr key={refund.id} onClick={() => { setSelectedRefund(refund); setShowDetailModal(true); }} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+                                    <tr
+                                        key={refund.id}
+                                        onClick={() => { setSelectedRefund(refund); setShowDetailModal(true); }}
+                                        style={{
+                                            cursor: 'pointer',
+                                            transition: 'background 0.2s',
+                                            background: isSelected ? 'hsl(var(--primary) / 0.06)' : 'transparent'
+                                        }}
+                                        onMouseOver={(e) => { if (!isSelected) e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'; }}
+                                        onMouseOut={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                    >
+                                        <td style={{ width: '40px', padding: '0.85rem 0.75rem', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => toggleSelectRefund(refund.id, e)}
+                                                style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'hsl(var(--primary))' }}
+                                                aria-label={`Select refund request ${refundCode}`}
+                                            />
+                                        </td>
                                         <td style={{ fontWeight: 800, color: 'hsl(var(--primary))' }}>
                                             {refundCode}
                                         </td>
@@ -463,7 +608,7 @@ export default function RefundsPage() {
                                             {new Date(refund.created_at || refund.requested_at).toLocaleDateString('en-IN')}
                                         </td>
                                         <td>
-                                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setSelectedRefund(refund); setShowDetailModal(true); }}
                                                     className="btn btn-secondary"
@@ -530,6 +675,28 @@ export default function RefundsPage() {
                                                         Mark Refunded
                                                     </button>
                                                 )}
+
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setConfirmDelete({
+                                                            ids: [refund.id],
+                                                            title: refundCode
+                                                        });
+                                                    }}
+                                                    className="btn btn-secondary"
+                                                    style={{
+                                                        padding: '0.35rem 0.5rem',
+                                                        color: '#ef4444',
+                                                        borderColor: 'rgba(239,68,68,0.2)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    title="Delete Refund Request"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -571,14 +738,37 @@ export default function RefundsPage() {
                         maxWidth: '750px', width: '100%', maxHeight: '90vh',
                         overflow: 'auto', boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
                     }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-subtle))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <RefreshCcw size={24} color="hsl(var(--warning))" />
                                 Refund Details — {selectedRefund.refund_id || `RF-${String(selectedRefund.id).substring(0, 8)}`}
                             </h2>
-                            <button onClick={() => setShowDetailModal(false)} className="btn btn-secondary" style={{ padding: '0.4rem' }}>
-                                <XCircle size={20} />
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <button
+                                    onClick={() => setConfirmDelete({
+                                        ids: [selectedRefund.id],
+                                        title: selectedRefund.refund_id || `RF-${String(selectedRefund.id).substring(0, 8)}`
+                                    })}
+                                    className="btn btn-secondary"
+                                    style={{
+                                        padding: '0.4rem 0.85rem',
+                                        color: '#dc2626',
+                                        borderColor: '#fecaca',
+                                        background: '#fee2e2',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 700,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                    title="Delete Refund Request"
+                                >
+                                    <Trash2 size={14} /> Delete
+                                </button>
+                                <button onClick={() => setShowDetailModal(false)} className="btn btn-secondary" style={{ padding: '0.4rem' }}>
+                                    <XCircle size={20} />
+                                </button>
+                            </div>
                         </div>
                         
                         <div style={{ padding: '1.5rem' }}>
@@ -907,6 +1097,87 @@ export default function RefundsPage() {
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
+            )}
+
+            {/* ─── Delete Confirmation Modal ────────────────────────────────────── */}
+            {confirmDelete && (
+                <ModalPortal>
+                    <div
+                        style={{
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+                            backdropFilter: 'blur(4px)', zIndex: 100000,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: '1.5rem', animation: 'fadeIn 0.2s ease-out'
+                        }}
+                        onClick={() => !isDeleting && setConfirmDelete(null)}
+                    >
+                        <div
+                            style={{
+                                background: '#ffffff', borderRadius: '16px', maxWidth: '440px', width: '100%',
+                                padding: '1.75rem', boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+                                border: '1px solid #fee2e2'
+                            }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
+                                <div style={{
+                                    width: '44px', height: '44px', borderRadius: '12px',
+                                    background: '#fee2e2', color: '#ef4444',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    <Trash2 size={22} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>
+                                        Delete Refund Request{confirmDelete.ids?.length > 1 ? 's' : ''}?
+                                    </h3>
+                                    <p style={{ margin: '0.4rem 0 0', fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
+                                        Are you sure you want to permanently delete <strong style={{ color: '#0f172a' }}>{confirmDelete.title || `${confirmDelete.ids?.length} refund request(s)`}</strong>?
+                                        This will remove all associated shipment and tracking records. This action cannot be undone.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                                <button
+                                    onClick={() => setConfirmDelete(null)}
+                                    disabled={isDeleting}
+                                    style={{
+                                        padding: '0.6rem 1.25rem', borderRadius: '10px',
+                                        border: '1.5px solid #cbd5e1', background: '#ffffff',
+                                        color: '#475569', fontWeight: 700, fontSize: '0.875rem',
+                                        cursor: isDeleting ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDeleteConfirmed}
+                                    disabled={isDeleting}
+                                    style={{
+                                        padding: '0.6rem 1.4rem', borderRadius: '10px',
+                                        border: 'none', background: '#ef4444',
+                                        color: '#ffffff', fontWeight: 700, fontSize: '0.875rem',
+                                        cursor: isDeleting ? 'not-allowed' : 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                        boxShadow: '0 4px 14px rgba(239, 68, 68, 0.3)'
+                                    }}
+                                >
+                                    {isDeleting ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> Deleting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 size={16} /> Delete Permanently
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </ModalPortal>
             )}
         </div>

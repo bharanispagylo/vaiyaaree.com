@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import MediaPicker from '@/components/MediaPicker';
 import { RangoliOrnament, LotusMotif } from '@/components/RangoliMotif';
-import { DEFAULT_FOOTER_SETTINGS } from '@/app/api/footer-settings/route';
+import { DEFAULT_FOOTER_SETTINGS } from '@/lib/footerConstants';
 
 const WhatsAppIcon = ({ size = 20, className }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>

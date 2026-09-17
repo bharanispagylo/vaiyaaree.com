@@ -479,7 +479,9 @@ export function ShopProvider({ children }) {
                     'coming_soon_instagram',
                     'coming_soon_facebook',
                     'shop_logo',
-                    'shop_name'
+                    'shop_name',
+                    'header_logo_text',
+                    'header_logo_caption'
                 ]);
 
             if (data && data.length > 0) {
@@ -497,7 +499,9 @@ export function ShopProvider({ children }) {
                     instagram: map.coming_soon_instagram || '',
                     facebook: map.coming_soon_facebook || '',
                     logo: map.shop_logo || '/images/vaiyaaree-logo.png',
-                    shop_name: map.shop_name || 'Vaiyaaree Sarees'
+                    shop_name: map.shop_name || 'Vaiyaaree Sarees',
+                    header_logo_text: map.header_logo_text || 'VAIYAAREE',
+                    header_logo_caption: map.header_logo_caption || 'SILKS & WEAVES'
                 } : null;
 
                 setComingSoonSettings(csObj);

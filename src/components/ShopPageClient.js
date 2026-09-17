@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Search, Grid, List, Filter, ArrowUpDown, X, Check, ShoppingCart, SlidersHorizontal, ChevronDown, Package, Clock, Tag, MessageCircle, Truck, User, LogOut, MapPin } from 'lucide-react';
+import { Search, Grid, List, Filter, ArrowUpDown, X, Check, ShoppingCart, SlidersHorizontal, ChevronDown, Package, Clock, Tag, MessageCircle, Truck, User, LogOut, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ProductCard from '@/components/ProductCard';
 import styles from '@/app/(shop-portal)/shop/shop.module.css';
@@ -618,35 +618,138 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                                 <ProductCard key={product.id} product={product} gridView={gridView} />
                             ))}
                         </div>
-                        {filteredProducts.length > ITEMS_PER_PAGE && (
-                            <div className={styles.paginationWrapper} style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '3rem', borderTop: '1px solid #e2e8f0', paddingTop: '2rem' }}>
-                                <button
-                                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                                    disabled={currentPage === 1}
-                                    style={{ padding: '0.5rem 1rem', background: currentPage === 1 ? '#f1f5f9' : '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#475569' }}
-                                >
-                                    Previous
-                                </button>
+                        {filteredProducts.length > ITEMS_PER_PAGE && (() => {
+                            const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
 
-                                {Array.from({ length: Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) }).map((_, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => handlePageChange(i + 1)}
-                                        style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: currentPage === i + 1 ? '#0f172a' : '#fff', color: currentPage === i + 1 ? '#fff' : '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
-                                    >
-                                        {i + 1}
-                                    </button>
-                                ))}
+                            // Helper to generate the smart page list with ellipses
+                            const getPageNumbers = () => {
+                                if (totalPages <= 7) {
+                                    return Array.from({ length: totalPages }, (_, i) => i + 1);
+                                }
+                                if (currentPage <= 4) {
+                                    return [1, 2, 3, 4, 5, '...', totalPages];
+                                }
+                                if (currentPage >= totalPages - 3) {
+                                    return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+                                }
+                                return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+                            };
 
-                                <button
-                                    onClick={() => handlePageChange(Math.min(Math.ceil(filteredProducts.length / ITEMS_PER_PAGE), currentPage + 1))}
-                                    disabled={currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)}
-                                    style={{ padding: '0.5rem 1rem', background: currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) ? '#f1f5f9' : '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: currentPage === Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#475569' }}
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        )}
+                            const pageNumbers = getPageNumbers();
+                            const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1;
+                            const endItem = Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length);
+
+                            return (
+                                <div style={{ marginTop: '3rem', borderTop: '1px solid #e2e8f0', paddingTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                    {/* Range Indicator */}
+                                    <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
+                                        Showing <strong>{startItem}–{endItem}</strong> of <strong>{filteredProducts.length}</strong> items (Page {currentPage} of {totalPages})
+                                    </div>
+
+                                    {/* Pagination Controls */}
+                                    <div className={styles.paginationWrapper} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        {/* Previous Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                                            disabled={currentPage === 1}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '0.5rem 0.85rem',
+                                                background: currentPage === 1 ? '#f8fafc' : '#fff',
+                                                color: currentPage === 1 ? '#94a3b8' : '#334155',
+                                                border: '1px solid #e2e8f0',
+                                                borderRadius: '8px',
+                                                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                                fontWeight: 600,
+                                                fontSize: '0.85rem',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                            title="Previous Page"
+                                        >
+                                            <ChevronLeft size={16} /> Previous
+                                        </button>
+
+                                        {/* Page Numbers & Ellipses */}
+                                        {pageNumbers.map((p, idx) => {
+                                            if (p === '...') {
+                                                return (
+                                                    <span
+                                                        key={`ellipsis-${idx}`}
+                                                        style={{
+                                                            width: '36px',
+                                                            height: '38px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: '#94a3b8',
+                                                            fontSize: '0.9rem',
+                                                            userSelect: 'none'
+                                                        }}
+                                                    >
+                                                        ...
+                                                    </span>
+                                                );
+                                            }
+
+                                            const isCurrent = currentPage === p;
+                                            return (
+                                                <button
+                                                    key={`page-${p}`}
+                                                    type="button"
+                                                    onClick={() => handlePageChange(p)}
+                                                    style={{
+                                                        minWidth: '38px',
+                                                        height: '38px',
+                                                        padding: '0 0.5rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        background: isCurrent ? '#0f172a' : '#fff',
+                                                        color: isCurrent ? '#fff' : '#334155',
+                                                        border: isCurrent ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: isCurrent ? 700 : 600,
+                                                        fontSize: '0.85rem',
+                                                        boxShadow: isCurrent ? '0 2px 8px -1px rgba(15, 23, 42, 0.25)' : 'none',
+                                                        transition: 'all 0.15s ease'
+                                                    }}
+                                                >
+                                                    {p}
+                                                </button>
+                                            );
+                                        })}
+
+                                        {/* Next Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                                            disabled={currentPage === totalPages}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '0.5rem 0.85rem',
+                                                background: currentPage === totalPages ? '#f8fafc' : '#fff',
+                                                color: currentPage === totalPages ? '#94a3b8' : '#334155',
+                                                border: '1px solid #e2e8f0',
+                                                borderRadius: '8px',
+                                                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                                fontWeight: 600,
+                                                fontSize: '0.85rem',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                            title="Next Page"
+                                        >
+                                            Next <ChevronRight size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </>
                 )}
             </div>

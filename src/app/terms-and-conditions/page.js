@@ -1,5 +1,5 @@
 import PolicyPage from '@/components/PolicyPage';
 
 export default function Page() {
-    return <PolicyPage slug="terms-conditions" />;
+    return <PolicyPage slug="terms-and-conditions" />;
 }

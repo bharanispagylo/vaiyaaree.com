@@ -7,7 +7,7 @@ import {
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
     Upload, Globe, Phone, Mail, Clock, ArrowRight, CreditCard, ShieldCheck, Lock,
     MessageCircle, Bot, Sparkles, Radio, ShieldAlert, Truck, Sliders, Type, Palette,
-    Layout, Layers, Send, HelpCircle, Key, Server
+    Layout, Layers, Send, HelpCircle, Key, Server, Eye
 } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
@@ -138,6 +138,10 @@ export default function ShopSettingsPage() {
                 theme_font_heading: 'Cinzel',
                 shop_name: 'Vaiyaaree Sarees',
                 shop_logo: '/images/vaiyaaree-logo.png',
+                header_logo_text: 'VAIYAAREE',
+                header_logo_caption: 'SILKS & WEAVES',
+                header_announcement_text: 'FREE ALL-INDIA SHIPPING • 100% AUTHENTIC HANDLOOM SILKS',
+                header_phone: '+91 86677 93292',
                 shop_address: 'Coimbatore, Tamil Nadu - 641015.',
                 shop_gstin: '',
                 communication_channel: 'whatsapp',
@@ -185,7 +189,7 @@ export default function ShopSettingsPage() {
         try {
             const updates = Object.entries(settings).map(([key, value]) => ({
                 key,
-                value: value?.toString() || '',
+                value: typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value ?? ''),
                 updated_at: new Date().toISOString()
             }));
 
@@ -390,7 +394,7 @@ export default function ShopSettingsPage() {
                                 </div>
 
                                 <div className="field-group">
-                                    <label><Image size={14} color="#5d0821" /> Official Shop Logo</label>
+                                    <label><Image size={14} color="#5d0821" /> Official Shop Logo Image</label>
                                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                         <input
                                             type="text"
@@ -412,17 +416,54 @@ export default function ShopSettingsPage() {
                                             <Upload size={16} /> Choose Media
                                         </button>
                                     </div>
+                                </div>
 
-                                    {settings.shop_logo && (
-                                        <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: '1rem' }}>
-                                            <img
-                                                src={settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`}
-                                                alt="Shop Logo"
-                                                style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
-                                            />
-                                            <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Active Logo Preview</span>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+                                    <div className="field-group">
+                                        <label><Type size={14} color="#5d0821" /> Header Logo Brand Name (Text)</label>
+                                        <input
+                                            type="text"
+                                            value={settings.header_logo_text !== undefined ? settings.header_logo_text : (settings.shop_name || 'VAIYAAREE')}
+                                            onChange={(e) => handleUpdate('header_logo_text', e.target.value)}
+                                            placeholder="e.g. VAIYAAREE"
+                                        />
+                                        <p className="hint">Main brand name displayed next to the logo in the storefront header.</p>
+                                    </div>
+
+                                    <div className="field-group">
+                                        <label><Sparkles size={14} color="#5d0821" /> Header Logo Caption / Tagline</label>
+                                        <input
+                                            type="text"
+                                            value={settings.header_logo_caption !== undefined ? settings.header_logo_caption : 'SILKS & WEAVES'}
+                                            onChange={(e) => handleUpdate('header_logo_caption', e.target.value)}
+                                            placeholder="e.g. SILKS & WEAVES"
+                                        />
+                                        <p className="hint">Subtitle / tagline displayed underneath the logo brand name.</p>
+                                    </div>
+                                </div>
+
+                                {/* Live Header Branding Preview */}
+                                <div style={{ marginTop: '0.5rem', padding: '1.25rem 1.5rem', background: '#fdfbf7', borderRadius: '14px', border: '1.5px solid #f0e6d2' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5d0821', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <Eye size={14} /> Live Header Brand Preview
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#ffffff', padding: '0.75rem 1.25rem', borderRadius: '10px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
+                                        <img
+                                            src={settings.shop_logo ? (settings.shop_logo.startsWith('http') || settings.shop_logo.startsWith('/') ? settings.shop_logo : `/images/${settings.shop_logo}`) : '/images/vaiyaaree-logo.png'}
+                                            alt="Logo Preview"
+                                            style={{ height: '44px', width: 'auto', maxHeight: '48px', objectFit: 'contain' }}
+                                        />
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ fontFamily: 'Cinzel, serif', fontSize: '1.15rem', fontWeight: 700, letterSpacing: '0.12em', color: '#5d0821', lineHeight: 1.1 }}>
+                                                {settings.header_logo_text || settings.shop_name || 'VAIYAAREE'}
+                                            </span>
+                                            {settings.header_logo_caption && (
+                                                <span style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '0.62rem', fontWeight: 600, letterSpacing: '0.22em', color: '#8c7355', marginTop: '2px' }}>
+                                                    {settings.header_logo_caption}
+                                                </span>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
 
                                 <div className="field-group">

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Mail, MapPin, Instagram, Facebook, Youtube, ChevronUp } from 'lucide-react';
 import { RangoliOrnament, LotusMotif } from '@/components/RangoliMotif';
-import { DEFAULT_FOOTER_SETTINGS } from '@/app/api/footer-settings/route';
+import { DEFAULT_FOOTER_SETTINGS } from '@/lib/footerConstants';
 import styles from './ShopFooter.module.css';
 
 const WhatsAppIcon = ({ size = 20, className }) => (
@@ -14,16 +14,32 @@ const WhatsAppIcon = ({ size = 20, className }) => (
     </svg>
 );
 
+function parseNavLinksSafely(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) return parsed;
+            } catch (e) {
+                // fall through to default
+            }
+        }
+    }
+    try {
+        const fallback = JSON.parse(DEFAULT_FOOTER_SETTINGS.footer_nav_links);
+        return Array.isArray(fallback) ? fallback : [];
+    } catch (e) {
+        return [];
+    }
+}
+
 const ShopFooter = () => {
     const currentYear = new Date().getFullYear();
     const [footerConfig, setFooterConfig] = useState(DEFAULT_FOOTER_SETTINGS);
-    const [navLinks, setNavLinks] = useState(() => {
-        try {
-            return JSON.parse(DEFAULT_FOOTER_SETTINGS.footer_nav_links);
-        } catch (e) {
-            return [];
-        }
-    });
+    const [navLinks, setNavLinks] = useState(() => parseNavLinksSafely(DEFAULT_FOOTER_SETTINGS.footer_nav_links));
 
     const loadSettings = async () => {
         try {
@@ -32,16 +48,7 @@ const ShopFooter = () => {
             if (data.success && data.settings) {
                 const cfg = { ...DEFAULT_FOOTER_SETTINGS, ...data.settings };
                 setFooterConfig(cfg);
-                try {
-                    const parsed = typeof cfg.footer_nav_links === 'string'
-                        ? JSON.parse(cfg.footer_nav_links)
-                        : (cfg.footer_nav_links || []);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        setNavLinks(parsed);
-                    }
-                } catch (err) {
-                    console.error('Error parsing footer nav links:', err);
-                }
+                setNavLinks(parseNavLinksSafely(cfg.footer_nav_links));
             }
         } catch (e) {
             // Silently fallback to default state

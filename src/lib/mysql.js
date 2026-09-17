@@ -23,13 +23,21 @@ function createPool() {
         decimalNumbers: true,
         dateStrings: true,
         timezone: '+05:30',
-        connectTimeout: 10000
+        connectTimeout: 15000,
+        maxAllowedPacket: 67108864 // 64MB packet support
     });
 
-    // Enforce Indian Standard Time (IST / UTC+05:30) session timezone on every connection
+    // Enforce Indian Standard Time (IST / UTC+05:30) on every connection
     newPool.on('connection', (connection) => {
-        connection.query("SET time_zone = '+05:30'");
+        try {
+            connection.query("SET time_zone = '+05:30'", () => {});
+        } catch (_) {}
     });
+
+    // Attempt setting GLOBAL max_allowed_packet on pool start
+    try {
+        newPool.query("SET GLOBAL max_allowed_packet = 67108864").catch?.(() => {});
+    } catch (_) {}
 
     return newPool;
 }

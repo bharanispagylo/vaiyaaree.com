@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Upload, FileDown, Plus } from 'lucide-react';
+import { Upload, FileDown, Plus, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { parseUploadResponse } from '@/lib/uploadHelper';
@@ -1043,7 +1043,15 @@ export default function ProductsPage() {
                                 <h1 style={{ marginBottom: '0.5rem' }}>Products</h1>
                                 <p>Manage your premium product collection • {totalCountToUse} items</p>
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => router.push('/admin/products/migrate')}
+                                    className="btn btn-secondary"
+                                    style={{ border: '1px solid rgba(99, 102, 241, 0.4)', background: 'rgba(99, 102, 241, 0.08)', color: '#6366f1', fontWeight: '600' }}
+                                >
+                                    <FileSpreadsheet size={18} /> Bulk CSV Migration
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => setImportedProductsForImage([])}

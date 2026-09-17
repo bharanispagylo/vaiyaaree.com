@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { DEFAULT_FOOTER_SETTINGS } from '@/app/api/footer-settings/route';
+import { DEFAULT_FOOTER_SETTINGS } from '@/lib/footerConstants';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
