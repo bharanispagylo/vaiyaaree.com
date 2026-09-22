@@ -107,15 +107,19 @@ export async function dispatchNotification({
     const customerPhone = normalizePhone(order?.billing_phone || order?.customer_phone || addrPhone || extraData?.phone || '');
     const customerName = order?.customer_name || order?.billing_name || addrName || extraData?.customerName || 'Valued Customer';
 
-    // 1. Fetch Admin Notification Contacts
+    // 1. Fetch Admin Notification Contacts & Store Communication Channel Gateway
     let adminEmails = [];
     let adminPhone = normalizePhone(process.env.ADMIN_ALERT_PHONE || '918667793292');
     let orderNotifConfig = { enabled: true, send_pdf_invoice: true };
+    let communicationChannel = 'both'; // 'whatsapp' | 'email' | 'both'
 
     try {
         const { data: settings } = await mysqlClient.from('app_settings').select('*');
         if (settings) {
             settings.forEach(s => {
+                if (s.key === 'communication_channel' && s.value) {
+                    communicationChannel = s.value;
+                }
                 if (s.key === 'admin_notification_email' && s.value) {
                     s.value.split(',').map(e => e.trim()).filter(Boolean).forEach(em => adminEmails.push(em));
                 }
@@ -255,8 +259,21 @@ export async function dispatchNotification({
     // 2. Build Message Content for Event
     const content = buildEventMessages(eventType, { order, returnReq, extraData, displayInv, customerName });
 
+    // Determine active communication channels based on Store Gateway & explicit caller overrides
+    const isWhatsAppChannelActive = communicationChannel === 'whatsapp' || communicationChannel === 'both';
+    const isEmailChannelActive = communicationChannel === 'email' || communicationChannel === 'both';
+
+    // Allow explicit caller overrides via extraData (e.g. admin manual order options)
+    const shouldSendCustomerEmail = extraData?.sendEmail !== undefined 
+        ? Boolean(extraData.sendEmail) 
+        : (!extraData?.skipCustomerEmail && isEmailChannelActive);
+
+    const shouldSendCustomerWhatsApp = extraData?.sendWhatsApp !== undefined 
+        ? Boolean(extraData.sendWhatsApp) 
+        : (!extraData?.skipCustomerWhatsApp && isWhatsAppChannelActive);
+
     // 3. Dispatch Customer Email
-    if (customerEmail && content.customerEmail) {
+    if (customerEmail && content.customerEmail && shouldSendCustomerEmail) {
         let attachments = [];
         if (order) {
             try {
@@ -296,7 +313,7 @@ export async function dispatchNotification({
     }
 
     // 4. Dispatch Customer WhatsApp
-    if (customerPhone && content.customerWhatsApp && !extraData?.skipCustomerWhatsApp) {
+    if (customerPhone && content.customerWhatsApp && shouldSendCustomerWhatsApp) {
         const waRes = await sendWithDuplicateCheck({
             orderId,
             returnId,
@@ -313,7 +330,7 @@ export async function dispatchNotification({
 
     // 5. Dispatch Admin Operational Alert (if applicable for event)
     if (content.isAdminEvent && orderNotifConfig.enabled) {
-        if (adminEmails.length > 0 && content.adminEmail) {
+        if (adminEmails.length > 0 && content.adminEmail && extraData?.sendAdminEmail !== false) {
             let adminAttachments = [];
             if (order && orderNotifConfig.send_pdf_invoice !== false) {
                 try {
@@ -352,7 +369,7 @@ export async function dispatchNotification({
             }
         }
 
-        if (adminPhone && content.adminWhatsApp) {
+        if (adminPhone && content.adminWhatsApp && extraData?.sendAdminWhatsApp !== false && isWhatsAppChannelActive) {
             const adminWaRes = await sendWithDuplicateCheck({
                 orderId,
                 returnId,

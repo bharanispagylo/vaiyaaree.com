@@ -3,6 +3,8 @@
 import { useState } from 'react';
 
 const INITIAL_MANUAL_ORDER = {
+    customer_id: null,
+    customer_type: 'existing',
     customer_name: '',
     billing_email: '',
     billing_phone: '',
@@ -18,10 +20,14 @@ const INITIAL_MANUAL_ORDER = {
     shipping_state: 'Tamil Nadu',
     same_as_billing: true,
     payment_method: 'UPI',
+    status: 'PAID',
     send_notifications: 'both',
     items: [],
     is_replacement: false,
-    manual_shipping_cost: ''
+    manual_shipping_cost: '',
+    discount_type: 'FLAT',
+    discount_value: '',
+    admin_notes: ''
 };
 
 export function useManualOrder() {

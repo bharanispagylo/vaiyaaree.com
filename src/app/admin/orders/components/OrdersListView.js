@@ -206,6 +206,7 @@ export default function OrdersListView({
                                     { key: 'TOTAL', label: 'Total', count: orderCounts.TOTAL ?? orderCounts.ALL ?? 0 },
                                     { key: 'PENDING', label: 'Pending (All)', count: orderCounts.PENDING ?? 0 },
                                     { key: 'PLACED', label: 'Placed', count: orderCounts.PLACED ?? 0 },
+                                    { key: 'CONFIRMED', label: 'Confirmed', count: orderCounts.CONFIRMED ?? 0 },
                                     { key: 'AWAITING_PAYMENT', label: 'Awaiting Payment', count: orderCounts.AWAITING_PAYMENT ?? 0 },
                                     { key: 'PAID', label: 'Paid', count: orderCounts.PAID ?? 0 },
                                     { key: 'PACKING', label: 'Packing', count: orderCounts.PACKING ?? 0 },

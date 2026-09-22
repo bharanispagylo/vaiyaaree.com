@@ -8,11 +8,11 @@ import { ensureOrdersPaymentSchema } from '@/lib/orderSchemaHelper';
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { 
-            orderId: rawOrderId, 
-            customerId, 
-            customerPhone, 
-            customerName, 
+        const {
+            orderId: rawOrderId,
+            customerId,
+            customerPhone,
+            customerName,
             customerEmail,
             shippingAddress,
             billingAddress,
@@ -25,8 +25,21 @@ export async function POST(request) {
             couponCode,
             source = 'WEBSITE',
             customerNotes,
-            adminNotes
+            adminNotes,
+            status: reqStatus,
+            orderStatus,
+            isReplacement: bodyIsReplacement,
+            is_replacement: bodyIsReplacementUnder,
+            discountAmount: reqDiscountAmount,
+            discountType: reqDiscountType,
+            discountValue: reqDiscountValue,
+            send_notifications: reqSendNotifications,
+            sendNotifications: reqSendNotificationsCamel
         } = body;
+
+        const effectiveSendNotifications = reqSendNotifications || reqSendNotificationsCamel;
+        const isReplacementOrder = Boolean(bodyIsReplacement || bodyIsReplacementUnder);
+        const isManualOrder = source === 'MANUAL';
 
         // 0. INPUT VALIDATION (Negative Case)
         if (!cart || !Array.isArray(cart) || cart.length === 0) {
@@ -42,7 +55,7 @@ export async function POST(request) {
         // Generate unified sequential order ID & invoice number if missing
         let orderId = rawOrderId;
         let invoiceNo = null;
-        const prefix = (source === 'MANUAL' ? 'MAN' : 'WEB');
+        const prefix = (isManualOrder ? 'MAN' : 'WEB');
         if (!orderId || !/^[A-Z]{3,4}-\d{3,}$/i.test(orderId)) {
             const nextData = await getNextOrderAndInvoiceId(prefix);
             orderId = nextData.orderId;
@@ -69,7 +82,7 @@ export async function POST(request) {
             (settingRows || []).forEach(r => { settingMap[r.key] = r.value; });
             const businessState = settingMap.business_state || 'Tamil Nadu';
 
-            if (paymentMethod === 'COD' && (settingMap.cod_enabled === 'false' || settingMap.cod_enabled === '0')) {
+            if (!isReplacementOrder && !isManualOrder && paymentMethod === 'COD' && (settingMap.cod_enabled === 'false' || settingMap.cod_enabled === '0')) {
                 throw new Error('Cash on Delivery (COD) is currently disabled.');
             }
 
@@ -95,11 +108,18 @@ export async function POST(request) {
                     if (vRows.length > 0) {
                         const variant = vRows[0];
                         const currentStock = parseInt(variant.stock, 10) || 0;
-                        if (currentStock < item.qty) {
+                        if (!isManualOrder && currentStock < item.qty) {
                             throw new Error(`Insufficient stock for "${item.name}" (${variant.name}). Only ${currentStock} left in stock.`);
                         }
 
-                        actualPrice = parseFloat(variant.price || 0);
+                        if (isReplacementOrder) {
+                            actualPrice = 0;
+                        } else if (isManualOrder && item.price !== undefined && item.price !== null && !isNaN(parseFloat(item.price))) {
+                            actualPrice = Math.max(0, parseFloat(item.price));
+                        } else {
+                            actualPrice = parseFloat(variant.price || 0);
+                        }
+
                         actualVariantName = variant.name;
                         verifiedVariantId = variant.id;
                         if (variant.image_url) actualImageUrl = variant.image_url;
@@ -130,11 +150,18 @@ export async function POST(request) {
 
                         const product = pRows[0];
                         const currentStock = parseInt(product.stock, 10) || 0;
-                        if (currentStock < item.qty) {
+                        if (!isManualOrder && currentStock < item.qty) {
                             throw new Error(`Insufficient stock for "${item.name}". Only ${currentStock} left in stock.`);
                         }
 
-                        actualPrice = parseFloat(product.price || item.price || 0);
+                        if (isReplacementOrder) {
+                            actualPrice = 0;
+                        } else if (isManualOrder && item.price !== undefined && item.price !== null && !isNaN(parseFloat(item.price))) {
+                            actualPrice = Math.max(0, parseFloat(item.price));
+                        } else {
+                            actualPrice = parseFloat(product.price || item.price || 0);
+                        }
+
                         if (product.name) actualName = product.name;
                         if (product.category) actualCategory = product.category;
                         if (product.image_url) actualImageUrl = product.image_url;
@@ -153,11 +180,18 @@ export async function POST(request) {
 
                     const product = pRows[0];
                     const currentStock = parseInt(product.stock, 10) || 0;
-                    if (currentStock < item.qty) {
+                    if (!isManualOrder && currentStock < item.qty) {
                         throw new Error(`Insufficient stock for "${item.name}". Only ${currentStock} left in stock.`);
                     }
 
-                    actualPrice = parseFloat(product.price || item.price || 0);
+                    if (isReplacementOrder) {
+                        actualPrice = 0;
+                    } else if (isManualOrder && item.price !== undefined && item.price !== null && !isNaN(parseFloat(item.price))) {
+                        actualPrice = Math.max(0, parseFloat(item.price));
+                    } else {
+                        actualPrice = parseFloat(product.price || item.price || 0);
+                    }
+
                     if (product.name) actualName = product.name;
                     if (product.category) actualCategory = product.category;
                     if (product.image_url) actualImageUrl = product.image_url;
@@ -182,7 +216,7 @@ export async function POST(request) {
                 });
             }
 
-            if (paymentMethod === 'COD') {
+            if (!isReplacementOrder && !isManualOrder && paymentMethod === 'COD') {
                 const minOrder = parseFloat(settingMap.cod_min_order) || 0;
                 const maxOrder = parseFloat(settingMap.cod_max_order) || 0;
                 if (minOrder > 0 && subtotal < minOrder) {
@@ -194,15 +228,64 @@ export async function POST(request) {
             }
 
             // 3. Server-Side Discount Calculation (Calculates product/cart/coupon discounts & true taxableSubtotal)
-            const discountResult = await calculateDiscounts({
-                cartItems: verifiedCartItems,
-                subtotal,
-                shippingCost: typeof shippingCost === 'number' ? shippingCost : 0,
-                couponCode: couponCode || null,
-                customer: customerId ? { id: customerId } : null
-            });
+            let discountResult = {
+                taxableAmount: subtotal,
+                productDiscount: 0,
+                cartDiscount: 0,
+                couponDiscount: 0,
+                shippingDiscount: 0,
+                totalDiscount: 0,
+                appliedCouponCode: null,
+                appliedRules: [],
+                discountedItems: verifiedCartItems.map(i => ({ ...i, paidUnitPrice: i.price }))
+            };
 
-            const taxableSubtotal = discountResult.taxableAmount;
+            if (isManualOrder && !isReplacementOrder) {
+                let manualDisc = 0;
+                if (reqDiscountType === 'PERCENTAGE' && reqDiscountValue > 0) {
+                    manualDisc = Math.round(subtotal * (parseFloat(reqDiscountValue) / 100));
+                } else if (typeof reqDiscountAmount === 'number' && reqDiscountAmount > 0) {
+                    manualDisc = Math.min(subtotal, Math.max(0, reqDiscountAmount));
+                } else if (typeof reqDiscountValue === 'number' && reqDiscountValue > 0) {
+                    manualDisc = Math.min(subtotal, Math.max(0, reqDiscountValue));
+                }
+
+                if (manualDisc > 0) {
+                    discountResult = {
+                        taxableAmount: Math.max(0, subtotal - manualDisc),
+                        productDiscount: 0,
+                        cartDiscount: manualDisc,
+                        couponDiscount: 0,
+                        shippingDiscount: 0,
+                        totalDiscount: manualDisc,
+                        appliedCouponCode: couponCode || 'MANUAL_DISCOUNT',
+                        appliedRules: [{
+                            id: null,
+                            name: 'Manual Order Discount',
+                            discountType: reqDiscountType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED',
+                            discountValue: parseFloat(reqDiscountValue || reqDiscountAmount || 0),
+                            discountAmount: manualDisc
+                        }],
+                        discountedItems: verifiedCartItems.map(i => {
+                            const lineTotal = i.price * i.qty;
+                            const itemRatio = subtotal > 0 ? lineTotal / subtotal : 0;
+                            const itemDisc = Math.round(manualDisc * itemRatio);
+                            const paidPerUnit = Math.max(0, i.price - (i.qty > 0 ? itemDisc / i.qty : 0));
+                            return { ...i, paidUnitPrice: paidPerUnit };
+                        })
+                    };
+                }
+            } else if (!isReplacementOrder) {
+                discountResult = await calculateDiscounts({
+                    cartItems: verifiedCartItems,
+                    subtotal,
+                    shippingCost: typeof shippingCost === 'number' ? shippingCost : 0,
+                    couponCode: couponCode || null,
+                    customer: customerId ? { id: customerId } : null
+                });
+            }
+
+            const taxableSubtotal = isReplacementOrder ? 0 : discountResult.taxableAmount;
 
             // 4. Shipping Calculation from DB
             const effectiveCountry = (rawShippingCountry || shippingAddress?.country || billingAddress?.country || 'India').trim();
@@ -218,7 +301,9 @@ export async function POST(request) {
             let validatedZoneId = shippingZoneId || null;
             let activeZone = null;
 
-            if (source === 'MANUAL' && typeof shippingCost === 'number') {
+            if (isReplacementOrder && (typeof shippingCost !== 'number' || shippingCost <= 0)) {
+                calculatedShippingCost = 0;
+            } else if (isManualOrder && typeof shippingCost === 'number') {
                 // Respect manual shipping cost set by admin
                 calculatedShippingCost = Math.max(0, shippingCost);
             } else if (dbZones && dbZones.length > 0) {
@@ -229,7 +314,7 @@ export async function POST(request) {
                     const intlZoneIds = new Set(intlZones.map(z => z.id));
                     const mappings = dbMappings || [];
 
-                    const countryMapping = mappings.find(m => 
+                    const countryMapping = mappings.find(m =>
                         intlZoneIds.has(m.zone_id) &&
                         m.state_name?.trim().toLowerCase() === effectiveCountry.toLowerCase()
                     );
@@ -243,18 +328,18 @@ export async function POST(request) {
                     const cleanShippingState = normShippingState.toLowerCase();
                     const cleanShippingCity = shippingCity.toLowerCase();
 
-                    const districtMapping = mappings.find(m => 
+                    const districtMapping = mappings.find(m =>
                         domesticZoneIds.has(m.zone_id) &&
-                        m.state_name?.trim().toLowerCase() === cleanShippingState && 
+                        m.state_name?.trim().toLowerCase() === cleanShippingState &&
                         m.district_name?.trim().toLowerCase() === cleanShippingCity
                     );
 
                     if (districtMapping) {
                         activeZone = domesticZones.find(z => z.id === districtMapping.zone_id);
                     } else {
-                        const stateMapping = mappings.find(m => 
-                            domesticZoneIds.has(m.zone_id) && 
-                            m.state_name?.trim().toLowerCase() === cleanShippingState && 
+                        const stateMapping = mappings.find(m =>
+                            domesticZoneIds.has(m.zone_id) &&
+                            m.state_name?.trim().toLowerCase() === cleanShippingState &&
                             !m.district_name
                         );
                         activeZone = stateMapping ? domesticZones.find(z => z.id === stateMapping.zone_id) : (domesticZones[0] || null);
@@ -269,7 +354,7 @@ export async function POST(request) {
                     calculatedShippingCost = (threshold > 0 && taxableSubtotal >= threshold) ? 0 : rate;
                 } else {
                     const defaultDomesticRate = (dbZones && dbZones.find(z => !isZoneIntl(z))) ? parseFloat(dbZones.find(z => !isZoneIntl(z)).rate || 0) : 50;
-                    const defaultIntlRate = (dbZones && dbZones.find(z => isZoneIntl(z))) ? parseFloat(dbZones.find(z => isZoneIntl(z)).rate || 0) : 100;
+                    const defaultIntlRate = (dbZones && dbZones.find(z => isZoneIntl(z))) ? parseFloat(dbZones.find(z => isZoneIntl(z)).rate || 0) : 0;
                     calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? defaultIntlRate : defaultDomesticRate);
                 }
             } else {
@@ -281,26 +366,30 @@ export async function POST(request) {
             let shippingDiscountAmount = discountResult.shippingDiscount || 0;
             let finalShippingCost = calculatedShippingCost;
 
-            if (hasFreeShippingRule || shippingDiscountAmount > 0) {
+            if (!isReplacementOrder && (hasFreeShippingRule || shippingDiscountAmount > 0)) {
                 shippingDiscountAmount = calculatedShippingCost;
                 finalShippingCost = 0;
-            } else {
+            } else if (!isReplacementOrder) {
                 finalShippingCost = Math.max(0, calculatedShippingCost - shippingDiscountAmount);
+            } else {
+                finalShippingCost = isManualOrder && typeof shippingCost === 'number' ? Math.max(0, shippingCost) : 0;
             }
 
             // 5. Tax Recalculation (CGST/SGST vs IGST)
             let cgst = 0, sgst = 0, igst = 0;
-            if (isInternational) {
-                igst = Math.round(taxableSubtotal * 0.05);
-            } else if (normShippingState.toLowerCase() === normBizState) {
-                cgst = Math.round(taxableSubtotal * 0.025);
-                sgst = Math.round(taxableSubtotal * 0.025);
-            } else {
-                igst = Math.round(taxableSubtotal * 0.05);
+            if (!isReplacementOrder && taxableSubtotal > 0) {
+                if (isInternational) {
+                    igst = Math.round(taxableSubtotal * 0.05);
+                } else if (normShippingState.toLowerCase() === normBizState) {
+                    cgst = Math.round(taxableSubtotal * 0.025);
+                    sgst = Math.round(taxableSubtotal * 0.025);
+                } else {
+                    igst = Math.round(taxableSubtotal * 0.05);
+                }
             }
             const taxAmount = cgst + sgst + igst;
             const taxType = isInternational ? 'IGST_INTERNATIONAL' : (igst > 0 ? 'IGST' : 'CGST_SGST');
-            const totalAmount = Math.round(taxableSubtotal + taxAmount + finalShippingCost);
+            const totalAmount = isReplacementOrder ? finalShippingCost : Math.round(taxableSubtotal + taxAmount + finalShippingCost);
 
             // 6. Atomic Inventory Deduction & History Logging
             for (let idx = 0; idx < verifiedCartItems.length; idx++) {
@@ -308,14 +397,22 @@ export async function POST(request) {
                 const histId = crypto.randomUUID ? crypto.randomUUID() : `ph_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
                 if (item.variantId) {
-                    // Decrement variant stock with strict atomic check
-                    const [vUpdate] = await conn.query(
-                        "UPDATE `product_variants` SET `stock` = `stock` - ? WHERE `id` = ? AND `stock` >= ?",
-                        [item.qty, item.variantId, item.qty]
-                    );
+                    if (isManualOrder) {
+                        // Gracefully deduct variant stock for manual orders
+                        await conn.query(
+                            "UPDATE `product_variants` SET `stock` = GREATEST(0, `stock` - ?) WHERE `id` = ?",
+                            [item.qty, item.variantId]
+                        );
+                    } else {
+                        // Decrement variant stock with strict atomic check
+                        const [vUpdate] = await conn.query(
+                            "UPDATE `product_variants` SET `stock` = `stock` - ? WHERE `id` = ? AND `stock` >= ?",
+                            [item.qty, item.variantId, item.qty]
+                        );
 
-                    if (vUpdate.affectedRows === 0) {
-                        throw new Error(`Inventory conflict: Variant "${item.name} (${item.variantName})" stock changed or insufficient.`);
+                        if (vUpdate.affectedRows === 0) {
+                            throw new Error(`Inventory conflict: Variant "${item.name} (${item.variantName})" stock changed or insufficient.`);
+                        }
                     }
 
                     // Decrement parent product stock & increment total_sold
@@ -336,17 +433,25 @@ export async function POST(request) {
                         `INSERT INTO \`product_history\` 
                          (\`id\`, \`product_id\`, \`variant_id\`, \`change_type\`, \`quantity_change\`, \`new_stock\`, \`reason\`, \`created_at\`)
                          VALUES (?, ?, ?, 'SALE', ?, ?, ?, NOW())`,
-                        [histId, item.id, item.variantId, -item.qty, newStock, `Order Placed (#${orderId})`]
+                        [histId, item.id, item.variantId, -item.qty, newStock, isManualOrder ? `Manual Order (#${orderId})` : `Order Placed (#${orderId})`]
                     );
                 } else {
-                    // Decrement product stock directly with strict atomic check
-                    const [pUpdate] = await conn.query(
-                        "UPDATE `products` SET `stock` = `stock` - ?, `total_sold` = COALESCE(`total_sold`, 0) + ? WHERE `id` = ? AND `stock` >= ?",
-                        [item.qty, item.qty, item.id, item.qty]
-                    );
+                    if (isManualOrder) {
+                        // Gracefully deduct product stock for manual orders
+                        await conn.query(
+                            "UPDATE `products` SET `stock` = GREATEST(0, `stock` - ?), `total_sold` = COALESCE(`total_sold`, 0) + ? WHERE `id` = ?",
+                            [item.qty, item.qty, item.id]
+                        );
+                    } else {
+                        // Decrement product stock directly with strict atomic check
+                        const [pUpdate] = await conn.query(
+                            "UPDATE `products` SET `stock` = `stock` - ?, `total_sold` = COALESCE(`total_sold`, 0) + ? WHERE `id` = ? AND `stock` >= ?",
+                            [item.qty, item.qty, item.id, item.qty]
+                        );
 
-                    if (pUpdate.affectedRows === 0) {
-                        throw new Error(`Inventory conflict: Product "${item.name}" stock changed or insufficient.`);
+                        if (pUpdate.affectedRows === 0) {
+                            throw new Error(`Inventory conflict: Product "${item.name}" stock changed or insufficient.`);
+                        }
                     }
 
                     // Fetch resulting stock for audit trail
@@ -361,30 +466,95 @@ export async function POST(request) {
                         `INSERT INTO \`product_history\` 
                          (\`id\`, \`product_id\`, \`variant_id\`, \`change_type\`, \`quantity_change\`, \`new_stock\`, \`reason\`, \`created_at\`)
                          VALUES (?, ?, NULL, 'SALE', ?, ?, ?, NOW())`,
-                        [histId, item.id, -item.qty, newStock, `Order Placed (#${orderId})`]
+                        [histId, item.id, -item.qty, newStock, isManualOrder ? `Manual Order (#${orderId})` : `Order Placed (#${orderId})`]
                     );
                 }
             }
 
-            // 7. Calculate COD advance & remaining balance
+            // 7. Calculate COD advance & remaining balance & initial status
             const isCodAdvanceEnabled = settingMap.cod_advance_enabled === 'true' || settingMap.cod_advance_enabled === '1';
             const codAdvanceSetting = parseFloat(settingMap.cod_advance_amount || 0);
 
+            let initialStatus = 'PLACED';
             let codAdvanceRequired = 0;
             let advancePaid = 0;
             let balanceAmount = totalAmount;
 
-            if (paymentMethod === 'COD') {
-                if (isCodAdvanceEnabled && codAdvanceSetting > 0) {
-                    codAdvanceRequired = Math.min(totalAmount, codAdvanceSetting);
-                    balanceAmount = Math.max(0, totalAmount - codAdvanceRequired);
+            if (isManualOrder) {
+                initialStatus = (reqStatus || orderStatus || (isReplacementOrder ? 'PLACED' : (paymentMethod === 'COD' ? 'PLACED' : 'PAID'))).toUpperCase();
+                if (initialStatus === 'PAID') {
+                    advancePaid = totalAmount;
+                    balanceAmount = 0;
+                } else if (paymentMethod === 'COD') {
+                    if (isCodAdvanceEnabled && codAdvanceSetting > 0 && !isReplacementOrder) {
+                        codAdvanceRequired = Math.min(totalAmount, codAdvanceSetting);
+                        balanceAmount = Math.max(0, totalAmount - codAdvanceRequired);
+                    } else {
+                        balanceAmount = totalAmount;
+                    }
+                } else {
+                    balanceAmount = totalAmount;
+                    advancePaid = 0;
+                }
+            } else {
+                initialStatus = (paymentMethod === 'COD' && codAdvanceRequired === 0) ? 'PLACED' : 'AWAITING_PAYMENT';
+                if (paymentMethod === 'COD') {
+                    if (isCodAdvanceEnabled && codAdvanceSetting > 0) {
+                        codAdvanceRequired = Math.min(totalAmount, codAdvanceSetting);
+                        balanceAmount = Math.max(0, totalAmount - codAdvanceRequired);
+                    }
+                }
+            }
+
+            if (isReplacementOrder) {
+                codAdvanceRequired = 0;
+                advancePaid = 0;
+                balanceAmount = 0;
+            }
+
+            // Auto-link or create customer profile
+            let resolvedCustomerId = customerId || null;
+            if (!resolvedCustomerId && (customerPhone || customerEmail)) {
+                const rawDigits = (customerPhone || '').replace(/\D/g, '');
+                const cleanPhone = rawDigits.slice(-10);
+                if (cleanPhone || customerEmail) {
+                    const [existingCust] = await conn.query(
+                        "SELECT `id` FROM `customers` WHERE (`phone` IN (?, ?, ?) AND ? != '') OR (LOWER(TRIM(`email`)) = LOWER(TRIM(?)) AND ? IS NOT NULL) LIMIT 1",
+                        [cleanPhone, `91${cleanPhone}`, `+91${cleanPhone}`, cleanPhone, customerEmail || '', customerEmail || null]
+                    );
+                    if (existingCust && existingCust.length > 0) {
+                        resolvedCustomerId = existingCust[0].id;
+                    } else if (isManualOrder || customerName) {
+                        const newCustId = crypto.randomUUID ? crypto.randomUUID() : `cust_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+                        try {
+                            await conn.query(
+                                `INSERT INTO \`customers\` (
+                                    \`id\`, \`phone\`, \`country_code\`, \`name\`, \`email\`,
+                                    \`address\`, \`city\`, \`state\`, \`pincode\`,
+                                    \`role\`, \`is_verified\`, \`created_at\`, \`updated_at\`
+                                ) VALUES (?, ?, '+91', ?, ?, ?, ?, ?, ?, 'user', 1, NOW(), NOW())`,
+                                [
+                                    newCustId,
+                                    cleanPhone || rawDigits,
+                                    customerName || 'Customer',
+                                    customerEmail || null,
+                                    shippingAddress?.address || billingAddress?.address || '',
+                                    shippingAddress?.city || billingAddress?.city || '',
+                                    normShippingState,
+                                    shippingAddress?.pincode || billingAddress?.pincode || ''
+                                ]
+                            );
+                            resolvedCustomerId = newCustId;
+                        } catch (custInsErr) {
+                            console.warn('[ORDER-CREATE] Customer auto-insert note:', custInsErr?.message || custInsErr);
+                        }
+                    }
                 }
             }
 
             const deliveryAddressText = shippingAddress?.address_line || shippingAddress?.address || (typeof shippingAddress === 'string' ? shippingAddress : null);
             const billingAddressStr = billingAddress ? JSON.stringify(billingAddress) : null;
             const shippingAddressStr = shippingAddress ? JSON.stringify(shippingAddress) : null;
-            const initialStatus = (paymentMethod === 'COD' && codAdvanceRequired === 0) ? 'PLACED' : 'AWAITING_PAYMENT';
 
             await conn.query(
                 `INSERT INTO \`orders\` (
@@ -407,7 +577,7 @@ export async function POST(request) {
                 [
                     orderId,
                     invoiceNo,
-                    customerId || null,
+                    resolvedCustomerId,
                     customerPhone || null,
                     customerName || null,
                     customerEmail || null,
@@ -589,6 +759,19 @@ export async function POST(request) {
         // until the payment is verified to avoid premature confirmation.
         const isPrepaidPending = (orderResult.paymentMethod === 'RAZORPAY' || orderResult.paymentMethod === 'ONLINE' || orderResult.initialStatus === 'AWAITING_PAYMENT') && source !== 'MANUAL';
         if (!isPrepaidPending) {
+            let extraNotifData = {};
+            if (isManualOrder && effectiveSendNotifications) {
+                if (effectiveSendNotifications === 'none') {
+                    extraNotifData = { sendEmail: false, sendWhatsApp: false };
+                } else if (effectiveSendNotifications === 'email') {
+                    extraNotifData = { sendEmail: true, sendWhatsApp: false };
+                } else if (effectiveSendNotifications === 'whatsapp') {
+                    extraNotifData = { sendEmail: false, sendWhatsApp: true };
+                } else if (effectiveSendNotifications === 'both') {
+                    extraNotifData = { sendEmail: true, sendWhatsApp: true };
+                }
+            }
+
             try {
                 await dispatchNotification({
                     eventType: EVENT_TYPES.ORDER_PLACED,
@@ -607,7 +790,8 @@ export async function POST(request) {
                         shipping_address: shippingAddress,
                         billing_address: billingAddress,
                         order_items: orderResult.cartItems || []
-                    }
+                    },
+                    extraData: extraNotifData
                 });
             } catch (notifErr) {
                 console.error('[ORDER-CREATE-NOTIF-ERROR] Notification dispatch failed:', notifErr);
@@ -616,8 +800,8 @@ export async function POST(request) {
             console.log(`[ORDER-CREATE] Order #${orderResult.orderId} awaits payment (${orderResult.paymentMethod}). Postponing confirmation until verified.`);
         }
 
-        return new Response(JSON.stringify({ 
-            success: true, 
+        return new Response(JSON.stringify({
+            success: true,
             orderId: orderResult.orderId,
             invoiceNo: orderResult.invoiceNo,
             totalAmount: orderResult.totalAmount,
@@ -630,8 +814,8 @@ export async function POST(request) {
 
     } catch (err) {
         console.error('[ORDER-CREATE-ERROR] Transaction rolled back:', err);
-        return new Response(JSON.stringify({ 
-            error: err.message || 'Failed to place order. Transaction was rolled back.' 
+        return new Response(JSON.stringify({
+            error: err.message || 'Failed to place order. Transaction was rolled back.'
         }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 }

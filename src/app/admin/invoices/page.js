@@ -853,25 +853,31 @@ export default function InvoicesPage() {
                                         )}
                                         {selectedInvoice.cgst > 0 && (
                                             <tr style={{ borderTop: '1px solid #e5e7eb' }}>
-                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>CGST:</td>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>
+                                                    CGST ({selectedInvoice.cgst_rate ? (selectedInvoice.cgst_rate < 1 ? Math.round(selectedInvoice.cgst_rate * 1000) / 10 : selectedInvoice.cgst_rate) : 2.5}%):
+                                                </td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.cgst).toFixed(2)}</td>
                                             </tr>
                                         )}
                                         {selectedInvoice.sgst > 0 && (
                                             <tr style={{ borderTop: '1px solid #e5e7eb' }}>
-                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>SGST:</td>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>
+                                                    SGST ({selectedInvoice.sgst_rate ? (selectedInvoice.sgst_rate < 1 ? Math.round(selectedInvoice.sgst_rate * 1000) / 10 : selectedInvoice.sgst_rate) : 2.5}%):
+                                                </td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.sgst).toFixed(2)}</td>
                                             </tr>
                                         )}
                                         {selectedInvoice.igst > 0 && (
                                             <tr style={{ borderTop: '1px solid #e5e7eb' }}>
-                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>IGST:</td>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>
+                                                    IGST ({selectedInvoice.igst_rate ? (selectedInvoice.igst_rate < 1 ? Math.round(selectedInvoice.igst_rate * 1000) / 10 : selectedInvoice.igst_rate) : 5}%):
+                                                </td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.igst).toFixed(2)}</td>
                                             </tr>
                                         )}
                                         {((!selectedInvoice.cgst && !selectedInvoice.sgst && !selectedInvoice.igst) && selectedInvoice.tax_amount > 0) && (
                                             <tr style={{ borderTop: '1px solid #e5e7eb' }}>
-                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>Tax:</td>
+                                                <td colSpan={4} style={{ borderRight: '1px solid black', padding: '5px 10px', textAlign: 'right', fontWeight: 'bold' }}>Tax (5%):</td>
                                                 <td style={{ padding: '5px', textAlign: 'right' }}>{parseFloat(selectedInvoice.tax_amount).toFixed(2)}</td>
                                             </tr>
                                         )}

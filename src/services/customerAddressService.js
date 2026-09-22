@@ -12,8 +12,15 @@ export async function ensureCustomerAddressesTable() {
             CREATE TABLE IF NOT EXISTS customer_addresses (
                 id VARCHAR(191) PRIMARY KEY,
                 customer_id VARCHAR(191) NOT NULL,
+                title VARCHAR(100) DEFAULT NULL,
+                address_type ENUM('shipping', 'billing') DEFAULT 'shipping',
                 name VARCHAR(255) DEFAULT NULL,
+                full_name VARCHAR(255) DEFAULT NULL,
                 phone VARCHAR(50) DEFAULT NULL,
+                country_code VARCHAR(10) DEFAULT '+91',
+                whatsapp VARCHAR(50) DEFAULT NULL,
+                whatsapp_country_code VARCHAR(10) DEFAULT '+91',
+                email VARCHAR(255) DEFAULT NULL,
                 address TEXT DEFAULT NULL,
                 address_line TEXT DEFAULT NULL,
                 city VARCHAR(100) DEFAULT NULL,
@@ -27,6 +34,21 @@ export async function ensureCustomerAddressesTable() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         `;
         await pool.query(createSql);
+
+        // Self-heal any missing columns on existing tables
+        try {
+            const [cols] = await pool.query('DESCRIBE customer_addresses');
+            const fields = cols.map(c => c.Field);
+            if (!fields.includes('address_type')) await pool.query("ALTER TABLE customer_addresses ADD COLUMN address_type ENUM('shipping', 'billing') DEFAULT 'shipping'");
+            if (!fields.includes('title')) await pool.query("ALTER TABLE customer_addresses ADD COLUMN title VARCHAR(100) DEFAULT NULL");
+            if (!fields.includes('full_name')) await pool.query("ALTER TABLE customer_addresses ADD COLUMN full_name VARCHAR(255) DEFAULT NULL");
+            if (!fields.includes('whatsapp')) await pool.query("ALTER TABLE customer_addresses ADD COLUMN whatsapp VARCHAR(50) DEFAULT NULL");
+            if (!fields.includes('whatsapp_country_code')) await pool.query("ALTER TABLE customer_addresses ADD COLUMN whatsapp_country_code VARCHAR(10) DEFAULT '+91'");
+            if (!fields.includes('email')) await pool.query("ALTER TABLE customer_addresses ADD COLUMN email VARCHAR(255) DEFAULT NULL");
+            if (!fields.includes('country_code')) await pool.query("ALTER TABLE customer_addresses ADD COLUMN country_code VARCHAR(10) DEFAULT '+91'");
+            if (!fields.includes('country')) await pool.query("ALTER TABLE customer_addresses ADD COLUMN country VARCHAR(100) DEFAULT 'India'");
+        } catch (e) {}
+
         tableInitialized = true;
     } catch (err) {
         console.error('[CUSTOMER-ADDRESS-SERVICE] Error initializing customer_addresses table:', err);
@@ -43,8 +65,15 @@ export async function saveCustomerAddress(addressData) {
             id: rawId,
             customerId,
             customer_id = customerId,
+            title = 'Shipping Address',
+            address_type = 'shipping',
             name = '',
+            full_name = name,
             phone = '',
+            country_code = '+91',
+            whatsapp = '',
+            whatsapp_country_code = '+91',
+            email = '',
             address = '',
             address_line = address,
             city = '',
@@ -58,14 +87,22 @@ export async function saveCustomerAddress(addressData) {
 
         const id = rawId || `addr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const addrText = address_line || address || '';
+        const personName = full_name || name || '';
 
         const sql = `
             INSERT INTO customer_addresses
-            (id, customer_id, name, phone, address, address_line, city, state, pincode, country, is_default, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            (id, customer_id, title, address_type, name, full_name, phone, country_code, whatsapp, whatsapp_country_code, email, address, address_line, city, state, pincode, country, is_default, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            address_type = VALUES(address_type),
             name = VALUES(name),
+            full_name = VALUES(full_name),
             phone = VALUES(phone),
+            country_code = VALUES(country_code),
+            whatsapp = VALUES(whatsapp),
+            whatsapp_country_code = VALUES(whatsapp_country_code),
+            email = VALUES(email),
             address = VALUES(address),
             address_line = VALUES(address_line),
             city = VALUES(city),
@@ -77,10 +114,29 @@ export async function saveCustomerAddress(addressData) {
         `;
 
         await pool.query(sql, [
-            id, customer_id, name, phone, addrText, addrText, city, state, pincode, country, is_default ? 1 : 0
+            id, customer_id, title, address_type, personName, personName, phone, country_code, whatsapp || null, whatsapp_country_code || '+91', email || null, addrText, addrText, city, state, pincode, country, is_default ? 1 : 0
         ]);
 
-        return { id, customer_id, name, phone, address: addrText, address_line: addrText, city, state, pincode, country, is_default: Boolean(is_default) };
+        return { 
+            id, 
+            customer_id, 
+            title, 
+            address_type, 
+            name: personName, 
+            full_name: personName, 
+            phone, 
+            country_code, 
+            whatsapp, 
+            whatsapp_country_code, 
+            email, 
+            address: addrText, 
+            address_line: addrText, 
+            city, 
+            state, 
+            pincode, 
+            country, 
+            is_default: Boolean(is_default) 
+        };
     } catch (err) {
         console.error('[CUSTOMER-ADDRESS-SERVICE] Error saving address:', err);
         return null;

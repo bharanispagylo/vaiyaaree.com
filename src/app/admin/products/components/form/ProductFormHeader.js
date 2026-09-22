@@ -1,15 +1,17 @@
 'use client';
 
 import {
-    ArrowLeft, Eye, Trash2, FileText, Save, Globe, Edit2, Link as LinkIcon, Check
+    ArrowLeft, Eye, Trash2, FileText, Save, Globe, Edit2, Link as LinkIcon, Check, CopyPlus
 } from 'lucide-react';
 
 export default function ProductFormHeader({
     currentProduct,
     productStatus,
     fbProcessing,
+    duplicating = false,
     setIsEditing,
     handleDelete,
+    handleDuplicate,
     handleSaveAsDraft,
     publicProductPath,
     publicProductFullUrl,
@@ -70,6 +72,27 @@ export default function ProductFormHeader({
                         >
                             <Eye size={14} /> View Live
                         </a>
+                    )}
+                    {currentProduct?.id && (
+                        <button
+                            type="button"
+                            onClick={handleDuplicate}
+                            disabled={fbProcessing || duplicating}
+                            className="btn btn-secondary"
+                            style={{
+                                padding: '0.45rem 0.85rem',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                color: '#0284c7',
+                                borderColor: 'rgba(2, 132, 199, 0.35)'
+                            }}
+                            title="Duplicate this product with next sequential number"
+                        >
+                            <CopyPlus size={14} /> {duplicating ? 'Duplicating...' : 'Duplicate'}
+                        </button>
                     )}
                     <button
                         type="button"

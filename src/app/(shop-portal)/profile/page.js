@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
     User, ShoppingBag, History, RotateCcw, IndianRupee, Truck, MessageCircle 
@@ -18,7 +18,7 @@ import CancelOrderModal from './components/CancelOrderModal';
 import { sanitizeCustomerSession } from '@/lib/authSanitizer';
 import styles from './profile.module.css';
 
-export default function ProfilePage() {
+function ProfileContent() {
     const { user, setUser, showToast, mysqlClient, isSessionLoading } = useShop();
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -33,6 +33,7 @@ export default function ProfilePage() {
     const [loadingAddresses, setLoadingAddresses] = useState(true);
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [addressFormType, setAddressFormType] = useState('shipping'); // 'billing' or 'shipping'
+    const [editingAddress, setEditingAddress] = useState(null);
 
     // Orders state & pagination
     const [orders, setOrders] = useState([]);
@@ -307,14 +308,21 @@ export default function ProfilePage() {
                     const newAddr = {
                         id: `addr-${Date.now()}`,
                         customer_id: user.id,
+                        title: 'Default Shipping',
+                        address_type: 'shipping',
                         name: custData.name || user.name || 'Default Address',
+                        full_name: custData.name || user.name || 'Default Address',
                         phone: custData.phone || user.phone || '',
+                        country_code: custData.country_code || user.country_code || '+91',
+                        whatsapp: custData.whatsapp || user.whatsapp || '',
+                        whatsapp_country_code: custData.whatsapp_country_code || user.whatsapp_country_code || '+91',
+                        email: custData.email || user.email || '',
                         address: custData.address || '',
                         address_line: custData.address || '',
                         city: custData.city || '',
                         state: custData.state || '',
                         pincode: custData.pincode || '',
-                        country: 'India',
+                        country: custData.country || 'India',
                         is_default: 1
                     };
                     await mysqlClient.from('customer_addresses').insert(newAddr);
@@ -466,28 +474,40 @@ export default function ProfilePage() {
                 return;
             }
 
+            const cleanPhone = (formData.get('phone') || '').replace(/\D/g, '');
+            const countryCodeVal = formData.get('country_code') || '+91';
+            const cleanWA = (formData.get('whatsapp') || '').replace(/\D/g, '');
+            const waCountryCodeVal = formData.get('whatsapp_country_code') || '+91';
+            const countryVal = formData.get('country') || 'India';
+
             const updates = {
                 name: nameVal,
-                email: formData.get('email'),
-                address: formData.get('address'),
-                city: formData.get('city'),
-                state: formData.get('state'),
-                pincode: formData.get('pincode'),
+                email: (formData.get('email') || '').trim() || null,
+                phone: cleanPhone || user.phone,
+                country_code: countryCodeVal,
+                whatsapp: cleanWA || null,
+                whatsapp_country_code: waCountryCodeVal,
+                country: countryVal,
+                address: formData.get('address') || null,
+                city: formData.get('city') || null,
+                state: formData.get('state') || null,
+                pincode: formData.get('pincode') || null,
             };
 
             const { data, error } = await mysqlClient
                 .from('customers')
                 .update(updates)
                 .eq('id', user.id)
-                .select('id, name, email, phone, country_code, address, city, state, pincode, role, is_verified')
+                .select('id, name, email, phone, country_code, whatsapp, whatsapp_country_code, country, address, city, state, pincode, role, is_verified')
                 .single();
 
             if (error) throw error;
 
             const safeUser = sanitizeCustomerSession({ ...user, ...data });
             setUser(safeUser);
+            localStorage.setItem('vaiyaaree_user', JSON.stringify(safeUser));
             localStorage.setItem('cast_prince_user', JSON.stringify(safeUser));
-            showToast('Profile updated successfully!');
+            showToast('Personal information updated successfully!');
         } catch (err) {
             console.error(err);
             showToast('Failed to update profile', 'error');
@@ -496,8 +516,8 @@ export default function ProfilePage() {
         }
     };
 
-    // Add Address Logic
-    async function handleAddAddress(e) {
+    // Add or Update Address Logic
+    async function handleAddOrUpdateAddress(e) {
         e.preventDefault();
         const formData = new FormData(e.target);
 
@@ -508,33 +528,83 @@ export default function ProfilePage() {
                 return;
             }
 
-            const newAddress = {
+            const cleanPhone = (formData.get('phone') || '').replace(/\D/g, '');
+            const cleanWA = (formData.get('whatsapp') || '').replace(/\D/g, '');
+            const countryCodeVal = formData.get('country_code') || '+91';
+            const waCountryCodeVal = formData.get('whatsapp_country_code') || '+91';
+            const countryVal = formData.get('country') || 'India';
+            const targetType = addressFormType || 'shipping';
+            const isDefaultVal = formData.get('is_default') === 'on' || formData.get('is_default') === 'true' || addresses.length === 0;
+
+            const addressData = {
                 customer_id: user.id,
-                title: formData.get('title'),
+                title: (formData.get('title') || '').trim() || (targetType === 'billing' ? 'Billing Address' : 'Shipping Address'),
+                address_type: targetType,
+                name: fullNameVal,
                 full_name: fullNameVal,
-                phone: formData.get('phone'),
-                address_line: formData.get('address_line'),
-                city: formData.get('city'),
-                state: formData.get('state'),
-                pincode: formData.get('pincode'),
-                is_default: addresses.length === 0 || formData.get('is_default') === 'on'
+                email: (formData.get('email') || '').trim() || null,
+                phone: cleanPhone,
+                country_code: countryCodeVal,
+                whatsapp: cleanWA || null,
+                whatsapp_country_code: waCountryCodeVal,
+                address: formData.get('address_line') || '',
+                address_line: formData.get('address_line') || '',
+                city: formData.get('city') || '',
+                state: formData.get('state') || '',
+                pincode: formData.get('pincode') || '',
+                country: countryVal,
+                is_default: isDefaultVal ? 1 : 0
             };
 
-            if (newAddress.is_default && addresses.length > 0) {
+            // If marking default, reset other addresses of the same type
+            if (isDefaultVal) {
                 await mysqlClient.from('customer_addresses')
-                    .update({ is_default: false })
-                    .eq('customer_id', user.id);
+                    .update({ is_default: 0 })
+                    .eq('customer_id', user.id)
+                    .eq('address_type', targetType);
             }
 
-            const { error } = await mysqlClient.from('customer_addresses').insert(newAddress);
-            if (error) throw error;
+            if (editingAddress && editingAddress.id) {
+                const { error } = await mysqlClient
+                    .from('customer_addresses')
+                    .update(addressData)
+                    .eq('id', editingAddress.id);
+                if (error) throw error;
+                showToast('Address updated successfully');
+            } else {
+                addressData.id = `addr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+                const { error } = await mysqlClient.from('customer_addresses').insert(addressData);
+                if (error) throw error;
+                showToast('Address added successfully');
+            }
 
-            showToast('Address added successfully');
             setShowAddressForm(false);
+            setEditingAddress(null);
             fetchAddresses();
         } catch (err) {
             console.error(err);
-            showToast('Failed to add address', 'error');
+            showToast('Failed to save address', 'error');
+        }
+    }
+
+    // Set Default Address Logic
+    async function handleSetDefaultAddress(addressId, type = 'shipping') {
+        try {
+            await mysqlClient.from('customer_addresses')
+                .update({ is_default: 0 })
+                .eq('customer_id', user.id)
+                .eq('address_type', type);
+
+            const { error } = await mysqlClient.from('customer_addresses')
+                .update({ is_default: 1 })
+                .eq('id', addressId);
+
+            if (error) throw error;
+            showToast(`Default ${type} address updated!`);
+            fetchAddresses();
+        } catch (err) {
+            console.error(err);
+            showToast('Failed to update default address', 'error');
         }
     }
 
@@ -542,12 +612,35 @@ export default function ProfilePage() {
     async function deleteAddress(addressId) {
         if (!confirm('Are you sure you want to delete this address?')) return;
         try {
-            await mysqlClient.from('customer_addresses').delete().eq('id', addressId);
+            const { error } = await mysqlClient.from('customer_addresses').delete().eq('id', addressId);
+            if (error) throw error;
             showToast('Address deleted');
+            if (editingAddress?.id === addressId) {
+                setEditingAddress(null);
+                setShowAddressForm(false);
+            }
             fetchAddresses();
         } catch (err) {
             console.error(err);
+            showToast('Failed to delete address', 'error');
         }
+    }
+
+    function handleOpenAddAddress(type = 'shipping') {
+        setEditingAddress(null);
+        setAddressFormType(type);
+        setShowAddressForm(true);
+    }
+
+    function handleOpenEditAddress(addr) {
+        setEditingAddress(addr);
+        setAddressFormType(addr.address_type || 'shipping');
+        setShowAddressForm(true);
+    }
+
+    function handleCancelAddressForm() {
+        setEditingAddress(null);
+        setShowAddressForm(false);
     }
 
     // Helper to auto-compress large phone camera images (>2MB) to prevent Vercel 4.5MB payload timeouts
@@ -800,8 +893,14 @@ export default function ProfilePage() {
     const paginatedHistoryOrders = pastOrders.slice((historyOrdersPage - 1) * ORDERS_PER_PAGE, historyOrdersPage * ORDERS_PER_PAGE);
 
     // Separate Billing & Shipping Addresses
-    const billingAddresses = addresses.filter(a => (a.title || '').toLowerCase().includes('billing'));
-    const shippingAddresses = addresses.filter(a => !(a.title || '').toLowerCase().includes('billing'));
+    const billingAddresses = addresses.filter(a => 
+        String(a.address_type || '').toLowerCase() === 'billing' || 
+        String(a.title || '').toLowerCase().includes('billing')
+    );
+    const shippingAddresses = addresses.filter(a => 
+        String(a.address_type || '').toLowerCase() !== 'billing' && 
+        !String(a.title || '').toLowerCase().includes('billing')
+    );
 
     // Orders & Products eligible for Refund (From user orders, excluding already requested/non-rejected products)
     const eligibleRefundOrders = [];
@@ -1005,7 +1104,13 @@ export default function ProfilePage() {
                             setShowAddressForm={setShowAddressForm}
                             addressFormType={addressFormType}
                             setAddressFormType={setAddressFormType}
-                            handleAddAddress={handleAddAddress}
+                            handleAddAddress={handleAddOrUpdateAddress}
+                            editingAddress={editingAddress}
+                            setEditingAddress={setEditingAddress}
+                            handleOpenAddAddress={handleOpenAddAddress}
+                            handleOpenEditAddress={handleOpenEditAddress}
+                            handleCancelAddressForm={handleCancelAddressForm}
+                            handleSetDefaultAddress={handleSetDefaultAddress}
                             loadingAddresses={loadingAddresses}
                             billingAddresses={billingAddresses}
                             shippingAddresses={shippingAddresses}
@@ -1051,5 +1156,17 @@ export default function ProfilePage() {
                 cancellingOrder={cancellingOrder}
             />
         </div>
+    );
+}
+
+export default function ProfilePage() {
+    return (
+        <Suspense fallback={
+            <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Loading profile...</p>
+            </div>
+        }>
+            <ProfileContent />
+        </Suspense>
     );
 }

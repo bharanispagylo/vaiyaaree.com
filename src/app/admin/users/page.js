@@ -1,15 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { mysqlClient } from '@/lib/mysqlClient';
 import {
     Users, Plus, Trash2, Edit2, Shield,
     CheckCircle2, AlertCircle, Loader2,
-    Search, UserPlus, Mail, Lock, Key,
-    MoreVertical, X, Save, ShieldCheck, ShieldOff
+    UserPlus, ShieldCheck, ShieldOff
 } from 'lucide-react';
+import UserEditPage from './components/UserEditPage';
 
 export default function UserManagementPage() {
+    return (
+        <Suspense fallback={
+            <div className="card shadow-premium" style={{ padding: '5rem 2rem', textAlign: 'center', background: '#ffffff', borderRadius: '20px', maxWidth: '1200px', margin: '2rem auto' }}>
+                <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 1rem', color: 'hsl(var(--primary))' }} />
+                <p style={{ color: 'hsl(var(--text-muted))', fontWeight: 600 }}>Loading User Management...</p>
+            </div>
+        }>
+            <UserManagementContent />
+        </Suspense>
+    );
+}
+
+function UserManagementContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
     const [currentAdmin, setCurrentAdmin] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -23,27 +40,16 @@ export default function UserManagementPage() {
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [notification, setNotification] = useState(null);
-    const [showModal, setShowModal] = useState(false);
-    const [editingUser, setEditingUser] = useState(null);
-    const [formData, setFormData] = useState({
-        username: '',
-        email: '',
-        password: '',
-        full_name: '',
-        role: 'admin',
-        is_active: true,
-        otp_enabled: false
-    });
 
-    useEffect(() => {
-        if (isManager) {
-            setLoading(false);
-            return;
-        }
-        fetchUsers();
-    }, [isManager]);
+    // Page View Modes: 'list' | 'edit' | 'create'
+    const [viewMode, setViewMode] = useState('list');
+    const [editingUser, setEditingUser] = useState(null);
+
+    const showToast = (message, type = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3500);
+    };
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -61,39 +67,67 @@ export default function UserManagementPage() {
                 throw error;
             }
             setUsers(data || []);
+            return data || [];
         } catch (err) {
             console.error('Fetch users error:', err);
-            setNotification({ message: 'Failed to load users', type: 'error' });
+            showToast('Failed to load users', 'error');
+            return [];
         } finally {
             setLoading(false);
         }
     };
 
-    const handleOpenModal = (user = null) => {
-        if (user) {
-            setEditingUser(user);
-            setFormData({
-                username: user.username,
-                email: user.email || '',
-                password: user.password,
-                full_name: user.full_name || '',
-                role: user.role || 'admin',
-                is_active: user.is_active ?? true,
-                otp_enabled: Boolean(user.otp_enabled)
-            });
-        } else {
-            setEditingUser(null);
-            setFormData({
-                username: '',
-                email: '',
-                password: '',
-                full_name: '',
-                role: 'admin',
-                is_active: true,
-                otp_enabled: false
-            });
+    useEffect(() => {
+        if (isManager) {
+            setLoading(false);
+            return;
         }
-        setShowModal(true);
+        fetchUsers().then(loadedUsers => {
+            // Check if URL has ?edit=xxx or ?action=new
+            const editId = searchParams?.get('edit');
+            const action = searchParams?.get('action');
+
+            if (action === 'new') {
+                setViewMode('create');
+                setEditingUser(null);
+            } else if (editId && loadedUsers.length > 0) {
+                const found = loadedUsers.find(u => String(u.id) === String(editId));
+                if (found) {
+                    setEditingUser(found);
+                    setViewMode('edit');
+                }
+            }
+        });
+    }, [isManager, searchParams]);
+
+    const handleOpenCreatePage = () => {
+        setEditingUser(null);
+        setViewMode('create');
+        if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', '/admin/users?action=new');
+        }
+    };
+
+    const handleOpenEditPage = (user) => {
+        setEditingUser(user);
+        setViewMode('edit');
+        if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', `/admin/users?edit=${user.id}`);
+        }
+    };
+
+    const handleBackToList = () => {
+        setViewMode('list');
+        setEditingUser(null);
+        if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', '/admin/users');
+        }
+    };
+
+    const handleUserSaved = (message) => {
+        showToast(message, 'success');
+        handleBackToList();
+        fetchUsers();
     };
 
     const handleToggleOtp = async (user, e) => {
@@ -101,12 +135,8 @@ export default function UserManagementPage() {
         if (!user) return;
 
         if (!user.email && !user.otp_enabled) {
-            setNotification({
-                message: `Please add an email address for ${user.username} before enabling Email OTP.`,
-                type: 'error'
-            });
-            setTimeout(() => setNotification(null), 4000);
-            handleOpenModal(user);
+            showToast(`Please add an email address for ${user.username} before enabling Email OTP.`, 'error');
+            handleOpenEditPage(user);
             return;
         }
 
@@ -123,92 +153,10 @@ export default function UserManagementPage() {
             if (error) throw error;
 
             setUsers(prev => prev.map(u => u.id === user.id ? { ...u, otp_enabled: newOtpStatus ? 1 : 0 } : u));
-            setNotification({
-                message: `Email OTP ${newOtpStatus ? 'Enabled' : 'Disabled'} for ${user.username}`,
-                type: 'success'
-            });
-            setTimeout(() => setNotification(null), 3000);
+            showToast(`Email OTP ${newOtpStatus ? 'Enabled' : 'Disabled'} for ${user.username}`, 'success');
         } catch (err) {
             console.error('Toggle OTP error:', err);
-            setNotification({ message: 'Failed to update OTP status: ' + err.message, type: 'error' });
-            setTimeout(() => setNotification(null), 3000);
-        }
-    };
-
-    const handleSaveUser = async (e) => {
-        e.preventDefault();
-        setSaving(true);
-        try {
-            const payload = {
-                username: formData.username.trim(),
-                email: formData.email ? formData.email.trim() : null,
-                password: formData.password,
-                full_name: formData.full_name ? formData.full_name.trim() : null,
-                role: formData.role,
-                is_active: formData.is_active,
-                otp_enabled: formData.otp_enabled ? 1 : 0
-            };
-
-            let isEmailSupported = true;
-
-            if (editingUser) {
-                let { error } = await mysqlClient
-                    .from('admin_users')
-                    .update({
-                        ...payload,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', editingUser.id);
-
-                if (error && (error.message?.includes('email') || error.message?.includes('schema cache'))) {
-                    console.warn('[ADMIN-USERS] email column missing in admin_users table. Saving without email...');
-                    isEmailSupported = false;
-                    delete payload.email;
-                    const fallback = await mysqlClient
-                        .from('admin_users')
-                        .update({
-                            ...payload,
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('id', editingUser.id);
-                    error = fallback.error;
-                }
-
-                if (error) throw error;
-                setNotification({
-                    message: isEmailSupported ? 'User updated successfully!' : 'User updated! Run SQL migration in MySQL to enable email field.',
-                    type: 'success'
-                });
-            } else {
-                let { error } = await mysqlClient
-                    .from('admin_users')
-                    .insert([payload]);
-
-                if (error && (error.message?.includes('email') || error.message?.includes('schema cache'))) {
-                    console.warn('[ADMIN-USERS] email column missing in admin_users table. Saving without email...');
-                    isEmailSupported = false;
-                    delete payload.email;
-                    const fallback = await mysqlClient
-                        .from('admin_users')
-                        .insert([payload]);
-                    error = fallback.error;
-                }
-
-                if (error) throw error;
-                setNotification({
-                    message: isEmailSupported ? 'New user added successfully!' : 'New user added! Run SQL migration in MySQL to enable email field.',
-                    type: 'success'
-                });
-            }
-
-            setShowModal(false);
-            fetchUsers();
-            setTimeout(() => setNotification(null), 4000);
-        } catch (err) {
-            console.error('Save error:', err);
-            setNotification({ message: 'Error saving user: ' + err.message, type: 'error' });
-        } finally {
-            setSaving(false);
+            showToast('Failed to update OTP status: ' + err.message, 'error');
         }
     };
 
@@ -222,19 +170,21 @@ export default function UserManagementPage() {
                 .eq('id', id);
 
             if (error) throw error;
-            setNotification({ message: 'User deleted successfully', type: 'success' });
+            showToast('User deleted successfully', 'success');
+            if (viewMode !== 'list') {
+                handleBackToList();
+            }
             fetchUsers();
-            setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             console.error('Delete error:', err);
-            setNotification({ message: 'Failed to delete user', type: 'error' });
+            showToast('Failed to delete user: ' + err.message, 'error');
         }
     };
 
     if (isManager) {
         return (
             <div className="user-management-page animate-enter" style={{ maxWidth: '640px', margin: '4rem auto', textAlign: 'center' }}>
-                <div className="card shadow-premium" style={{ padding: '3.5rem 2.5rem', borderRadius: '18px', background: 'hsl(var(--bg-panel, #ffffff))' }}>
+                <div className="card shadow-premium" style={{ padding: '3.5rem 2.5rem', borderRadius: '18px', background: '#ffffff', border: '1px solid #e2e8f0' }}>
                     <div style={{
                         width: '64px',
                         height: '64px',
@@ -249,10 +199,10 @@ export default function UserManagementPage() {
                     }}>
                         <Shield size={32} />
                     </div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--text-main, #0f172a))', marginBottom: '0.75rem' }}>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.75rem' }}>
                         Access Restricted
                     </h2>
-                    <p style={{ color: 'hsl(var(--text-muted, #64748b))', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: '440px', margin: '0 auto 2rem' }}>
+                    <p style={{ color: '#64748b', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: '440px', margin: '0 auto 2rem' }}>
                         You are signed in with <strong>Manager</strong> credentials. Administrative user management and credential controls are restricted to <strong>Super Administrators</strong>.
                     </p>
                     <button
@@ -267,6 +217,26 @@ export default function UserManagementPage() {
         );
     }
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Dedicated Edit or Create User Page View
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (viewMode === 'edit' || viewMode === 'create') {
+        return (
+            <div className="user-management-page animate-enter">
+                <UserEditPage
+                    user={editingUser}
+                    isNew={viewMode === 'create'}
+                    onBack={handleBackToList}
+                    onSaved={handleUserSaved}
+                    onDelete={handleDeleteUser}
+                />
+            </div>
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Main User List Table View
+    // ─────────────────────────────────────────────────────────────────────────────
     return (
         <div className="user-management-page animate-enter">
             <div className="page-header">
@@ -274,7 +244,7 @@ export default function UserManagementPage() {
                     <h1><Users size={32} color="hsl(var(--primary))" /> Admin User Management</h1>
                     <p>Manage portal administrators, access credentials, and 2FA Email OTP security.</p>
                 </div>
-                <button className="btn-primary-glow" onClick={() => handleOpenModal()}>
+                <button className="btn-primary-glow" onClick={handleOpenCreatePage}>
                     <UserPlus size={18} />
                     Create New Admin
                 </button>
@@ -298,7 +268,7 @@ export default function UserManagementPage() {
                         <Users size={48} color="hsl(var(--text-muted))" />
                         <h3>No extra administrators found</h3>
                         <p>Create your first administrator to manage the portal with separate credentials.</p>
-                        <button className="btn-outline" onClick={() => handleOpenModal()}>Get Started</button>
+                        <button className="btn-outline" onClick={handleOpenCreatePage}>Get Started</button>
                     </div>
                 ) : (
                     <div className="table-responsive">
@@ -317,16 +287,25 @@ export default function UserManagementPage() {
                             </thead>
                             <tbody>
                                 {users.map(user => (
-                                    <tr key={user.id} onClick={() => handleOpenModal(user)} style={{ cursor: 'pointer', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+                                    <tr 
+                                        key={user.id} 
+                                        onClick={() => handleOpenEditPage(user)} 
+                                        style={{ cursor: 'pointer', transition: 'background 0.2s' }} 
+                                        onMouseOver={(e) => e.currentTarget.style.background = 'hsl(var(--primary) / 0.02)'} 
+                                        onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                                    >
                                         <td>
                                             <div className="user-info">
                                                 <div className="avatar">
                                                     {user.username.charAt(0).toUpperCase()}
                                                 </div>
-                                                <strong>{user.username}</strong>
+                                                <div>
+                                                    <strong style={{ display: 'block', color: '#0f172a' }}>{user.username}</strong>
+                                                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>ID: #{user.id}</span>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td>{user.email || <span style={{ color: '#000000', fontStyle: 'italic' }}>No email set</span>}</td>
+                                        <td>{user.email || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No email set</span>}</td>
                                         <td>{user.full_name || '—'}</td>
                                         <td>
                                             <span className={`badge badge-${user.role}`}>
@@ -366,13 +345,21 @@ export default function UserManagementPage() {
                                                 {user.is_active ? 'Active' : 'Disabled'}
                                             </span>
                                         </td>
-                                        <td>{user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}</td>
+                                        <td>{user.last_login ? new Date(user.last_login).toLocaleString('en-IN') : 'Never'}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             <div className="actions-group">
-                                                <button className="btn-icon" title="Edit Admin User" onClick={(e) => { e.stopPropagation(); handleOpenModal(user); }}>
+                                                <button 
+                                                    className="btn-icon" 
+                                                    title="Edit Administrator" 
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenEditPage(user); }}
+                                                >
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button className="btn-icon danger" title="Delete Admin User" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.id); }}>
+                                                <button 
+                                                    className="btn-icon danger" 
+                                                    title="Delete Administrator" 
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteUser(user.id); }}
+                                                >
                                                     <Trash2 size={16} />
                                                 </button>
                                             </div>
@@ -384,124 +371,6 @@ export default function UserManagementPage() {
                     </div>
                 )}
             </div>
-
-            {showModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content animate-slide-up">
-                        <div className="modal-header">
-                            <h3>{editingUser ? 'Edit Administrator' : 'Add New Administrator'}</h3>
-                            <button className="btn-close" onClick={() => setShowModal(false)}><X size={20} /></button>
-                        </div>
-                        <form onSubmit={handleSaveUser}>
-                            <div className="form-grid">
-                                <div className="field-group">
-                                    <label>Username</label>
-                                    <div className="input-with-icon">
-                                        <Users size={16} />
-                                        <input
-                                            type="text"
-                                            required
-                                            value={formData.username}
-                                            onChange={e => setFormData({ ...formData, username: e.target.value })}
-                                            placeholder="johndoe"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="field-group">
-                                    <label>Password</label>
-                                    <div className="input-with-icon">
-                                        <Key size={16} />
-                                        <input
-                                            type="text"
-                                            required
-                                            value={formData.password}
-                                            onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                            placeholder="••••••••"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="field-group full-width">
-                                    <label>Email Address</label>
-                                    <div className="input-with-icon">
-                                        <Mail size={16} />
-                                        <input
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                            placeholder="admin@example.com"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="field-group full-width">
-                                    <label>Full Name</label>
-                                    <input
-                                        type="text"
-                                        value={formData.full_name}
-                                        onChange={e => setFormData({ ...formData, full_name: e.target.value })}
-                                        placeholder="John Doe"
-                                    />
-                                </div>
-                                <div className="field-group">
-                                    <label>Role</label>
-                                    <select
-                                        value={formData.role}
-                                        onChange={e => setFormData({ ...formData, role: e.target.value })}
-                                    >
-                                        <option value="admin">Administrator</option>
-                                        <option value="super_admin">Super Admin</option>
-                                        <option value="manager">Manager</option>
-                                    </select>
-                                </div>
-                                <div className="field-group">
-                                    <label>Access Status</label>
-                                    <div className="toggle-field">
-                                        <input
-                                            type="checkbox"
-                                            id="user_active_toggle"
-                                            checked={formData.is_active}
-                                            onChange={e => setFormData({ ...formData, is_active: e.target.checked })}
-                                        />
-                                        <label htmlFor="user_active_toggle" style={{ margin: 0, cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>Active Account</label>
-                                    </div>
-                                </div>
-
-                                {/* 2FA Email OTP Toggle */}
-                                <div className="field-group full-width" style={{ background: '#f8fafc', padding: '1rem 1.25rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontWeight: 700, margin: 0 }}>
-                                        <ShieldCheck size={16} color="hsl(var(--primary))" />
-                                        Two-Factor Authentication (2FA)
-                                    </label>
-                                    <div className="toggle-field" style={{ marginTop: '0.6rem' }}>
-                                        <input
-                                            type="checkbox"
-                                            id="otp_enabled_toggle"
-                                            checked={Boolean(formData.otp_enabled)}
-                                            onChange={e => setFormData({ ...formData, otp_enabled: e.target.checked })}
-                                            disabled={!formData.email.trim()}
-                                        />
-                                        <label htmlFor="otp_enabled_toggle" style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: formData.email.trim() ? '#334155' : '#000000', cursor: formData.email.trim() ? 'pointer' : 'not-allowed' }}>
-                                            Require 6-Digit Email OTP on Login
-                                        </label>
-                                    </div>
-                                    <p style={{ margin: '0.4rem 0 0', fontSize: '0.78rem', color: formData.email.trim() ? '#64748b' : '#dc2626' }}>
-                                        {formData.email.trim()
-                                            ? "When enabled, a verification code will be sent to the user's email upon password check."
-                                            : "⚠️ An email address is required above to enable Email OTP login."
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="btn-primary-glow" disabled={saving}>
-                                    {saving && <Loader2 size={18} className="animate-spin" />}
-                                    {editingUser ? 'Update User' : 'Create User'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
             <style jsx>{`
                 .user-management-page { padding: 2rem; max-width: 1200px; margin: 0 auto; }
@@ -518,6 +387,13 @@ export default function UserManagementPage() {
                 .btn-primary-glow:hover { transform: translateY(-2px); box-shadow: 0 8px 20px hsl(var(--primary) / 0.4); }
                 .btn-primary-glow:disabled { opacity: 0.6; cursor: not-allowed; }
 
+                .btn-outline {
+                    background: transparent; border: 1px solid #cbd5e1;
+                    padding: 0.65rem 1.25rem; border-radius: 12px; font-weight: 700;
+                    cursor: pointer; transition: 0.2s;
+                }
+                .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
+
                 .users-card { background: white; border-radius: 20px; border: 1px solid #e5e7eb; overflow: hidden; }
                 
                 .loading-state, .empty-state { padding: 5rem 2rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
@@ -526,18 +402,18 @@ export default function UserManagementPage() {
 
                 .table-responsive { width: 100%; overflow-x: auto; }
                 .users-table { width: 100%; border-collapse: collapse; text-align: left; }
-                .users-table th { padding: 0.65rem 1rem; background: #f9fafb; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #666; font-weight: 800; border-bottom: 1px solid #e5e7eb; }
-                .users-table td { padding: 0.65rem 1rem; border-bottom: 1px solid #f3f4f6; color: #444; font-size: 0.88rem; }
+                .users-table th { padding: 0.75rem 1.25rem; background: #f9fafb; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #666; font-weight: 800; border-bottom: 1px solid #e5e7eb; }
+                .users-table td { padding: 0.85rem 1.25rem; border-bottom: 1px solid #f3f4f6; color: #444; font-size: 0.88rem; vertical-align: middle; }
                 
                 .user-info { display: flex; align-items: center; gap: 1rem; }
-                .avatar { width: 32px; height: 32px; border-radius: 50%; background: hsl(var(--primary)); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; }
+                .avatar { width: 36px; height: 36px; border-radius: 50%; background: hsl(var(--primary)); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.82rem; font-weight: 800; }
                 
                 .badge { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
                 .badge-admin { background: #eff6ff; color: #2563eb; }
                 .badge-super_admin { background: #fef2f2; color: #dc2626; }
                 .badge-manager { background: #f0fdf4; color: #16a34a; }
 
-                .status-indicator { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 500; }
+                .status-indicator { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; }
                 .status-indicator::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
                 .status-indicator.active { color: #059669; }
                 .status-indicator.active::before { background: #10b981; box-shadow: 0 0 0 3px #10b98122; }
@@ -548,30 +424,6 @@ export default function UserManagementPage() {
                 .btn-icon { width: 34px; height: 34px; border-radius: 8px; border: 1px solid #e5e7eb; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; color: #666; }
                 .btn-icon:hover { border-color: hsl(var(--primary)); color: hsl(var(--primary)); background: #eff6ff; }
                 .btn-icon.danger:hover { border-color: #fca5a5; color: #ef4444; background: #fef2f2; }
-
-                /* Modal Styles */
-                .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 2000; }
-                .modal-content { background: white; width: 500px; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden; }
-                .modal-header { padding: 1.5rem 2rem; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
-                .modal-header h3 { margin: 0; font-size: 1.25rem; font-weight: 800; }
-                .btn-close { background: none; border: none; cursor: pointer; color: #999; }
-                
-                .form-grid { padding: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-                .full-width { grid-column: 1 / -1; }
-                .field-group label { display: block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; color: #444; }
-                
-                .input-with-icon { position: relative; }
-                .input-with-icon :global(svg) { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #999; }
-                .input-with-icon input { padding-left: 2.75rem; }
-                
-                input, select { width: 100%; padding: 0.75rem 1rem; border: 1px solid #d1d5db; border-radius: 12px; font-size: 0.95rem; }
-                
-                .toggle-field { display: flex; align-items: center; gap: 0.75rem; }
-                .toggle-field input { width: auto; }
-                .toggle-field label { font-size: 0.9rem; font-weight: 600; color: #444; }
-
-                .modal-footer { padding: 1.5rem 2rem; background: #f9fafb; display: flex; justify-content: flex-end; gap: 1rem; }
-                .btn-secondary { background: white; border: 1px solid #d1d5db; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 700; cursor: pointer; }
 
                 .toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 2rem; border-radius: 12px; display: flex; align-items: center; gap: 0.75rem; font-weight: 700; z-index: 3000; animation: slideUp 0.3s ease-out; }
                 .toast-success { background: #10b981; color: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }

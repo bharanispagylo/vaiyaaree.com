@@ -317,6 +317,16 @@
     letter-spacing: 0.05em;
 }
 
+.badgeDefaultShipping {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+}
+
+.badgeDefaultBilling {
+    background: #e0e7ff !important;
+    color: #3730a3 !important;
+}
+
 .addressTitle {
     font-size: 1rem;
     font-weight: 700;
@@ -343,23 +353,139 @@
     line-height: 1.5;
 }
 
+.addressCardActions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid hsl(var(--text-main) / 0.08);
+    flex-wrap: wrap;
+}
+
+.editAddressBtn {
+    color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.08);
+    border: 1px solid hsl(var(--primary) / 0.2);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.editAddressBtn:hover {
+    background: hsl(var(--primary) / 0.15);
+}
+
+.makeDefaultBtn {
+    color: #047857;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.makeDefaultBtn:hover {
+    background: #d1fae5;
+}
+
 .deleteAddressBtn {
-    margin-top: auto;
+    margin-left: auto;
     color: hsl(0deg 84% 60%);
     background: hsl(0deg 84% 97%);
     border: 1px solid hsl(0deg 84% 90%);
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    padding: 0.5rem 1rem;
+    padding: 0.45rem 0.85rem;
     border-radius: 8px;
-    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     transition: all 0.2s ease;
 }
 
 .deleteAddressBtn:hover {
     background: hsl(0deg 84% 94%);
     color: hsl(0deg 84% 50%);
+}
+
+.phoneInputCompound {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+}
+
+.phoneSelectPrefix {
+    width: 110px !important;
+    min-width: 110px !important;
+    max-width: 110px !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-right: none !important;
+    padding: 0.9rem 0.5rem !important;
+    font-size: 0.88rem !important;
+    background: hsl(var(--text-main) / 0.05) !important;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.phoneInputRight {
+    flex: 1;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+.formActionButtons {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.cancelFormBtn {
+    background: hsl(var(--text-main) / 0.08);
+    color: hsl(var(--text-main));
+    border: 1px solid hsl(var(--text-main) / 0.15);
+    padding: 0.85rem 1.75rem;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancelFormBtn:hover {
+    background: hsl(var(--text-main) / 0.15);
+}
+
+.samePhoneLink {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: hsl(var(--primary));
+    cursor: pointer;
+    margin-left: auto;
+    text-transform: none;
+    letter-spacing: normal;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+.samePhoneLink:hover {
+    text-decoration: underline;
 }
 
 /* Request Cards & Forms */

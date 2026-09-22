@@ -33,8 +33,10 @@ export default function ProductForm({
     removeVariant,
     handleSave,
     handleDelete,
+    handleDuplicate,
     setIsEditing,
     fbProcessing,
+    duplicating = false,
     setZoomedImage,
     setActiveImageField,
     setShowMediaPicker,
@@ -277,8 +279,10 @@ export default function ProductForm({
                 currentProduct={currentProduct}
                 productStatus={productStatus}
                 fbProcessing={fbProcessing}
+                duplicating={duplicating}
                 setIsEditing={setIsEditing}
                 handleDelete={handleDelete}
+                handleDuplicate={handleDuplicate}
                 handleSaveAsDraft={handleSaveAsDraft}
                 publicProductPath={publicProductPath}
                 publicProductFullUrl={publicProductFullUrl}

@@ -314,9 +314,13 @@ export default function ProductsPage() {
                         `product_group.ilike.%${t}%`,
                         `product_catalog_image_id.ilike.%${t}%`,
                         `sku.ilike.%${t}%`,
+                        `product_no.ilike.%${t}%`,
                         `id.ilike.%${t}%`,
                         `slug.ilike.%${t}%`
                     );
+                }
+                if (/^\d+$/.test(cleanTerm)) {
+                    orConditions.push(`product_no.eq.${cleanTerm}`, `sku.eq.${cleanTerm}`);
                 }
                 query = query.or(orConditions.join(','));
             }
@@ -509,6 +513,50 @@ export default function ProductsPage() {
             console.error('Toggle status error:', err);
             setErrorModal({ title: 'Status Update Failed', message: err.message || 'Could not update product status.' });
         }
+    };
+
+    const handleDuplicateProduct = (product) => {
+        if (!product?.id) return;
+        setConfirmModal({
+            title: 'Duplicate Product?',
+            message: `Are you sure you want to duplicate "${product.name}"? A new copy will be created with the next sequential product number and saved as a Draft.`,
+            onConfirm: async () => {
+                try {
+                    setLoading(true);
+                    const token = localStorage.getItem('cast_prince_admin') || '';
+                    const res = await fetch('/api/admin/products/duplicate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ productId: product.id })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        throw new Error(data.error || 'Failed to duplicate product');
+                    }
+
+                    await fetchProducts();
+                    setSuccessModal({
+                        title: 'Product Duplicated!',
+                        message: `Product #${data.duplicatedProduct.product_no} "${data.duplicatedProduct.name}" has been created successfully as a Draft.`,
+                        actionLabel: 'Edit Duplicated Product',
+                        onAction: () => {
+                            router.push(`/admin/products/${data.duplicatedProduct.id}`);
+                        }
+                    });
+                } catch (err) {
+                    console.error('Duplicate error:', err);
+                    setErrorModal({
+                        title: 'Duplication Failed',
+                        message: err.message || 'Could not duplicate product.'
+                    });
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
     };
 
     const handleBulkDelete = () => {
@@ -842,8 +890,23 @@ export default function ProductsPage() {
             if (groupFilter !== 'ALL') query = query.eq('product_group', groupFilter);
             if (statusFilter !== 'ALL') query = query.eq('is_active', statusFilter === 'ACTIVE' ? 1 : 0);
             if (debouncedSearchTerm.trim()) {
-                const term = debouncedSearchTerm.trim();
-                query = query.or(`name.ilike.%${term}%,category.ilike.%${term}%,product_group.ilike.%${term}%`);
+                const rawTerm = debouncedSearchTerm.trim();
+                const cleanTerm = rawTerm.replace(/^#+/, '').trim();
+                const terms = Array.from(new Set([rawTerm, cleanTerm])).filter(Boolean);
+                const orConditions = [];
+                for (const t of terms) {
+                    orConditions.push(
+                        `name.ilike.%${t}%`,
+                        `category.ilike.%${t}%`,
+                        `product_group.ilike.%${t}%`,
+                        `sku.ilike.%${t}%`,
+                        `product_no.ilike.%${t}%`
+                    );
+                }
+                if (/^\d+$/.test(cleanTerm)) {
+                    orConditions.push(`product_no.eq.${cleanTerm}`, `sku.eq.${cleanTerm}`);
+                }
+                query = query.or(orConditions.join(','));
             }
 
             const { data: exportProducts, error } = await query;
@@ -1005,6 +1068,7 @@ export default function ProductsPage() {
     const statsFiltered = allProductsData.filter(p => {
         const rawTerm = debouncedSearchTerm.toLowerCase().trim();
         const cleanTerm = rawTerm.replace(/^#+/, '').trim();
+        const pNoStr = String(p.product_no || '').trim();
         const matchesSearch = !rawTerm || (
             (p.name || '').toLowerCase().includes(rawTerm) ||
             (p.category || '').toLowerCase().includes(rawTerm) ||
@@ -1012,7 +1076,7 @@ export default function ProductsPage() {
             (p.product_catalog_image_id || '').toLowerCase().includes(rawTerm) ||
             (p.sku || '').toLowerCase().includes(rawTerm) ||
             (p.sku || '').toLowerCase().includes(cleanTerm) ||
-            (String(p.product_no || '')).includes(cleanTerm) ||
+            (pNoStr && (pNoStr.includes(cleanTerm) || ('#' + pNoStr).toLowerCase().includes(rawTerm))) ||
             (p.id || '').toLowerCase().includes(rawTerm)
         );
         const matchesCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
@@ -1127,6 +1191,8 @@ export default function ProductsPage() {
                                 shareToStatus={shareToStatus}
                                 fetchHistory={fetchHistory}
                                 handleDelete={handleDelete}
+                                onToggleStatus={handleToggleStatus}
+                                onDuplicateProduct={handleDuplicateProduct}
                                 currentPage={productsPage}
                                 totalPages={totalProductPages}
                                 setPage={setProductsPage}
@@ -1149,6 +1215,7 @@ export default function ProductsPage() {
                                 fetchHistory={fetchHistory}
                                 handleDelete={handleDelete}
                                 onToggleStatus={handleToggleStatus}
+                                onDuplicateProduct={handleDuplicateProduct}
                                 currentPage={productsPage}
                                 totalPages={totalProductPages}
                                 setPage={setProductsPage}

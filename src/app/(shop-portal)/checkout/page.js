@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock, Sparkles, Mail, Eye, EyeOff } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ModalPortal from '@/components/ModalPortal';
 import Link from 'next/link';
+import { ALL_COUNTRIES, COUNTRY_CODES, formatDisplayPhone, getCountryByName } from '@/lib/countryCodes';
 import styles from './checkout.module.css';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { cart, cartTotal, checkoutForm, setCheckoutForm, taxDetails, discountData, placeOrder, clearCartAfterSuccess, isSessionLoading, mysqlClient, showToast, user, appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon, activeDiscountRules, fetchShippingRates, isCartLoaded, isEmailOnly, isWhatsAppOnly, isHybridChannel, communicationChannel, supportEmail, supportPhone } = useShop();
@@ -28,6 +29,11 @@ export default function CheckoutPage() {
     const [showAccountPassword, setShowAccountPassword] = useState(false);
     const [couponInput, setCouponInput] = useState('');
     const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+    // Saved Addresses for fast address book selection
+    const [savedAddresses, setSavedAddresses] = useState([]);
+    const [showAddressPickerModal, setShowAddressPickerModal] = useState(false);
+    const [pickerTarget, setPickerTarget] = useState('shipping'); // 'shipping' or 'billing'
 
     useEffect(() => {
         setPageMounted(true);
@@ -553,6 +559,81 @@ export default function CheckoutPage() {
         return () => { isCancelled = true; };
     }, [user?.id, user?.phone, user?.email, mysqlClient]);
 
+    // Fetch user's saved addresses from address book
+    useEffect(() => {
+        if (!user?.id || !mysqlClient) return;
+        let isCancelled = false;
+        async function loadSavedAddresses() {
+            try {
+                const { data, error } = await mysqlClient
+                    .from('customer_addresses')
+                    .select('*')
+                    .eq('customer_id', user.id)
+                    .order('is_default', { ascending: false });
+                if (!error && data && !isCancelled) {
+                    setSavedAddresses(data);
+                }
+            } catch (err) {
+                console.warn('[CHECKOUT] Error fetching saved addresses:', err);
+            }
+        }
+        loadSavedAddresses();
+        return () => { isCancelled = true; };
+    }, [user?.id, mysqlClient]);
+
+    const handleSelectAddress = (addr, target = 'shipping') => {
+        const cleanPhone = (addr.phone || '').replace(/\D/g, '');
+        const cleanWA = (addr.whatsapp || addr.phone || '').replace(/\D/g, '');
+        const cCode = addr.country_code || '+91';
+        const countryVal = addr.country || 'India';
+        const recipientName = addr.full_name || addr.name || '';
+        const addrLine = addr.address_line || addr.address || '';
+
+        if (target === 'shipping') {
+            setCheckoutForm(prev => ({
+                ...prev,
+                sameAsBilling: false,
+                shippingName: recipientName,
+                shippingPhone: cleanPhone,
+                shippingWhatsApp: cleanWA,
+                shippingEmail: addr.email || prev.shippingEmail || prev.billingEmail || '',
+                shippingAddress: addrLine,
+                shippingCity: addr.city || '',
+                shippingState: addr.state || 'Tamil Nadu',
+                shippingPincode: addr.pincode || '',
+                shippingCountry: countryVal
+            }));
+            showToast('Shipping address applied from Address Book!', 'success');
+        } else if (target === 'billing') {
+            setCheckoutForm(prev => ({
+                ...prev,
+                billingName: recipientName,
+                billingPhone: cleanPhone,
+                billingCountryCode: cCode,
+                billingWhatsApp: cleanWA,
+                billingEmail: addr.email || prev.billingEmail || '',
+                billingAddress: addrLine,
+                billingCity: addr.city || '',
+                billingState: addr.state || 'Tamil Nadu',
+                billingPincode: addr.pincode || '',
+                billingCountry: countryVal,
+                ...(prev.sameAsBilling ? {
+                    shippingName: recipientName,
+                    shippingPhone: cleanPhone,
+                    shippingWhatsApp: cleanWA,
+                    shippingEmail: addr.email || prev.billingEmail || '',
+                    shippingAddress: addrLine,
+                    shippingCity: addr.city || '',
+                    shippingState: addr.state || 'Tamil Nadu',
+                    shippingPincode: addr.pincode || '',
+                    shippingCountry: countryVal
+                } : {})
+            }));
+            showToast('Billing address applied from Address Book!', 'success');
+        }
+        setShowAddressPickerModal(false);
+    };
+
 
     const states = ["Tamil Nadu", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"];
 
@@ -944,7 +1025,18 @@ export default function CheckoutPage() {
 
                     {/* BILLING ADDRESS SECTION */}
                     <section className={styles.checkoutCard}>
-                        <h3 className={styles.cardTitle}>Billing Details</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                            <h3 className={styles.cardTitle} style={{ margin: 0 }}>Billing Details</h3>
+                            {isUserLoggedIn && savedAddresses.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setPickerTarget('billing'); setShowAddressPickerModal(true); }}
+                                    className={styles.chooseAddressBtn}
+                                >
+                                    <MapPin size={14} /> Choose from Address Book
+                                </button>
+                            )}
+                        </div>
                             <div className={styles.formGrid}>
                                 <div className={styles.formGroup}>
                                     <label>FULL NAME <span className={styles.requiredStar}>*</span></label>
@@ -1116,22 +1208,23 @@ export default function CheckoutPage() {
                                         value={checkoutForm.billingCountry || 'India'}
                                         onChange={e => {
                                             const newCountry = e.target.value;
+                                            const found = getCountryByName(newCountry);
                                             setCheckoutForm(p => ({ 
                                                 ...p, 
                                                 billingCountry: newCountry,
-                                                ...(p.sameAsBilling ? { shippingCountry: newCountry } : {})
+                                                ...(found?.code ? { billingCountryCode: found.code } : {}),
+                                                ...(p.sameAsBilling ? { 
+                                                    shippingCountry: newCountry,
+                                                    ...(found?.code ? { shippingCountryCode: found.code } : {})
+                                                } : {})
                                             }));
                                         }}
                                     >
-                                        <option value="India">India</option>
-                                        <option value="USA">USA</option>
-                                        <option value="UK">UK</option>
-                                        <option value="UAE">UAE</option>
-                                        <option value="Singapore">Singapore</option>
-                                        <option value="Malaysia">Malaysia</option>
-                                        <option value="Australia">Australia</option>
-                                        <option value="Canada">Canada</option>
-                                        <option value="Other">Other</option>
+                                        {ALL_COUNTRIES.map((c, i) => (
+                                            <option key={`chk-bc-${c.name}-${i}`} value={c.name}>
+                                                {c.flag} {c.name} ({c.code})
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
@@ -1188,7 +1281,18 @@ export default function CheckoutPage() {
 
                 {/* SHIPPING ADDRESS SECTION */}
                 <section className={styles.checkoutCard} style={{ marginTop: '2rem' }}>
-                            <h3 className={styles.cardTitle}>Shipping Details</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <h3 className={styles.cardTitle} style={{ margin: 0 }}>Shipping Details</h3>
+                        {isUserLoggedIn && savedAddresses.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => { setPickerTarget('shipping'); setShowAddressPickerModal(true); }}
+                                className={styles.chooseAddressBtn}
+                            >
+                                <MapPin size={14} /> Choose from Address Book
+                            </button>
+                        )}
+                    </div>
                             
                             {/* Same as Billing Checkbox */}
                             <label className={styles.sameAsBillingCheckbox}>
@@ -1351,23 +1455,21 @@ export default function CheckoutPage() {
                                             value={checkoutForm.shippingCountry || 'India'}
                                             onChange={e => {
                                                 const newCountry = e.target.value;
+                                                const found = getCountryByName(newCountry);
                                                 setCheckoutForm(p => ({ 
                                                     ...p, 
-                                                    shippingCountry: newCountry
+                                                    shippingCountry: newCountry,
+                                                    ...(found?.code ? { shippingCountryCode: found.code } : {})
                                                 }));
                                             }}
                                             disabled={checkoutForm.sameAsBilling}
                                             className={checkoutForm.sameAsBilling ? styles.disabledInput : ''}
                                         >
-                                            <option value="India">India</option>
-                                            <option value="USA">USA</option>
-                                            <option value="UK">UK</option>
-                                            <option value="UAE">UAE</option>
-                                            <option value="Singapore">Singapore</option>
-                                            <option value="Malaysia">Malaysia</option>
-                                            <option value="Australia">Australia</option>
-                                            <option value="Canada">Canada</option>
-                                            <option value="Other">Other</option>
+                                            {ALL_COUNTRIES.map((c, i) => (
+                                                <option key={`chk-sc-${c.name}-${i}`} value={c.name}>
+                                                    {c.flag} {c.name} ({c.code})
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>
@@ -1444,9 +1546,18 @@ export default function CheckoutPage() {
                                         <span>{appliedCoupon.couponCode}</span>
                                         {appliedCoupon.couponDiscount > 0 && <small style={{ fontWeight: 700 }}>(Save ₹{appliedCoupon.couponDiscount.toLocaleString('en-IN')})</small>}
                                     </div>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#16a34a', fontWeight: 800, fontSize: '11px', background: '#dcfce7', padding: '3px 8px', borderRadius: '6px', marginLeft: 'auto' }}>
-                                        <Check size={12} strokeWidth={2.5} /> Applied
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#16a34a', fontWeight: 800, fontSize: '11px', background: '#dcfce7', padding: '3px 8px', borderRadius: '6px' }}>
+                                            <Check size={12} strokeWidth={2.5} /> Applied
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeCoupon()}
+                                            style={{ background: 'transparent', border: 'none', color: '#dc2626', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: '2px 4px', textDecoration: 'underline' }}
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
@@ -1840,6 +1951,85 @@ export default function CheckoutPage() {
                 </div>
             </ModalPortal>
         )}
+
+        {/* Modal 3: Choose from Address Book Modal */}
+        {showAddressPickerModal && (
+            <ModalPortal>
+                <div className={styles.addressPickerOverlay} onClick={() => setShowAddressPickerModal(false)}>
+                    <div className={styles.addressPickerModal} onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.addressPickerHeader}>
+                            <h3>Select {pickerTarget === 'billing' ? 'Billing' : 'Shipping'} Address</h3>
+                            <button 
+                                type="button" 
+                                onClick={() => setShowAddressPickerModal(false)}
+                                className={styles.addressPickerCloseBtn}
+                                aria-label="Close"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.addressPickerBody}>
+                            {savedAddresses.length === 0 ? (
+                                <p style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0' }}>
+                                    No saved addresses found in your account.
+                                </p>
+                            ) : (
+                                savedAddresses.map(addr => {
+                                    const isDefault = Boolean(Number(addr.is_default) === 1 || addr.is_default === '1' || addr.is_default === true);
+                                    const dispPhone = formatDisplayPhone(addr.country_code || '+91', addr.phone);
+                                    const dispWA = addr.whatsapp ? formatDisplayPhone(addr.whatsapp_country_code || addr.country_code || '+91', addr.whatsapp) : null;
+                                    return (
+                                        <div 
+                                            key={addr.id} 
+                                            className={styles.addressPickerCard}
+                                            onClick={() => handleSelectAddress(addr, pickerTarget)}
+                                        >
+                                            <div className={styles.addressPickerCardTitle}>
+                                                {pickerTarget === 'billing' ? <FileText size={16} /> : <Truck size={16} />}
+                                                <span>{addr.title || (addr.address_type === 'billing' ? 'Billing Address' : 'Shipping Address')}</span>
+                                                {isDefault && (
+                                                    <span style={{ marginLeft: 'auto', background: '#dcfce7', color: '#166534', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                                                        DEFAULT
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className={styles.addressPickerCardName}>
+                                                {addr.full_name || addr.name}
+                                            </div>
+                                            <div className={styles.addressPickerCardText}>
+                                                {addr.address_line || addr.address}
+                                                <br />
+                                                {addr.city ? `${addr.city}, ` : ''}{addr.state || ''} {addr.pincode || ''} • {addr.country || 'India'}
+                                                <br />
+                                                📞 {dispPhone || addr.phone}
+                                                {dispWA ? ` • 💬 ${dispWA}` : ''}
+                                            </div>
+                                            <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                                                <span style={{ color: 'hsl(var(--primary))', fontSize: '0.82rem', fontWeight: 700 }}>
+                                                    Use this address →
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </ModalPortal>
+        )}
         </>
+    );
+}
+
+export default function CheckoutPage() {
+    return (
+        <Suspense fallback={
+            <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ color: '#64748b', fontWeight: 600 }}>Loading checkout...</p>
+            </div>
+        }>
+            <CheckoutContent />
+        </Suspense>
     );
 }

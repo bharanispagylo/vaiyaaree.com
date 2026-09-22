@@ -32,6 +32,7 @@ export default function ProductFormContainer({ productId = null, isNew = false }
     const [galleryImageUrl, setGalleryImageUrl] = useState([]);
     const [variants, setVariants] = useState([]);
     const [fbProcessing, setFbProcessing] = useState(false);
+    const [duplicating, setDuplicating] = useState(false);
 
     // Media & Zoom states
     const [showMediaPicker, setShowMediaPicker] = useState(false);
@@ -517,6 +518,54 @@ export default function ProductFormContainer({ productId = null, isNew = false }
         });
     };
 
+    const handleDuplicate = () => {
+        if (!currentProduct?.id) return;
+        setConfirmModal({
+            title: 'Duplicate Product?',
+            message: `Are you sure you want to duplicate "${currentProduct.name}"? A new copy will be created with the next sequential product number and saved as a Draft.`,
+            onConfirm: async () => {
+                try {
+                    setDuplicating(true);
+                    setLoadingOverlayText('Duplicating product...');
+                    setOcrLoading(true);
+                    const token = localStorage.getItem('cast_prince_admin') || '';
+                    const res = await fetch('/api/admin/products/duplicate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ productId: currentProduct.id })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        throw new Error(data.error || 'Failed to duplicate product');
+                    }
+
+                    setSuccessModal({
+                        title: 'Product Duplicated!',
+                        message: `Product #${data.duplicatedProduct.product_no} "${data.duplicatedProduct.name}" has been created as a Draft. Redirecting to the duplicated product...`,
+                        onClose: () => {
+                            router.push(`/admin/products/${data.duplicatedProduct.id}`);
+                        }
+                    });
+                    setTimeout(() => {
+                        router.push(`/admin/products/${data.duplicatedProduct.id}`);
+                    }, 1200);
+                } catch (err) {
+                    console.error('Duplication error:', err);
+                    setErrorModal({
+                        title: 'Duplication Failed',
+                        message: err.message || 'Could not duplicate product.'
+                    });
+                } finally {
+                    setDuplicating(false);
+                    setOcrLoading(false);
+                }
+            }
+        });
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '1rem' }}>
@@ -550,8 +599,10 @@ export default function ProductFormContainer({ productId = null, isNew = false }
                 removeVariant={removeVariant}
                 handleSave={handleSave}
                 handleDelete={handleDelete}
+                handleDuplicate={handleDuplicate}
                 setIsEditing={() => router.push('/admin/products')}
                 fbProcessing={fbProcessing}
+                duplicating={duplicating}
                 setZoomedImage={setZoomedImage}
                 setActiveImageField={setActiveImageField}
                 setShowMediaPicker={setShowMediaPicker}

@@ -450,9 +450,52 @@ export function SuccessModal({ isOpen, successModal, onClose, title = 'Success!'
                         <p style={{ color: '#64748b', lineHeight: '1.6', fontSize: '0.95rem', marginBottom: '2rem' }}>
                             {displayMessage}
                         </p>
-                        <button type="button" onClick={handleClose} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '0.95rem', transition: 'all 0.15s' }}>
-                            Continue
-                        </button>
+                        {successModal?.actionLabel ? (
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleClose}
+                                    style={{
+                                        flex: 1,
+                                        background: '#f1f5f9',
+                                        height: '48px',
+                                        borderRadius: '12px',
+                                        color: '#475569',
+                                        fontWeight: 700,
+                                        border: '1px solid #e2e8f0',
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    Dismiss
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        handleClose();
+                                        if (successModal.onAction) successModal.onAction();
+                                    }}
+                                    style={{
+                                        flex: 1.4,
+                                        background: '#0f172a',
+                                        height: '48px',
+                                        borderRadius: '12px',
+                                        color: '#fff',
+                                        fontWeight: 800,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem',
+                                        boxShadow: '0 4px 12px rgba(15, 23, 42, 0.2)'
+                                    }}
+                                >
+                                    {successModal.actionLabel}
+                                </button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={handleClose} style={{ width: '100%', background: '#0f172a', height: '52px', borderRadius: '14px', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: '0.95rem', transition: 'all 0.15s' }}>
+                                Continue
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

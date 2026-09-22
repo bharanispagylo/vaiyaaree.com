@@ -106,7 +106,8 @@ export async function GET(req) {
 
         const [customerRows] = await pool.query(queryStr, searchParamsList);
 
-        // Collect all phones to query orders
+        // Collect all IDs, phones, and emails to query orders
+        const customerIds = customerRows.map(c => c.id).filter(Boolean);
         const phoneList = [];
         customerRows.forEach(c => {
             const raw = cleanMobileDigits(c.phone);
@@ -115,22 +116,43 @@ export async function GET(req) {
                 phoneList.push(raw.slice(-10));
                 phoneList.push(`91${raw.slice(-10)}`);
                 phoneList.push(`+91${raw.slice(-10)}`);
+                phoneList.push(`+91 ${raw.slice(-10)}`);
+                phoneList.push(`0${raw.slice(-10)}`);
+                if (c.phone) phoneList.push(c.phone.trim());
                 if (c.country_code) {
                     phoneList.push(`${c.country_code}${raw}`);
                     phoneList.push(`${c.country_code.replace('+', '')}${raw}`);
+                    phoneList.push(`${c.country_code} ${raw.slice(-10)}`);
+                    phoneList.push(`${c.country_code}${raw.slice(-10)}`);
                 }
             }
         });
         const uniquePhones = [...new Set(phoneList.filter(Boolean))];
+        const emails = [...new Set(customerRows.map(c => (c.email || '').trim().toLowerCase()).filter(Boolean))];
 
         let orderRows = [];
+        const orderOrConditions = [];
+        const orderQueryParams = [];
+
+        if (customerIds.length > 0) {
+            orderOrConditions.push(`\`customer_id\` IN (${customerIds.map(() => '?').join(',')})`);
+            orderQueryParams.push(...customerIds);
+        }
         if (uniquePhones.length > 0) {
-            const placeholders = uniquePhones.map(() => '?').join(',');
+            orderOrConditions.push(`\`customer_phone\` IN (${uniquePhones.map(() => '?').join(',')})`);
+            orderQueryParams.push(...uniquePhones);
+        }
+        if (emails.length > 0) {
+            orderOrConditions.push(`LOWER(TRIM(\`customer_email\`)) IN (${emails.map(() => '?').join(',')})`);
+            orderQueryParams.push(...emails);
+        }
+
+        if (orderOrConditions.length > 0) {
             const [orders] = await pool.query(
-                `SELECT * FROM \`orders\` WHERE \`status\` != 'DRAFT' AND \`customer_phone\` IN (${placeholders}) ORDER BY \`created_at\` DESC`,
-                uniquePhones
+                `SELECT * FROM \`orders\` WHERE \`status\` != 'DRAFT' AND (${orderOrConditions.join(' OR ')}) ORDER BY \`created_at\` DESC`,
+                orderQueryParams
             );
-            orderRows = orders;
+            orderRows = orders || [];
         }
 
         // Build customer aggregated data map (keyed by canonical 10-digit phone or customer id)
@@ -151,6 +173,15 @@ export async function GET(req) {
                     parsedMetadata = {};
                 }
             }
+
+            const hasExplicitBilling = Boolean(
+                parsedMetadata?.last_billing_address &&
+                (parsedMetadata.last_billing_address.address || parsedMetadata.last_billing_address.city || parsedMetadata.last_billing_address.pincode)
+            );
+            const hasExplicitShipping = Boolean(
+                parsedMetadata?.last_shipping_address &&
+                (parsedMetadata.last_shipping_address.address || parsedMetadata.last_shipping_address.city || parsedMetadata.last_shipping_address.pincode)
+            );
 
             const initialBilling = parsedMetadata.last_billing_address || {
                 name: cust.name || '',
@@ -195,6 +226,8 @@ export async function GET(req) {
                     lastAddress: cust.address || '',
                     billing: initialBilling,
                     shipping: initialShipping,
+                    hasExplicitBilling,
+                    hasExplicitShipping,
                     same_as_billing: parsedMetadata.same_as_billing !== undefined ? parsedMetadata.same_as_billing : true,
                     orders: []
                 };
@@ -217,64 +250,85 @@ export async function GET(req) {
                 if (cust.created_at && (!existing.created_at || new Date(cust.created_at) < new Date(existing.created_at))) {
                     existing.created_at = cust.created_at;
                 }
+                if (hasExplicitBilling) existing.hasExplicitBilling = true;
+                if (hasExplicitShipping) existing.hasExplicitShipping = true;
             }
         });
 
-        // Match orders to customers by phone number & extract latest billing/shipping addresses
+        // Match orders to customers by ID, phone number digits, or email
         orderRows.forEach(order => {
             const ordDigits = cleanMobileDigits(order.customer_phone);
-            if (!ordDigits) return;
+            const ordEmail = (order.customer_email || '').trim().toLowerCase();
+            const ordCustId = order.customer_id ? String(order.customer_id) : null;
 
             const targetCustomer = Object.values(customerMap).find(c => {
+                // Match 1: By customer_id
+                if (ordCustId && c.id && String(c.id) === ordCustId) {
+                    return true;
+                }
+                // Match 2: By phone digits (exact or last 10 digits)
                 const cDigits = cleanMobileDigits(c.phone);
-                return cDigits && (cDigits === ordDigits || cDigits.slice(-10) === ordDigits.slice(-10));
+                if (cDigits && ordDigits) {
+                    if (cDigits === ordDigits || cDigits.slice(-10) === ordDigits.slice(-10)) {
+                        return true;
+                    }
+                }
+                // Match 3: By email
+                if (ordEmail && c.email && ordEmail === c.email.trim().toLowerCase()) {
+                    return true;
+                }
+                return false;
             });
 
             if (targetCustomer) {
                 targetCustomer.totalOrders += 1;
                 targetCustomer.totalSpent += (Number(order.total_amount) || 0);
-                targetCustomer.orders.push(order);
+                if (!targetCustomer.orders.some(o => o.id === order.id)) {
+                    targetCustomer.orders.push(order);
+                }
                 if (new Date(order.created_at) > new Date(targetCustomer.lastOrder)) {
                     targetCustomer.lastOrder = order.created_at;
                 }
                 if (order.customer_name && !['WhatsApp Customer', 'Website User'].includes(order.customer_name)) {
-                    targetCustomer.name = order.customer_name;
+                    if (!targetCustomer.name || targetCustomer.name === 'Customer') {
+                        targetCustomer.name = order.customer_name;
+                    }
                 }
                 if (order.delivery_address && !targetCustomer.lastAddress) {
                     targetCustomer.lastAddress = order.delivery_address;
                 }
 
-                // If latest order has structured billing_address, parse and attach
-                if (order.billing_address) {
+                // If customer does NOT have an explicitly saved profile billing address, fallback to latest order's billing
+                if (!targetCustomer.hasExplicitBilling && order.billing_address) {
                     const parsedB = parseAddressObject(order.billing_address, order.customer_name, order.customer_phone, order.customer_email);
-                    if (parsedB) {
+                    if (parsedB && (parsedB.address || parsedB.city)) {
                         targetCustomer.billing = {
-                            name: parsedB.name || targetCustomer.billing.name || targetCustomer.name,
-                            phone: parsedB.phone || targetCustomer.billing.phone || targetCustomer.phone,
-                            whatsapp: parsedB.whatsapp || targetCustomer.billing.whatsapp || targetCustomer.phone,
-                            email: parsedB.email || targetCustomer.billing.email || targetCustomer.email,
-                            address: parsedB.address || targetCustomer.billing.address || targetCustomer.address,
-                            city: parsedB.city || targetCustomer.billing.city || targetCustomer.city,
-                            state: parsedB.state || targetCustomer.billing.state || targetCustomer.state,
-                            pincode: parsedB.pincode || targetCustomer.billing.pincode || targetCustomer.pincode,
-                            country: parsedB.country || targetCustomer.billing.country || 'India'
+                            name: parsedB.name || targetCustomer.billing?.name || targetCustomer.name,
+                            phone: parsedB.phone || targetCustomer.billing?.phone || targetCustomer.phone,
+                            whatsapp: parsedB.whatsapp || targetCustomer.billing?.whatsapp || targetCustomer.phone,
+                            email: parsedB.email || targetCustomer.billing?.email || targetCustomer.email,
+                            address: parsedB.address || targetCustomer.billing?.address || '',
+                            city: parsedB.city || targetCustomer.billing?.city || '',
+                            state: parsedB.state || targetCustomer.billing?.state || '',
+                            pincode: parsedB.pincode || targetCustomer.billing?.pincode || '',
+                            country: parsedB.country || targetCustomer.billing?.country || 'India'
                         };
                     }
                 }
 
-                // If latest order has structured shipping_address or delivery_address
-                if (order.shipping_address || order.delivery_address) {
+                // If customer does NOT have an explicitly saved profile shipping address, fallback to latest order's shipping
+                if (!targetCustomer.hasExplicitShipping && (order.shipping_address || order.delivery_address)) {
                     const parsedS = parseAddressObject(order.shipping_address || order.delivery_address, order.customer_name, order.customer_phone, order.customer_email);
-                    if (parsedS) {
+                    if (parsedS && (parsedS.address || parsedS.city)) {
                         targetCustomer.shipping = {
-                            name: parsedS.name || targetCustomer.shipping.name || targetCustomer.name,
-                            phone: parsedS.phone || targetCustomer.shipping.phone || targetCustomer.phone,
-                            email: parsedS.email || targetCustomer.shipping.email || targetCustomer.email,
-                            address: parsedS.address || targetCustomer.shipping.address || targetCustomer.address,
-                            city: parsedS.city || targetCustomer.shipping.city || targetCustomer.city,
-                            state: parsedS.state || targetCustomer.shipping.state || targetCustomer.state,
-                            pincode: parsedS.pincode || targetCustomer.shipping.pincode || targetCustomer.pincode,
-                            country: parsedS.country || targetCustomer.shipping.country || 'India'
+                            name: parsedS.name || targetCustomer.shipping?.name || targetCustomer.name,
+                            phone: parsedS.phone || targetCustomer.shipping?.phone || targetCustomer.phone,
+                            email: parsedS.email || targetCustomer.shipping?.email || targetCustomer.email,
+                            address: parsedS.address || targetCustomer.shipping?.address || '',
+                            city: parsedS.city || targetCustomer.shipping?.city || '',
+                            state: parsedS.state || targetCustomer.shipping?.state || '',
+                            pincode: parsedS.pincode || targetCustomer.shipping?.pincode || '',
+                            country: parsedS.country || targetCustomer.shipping?.country || 'India'
                         };
                     }
                 }
@@ -513,15 +567,31 @@ export async function PUT(req) {
         let formattedCountryCode = country_code ? (country_code.startsWith('+') ? country_code : `+${country_code}`) : '+91';
         let rawPhone = billing?.phone || phone;
         let cleanPhone = rawPhone ? cleanMobileDigits(rawPhone) : null;
-        if (cleanPhone && formattedCountryCode === '+91') {
-            cleanPhone = cleanPhone.slice(-10);
+        // Locate customer first to guarantee correct target ID and verify existence
+        let targetCustomer = null;
+        if (id) {
+            const [rows] = await pool.query('SELECT `id`, `metadata`, `phone`, `email` FROM `customers` WHERE `id` = ? LIMIT 1', [id]);
+            if (rows && rows.length > 0) targetCustomer = rows[0];
         }
+        if (!targetCustomer && cleanPhone) {
+            const [rows] = await pool.query(
+                'SELECT `id`, `metadata`, `phone`, `email` FROM `customers` WHERE `phone` IN (?, ?, ?) LIMIT 1',
+                [cleanPhone, `91${cleanPhone}`, `+91${cleanPhone}`]
+            );
+            if (rows && rows.length > 0) targetCustomer = rows[0];
+        }
+
+        if (!targetCustomer) {
+            return NextResponse.json({ error: 'Customer not found.' }, { status: 404 });
+        }
+
+        const targetCustomerId = targetCustomer.id;
 
         // Normalize Billing Object
         const finalBilling = {
             name: customerName,
-            phone: cleanPhone || '',
-            whatsapp: (billing?.whatsapp || cleanPhone || '').replace(/\D/g, ''),
+            phone: cleanPhone || targetCustomer.phone || '',
+            whatsapp: (billing?.whatsapp || cleanPhone || targetCustomer.phone || '').replace(/\D/g, ''),
             email: cleanEmail || null,
             address: (billing?.address || '').trim(),
             city: (billing?.city || '').trim(),
@@ -542,7 +612,7 @@ export async function PUT(req) {
             country: finalBilling.country
         } : {
             name: (shipping?.name || customerName).trim(),
-            phone: (shipping?.phone || cleanPhone || '').replace(/\D/g, ''),
+            phone: (shipping?.phone || cleanPhone || targetCustomer.phone || '').replace(/\D/g, ''),
             email: (shipping?.email || cleanEmail || '').trim() || null,
             address: (shipping?.address || '').trim(),
             city: (shipping?.city || '').trim(),
@@ -551,11 +621,23 @@ export async function PUT(req) {
             country: (shipping?.country || 'India').trim()
         };
 
+        // Preserve any other metadata
+        let currentMeta = {};
+        if (targetCustomer.metadata) {
+            try {
+                currentMeta = typeof targetCustomer.metadata === 'string' ? JSON.parse(targetCustomer.metadata) : targetCustomer.metadata;
+            } catch (e) {
+                currentMeta = {};
+            }
+        }
+
         const metadataPayload = JSON.stringify({
+            ...currentMeta,
             last_billing_address: finalBilling,
             last_shipping_address: finalShipping,
             same_as_billing: Boolean(same_as_billing),
-            billing_whatsapp: finalBilling.whatsapp
+            billing_whatsapp: finalBilling.whatsapp,
+            address_updated_at: new Date().toISOString()
         });
 
         let query = 'UPDATE `customers` SET `name` = ?, `email` = ?, `address` = ?, `city` = ?, `state` = ?, `pincode` = ?, `metadata` = ?';
@@ -573,41 +655,50 @@ export async function PUT(req) {
             query += ', `phone` = ?, `country_code` = ?';
             params.push(cleanPhone, formattedCountryCode);
         }
-        query += ', `updated_at` = NOW() WHERE ';
+        query += ', `updated_at` = NOW() WHERE `id` = ?';
+        params.push(targetCustomerId);
 
-        if (id) {
-            query += '`id` = ?';
-            params.push(id);
-        } else {
-            query += '`phone` IN (?, ?)';
-            params.push(cleanPhone, `91${cleanPhone}`);
-        }
-
-        const [result] = await pool.query(query, params);
-
-        if (result.affectedRows === 0) {
-            return NextResponse.json({ error: 'Customer not found.' }, { status: 404 });
-        }
+        await pool.query(query, params);
 
         // Also update / insert into customer_addresses table
-        if (id && finalShipping.address) {
-            await saveCustomerAddress({
-                customerId: id,
-                name: finalShipping.name,
-                phone: finalShipping.phone,
-                address: finalShipping.address,
-                address_line: finalShipping.address,
-                city: finalShipping.city,
-                state: finalShipping.state,
-                pincode: finalShipping.pincode,
-                country: finalShipping.country,
-                is_default: 1
-            });
+        if (targetCustomerId && finalShipping.address) {
+            try {
+                await saveCustomerAddress({
+                    customerId: targetCustomerId,
+                    name: finalShipping.name,
+                    phone: finalShipping.phone,
+                    address: finalShipping.address,
+                    address_line: finalShipping.address,
+                    city: finalShipping.city,
+                    state: finalShipping.state,
+                    pincode: finalShipping.pincode,
+                    country: finalShipping.country,
+                    is_default: 1
+                });
+            } catch (addrErr) {
+                console.warn('[CUSTOMER-ADDRESS-SAVE-WARN]', addrErr);
+            }
         }
+
+        const updatedCustomerObj = {
+            id: targetCustomerId,
+            name: customerName,
+            phone: cleanPhone || targetCustomer.phone,
+            country_code: formattedCountryCode,
+            email: cleanEmail || null,
+            address: finalShipping.address || finalBilling.address || '',
+            city: finalShipping.city || finalBilling.city || '',
+            state: finalShipping.state || finalBilling.state || 'Tamil Nadu',
+            pincode: finalShipping.pincode || finalBilling.pincode || '',
+            billing: finalBilling,
+            shipping: finalShipping,
+            same_as_billing: Boolean(same_as_billing)
+        };
 
         return NextResponse.json({
             success: true,
-            message: 'Customer billing and shipping details updated successfully!'
+            message: 'Customer billing and shipping details updated successfully!',
+            customer: updatedCustomerObj
         });
 
     } catch (error) {

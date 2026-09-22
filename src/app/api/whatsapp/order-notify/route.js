@@ -65,12 +65,31 @@ async function sendButtons(to, bodyText, buttons) {
     return data;
 }
 
+import { mysqlClient } from '@/lib/mysqlClient';
+
 export async function POST(request) {
     try {
         const { orderId, customerPhone, customerName, address, items, total, paymentMethod } = await request.json();
 
         if (!customerPhone) {
             return Response.json({ error: 'Missing customerPhone' }, { status: 400 });
+        }
+
+        // Check Store Communication & Auth Channel Gateway
+        try {
+            const { data: channelSetting } = await mysqlClient
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'communication_channel')
+                .maybeSingle();
+
+            const activeChannel = channelSetting?.value || 'whatsapp';
+            if (activeChannel === 'email') {
+                console.log(`[WA-ORDER-NOTIFY] Skipped for #${orderId} because communication channel is set to email`);
+                return Response.json({ success: true, skipped: true, channel: 'email' });
+            }
+        } catch (chanErr) {
+            console.warn('[WA-ORDER-NOTIFY] Failed to check communication_channel:', chanErr);
         }
 
         //  Build the order confirmation message 

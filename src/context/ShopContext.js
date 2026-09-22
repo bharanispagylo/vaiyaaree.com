@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { mysqlClient } from '@/lib/mysqlClient';
 import { calculateDiscounts } from '@/services/discountService';
+import { calculateDiscountsClientSync } from '@/lib/discountCalculator';
 import { sanitizeCustomerSession } from '@/lib/authSanitizer';
 
 const defaultContextValue = {
@@ -255,39 +256,59 @@ export function ShopProvider({ children }) {
 
         // Check active automatic discount rules
         const prodCategory = (product.category || '').trim().toLowerCase();
-        const prodId = String(product.id || '');
+        const prodId = String(product.id || product.product_id || '').trim();
+        const prodNo = product.product_no ? String(product.product_no).trim() : '';
+        const prodSku = product.sku ? String(product.sku).trim() : '';
 
         let matchedRule = null;
         let calculatedDiscount = 0;
 
         // Filter active product-basis rules with no coupon code required
         const eligibleRules = (activeDiscountRules || []).filter(r => {
-            if (r.calculation_basis && r.calculation_basis !== 'PRODUCT') return false;
+            const basis = String(r.calculation_basis || '').toUpperCase();
+
+            // Cart-level rules must NEVER slash single product catalog prices
+            if (basis === 'CART') return false;
+            // Coupon rules require customer checkout code
             if (r.coupon_code && r.coupon_code.trim()) return false;
             
             // Check scope
             const targetType = r.target_type || 'ALL_PRODUCTS';
             if (targetType === 'ALL_PRODUCTS') return true;
             if (targetType === 'SPECIFIC_CATEGORIES') {
-                const cats = (r.categories || []).map(c => String(c).trim().toLowerCase());
-                return cats.includes(prodCategory);
+                const norm = s => String(s || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+                const cats = (r.categories || []).map(c => norm(typeof c === 'string' ? c : (c.category || '')));
+                const prodCatNorm = norm(prodCategory);
+                return cats.some(c => c && (c === prodCatNorm || prodCatNorm.includes(c) || c.includes(prodCatNorm)));
             }
             if (targetType === 'SPECIFIC_PRODUCTS') {
-                const pids = (r.product_ids || []).map(id => String(id));
-                return pids.includes(prodId);
+                const pids = (r.product_ids || []).map(id => String(typeof id === 'object' ? (id.product_id || id.id) : id).trim());
+                return (
+                    (prodId && pids.includes(prodId)) ||
+                    (prodNo && pids.includes(prodNo)) ||
+                    (prodSku && pids.includes(prodSku))
+                );
             }
             return false;
         });
 
         // Pick the best discount rule
         for (const rule of eligibleRules) {
+            // If rule requires minimum quantity in cart (e.g. buy 3), don't slash single item price directly
             if (rule.minimum_cart_products_enabled) continue;
 
             let discount = 0;
-            if (rule.discount_type === 'PERCENTAGE') {
-                discount = (basePrice * Number(rule.discount_value || 0)) / 100;
-            } else if (rule.discount_type === 'FIXED_AMOUNT' || rule.discount_type === 'FIXED') {
-                discount = Math.min(basePrice, Number(rule.discount_value || 0));
+            const dType = rule.product_discount_type || rule.discount_type || 'PERCENTAGE';
+            const rawVal = Number(
+                rule.product_discount_value !== undefined && rule.product_discount_value !== null && Number(rule.product_discount_value) > 0
+                    ? rule.product_discount_value
+                    : rule.discount_value
+            ) || 0;
+
+            if (dType === 'PERCENTAGE') {
+                discount = (basePrice * rawVal) / 100;
+            } else if (dType === 'FIXED_AMOUNT' || dType === 'FIXED') {
+                discount = Math.min(basePrice, rawVal);
             }
 
             if (discount > calculatedDiscount) {
@@ -577,15 +598,19 @@ export function ShopProvider({ children }) {
                     // CRITICAL FIX: Only merge DB items if DB actually returned items!
                     // NEVER wipe local cart to [] if DB cart has no rows!
                     if (data && Array.isArray(data) && data.length > 0) {
-                        const dbCart = data.map(dbItem => ({
-                            id: dbItem.product_id,
-                            name: dbItem.product_name,
-                            price: dbItem.price,
-                            qty: dbItem.quantity,
-                            image_url: dbItem.image_url,
-                            variantId: dbItem.variant_id,
-                            variantName: dbItem.variant_name
-                        }));
+                        const dbCart = data.map(dbItem => {
+                            const foundProd = (products || []).find(p => String(p.id) === String(dbItem.product_id));
+                            return {
+                                id: dbItem.product_id,
+                                name: dbItem.product_name,
+                                price: dbItem.price,
+                                qty: dbItem.quantity,
+                                image_url: dbItem.image_url,
+                                category: foundProd?.category || '',
+                                variantId: dbItem.variant_id,
+                                variantName: dbItem.variant_name
+                            };
+                        });
                         
                         setCart(prev => {
                             if (!prev || prev.length === 0) {
@@ -893,6 +918,8 @@ export function ShopProvider({ children }) {
         }
 
         let isBlocked = false;
+        let updatedCart = [];
+
         setCart(prev => {
             const existing = prev.find(i => (variant ? i.variantId === variant.id : i.id === product.id));
             if (existing) {
@@ -900,9 +927,11 @@ export function ShopProvider({ children }) {
                 if (totalRequested > itemStock) {
                     showToast(`Saree Not Available for higher quantity. Maximum ${itemStock} in stock.`, 'error');
                     isBlocked = true;
+                    updatedCart = prev;
                     return prev;
                 }
-                return prev.map(i => (variant ? i.variantId === variant.id : i.id === product.id) ? { ...i, qty: totalRequested, stock: itemStock } : i);
+                updatedCart = prev.map(i => (variant ? i.variantId === variant.id : i.id === product.id) ? { ...i, qty: totalRequested, stock: itemStock } : i);
+                return updatedCart;
             }
 
             const newEntry = {
@@ -916,11 +945,31 @@ export function ShopProvider({ children }) {
                 variantName: variant?.name,
                 variantSku: variant?.sku
             };
-            return [...prev, newEntry];
+            updatedCart = [...prev, newEntry];
+            return updatedCart;
         });
 
         if (isBlocked) {
             return false;
+        }
+
+        // Calculate and apply discounts immediately in the same tick so Slide Cart has zero delay
+        const allowAuto = typeof window !== 'undefined' ? sessionStorage.getItem('vaiyaaree_coupon_removed') !== 'true' : true;
+        const instantDiscount = calculateDiscountsClientSync({
+            cartItems: updatedCart,
+            activeDiscountRules,
+            appliedCouponCode: appliedCoupon?.couponCode || null,
+            customer: user || null,
+            allowAutoCoupon: allowAuto
+        });
+        if (instantDiscount) {
+            setDiscountData(instantDiscount);
+            if (instantDiscount.autoCoupon && !appliedCoupon) {
+                setAppliedCoupon(instantDiscount.autoCoupon);
+                if (typeof window !== 'undefined') {
+                    try { sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(instantDiscount.autoCoupon)); } catch (e) {}
+                }
+            }
         }
 
         if (openDrawer) {
@@ -931,13 +980,17 @@ export function ShopProvider({ children }) {
     }
 
     function updateQty(target, delta) {
+        let updatedCart = [];
         setCart(prev => {
             const newCart = [...prev];
             const targetIdx = typeof target === 'number'
                 ? target
                 : newCart.findIndex(i => (i.variantId ? String(i.variantId) === String(target) : String(i.id) === String(target)) || `${i.id}_${i.variantId}` === String(target));
 
-            if (targetIdx === -1 || !newCart[targetIdx]) return prev;
+            if (targetIdx === -1 || !newCart[targetIdx]) {
+                updatedCart = prev;
+                return prev;
+            }
 
             const item = newCart[targetIdx];
             const itemStock = item.stock !== undefined && item.stock !== null ? Number(item.stock) : 999;
@@ -945,6 +998,7 @@ export function ShopProvider({ children }) {
 
             if (delta > 0 && targetQty > itemStock) {
                 showToast(`Saree Not Available for higher quantity. Maximum ${itemStock} in stock.`, 'error');
+                updatedCart = prev;
                 return prev;
             }
 
@@ -952,25 +1006,66 @@ export function ShopProvider({ children }) {
 
             if (updatedItem.qty > 0) {
                 newCart[targetIdx] = updatedItem;
+                updatedCart = newCart;
                 return newCart;
             } else {
-                return newCart.filter((_, i) => i !== targetIdx);
+                updatedCart = newCart.filter((_, i) => i !== targetIdx);
+                return updatedCart;
             }
         });
+
+        const allowAuto = typeof window !== 'undefined' ? sessionStorage.getItem('vaiyaaree_coupon_removed') !== 'true' : true;
+        const instantDiscount = calculateDiscountsClientSync({
+            cartItems: updatedCart,
+            activeDiscountRules,
+            appliedCouponCode: appliedCoupon?.couponCode || null,
+            customer: user || null,
+            allowAutoCoupon: allowAuto
+        });
+        if (instantDiscount) {
+            setDiscountData(instantDiscount);
+            if (instantDiscount.autoCoupon && !appliedCoupon) {
+                setAppliedCoupon(instantDiscount.autoCoupon);
+                if (typeof window !== 'undefined') {
+                    try { sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(instantDiscount.autoCoupon)); } catch (e) {}
+                }
+            }
+        }
     }
 
     function removeFromCart(target) {
+        let updatedCart = [];
         setCart(prev => {
             if (typeof target === 'number') {
-                return prev.filter((_, i) => i !== target);
+                updatedCart = prev.filter((_, i) => i !== target);
+                return updatedCart;
             }
-            return prev.filter(i => {
+            updatedCart = prev.filter(i => {
                 const matchVariant = i.variantId && String(i.variantId) === String(target);
                 const matchId = String(i.id) === String(target);
                 const matchKey = `${i.id}_${i.variantId}` === String(target);
                 return !matchVariant && !matchId && !matchKey;
             });
+            return updatedCart;
         });
+
+        const allowAuto = typeof window !== 'undefined' ? sessionStorage.getItem('vaiyaaree_coupon_removed') !== 'true' : true;
+        const instantDiscount = calculateDiscountsClientSync({
+            cartItems: updatedCart,
+            activeDiscountRules,
+            appliedCouponCode: appliedCoupon?.couponCode || null,
+            customer: user || null,
+            allowAutoCoupon: allowAuto
+        });
+        if (instantDiscount) {
+            setDiscountData(instantDiscount);
+            if (instantDiscount.autoCoupon && !appliedCoupon) {
+                setAppliedCoupon(instantDiscount.autoCoupon);
+                if (typeof window !== 'undefined') {
+                    try { sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(instantDiscount.autoCoupon)); } catch (e) {}
+                }
+            }
+        }
     }
 
     const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
@@ -1004,9 +1099,30 @@ export function ShopProvider({ children }) {
                 return;
             }
 
+            const allowAuto = typeof window !== 'undefined' ? sessionStorage.getItem('vaiyaaree_coupon_removed') !== 'true' : true;
+
+            // 1. Instant calculation so there is zero UI delay or flicker
+            const instantRes = calculateDiscountsClientSync({
+                cartItems: cart,
+                activeDiscountRules,
+                appliedCouponCode: appliedCoupon?.couponCode || null,
+                customer: user || null,
+                allowAutoCoupon: allowAuto
+            });
+            if (instantRes) {
+                setDiscountData(instantRes);
+                if (instantRes.autoCoupon && !appliedCoupon) {
+                    setAppliedCoupon(instantRes.autoCoupon);
+                    if (typeof window !== 'undefined') {
+                        try { sessionStorage.setItem('vaiyaaree_applied_coupon', JSON.stringify(instantRes.autoCoupon)); } catch (e) {}
+                    }
+                }
+            }
+
+            // 2. Asynchronous server sync for backend verification
             try {
                 let res = null;
-                const activeCouponCode = appliedCoupon?.couponCode || null;
+                const activeCouponCode = appliedCoupon?.couponCode || instantRes?.autoCoupon?.couponCode || null;
 
                 try {
                     const apiRes = await fetch('/api/discounts/calculate', {
@@ -1024,15 +1140,11 @@ export function ShopProvider({ children }) {
                         if (json?.success) res = json;
                     }
                 } catch (apiErr) {
-                    // Fallback to client-side calculateDiscounts
+                    // Fallback to client-side instantRes
                 }
 
                 if (!res) {
-                    res = await calculateDiscounts({
-                        cartItems: cart,
-                        couponCode: activeCouponCode,
-                        customer: user || null
-                    });
+                    res = instantRes;
                 }
 
                 if (res) {
@@ -1040,8 +1152,9 @@ export function ShopProvider({ children }) {
                 }
 
                 // Reconcile appliedCoupon with actual server calculation results
-                if (appliedCoupon) {
-                    const couponCodeUpper = (appliedCoupon.couponCode || '').trim().toUpperCase();
+                const currentCoupon = appliedCoupon || instantRes?.autoCoupon || null;
+                if (currentCoupon) {
+                    const couponCodeUpper = (currentCoupon.couponCode || '').trim().toUpperCase();
                     const matchingCouponRule = (res?.appliedRules || []).find(
                         r => (r.isCoupon && r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper) ||
                              (r.couponCode && r.couponCode.trim().toUpperCase() === couponCodeUpper)
@@ -1059,7 +1172,7 @@ export function ShopProvider({ children }) {
                         }
                     } else {
                         const updatedCoupon = {
-                            ...appliedCoupon,
+                            ...currentCoupon,
                             couponDiscount: Number(res?.couponDiscount || matchingCouponRule?.discountAmount || 0),
                             calculation: res
                         };
@@ -1540,33 +1653,6 @@ export function ShopProvider({ children }) {
             if (!isOnlinePayment && !requiresCodAdvance) {
                 clearCartAfterSuccess();
                 showToast('Order Placed Successfully!', 'success');
-
-                // Trigger Email Notification automatically for COD/offline orders
-                try {
-                    fetch('/api/orders/resend-email', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ orderId: assignedOrderId })
-                    });
-                } catch (emailErr) {
-                    console.error('Failed to trigger order confirmation email:', emailErr);
-                }
-
-                // Trigger WhatsApp Notification automatically for COD/offline orders (only if WhatsApp channel is enabled)
-                if (!isEmailOnly) {
-                    try {
-                        fetch('/api/orders/notify', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                orderId: assignedOrderId,
-                                phone: checkoutForm.billingWhatsApp || checkoutForm.billingPhone
-                            })
-                        });
-                    } catch (notifyErr) {
-                        console.error('Failed to trigger WhatsApp notification:', notifyErr);
-                    }
-                }
             }
 
             return finalOrderData;
@@ -1633,15 +1719,6 @@ export function ShopProvider({ children }) {
     };
 
     const removeCoupon = async () => {
-        // Non-removal if discount criteria is met
-        const isCriteriaMet = (discountData?.appliedRules || []).some(
-            r => r.isCoupon || (appliedCoupon?.couponCode && r.couponCode === appliedCoupon.couponCode)
-        );
-        if (isCriteriaMet && (discountData?.totalDiscount > 0 || (discountData?.appliedRules || []).some(r => r.discountType === 'FREE_SHIPPING'))) {
-            showToast('This offer is active and cannot be removed while cart criteria is met.', 'info');
-            return;
-        }
-
         setAppliedCoupon(null);
         setCouponMessage(null);
         setCouponError(null);
@@ -1653,7 +1730,18 @@ export function ShopProvider({ children }) {
         }
         showToast('Coupon removed', 'info');
 
-        // Recalculate discounts without the coupon
+        // Recalculate discounts immediately without any coupon
+        const instantNoCoupon = calculateDiscountsClientSync({
+            cartItems: cart,
+            activeDiscountRules,
+            appliedCouponCode: null,
+            customer: user || null,
+            allowAutoCoupon: false
+        });
+        if (instantNoCoupon) {
+            setDiscountData(instantNoCoupon);
+        }
+
         if (cart && cart.length > 0) {
             try {
                 const apiRes = await fetch('/api/discounts/calculate', {
@@ -1662,7 +1750,7 @@ export function ShopProvider({ children }) {
                     body: JSON.stringify({
                         cartItems: cart,
                         subtotal: cartTotal,
-                        couponCode: null,
+                        couponCode: 'NONE',
                         customer: user || null
                     })
                 });
@@ -1673,14 +1761,6 @@ export function ShopProvider({ children }) {
                         return;
                     }
                 }
-            } catch (e) {}
-            try {
-                const fallbackRes = await calculateDiscounts({
-                    cartItems: cart,
-                    couponCode: null,
-                    customer: user || null
-                });
-                setDiscountData(fallbackRes);
             } catch (e) {}
         } else {
             setDiscountData({

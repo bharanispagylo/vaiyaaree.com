@@ -42,7 +42,7 @@ export default function AdminLoginPage() {
             const params = new URLSearchParams(window.location.search);
             const reason = params.get('reason');
             if (reason === 'idle_timeout') {
-                setNotice('Your session has expired due to 30 minutes of inactivity. Please sign in again.');
+                setNotice('Your session has expired due to 2 hours of inactivity. Please sign in again.');
             } else if (reason === 'session_expired') {
                 setNotice('Your session has expired. Please sign in again.');
             }

@@ -64,7 +64,7 @@ export default function OrderActionsCard({
                                     openCourierModal(selectedOrder, false);
                                 } else if (newStatus === 'CANCELLED') {
                                     setShowCancelModal(true);
-                                } else if (['PAID', 'PACKING', 'DELIVERED'].includes(newStatus)) {
+                                } else if (['PAID', 'CONFIRMED', 'PACKING', 'DELIVERED'].includes(newStatus)) {
                                     setStatusConfirmModal({
                                         status: newStatus,
                                         title: `Confirm ${newStatus}`,

@@ -163,6 +163,7 @@ export default function OrdersPage() {
                             setIsCreatingOrder={manualOrder.setIsCreatingOrder}
                             setNotification={ordersManager.setNotification}
                             fetchOrders={ordersManager.fetchOrders}
+                            fetchCatalogProducts={ordersManager.fetchCatalogProducts}
                         />
                     )}
                 </div>

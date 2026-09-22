@@ -1,9 +1,11 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import {
-    Tag, Percent, Calendar, ArrowLeft, Check, Loader2, Plus, Sliders
+    Tag, Percent, Calendar, ArrowLeft, Check, Loader2, Plus, Sliders, Search, Image as ImageIcon
 } from 'lucide-react';
 import { formatOrderDate } from '@/lib/dateUtils';
+import { normalizeImageUrl } from '@/lib/productUrl';
 
 export default function DiscountForm({
     editingRule = null,
@@ -15,6 +17,21 @@ export default function DiscountForm({
     handleSaveRule,
     onClose
 }) {
+    const [productSearch, setProductSearch] = useState('');
+
+    const filteredProducts = useMemo(() => {
+        if (!productSearch.trim()) return availableProducts;
+        const q = productSearch.toLowerCase().trim();
+        const cleanQ = q.replace(/^#+/, '').trim();
+        return availableProducts.filter(p => {
+            const pNoStr = String(p.product_no || '').trim();
+            return (p.name && p.name.toLowerCase().includes(q)) ||
+                (p.category && p.category.toLowerCase().includes(q)) ||
+                (p.sku && String(p.sku).toLowerCase().includes(q)) ||
+                (p.sku && String(p.sku).toLowerCase().includes(cleanQ)) ||
+                (pNoStr && (pNoStr.includes(cleanQ) || (`#${pNoStr}`).toLowerCase().includes(q)));
+        });
+    }, [availableProducts, productSearch]);
     return (
         <div className="full-page-form animate-enter">
             {/* Form Top Header Navigation */}
@@ -114,14 +131,22 @@ export default function DiscountForm({
                             <button
                                 type="button"
                                 className={`basis-btn ${formData.calculation_basis === 'PRODUCT' ? 'active' : ''}`}
-                                onClick={() => setFormData({ ...formData, calculation_basis: 'PRODUCT' })}
+                                onClick={() => setFormData({
+                                    ...formData,
+                                    calculation_basis: 'PRODUCT',
+                                    target_type: (formData.target_type === 'CART_COUNT' || formData.target_type === 'CART_VALUE') ? 'ALL_PRODUCTS' : (formData.target_type || 'ALL_PRODUCTS')
+                                })}
                             >
                                 Products (Storewide, Category, or Item Scoped)
                             </button>
                             <button
                                 type="button"
                                 className={`basis-btn ${formData.calculation_basis === 'CART' ? 'active' : ''}`}
-                                onClick={() => setFormData({ ...formData, calculation_basis: 'CART' })}
+                                onClick={() => setFormData({
+                                    ...formData,
+                                    calculation_basis: 'CART',
+                                    minimum_cart_products_enabled: false
+                                })}
                             >
                                 Cart Level (Spend / Quantity Threshold)
                             </button>
@@ -197,21 +222,77 @@ export default function DiscountForm({
                             {/* TARGET CATEGORIES PICKER */}
                             {formData.target_type === 'SPECIFIC_CATEGORIES' && (
                                 <div className="picker-container mt-3">
-                                    <label className="field-label">Select Eligible Categories ({formData.categories.length} selected)</label>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                        <div>
+                                            <label className="field-label" style={{ margin: 0 }}>
+                                                Select Eligible Categories ({formData.categories?.length || 0} selected)
+                                            </label>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                                                Only sarees belonging to the selected categories will receive this discount.
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, categories: [...availableCategories] })}
+                                                style={{
+                                                    padding: '0.35rem 0.7rem',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 700,
+                                                    color: '#4f46e5',
+                                                    background: '#eef2ff',
+                                                    border: '1px solid #c7d2fe',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Select All
+                                            </button>
+                                            {formData.categories?.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, categories: [] })}
+                                                    style={{
+                                                        padding: '0.35rem 0.7rem',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 700,
+                                                        color: '#ef4444',
+                                                        background: '#fee2e2',
+                                                        border: '1px solid #fecaca',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Clear ({formData.categories.length})
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
                                     <div className="chip-grid">
                                         {availableCategories.map(cat => {
-                                            const selected = formData.categories.includes(cat);
+                                            const catStr = String(cat).trim();
+                                            const selected = (formData.categories || []).some(c => String(c).trim().toLowerCase() === catStr.toLowerCase());
                                             return (
-                                                <label key={cat} className={`chip-item ${selected ? 'selected' : ''}`}>
+                                                <label key={catStr} className={`chip-item ${selected ? 'selected' : ''}`}>
                                                     <input
                                                         type="checkbox"
                                                         checked={selected}
                                                         onChange={e => {
-                                                            if (e.target.checked) setFormData({ ...formData, categories: [...formData.categories, cat] });
-                                                            else setFormData({ ...formData, categories: formData.categories.filter(c => c !== cat) });
+                                                            const current = formData.categories || [];
+                                                            if (e.target.checked) {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    categories: [...current.filter(c => String(c).trim().toLowerCase() !== catStr.toLowerCase()), catStr]
+                                                                });
+                                                            } else {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    categories: current.filter(c => String(c).trim().toLowerCase() !== catStr.toLowerCase())
+                                                                });
+                                                            }
                                                         }}
                                                     />
-                                                    <span>{cat}</span>
+                                                    <span>{catStr}</span>
                                                 </label>
                                             );
                                         })}
@@ -222,27 +303,151 @@ export default function DiscountForm({
                             {/* TARGET PRODUCTS PICKER */}
                             {formData.target_type === 'SPECIFIC_PRODUCTS' && (
                                 <div className="picker-container mt-3">
-                                    <label className="field-label">Select Eligible Sarees ({formData.product_ids.length} selected)</label>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                        <div>
+                                            <label className="field-label" style={{ margin: 0 }}>
+                                                Select Eligible Sarees ({formData.product_ids.length} selected)
+                                            </label>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                                                Check the sarees that qualify for this discount rule.
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                                <Search size={15} style={{ position: 'absolute', left: '10px', color: '#94a3b8', pointerEvents: 'none' }} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search sarees by name / SKU..."
+                                                    value={productSearch}
+                                                    onChange={e => setProductSearch(e.target.value)}
+                                                    style={{
+                                                        padding: '0.4rem 0.75rem 0.4rem 2rem',
+                                                        fontSize: '0.82rem',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #cbd5e1',
+                                                        background: 'white',
+                                                        outline: 'none',
+                                                        width: '210px'
+                                                    }}
+                                                />
+                                            </div>
+                                            {formData.product_ids.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, product_ids: [] })}
+                                                    style={{
+                                                        padding: '0.4rem 0.75rem',
+                                                        fontSize: '0.8rem',
+                                                        fontWeight: 700,
+                                                        color: '#ef4444',
+                                                        background: '#fee2e2',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Clear ({formData.product_ids.length})
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
                                     <div className="product-scroll-list">
-                                        {availableProducts.map(p => {
-                                            const selected = formData.product_ids.includes(p.id);
-                                            return (
-                                                <label key={p.id} className={`product-select-row ${selected ? 'selected' : ''}`}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selected}
-                                                            onChange={e => {
-                                                                if (e.target.checked) setFormData({ ...formData, product_ids: [...formData.product_ids, p.id] });
-                                                                else setFormData({ ...formData, product_ids: formData.product_ids.filter(id => id !== p.id) });
-                                                            }}
-                                                        />
-                                                        <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{p.name}</span>
-                                                    </div>
-                                                    <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.85rem' }}>₹{p.price}</span>
-                                                </label>
-                                            );
-                                        })}
+                                        {filteredProducts.length === 0 ? (
+                                            <div style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                                                No sarees found matching &ldquo;{productSearch}&rdquo;
+                                            </div>
+                                        ) : (
+                                            filteredProducts.map(p => {
+                                                const pidStr = String(p.id).trim();
+                                                const selected = (formData.product_ids || []).some(id => String(id).trim() === pidStr);
+                                                const rawImg = p.image_url ? p.image_url.split(',')[0].trim() : '';
+                                                const cleanImg = rawImg ? normalizeImageUrl(rawImg) : '';
+
+                                                const rawPrice = parseFloat(p.price || 0);
+                                                const discType = formData.product_discount_type || 'PERCENTAGE';
+                                                const discVal = parseFloat(formData.product_discount_value || 0);
+                                                let discountedPrice = null;
+
+                                                if (rawPrice > 0 && discVal > 0 && discType !== 'FREE_SHIPPING') {
+                                                    if (discType === 'PERCENTAGE') {
+                                                        const cut = (rawPrice * Math.min(100, discVal)) / 100;
+                                                        discountedPrice = Math.max(0, Math.round(rawPrice - cut));
+                                                    } else if (discType === 'FIXED_AMOUNT') {
+                                                        discountedPrice = Math.max(0, Math.round(rawPrice - Math.min(rawPrice, discVal)));
+                                                    }
+                                                }
+
+                                                return (
+                                                    <label key={p.id} className={`product-select-row ${selected ? 'selected' : ''}`}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selected}
+                                                                onChange={e => {
+                                                                    const current = formData.product_ids || [];
+                                                                    if (e.target.checked) {
+                                                                        setFormData({
+                                                                            ...formData,
+                                                                            product_ids: [...current.filter(id => String(id).trim() !== pidStr), pidStr]
+                                                                        });
+                                                                    } else {
+                                                                        setFormData({
+                                                                            ...formData,
+                                                                            product_ids: current.filter(id => String(id).trim() !== pidStr)
+                                                                        });
+                                                                    }
+                                                                }}
+                                                                style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                                                            />
+                                                            <div style={{
+                                                                width: '44px',
+                                                                height: '44px',
+                                                                borderRadius: '8px',
+                                                                overflow: 'hidden',
+                                                                background: '#f1f5f9',
+                                                                border: '1px solid #e2e8f0',
+                                                                flexShrink: 0,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center'
+                                                            }}>
+                                                                {cleanImg ? (
+                                                                    <img
+                                                                        src={cleanImg}
+                                                                        alt={p.name}
+                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                        onError={e => {
+                                                                            e.target.onerror = null;
+                                                                            e.target.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=100&q=60';
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <ImageIcon size={18} color="#94a3b8" />
+                                                                )}
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>{p.name}</span>
+                                                                {(p.category || p.sku) && (
+                                                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                        {[p.category, p.sku ? `SKU: ${p.sku}` : null].filter(Boolean).join(' • ')}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '0.75rem' }}>
+                                                            {discountedPrice !== null && discountedPrice < rawPrice ? (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25 }}>
+                                                                    <span style={{ fontWeight: 800, color: '#16a34a', fontSize: '0.9rem' }}>₹{discountedPrice}</span>
+                                                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', textDecoration: 'line-through', fontWeight: 600 }}>₹{p.price}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span style={{ fontWeight: 800, color: 'hsl(var(--primary))', fontSize: '0.85rem' }}>₹{p.price}</span>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -421,6 +626,11 @@ export default function DiscountForm({
                             {formData.end_date && (
                                 <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', fontWeight: 600, color: '#4f46e5' }}>
                                     Expires: {formatOrderDate(formData.end_date)}
+                                </div>
+                            )}
+                            {formData.end_date && formData.start_date && new Date(formData.end_date) <= new Date(formData.start_date) && (
+                                <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', fontWeight: 700, color: '#ef4444' }}>
+                                    ⚠️ Warning: End Date must be after Start Date, or the rule will expire immediately!
                                 </div>
                             )}
                             <div className="field-explain">

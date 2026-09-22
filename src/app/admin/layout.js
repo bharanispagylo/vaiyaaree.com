@@ -19,7 +19,7 @@ export default function AdminLayout({ children }) {
     );
 }
 
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes idle timeout
+const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours idle timeout
 
 function ProtectedAdminLayout({ children, pathname }) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -122,7 +122,7 @@ function ProtectedAdminLayout({ children, pathname }) {
                 const lastActiveStr = localStorage.getItem('cast_prince_admin_last_active');
                 const lastActive = lastActiveStr ? Number(lastActiveStr) : Date.now();
                 if (Date.now() - lastActive > IDLE_TIMEOUT_MS) {
-                    console.warn('[ADMIN-AUTH] Idle timeout reached (30 minutes of inactivity). Redirecting to login.');
+                    console.warn('[ADMIN-AUTH] Idle timeout reached (2 hours of inactivity). Redirecting to login.');
                     localStorage.removeItem('cast_prince_admin');
                     localStorage.removeItem('cast_prince_admin_user');
                     localStorage.removeItem('cast_prince_admin_last_active');

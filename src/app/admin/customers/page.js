@@ -97,8 +97,17 @@ export default function CustomersPage() {
 
                 // If currently viewing a customer, refresh their details
                 if (selectedCustomer) {
-                    const refreshed = (data.customers || []).find(c => c.phone === selectedCustomer.phone);
-                    if (refreshed) setSelectedCustomer(refreshed);
+                    const refreshed = (data.customers || []).find(c => 
+                        (c.id && selectedCustomer.id && String(c.id) === String(selectedCustomer.id)) ||
+                        c.phone === selectedCustomer.phone ||
+                        (c.phone && selectedCustomer.phone && c.phone.slice(-10) === selectedCustomer.phone.slice(-10))
+                    );
+                    if (refreshed) {
+                        setSelectedCustomer(prev => ({
+                            ...refreshed,
+                            orders: (refreshed.orders && refreshed.orders.length > 0) ? refreshed.orders : (prev?.orders || [])
+                        }));
+                    }
                 }
             } else {
                 console.error('Failed to fetch customers:', data.error);
@@ -295,7 +304,22 @@ export default function CustomersPage() {
                 <CustomerDetail 
                     customer={selectedCustomer} 
                     onBack={() => setSelectedCustomer(null)} 
-                    onCustomerUpdated={(msg) => { showToast(msg, 'success'); fetchCustomers(); }} 
+                    onCustomerUpdated={(msg, updatedCustomer) => { 
+                        showToast(msg, 'success'); 
+                        if (updatedCustomer) {
+                            setSelectedCustomer(prev => ({
+                                ...prev,
+                                ...updatedCustomer,
+                                orders: prev?.orders || []
+                            }));
+                            setCustomers(prev => prev.map(c => 
+                                (c.id === updatedCustomer.id || c.phone === updatedCustomer.phone || (c.phone && updatedCustomer.phone && c.phone.slice(-10) === updatedCustomer.phone.slice(-10)))
+                                    ? { ...c, ...updatedCustomer, orders: c.orders || [] }
+                                    : c
+                            ));
+                        }
+                        fetchCustomers(); 
+                    }} 
                     onResetPasswordClick={(cust) => setPasswordModalCustomer(cust)} 
                     onDeleteCustomerClick={(cust) => handleDeleteSingle(cust)} 
                     onToggleLockClick={handleToggleLock}

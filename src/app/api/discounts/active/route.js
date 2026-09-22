@@ -49,11 +49,34 @@ export async function GET() {
             prodMap[p.discount_rule_id].push(p.product_id);
         });
 
-        const enrichedRules = validRules.map(r => ({
-            ...r,
-            categories: catMap[r.id] || [],
-            product_ids: prodMap[r.id] || []
-        }));
+        const enrichedRules = validRules.map(r => {
+            const basis = (r.target_type === 'SPECIFIC_PRODUCTS' || r.target_type === 'SPECIFIC_CATEGORIES')
+                ? 'PRODUCT'
+                : (r.calculation_basis ? String(r.calculation_basis).toUpperCase() : 'PRODUCT');
+
+            const prodType = r.product_discount_type || (basis === 'PRODUCT' ? (r.discount_type || 'PERCENTAGE') : 'PERCENTAGE');
+            const prodVal = Number(r.product_discount_value) > 0
+                ? parseFloat(r.product_discount_value)
+                : (basis === 'PRODUCT' && Number(r.discount_value) > 0 ? parseFloat(r.discount_value) : parseFloat(r.product_discount_value ?? r.discount_value ?? 0));
+
+            const cartType = r.cart_discount_type || (basis === 'CART' ? (r.discount_type || 'PERCENTAGE') : 'PERCENTAGE');
+            const cartVal = Number(r.cart_discount_value) > 0
+                ? parseFloat(r.cart_discount_value)
+                : (basis === 'CART' && Number(r.discount_value) > 0 ? parseFloat(r.discount_value) : parseFloat(r.cart_discount_value ?? r.discount_value ?? 0));
+
+            return {
+                ...r,
+                calculation_basis: basis,
+                product_discount_type: prodType,
+                product_discount_value: prodVal,
+                cart_discount_type: cartType,
+                cart_discount_value: cartVal,
+                discount_type: basis === 'CART' ? cartType : prodType,
+                discount_value: basis === 'CART' ? cartVal : prodVal,
+                categories: (catMap[r.id] || []).map(c => String(c).trim()).filter(Boolean),
+                product_ids: (prodMap[r.id] || []).map(p => String(p).trim()).filter(Boolean)
+            };
+        });
 
         return NextResponse.json({
             success: true,
@@ -61,7 +84,7 @@ export async function GET() {
         }, {
             status: 200,
             headers: {
-                'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
+                'Cache-Control': 'no-store, max-age=0'
             }
         });
     } catch (err) {

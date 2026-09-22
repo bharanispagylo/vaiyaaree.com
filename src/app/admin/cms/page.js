@@ -164,17 +164,17 @@ function blocksToHtml(blocks) {
     ${b.text1 ? `<p style="font-size: 1.05rem; line-height: 1.8; color: #444; margin-bottom: 16px;">${b.text1}</p>` : ''}
     ${b.text2 ? `<p style="font-size: 1.05rem; line-height: 1.8; color: #444; margin: 0;">${b.text2}</p>` : ''}
   </div>
-  <div style="flex: 1 1 340px; min-width: 280px;">
-    <img src="${b.imageUrl || '/images/about-us-saree.jpg'}" alt="${b.imageAlt || 'Vaiyaaree Saree'}" style="width: 100%; height: auto; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.08); object-fit: cover; display: block;" />
-  </div>
+  ${b.imageUrl ? `  <div style="flex: 1 1 340px; min-width: 280px;">
+    <img src="${b.imageUrl}" alt="${b.imageAlt || 'Vaiyaaree Saree'}" style="width: 100%; height: auto; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.08); object-fit: cover; display: block;" />
+  </div>` : ''}
 </div>`;
             }
 
             case 'image_text': {
                 return `<div class="cms-block-image-text" style="display: flex; gap: 40px; align-items: center; margin: 40px 0; flex-wrap: wrap;">
-  <div style="flex: 1 1 340px; min-width: 280px;">
-    <img src="${b.imageUrl || '/images/about-us-saree.jpg'}" alt="${b.imageAlt || 'Vaiyaaree Saree'}" style="width: 100%; height: auto; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.08); object-fit: cover; display: block;" />
-  </div>
+  ${b.imageUrl ? `  <div style="flex: 1 1 340px; min-width: 280px;">
+    <img src="${b.imageUrl}" alt="${b.imageAlt || 'Vaiyaaree Saree'}" style="width: 100%; height: auto; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.08); object-fit: cover; display: block;" />
+  </div>` : ''}
   <div style="flex: 1 1 340px; min-width: 280px;">
     ${b.tag ? `<span style="display: inline-block; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #5d0821; margin-bottom: 8px;">${b.tag}</span>` : ''}
     <h2 style="font-size: 1.85rem; font-weight: 600; color: #111; margin: 0 0 16px 0; line-height: 1.3;">${b.title || ''}</h2>
@@ -280,7 +280,7 @@ function htmlToBlocks(html) {
                     title: title.trim(),
                     text1: paragraphs[0] || '',
                     text2: paragraphs[1] || '',
-                    imageUrl: img?.getAttribute('src') || '/images/about-us-saree.jpg',
+                    imageUrl: img?.getAttribute('src') || '',
                     imageAlt: img?.getAttribute('alt') || 'Vaiyaaree Saree'
                 });
             } else if (cls.includes('cms-block-image-text')) {
@@ -295,7 +295,7 @@ function htmlToBlocks(html) {
                     title: title.trim(),
                     text1: paragraphs[0] || '',
                     text2: paragraphs[1] || '',
-                    imageUrl: img?.getAttribute('src') || '/images/about-us-saree.jpg',
+                    imageUrl: img?.getAttribute('src') || '',
                     imageAlt: img?.getAttribute('alt') || 'Vaiyaaree Saree'
                 });
             } else if (cls.includes('cms-block-full-text')) {
@@ -723,7 +723,30 @@ export default function CMSPage() {
                             />
                         </div>
                         <div>
-                            <label style={labelStyle}>Block Image</label>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                                <label style={{ ...labelStyle, marginBottom: 0 }}>Block Image</label>
+                                {block.imageUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => updateBlock(block.id, { imageUrl: '' })}
+                                        style={{
+                                            border: 'none',
+                                            background: 'transparent',
+                                            color: '#ef4444',
+                                            cursor: 'pointer',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.25rem',
+                                            padding: 0
+                                        }}
+                                        title="Delete Image"
+                                    >
+                                        <Trash2 size={13} /> Delete Image
+                                    </button>
+                                )}
+                            </div>
                             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                                 <input
                                     value={block.imageUrl || ''}
@@ -743,10 +766,61 @@ export default function CMSPage() {
                                 >
                                     <Upload size={16} />
                                 </button>
+                                {block.imageUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => updateBlock(block.id, { imageUrl: '' })}
+                                        style={{
+                                            padding: '0.6rem 0.9rem',
+                                            borderRadius: '10px',
+                                            background: '#fee2e2',
+                                            color: '#ef4444',
+                                            border: '1px solid #fecaca',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            transition: 'all 0.15s'
+                                        }}
+                                        title="Delete Image from Widget"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </div>
-                            {block.imageUrl && (
-                                <div style={{ position: 'relative', marginTop: '0.5rem', borderRadius: '10px', overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))' }}>
+                            {block.imageUrl ? (
+                                <div style={{ position: 'relative', marginTop: '0.5rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))', background: '#000000' }}>
                                     <img src={block.imageUrl} alt="Preview" style={{ width: '100%', height: '140px', objectFit: 'cover', display: 'block' }} />
+                                    <button
+                                        type="button"
+                                        onClick={() => updateBlock(block.id, { imageUrl: '' })}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '8px',
+                                            right: '8px',
+                                            background: 'rgba(239, 68, 68, 0.92)',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            padding: '6px 10px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                                            backdropFilter: 'blur(4px)',
+                                            transition: 'transform 0.15s'
+                                        }}
+                                        title="Delete Image"
+                                    >
+                                        <Trash2 size={14} /> Delete
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ marginTop: '0.5rem', padding: '1rem', background: 'hsl(var(--bg-app))', borderRadius: '10px', border: '1px dashed hsl(var(--border-subtle))', textAlign: 'center', color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>
+                                    No image selected. Click the upload button to choose an image from Media Library.
                                 </div>
                             )}
                         </div>
@@ -1560,13 +1634,25 @@ export default function CMSPage() {
                                             style={{ ...inputStyle, minHeight: '100px' }}
                                         />
 
-                                        <label style={labelStyle}>Social Sharing OpenGraph Image URL</label>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                                            <label style={{ ...labelStyle, marginBottom: 0 }}>Social Sharing OpenGraph Image URL</label>
+                                            {ogImageUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOgImageUrl('')}
+                                                    style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem', padding: 0 }}
+                                                    title="Delete OG Image"
+                                                >
+                                                    <Trash2 size={13} /> Delete Image
+                                                </button>
+                                            )}
+                                        </div>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                                             <input
                                                 value={ogImageUrl}
                                                 onChange={(e) => setOgImageUrl(e.target.value)}
                                                 placeholder="https://..."
-                                                style={{ ...inputStyle, flex: 1 }}
+                                                style={{ ...inputStyle, flex: 1, marginBottom: 0 }}
                                             />
                                             <button
                                                 type="button"
@@ -1576,10 +1662,40 @@ export default function CMSPage() {
                                                 }}
                                                 className="btn btn-secondary"
                                                 style={{ padding: '0.75rem', borderRadius: '10px' }}
+                                                title="Choose from Media Library"
                                             >
                                                 <Upload size={16} />
                                             </button>
+                                            {ogImageUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOgImageUrl('')}
+                                                    style={{ padding: '0.75rem', borderRadius: '10px', background: '#fee2e2', color: '#ef4444', border: '1px solid #fecaca', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    title="Delete OG Image"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
+                                        {ogImageUrl && (
+                                            <div style={{ position: 'relative', marginTop: '0.75rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                <img src={ogImageUrl} alt="OG Preview" style={{ width: '100%', height: '140px', objectFit: 'cover', display: 'block' }} />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOgImageUrl('')}
+                                                    style={{
+                                                        position: 'absolute', top: '8px', right: '8px',
+                                                        background: 'rgba(239, 68, 68, 0.92)', color: '#ffffff',
+                                                        border: 'none', borderRadius: '8px', padding: '6px 10px',
+                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                                                        fontSize: '0.75rem', fontWeight: 700, boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                                                    }}
+                                                    title="Delete OG Image"
+                                                >
+                                                    <Trash2 size={14} /> Delete
+                                                </button>
+                                            </div>
+                                        )}
 
                                         {/* Google SERP Snippet Preview */}
                                         <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
@@ -1630,13 +1746,25 @@ export default function CMSPage() {
                                         </div>
 
                                         <div>
-                                            <label style={labelStyle}>Featured Media (Cover Image)</label>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+                                                <label style={{ ...labelStyle, marginBottom: 0 }}>Featured Media (Cover Image)</label>
+                                                {featuredImageUrl && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFeaturedImageUrl('')}
+                                                        style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem', padding: 0 }}
+                                                        title="Delete Cover Image"
+                                                    >
+                                                        <Trash2 size={13} /> Delete Image
+                                                    </button>
+                                                )}
+                                            </div>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <input
                                                     value={featuredImageUrl}
                                                     onChange={(e) => setFeaturedImageUrl(e.target.value)}
                                                     placeholder="https://..."
-                                                    style={{ ...inputStyle, flex: 1 }}
+                                                    style={{ ...inputStyle, flex: 1, marginBottom: 0 }}
                                                 />
                                                 <button
                                                     type="button"
@@ -1646,13 +1774,40 @@ export default function CMSPage() {
                                                     }}
                                                     className="btn btn-secondary"
                                                     style={{ padding: '0.75rem', borderRadius: '10px' }}
+                                                    title="Choose from Media Library"
                                                 >
                                                     <Upload size={16} />
                                                 </button>
+                                                {featuredImageUrl && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFeaturedImageUrl('')}
+                                                        style={{ padding: '0.75rem', borderRadius: '10px', background: '#fee2e2', color: '#ef4444', border: '1px solid #fecaca', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                        title="Delete Cover Image"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </div>
 
                                             {featuredImageUrl && (
-                                                <img src={featuredImageUrl} alt="Cover Preview" style={{ width: '100%', borderRadius: '12px', height: '180px', objectFit: 'cover', marginTop: '0.5rem', border: '1px solid hsl(var(--border-subtle))' }} />
+                                                <div style={{ position: 'relative', marginTop: '0.75rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))' }}>
+                                                    <img src={featuredImageUrl} alt="Cover Preview" style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }} />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFeaturedImageUrl('')}
+                                                        style={{
+                                                            position: 'absolute', top: '8px', right: '8px',
+                                                            background: 'rgba(239, 68, 68, 0.92)', color: '#ffffff',
+                                                            border: 'none', borderRadius: '8px', padding: '6px 10px',
+                                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                                                            fontSize: '0.75rem', fontWeight: 700, boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                                                        }}
+                                                        title="Delete Cover Image"
+                                                    >
+                                                        <Trash2 size={14} /> Delete
+                                                    </button>
+                                                </div>
                                             )}
 
                                             <div style={{ marginTop: '1.5rem' }}>

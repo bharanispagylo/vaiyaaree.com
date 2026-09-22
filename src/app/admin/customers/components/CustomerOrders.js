@@ -1,13 +1,91 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { Edit2, Check, Loader2, RefreshCw, ShoppingBag } from 'lucide-react';
+import { Edit2, Check, Loader2, RefreshCw, ShoppingBag, ExternalLink } from 'lucide-react';
 
-export default function CustomerOrders({ orders, onOrderUpdated }) {
+export default function CustomerOrders({ 
+    orders: propOrders, 
+    initialOrders, 
+    customer,
+    customerId: propCustomerId,
+    customerPhone: propCustomerPhone, 
+    customerEmail: propCustomerEmail,
+    customerName: propCustomerName, 
+    onOrderUpdated 
+}) {
+    const customerId = propCustomerId || customer?.id;
+    const customerPhone = propCustomerPhone || customer?.phone;
+    const customerEmail = propCustomerEmail || customer?.email;
+    const customerName = propCustomerName || customer?.name;
+
+    const [orders, setOrders] = useState(propOrders || initialOrders || customer?.orders || []);
+    const [loadingOrders, setLoadingOrders] = useState(false);
     const [editingOrderId, setEditingOrderId] = useState(null);
     const [editedOrderData, setEditedOrderData] = useState({ total_amount: 0, payment_method: '', status: '' });
     const [isUpdating, setIsUpdating] = useState(false);
+
+    // Sync state whenever props change
+    useEffect(() => {
+        const incoming = propOrders || initialOrders || customer?.orders;
+        if (incoming && Array.isArray(incoming)) {
+            setOrders(incoming);
+        }
+    }, [propOrders, initialOrders, customer?.orders]);
+
+    // Fetch customer orders from database if not already provided or on refresh
+    const fetchCustomerOrders = useCallback(async () => {
+        if (!customerId && !customerPhone && !customerEmail) return;
+        setLoadingOrders(true);
+        try {
+            const rawPhone = (customerPhone || '').toString().replace(/\D/g, '');
+            const last10 = rawPhone.slice(-10);
+
+            let query = mysqlClient
+                .from('orders')
+                .select('*')
+                .neq('status', 'DRAFT')
+                .order('created_at', { ascending: false });
+
+            const orFilters = [];
+            if (customerId) orFilters.push(`customer_id.eq.${customerId}`);
+            if (rawPhone) {
+                orFilters.push(`customer_phone.eq.${rawPhone}`);
+                if (last10 && last10 !== rawPhone) {
+                    orFilters.push(`customer_phone.eq.${last10}`);
+                    orFilters.push(`customer_phone.eq.91${last10}`);
+                    orFilters.push(`customer_phone.eq.+91${last10}`);
+                }
+            }
+            if (customerEmail && customerEmail.includes('@')) {
+                orFilters.push(`customer_email.eq.${customerEmail.trim()}`);
+            }
+
+            if (orFilters.length > 0) {
+                query = query.or(orFilters.join(','));
+            }
+
+            const { data, error } = await query;
+            if (!error && Array.isArray(data)) {
+                // Deduplicate by ID
+                const map = new Map();
+                data.forEach(o => map.set(o.id, o));
+                setOrders(Array.from(map.values()));
+            }
+        } catch (err) {
+            console.warn('[CustomerOrders] Fetch orders warning:', err);
+        } finally {
+            setLoadingOrders(false);
+        }
+    }, [customerId, customerPhone, customerEmail]);
+
+    // Auto-fetch if incoming orders array is empty
+    useEffect(() => {
+        const currentCount = (propOrders || initialOrders || customer?.orders || []).length;
+        if (currentCount === 0 && (customerId || customerPhone || customerEmail)) {
+            fetchCustomerOrders();
+        }
+    }, [customerId, customerPhone, customerEmail, fetchCustomerOrders]);
 
     const getStatusReference = (status) => {
         switch (status) {
@@ -29,6 +107,8 @@ export default function CustomerOrders({ orders, onOrderUpdated }) {
                 .eq('id', orderId);
 
             if (error) throw error;
+            // Optimistically update order status in local view
+            setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
             if (onOrderUpdated) onOrderUpdated(`Order #${orderId} status updated to ${newStatus}`);
         } catch (err) {
             console.error('Order status update error:', err);
@@ -41,8 +121,8 @@ export default function CustomerOrders({ orders, onOrderUpdated }) {
         setEditingOrderId(order.id);
         setEditedOrderData({
             total_amount: order.total_amount,
-            payment_method: order.payment_method,
-            status: order.status
+            payment_method: order.payment_method || 'ONLINE',
+            status: order.status || 'PLACED'
         });
     };
 
@@ -59,6 +139,13 @@ export default function CustomerOrders({ orders, onOrderUpdated }) {
                 .eq('id', editingOrderId);
 
             if (error) throw error;
+            // Optimistically update order details in local view
+            setOrders(prev => prev.map(o => o.id === editingOrderId ? {
+                ...o,
+                total_amount: Number(editedOrderData.total_amount),
+                payment_method: editedOrderData.payment_method,
+                status: editedOrderData.status
+            } : o));
             setEditingOrderId(null);
             if (onOrderUpdated) onOrderUpdated(`Order #${editingOrderId} updated successfully`);
         } catch (err) {
@@ -70,12 +157,40 @@ export default function CustomerOrders({ orders, onOrderUpdated }) {
 
     return (
         <div className="card shadow-premium" style={{ padding: '2rem', borderRadius: '16px', background: '#ffffff', border: '1px solid hsl(var(--border-subtle))' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1.5rem', color: 'hsl(var(--primary))', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShoppingBag size={18} /> Order History ({orders?.length || 0})
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'hsl(var(--primary))', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShoppingBag size={18} /> Order History ({orders?.length || 0})
+                </h3>
+                <button
+                    onClick={fetchCustomerOrders}
+                    disabled={loadingOrders}
+                    title="Refresh order history"
+                    style={{
+                        background: 'transparent',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        padding: '6px 10px',
+                        cursor: 'pointer',
+                        color: 'hsl(var(--primary))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700
+                    }}
+                >
+                    <RefreshCw size={13} className={loadingOrders ? 'animate-spin' : ''} />
+                    {loadingOrders ? 'Loading...' : 'Refresh'}
+                </button>
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '680px', overflowY: 'auto', paddingRight: '0.25rem' }}>
-                {!orders || orders.length === 0 ? (
+                {loadingOrders && (!orders || orders.length === 0) ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: 'hsl(var(--text-muted))', background: '#f8fafc', borderRadius: '12px' }}>
+                        <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 0.75rem', color: 'hsl(var(--primary))' }} />
+                        <div>Loading order history...</div>
+                    </div>
+                ) : !orders || orders.length === 0 ? (
                     <div style={{ padding: '3rem', textAlign: 'center', color: 'hsl(var(--text-muted))', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
                         No orders placed by this customer yet.
                     </div>
@@ -166,8 +281,8 @@ export default function CustomerOrders({ orders, onOrderUpdated }) {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Link href={`/admin/orders?id=${order.id}`} style={{ color: 'hsl(var(--primary))', textDecoration: 'none', fontWeight: 800 }}>
-                                                #{order.id}
+                                            <Link href={`/admin/orders?id=${order.id}`} style={{ color: 'hsl(var(--primary))', textDecoration: 'none', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                #{order.id} <ExternalLink size={12} />
                                             </Link>
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); startEditingOrder(order); }} 

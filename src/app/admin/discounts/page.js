@@ -85,11 +85,16 @@ export default function AdminDiscountsPage() {
     const fetchProductsAndCategories = async () => {
         try {
             const { mysqlClient } = await import('@/lib/mysqlClient');
-            const { data } = await mysqlClient.from('products').select('id, name, category, price');
-            if (data) {
-                setAvailableProducts(data);
-                const cats = Array.from(new Set(data.map(p => p.category).filter(Boolean)));
-                setAvailableCategories(cats);
+            const [prodsRes, catsRes] = await Promise.all([
+                mysqlClient.from('products').select('id, name, category, price, image_url, sku, product_no'),
+                fetch('/api/categories').then(r => r.json()).catch(() => ({ categories: [] }))
+            ]);
+            if (prodsRes.data) {
+                setAvailableProducts(prodsRes.data);
+                const prodCats = prodsRes.data.map(p => p.category).filter(Boolean);
+                const dbCats = (catsRes.categories || []).map(c => c.name).filter(Boolean);
+                const merged = Array.from(new Set([...prodCats, ...dbCats].map(c => String(c).trim()))).filter(Boolean).sort();
+                setAvailableCategories(merged);
             }
         } catch (err) {
             console.error('Fetch products error:', err);
@@ -99,7 +104,8 @@ export default function AdminDiscountsPage() {
     const handleOpenForm = (rule = null) => {
         setError(null);
         if (rule) {
-            const basis = (rule.calculation_basis || 'PRODUCT').toUpperCase();
+            const isProductTarget = rule.target_type === 'SPECIFIC_PRODUCTS' || rule.target_type === 'SPECIFIC_CATEGORIES';
+            const basis = isProductTarget ? 'PRODUCT' : ((rule.calculation_basis || 'PRODUCT').toUpperCase());
             const threshType = rule.threshold_type || (rule.target_type === 'CART_VALUE' ? 'VALUE' : 'COUNT');
             setEditingRule(rule);
             setFormData({
@@ -118,7 +124,7 @@ export default function AdminDiscountsPage() {
                 cart_discount_value: (rule.cart_discount_value !== undefined && rule.cart_discount_value !== null)
                     ? String(rule.cart_discount_value)
                     : (basis === 'CART' && rule.discount_value !== undefined && rule.discount_value !== null ? String(rule.discount_value) : '10'),
-                target_type: rule.target_type || 'ALL_PRODUCTS',
+                target_type: isProductTarget ? rule.target_type : (rule.target_type || 'ALL_PRODUCTS'),
                 minimum_cart_amount: rule.minimum_cart_amount !== undefined ? String(rule.minimum_cart_amount) : '0',
                 minimum_cart_products_enabled: rule.minimum_cart_products_enabled === 1 || rule.minimum_cart_products_enabled === true,
                 minimum_cart_products: rule.minimum_cart_products !== null && rule.minimum_cart_products !== undefined ? String(rule.minimum_cart_products) : '3',
@@ -128,8 +134,8 @@ export default function AdminDiscountsPage() {
                 is_active: rule.is_active === 1 || rule.is_active === true,
                 customer_limit: rule.customer_limit !== undefined ? String(rule.customer_limit) : '1',
                 stackable: rule.stackable === 1 || rule.stackable === true,
-                categories: (rule.categories || []).map(c => c.category),
-                product_ids: (rule.products || []).map(p => p.product_id)
+                categories: (rule.categories || []).map(c => String(typeof c === 'object' ? (c.category || c.name || '') : c).trim()).filter(Boolean),
+                product_ids: (rule.products || []).map(p => String(typeof p === 'object' ? (p.product_id !== undefined ? p.product_id : (p.id || '')) : p).trim()).filter(Boolean)
             });
         } else {
             setEditingRule(null);
@@ -194,6 +200,29 @@ export default function AdminDiscountsPage() {
                 return;
             }
 
+            if (!isCartBasis) {
+                if (formData.target_type === 'SPECIFIC_CATEGORIES' && (!formData.categories || formData.categories.length === 0)) {
+                    setError('Please select at least one eligible category.');
+                    setSaving(false);
+                    return;
+                }
+                if (formData.target_type === 'SPECIFIC_PRODUCTS' && (!formData.product_ids || formData.product_ids.length === 0)) {
+                    setError('Please select at least one eligible saree.');
+                    setSaving(false);
+                    return;
+                }
+            }
+
+            if (formData.start_date && formData.end_date) {
+                const sDate = new Date(formData.start_date);
+                const eDate = new Date(formData.end_date);
+                if (!isNaN(sDate.getTime()) && !isNaN(eDate.getTime()) && eDate <= sDate) {
+                    setError('End Date & Time must be after Start Date & Time.');
+                    setSaving(false);
+                    return;
+                }
+            }
+
             const cleanStartDate = formData.start_date?.trim() ? formData.start_date.trim().replace('T', ' ') : null;
             const cleanEndDate = formData.end_date?.trim() ? formData.end_date.trim().replace('T', ' ') : null;
             const formattedStartDate = cleanStartDate ? (cleanStartDate.length === 16 ? `${cleanStartDate}:00` : cleanStartDate) : null;
@@ -204,22 +233,22 @@ export default function AdminDiscountsPage() {
                 description: formData.description,
                 coupon_code: formData.coupon_code,
                 calculation_basis: formData.calculation_basis,
-                threshold_type: formData.threshold_type || 'COUNT',
-                threshold_count: parseInt(formData.threshold_count || '5', 10),
-                threshold_value: parseFloat(formData.threshold_value || '0'),
+                threshold_type: isCartBasis ? (formData.threshold_type || 'COUNT') : null,
+                threshold_count: isCartBasis ? parseInt(formData.threshold_count || '5', 10) : null,
+                threshold_value: isCartBasis ? parseFloat(formData.threshold_value || '0') : null,
                 discount_type: effectiveDiscountType,
                 discount_value: effectiveDiscountValue,
                 product_discount_type: formData.product_discount_type || 'PERCENTAGE',
                 product_discount_value: prodDiscountVal,
                 cart_discount_type: formData.cart_discount_type || 'PERCENTAGE',
                 cart_discount_value: cartDiscountVal,
-                target_type: formData.target_type || 'ALL_PRODUCTS',
-                minimum_cart_amount: parseFloat(formData.minimum_cart_amount || 0),
+                target_type: isCartBasis ? 'ALL_PRODUCTS' : (formData.target_type || 'ALL_PRODUCTS'),
+                minimum_cart_amount: isCartBasis ? 0 : parseFloat(formData.minimum_cart_amount || 0),
                 maximum_discount_amount: null,
-                minimum_cart_products_enabled: formData.minimum_cart_products_enabled ? 1 : 0,
-                minimum_cart_products: formData.minimum_cart_products ? parseInt(formData.minimum_cart_products, 10) : 3,
-                categories: formData.categories || [],
-                product_ids: formData.product_ids || [],
+                minimum_cart_products_enabled: !isCartBasis && formData.minimum_cart_products_enabled ? 1 : 0,
+                minimum_cart_products: !isCartBasis && formData.minimum_cart_products ? parseInt(formData.minimum_cart_products, 10) : null,
+                categories: !isCartBasis && formData.target_type === 'SPECIFIC_CATEGORIES' ? (formData.categories || []) : [],
+                product_ids: !isCartBasis && formData.target_type === 'SPECIFIC_PRODUCTS' ? (formData.product_ids || []) : [],
                 start_date: formattedStartDate,
                 end_date: formattedEndDate,
                 priority: parseInt(formData.priority || '10', 10),

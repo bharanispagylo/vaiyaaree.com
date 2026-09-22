@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Loader2, Eye, Share2, Package as PackageIcon, Trash2,
     ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown,
-    MoreVertical, Edit3, ExternalLink, Copy, Check, CheckCircle, EyeOff
+    MoreVertical, Edit3, ExternalLink, Copy, Check, CheckCircle, EyeOff, CopyPlus
 } from 'lucide-react';
 import { getProductUrl } from '@/lib/productUrl';
 
@@ -20,6 +20,7 @@ export default function ProductTable({
     fetchHistory,
     handleDelete,
     onToggleStatus,
+    onDuplicateProduct,
     currentPage = 1,
     totalPages = 1,
     setPage,
@@ -552,7 +553,38 @@ export default function ProductTable({
                                                                 <span>Edit Product</span>
                                                             </button>
 
-                                                            {/* 1b. Toggle Active/Draft */}
+                                                            {/* 1b. Duplicate Product */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveDropdownId(null);
+                                                                    if (onDuplicateProduct) onDuplicateProduct(product);
+                                                                }}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '10px',
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    borderRadius: '8px',
+                                                                    fontSize: '0.82rem',
+                                                                    fontWeight: 600,
+                                                                    color: 'hsl(var(--text-main))',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'background 0.12s',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <CopyPlus size={15} style={{ color: '#0284c7' }} />
+                                                                <span>Duplicate Product</span>
+                                                            </button>
+
+                                                            {/* 1c. Toggle Active/Draft */}
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {

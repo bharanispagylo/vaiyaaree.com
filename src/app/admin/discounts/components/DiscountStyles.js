@@ -109,9 +109,11 @@ export default function DiscountStyles() {
             .chip-item { padding: 0.5rem 1rem; border-radius: 99px; border: 1px solid #cbd5e1; background: white; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: 0.2s; }
             .chip-item.selected { background: #eef2ff; border-color: #6366f1; color: #4f46e5; }
 
-            .product-scroll-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.6rem; padding-right: 0.4rem; }
-            .product-select-row { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 1rem; border-radius: 12px; background: white; border: 1px solid #e2e8f0; cursor: pointer; transition: 0.2s; }
+            .product-scroll-list { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.6rem; padding-right: 0.4rem; }
+            .product-select-row { display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.85rem; border-radius: 12px; background: white; border: 1px solid #e2e8f0; cursor: pointer; transition: 0.2s; user-select: none; }
+            .product-select-row:hover { border-color: #cbd5e1; background: #f8fafc; }
             .product-select-row.selected { background: #eef2ff; border-color: #6366f1; }
+            .product-select-row.selected:hover { background: #e0e7ff; }
 
             .toggles-box { background: #f8fafc; padding: 1.25rem; border-radius: 16px; display: flex; flex-direction: column; gap: 1rem; }
             .custom-checkbox-row { display: flex; align-items: flex-start; gap: 0.85rem; cursor: pointer; }

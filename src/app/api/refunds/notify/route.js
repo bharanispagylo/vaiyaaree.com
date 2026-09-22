@@ -80,6 +80,23 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Missing refundId or status' }), { status: 400 });
         }
 
+        // Check Store Communication & Auth Channel Gateway
+        try {
+            const { data: channelSetting } = await mysqlClient
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'communication_channel')
+                .maybeSingle();
+
+            const activeChannel = channelSetting?.value || 'whatsapp';
+            if (activeChannel === 'email') {
+                console.log(`[REFUND-NOTIFY] WhatsApp refund notification skipped for refund #${refundId} because communication channel is set to email`);
+                return new Response(JSON.stringify({ success: true, skipped: true, channel: 'email' }), { status: 200 });
+            }
+        } catch (chanErr) {
+            console.warn('[REFUND-NOTIFY] Failed to check communication_channel:', chanErr);
+        }
+
         let refund = null;
         let { data: reqData } = await mysqlClient
             .from('refund_requests')

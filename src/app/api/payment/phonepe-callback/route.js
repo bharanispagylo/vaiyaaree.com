@@ -67,6 +67,21 @@ export async function GET(request) {
                 })
                 .eq('id', orderId);
 
+            // Check Store Communication & Auth Channel Gateway
+            let activeChannel = 'both';
+            try {
+                const { data: channelSetting } = await mysqlClient
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'communication_channel')
+                    .maybeSingle();
+                if (channelSetting?.value) {
+                    activeChannel = channelSetting.value;
+                }
+            } catch (chanErr) {}
+
+            const shouldSendWhatsApp = activeChannel === 'whatsapp' || activeChannel === 'both';
+
             // Trigger Customer & Admin Notifications now that payment is confirmed
             try {
                 await dispatchNotification({
@@ -87,8 +102,8 @@ export async function GET(request) {
                 console.error('[PHONEPE-NOTIF-ERROR]', notifErr);
             }
 
-            // Send WhatsApp confirmation via centralized helper
-            if (order?.customer_phone) {
+            // Send WhatsApp confirmation via centralized helper (only if WhatsApp channel is active)
+            if (order?.customer_phone && shouldSendWhatsApp) {
                 try {
                     await notifyOrderSuccess(orderId, true);
                 } catch (waErr) {

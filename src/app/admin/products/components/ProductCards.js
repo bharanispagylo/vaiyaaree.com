@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Image as ImageIcon, Eye, Share2, Package as PackageIcon, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Eye, Share2, Package as PackageIcon, Trash2, ChevronLeft, ChevronRight, CopyPlus } from 'lucide-react';
 import { getProductUrl } from '@/lib/productUrl';
 
 export default function ProductCards({
@@ -11,6 +11,7 @@ export default function ProductCards({
     shareToStatus,
     fetchHistory,
     handleDelete,
+    onDuplicateProduct,
     currentPage = 1,
     totalPages = 1,
     setPage
@@ -143,6 +144,15 @@ export default function ProductCards({
                                             title="View Stock History Log"
                                         >
                                             <PackageIcon size={14} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDuplicateProduct && onDuplicateProduct(product)}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '0.5rem', color: '#0284c7', borderColor: 'rgba(2, 132, 199, 0.3)', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            title="Duplicate Product"
+                                        >
+                                            <CopyPlus size={14} />
                                         </button>
                                         <button
                                             type="button"

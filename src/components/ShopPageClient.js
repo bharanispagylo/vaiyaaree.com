@@ -148,10 +148,12 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
 
         if (searchQuery && searchQuery.trim()) {
             const rawQuery = searchQuery.trim().toLowerCase();
+            const cleanQuery = rawQuery.replace(/^#+/, '').trim();
             const queryWords = rawQuery.split(/\s+/).filter(Boolean);
 
             filtered = filtered.filter(p => {
                 const variantNames = Array.isArray(p.variants) ? p.variants.map(v => v.name || '').join(' ') : '';
+                const pNoStr = p.product_no ? String(p.product_no).trim() : '';
                 const searchableText = [
                     p.name,
                     p.description,
@@ -161,13 +163,16 @@ export default function ShopPageClient({ initialProducts = [], initialCategories
                     p.fabric,
                     p.color,
                     p.sku,
-                    p.product_no,
+                    pNoStr,
+                    pNoStr ? `#${pNoStr}` : '',
                     p.id,
                     variantNames
                 ].filter(Boolean).join(' ').toLowerCase();
 
-                // Match if full rawQuery is present OR if all token words match
-                return searchableText.includes(rawQuery) || queryWords.every(word => searchableText.includes(word));
+                // Match if full rawQuery or cleanQuery is present OR if all token words match
+                return searchableText.includes(rawQuery) || 
+                       (cleanQuery && searchableText.includes(cleanQuery)) ||
+                       queryWords.every(word => searchableText.includes(word) || (cleanQuery && searchableText.includes(cleanQuery)));
             });
         }
 

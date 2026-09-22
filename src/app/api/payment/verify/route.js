@@ -112,6 +112,21 @@ export async function POST(request) {
             }
         }
 
+        // Check Store Communication & Auth Channel Gateway
+        let activeChannel = 'both';
+        try {
+            const { data: channelSetting } = await mysqlClient
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'communication_channel')
+                .maybeSingle();
+            if (channelSetting?.value) {
+                activeChannel = channelSetting.value;
+            }
+        } catch (chanErr) {}
+
+        const shouldSendWhatsApp = activeChannel === 'whatsapp' || activeChannel === 'both';
+
         // Trigger Customer & Admin Notifications now that payment is confirmed
         try {
             await dispatchNotification({
@@ -128,15 +143,15 @@ export async function POST(request) {
                     order_items: order.order_items || []
                 },
                 extraData: {
-                    skipCustomerWhatsApp: true // notifyOrderSuccess below handles rich WhatsApp with saree images & PDF bill
+                    skipCustomerWhatsApp: true // notifyOrderSuccess handles rich WhatsApp with saree images & PDF bill when WhatsApp channel is enabled
                 }
             });
         } catch (notifErr) {
             console.error('[PAYMENT-VERIFY-NOTIF-ERROR] Notification dispatch failed:', notifErr);
         }
 
-        // Send WhatsApp confirmation message to customer via centralized helper
-        if (order.customer_phone) {
+        // Send WhatsApp confirmation message to customer via centralized helper (only if WhatsApp channel is active)
+        if (order.customer_phone && shouldSendWhatsApp) {
             try {
                 await notifyOrderSuccess(orderId, true);
             } catch (waErr) {

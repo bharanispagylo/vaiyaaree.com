@@ -165,7 +165,12 @@ export default function CustomerDetail({
             const data = await res.json();
             if (res.ok && data.success) {
                 setIsEditing(false);
-                if (onCustomerUpdated) onCustomerUpdated('Customer details updated successfully!');
+                if (data.customer) {
+                    if (data.customer.billing) setBillingData(data.customer.billing);
+                    if (data.customer.shipping) setShippingData(data.customer.shipping);
+                    if (data.customer.same_as_billing !== undefined) setSameAsBilling(Boolean(data.customer.same_as_billing));
+                }
+                if (onCustomerUpdated) onCustomerUpdated('Customer details updated successfully!', data.customer);
             } else {
                 setError(data.error || 'Failed to update customer.');
             }
@@ -812,9 +817,16 @@ export default function CustomerDetail({
 
                 {/* Right Column: Customer Orders List */}
                 <CustomerOrders
-                    customerPhone={customer?.phone}
-                    customerName={customer?.name}
+                    orders={customer?.orders}
                     initialOrders={customer?.orders}
+                    customer={customer}
+                    customerId={customer?.id}
+                    customerPhone={customer?.phone}
+                    customerEmail={customer?.email}
+                    customerName={customer?.name}
+                    onOrderUpdated={(msg) => {
+                        if (onCustomerUpdated) onCustomerUpdated(msg);
+                    }}
                 />
             </div>
         </div>

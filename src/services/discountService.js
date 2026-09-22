@@ -62,6 +62,26 @@ export async function calculateDiscounts({
     const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price || 0) * parseInt(item.qty || 1, 10)), 0);
     const shippingCost = Math.max(0, parseFloat(inputShippingCost || 0));
 
+    // Ensure all cart items have a category populated if available in products table
+    const itemsNeedingCategory = cart.filter(i => !i.category && (i.id || i.product_id));
+    if (itemsNeedingCategory.length > 0) {
+        try {
+            const prodIds = Array.from(new Set(itemsNeedingCategory.map(i => String(i.id || i.product_id).trim())));
+            const { data: dbProds } = await mysqlClient.from('products').select('id, category').in('id', prodIds);
+            if (dbProds && dbProds.length > 0) {
+                const catMap = new Map(dbProds.map(p => [String(p.id).trim(), p.category]));
+                cart.forEach(i => {
+                    if (!i.category) {
+                        const c = catMap.get(String(i.id || i.product_id).trim());
+                        if (c) i.category = c;
+                    }
+                });
+            }
+        } catch (catErr) {
+            console.warn('[calculateDiscounts] Category hydration error:', catErr);
+        }
+    }
+
     let productDiscount = 0;
     let cartDiscount = 0;
     let couponDiscount = 0;
@@ -132,8 +152,90 @@ export async function calculateDiscounts({
             ruleCustomersMap.get(rcu.discount_rule_id).add(String(rcu.customer_id).trim());
         });
 
-        const normalizedCoupon = (couponCode || '').trim().toUpperCase();
-        let nonStackableApplied = false;
+        let normalizedCoupon = (couponCode || '').trim().toUpperCase();
+
+        // If no coupon code was explicitly passed, auto-apply the best eligible coupon offer
+        if (!normalizedCoupon && couponCode !== 'NONE') {
+            const activeEligibleCouponRules = rulesData.filter(r => {
+                if (!r.coupon_code || !r.coupon_code.trim()) return false;
+                const dateCheck = isRuleActiveByDate(r.start_date, r.end_date);
+                if (!dateCheck.active) return false;
+
+                if (r.target_type === 'SPECIFIC_CUSTOMERS') {
+                    const allowedCusts = ruleCustomersMap.get(r.id);
+                    if (!allowedCusts || !customer?.id || !allowedCusts.has(String(customer.id).trim())) return false;
+                }
+
+                const isCart = r.target_type === 'CART_COUNT' || r.target_type === 'CART_VALUE' || String(r.calculation_basis || '').toUpperCase() === 'CART';
+                if (isCart) {
+                    const rawThresholdType = String(r.threshold_type || (r.target_type === 'CART_COUNT' ? 'COUNT' : 'VALUE')).toUpperCase();
+                    if (rawThresholdType.includes('COUNT') || rawThresholdType.includes('QTY')) {
+                        const minCount = (r.threshold_count !== null && r.threshold_count !== undefined) ? parseInt(r.threshold_count, 10) : 1;
+                        const totalQty = cart.reduce((s, i) => s + parseInt(i.qty || 1, 10), 0);
+                        if (totalQty < minCount) return false;
+                    } else {
+                        const minValue = (r.threshold_value !== null && r.threshold_value !== undefined) ? parseFloat(r.threshold_value) : 0;
+                        if (subtotal < minValue) return false;
+                    }
+                    return true;
+                } else {
+                    const minCart = parseFloat(r.minimum_cart_amount || 0);
+                    if (minCart > 0 && subtotal < minCart) return false;
+
+                    let eligibleItems = cart;
+                    if (r.target_type === 'SPECIFIC_PRODUCTS') {
+                        const allowedProds = ruleProductsMap.get(r.id) || new Set();
+                        eligibleItems = cart.filter(i => {
+                            const id1 = String(i.id || '').trim();
+                            const id2 = String(i.product_id || '').trim();
+                            return (id1 && allowedProds.has(id1)) || (id2 && allowedProds.has(id2));
+                        });
+                    } else if (r.target_type === 'SPECIFIC_CATEGORIES') {
+                        const allowedCats = ruleCategoriesMap.get(r.id) || new Set();
+                        const norm = s => String(s || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+                        eligibleItems = cart.filter(i => {
+                            if (!i.category) return false;
+                            const catNorm = norm(i.category);
+                            return allowedCats.has(catNorm) || Array.from(allowedCats).some(c => catNorm.includes(c) || c.includes(catNorm));
+                        });
+                    }
+                    if (eligibleItems.length === 0) return false;
+
+                    const minProdsReq = r.minimum_cart_products ? parseInt(r.minimum_cart_products, 10) : 0;
+                    if (r.minimum_cart_products_enabled && minProdsReq > 0) {
+                        const elQty = eligibleItems.reduce((s, i) => s + parseInt(i.qty || 1, 10), 0);
+                        if (elQty < minProdsReq) return false;
+                    }
+                    return true;
+                }
+            });
+
+            if (activeEligibleCouponRules.length > 0) {
+                let bestRule = null;
+                let bestSavings = -1;
+                for (const cr of activeEligibleCouponRules) {
+                    const effType = cr.cart_discount_type || cr.product_discount_type || cr.discount_type || 'PERCENTAGE';
+                    const rawVal = cr.cart_discount_value ?? cr.product_discount_value ?? cr.discount_value ?? 0;
+                    const val = parseFloat(rawVal || 0);
+                    let savings = 0;
+                    if (effType === 'FREE_SHIPPING') savings = Math.max(50, shippingCost);
+                    else if (effType === 'PERCENTAGE') savings = (val / 100) * subtotal;
+                    else savings = Math.min(val, subtotal);
+
+                    if (savings > bestSavings) {
+                        bestSavings = savings;
+                        bestRule = cr;
+                    }
+                }
+                if (bestRule && bestSavings > 0) {
+                    normalizedCoupon = bestRule.coupon_code.trim().toUpperCase();
+                }
+            }
+        }
+
+        let nonStackableProductApplied = false;
+        let nonStackableCartApplied = false;
+        let nonStackableCouponApplied = false;
 
         // Prioritize explicit customer-applied coupon rule so it is evaluated first
         // and never skipped by preceding non-stackable automatic store promotions.
@@ -152,32 +254,43 @@ export async function calculateDiscounts({
             if (!dateCheck.active) continue;
 
             const rawBasis = String(rule.calculation_basis || '').toUpperCase();
-            const rawThresholdType = String(
-                rule.threshold_type || 
-                (rule.target_type === 'CART_COUNT' ? 'COUNT' : (rule.target_type === 'CART_VALUE' ? 'VALUE' : ''))
-            ).toUpperCase();
-            const hasCartThreshold = rawThresholdType === 'COUNT' || rawThresholdType.includes('COUNT') || rawThresholdType.includes('QTY') || rawThresholdType.includes('UNIT') ||
-                rawThresholdType === 'VALUE' || rawThresholdType.includes('VALUE') ||
-                Boolean(rule.minimum_cart_products_enabled);
+            const isCartTarget = rule.target_type === 'CART_COUNT' || rule.target_type === 'CART_VALUE';
+            const isProductTarget = rule.target_type === 'SPECIFIC_PRODUCTS' || rule.target_type === 'SPECIFIC_CATEGORIES';
 
-            const calculationBasis = (rawBasis === 'CART' || hasCartThreshold) ? 'CART' : (rawBasis || 'PRODUCT');
-
-            // Check stackability guard
-            if (nonStackableApplied && (!rule.stackable || rule.stackable === 0 || rule.stackable === false)) {
-                continue;
+            // Distinct, decoupled determination of calculation basis
+            let calculationBasis = 'PRODUCT';
+            if (isProductTarget) {
+                calculationBasis = 'PRODUCT';
+            } else if (rawBasis === 'CART' || isCartTarget) {
+                calculationBasis = 'CART';
+            } else {
+                calculationBasis = 'PRODUCT';
             }
 
             // Coupon matching logic:
-            // Cart-level rules based on units or subtotal apply AUTOMATICALLY.
-            // Applying a coupon is NOT needed for cart-level rules.
-            // Only product-level rules that have a coupon code require the coupon to match.
+            // If rule has coupon code, customer must have provided matching coupon code
             const hasCouponCode = Boolean(rule.coupon_code && rule.coupon_code.trim() !== '');
             const isCouponMatch = Boolean(hasCouponCode && normalizedCoupon && rule.coupon_code.trim().toUpperCase() === normalizedCoupon);
             const isCouponRule = isCouponMatch;
 
-            if (calculationBasis !== 'CART' && hasCouponCode) {
+            if (hasCouponCode) {
                 if (!isCouponMatch) {
-                    continue; // Skip product coupon rule if coupon code doesn't match
+                    continue; // Skip rule if coupon code doesn't match
+                }
+            }
+
+            // Check stackability guard per tier so product and cart rules operate independently
+            if (isCouponRule) {
+                if (nonStackableCouponApplied && (!rule.stackable || rule.stackable === 0 || rule.stackable === false)) {
+                    continue;
+                }
+            } else if (calculationBasis === 'CART') {
+                if (nonStackableCartApplied && (!rule.stackable || rule.stackable === 0 || rule.stackable === false)) {
+                    continue;
+                }
+            } else {
+                if (nonStackableProductApplied && (!rule.stackable || rule.stackable === 0 || rule.stackable === false)) {
+                    continue;
                 }
             }
 
@@ -234,11 +347,17 @@ export async function calculateDiscounts({
                     continue;
                 }
 
-                // Cart-level discount applies to the entire cart subtotal
+                // Remaining subtotal after existing product discounts
+                const qualifyingSubtotal = Math.max(0, subtotal - productDiscount);
+                if (qualifyingSubtotal <= 0 && effDiscountType !== 'FREE_SHIPPING') {
+                    continue;
+                }
+
+                // Cart-level discount applies to the qualifying cart subtotal
                 if (effDiscountType === 'PERCENTAGE') {
-                    ruleDiscount = (val / 100) * subtotal;
+                    ruleDiscount = (val / 100) * qualifyingSubtotal;
                 } else if (effDiscountType === 'FIXED' || effDiscountType === 'FIXED_AMOUNT') {
-                    ruleDiscount = Math.min(val, subtotal);
+                    ruleDiscount = Math.min(val, qualifyingSubtotal);
                 } else if (effDiscountType === 'FREE_SHIPPING') {
                     shippingDiscount = shippingCost;
                     ruleDiscount = 0;
@@ -249,8 +368,14 @@ export async function calculateDiscounts({
                 if (ruleDiscount > 0 || effDiscountType === 'FREE_SHIPPING') {
                     if (isCouponRule) {
                         couponDiscount += ruleDiscount;
+                        if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {
+                            nonStackableCouponApplied = true;
+                        }
                     } else {
                         cartDiscount += ruleDiscount;
+                        if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {
+                            nonStackableCartApplied = true;
+                        }
                     }
 
                     appliedRules.push({
@@ -265,10 +390,6 @@ export async function calculateDiscounts({
                         calculationBasis: 'CART',
                         thresholdType: isCountTrigger ? 'COUNT' : 'VALUE'
                     });
-
-                    if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {
-                        nonStackableApplied = true;
-                    }
                 }
 
                 continue;
@@ -285,10 +406,20 @@ export async function calculateDiscounts({
             let eligibleCartItems = cart;
             if (rule.target_type === 'SPECIFIC_PRODUCTS') {
                 const allowedProds = ruleProductsMap.get(rule.id) || new Set();
-                eligibleCartItems = cart.filter(i => allowedProds.has(String(i.id).trim()));
+                eligibleCartItems = cart.filter(i => {
+                    const id1 = String(i.id || '').trim();
+                    const id2 = String(i.product_id || '').trim();
+                    return (id1 && allowedProds.has(id1)) || (id2 && allowedProds.has(id2));
+                });
             } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
                 const allowedCats = ruleCategoriesMap.get(rule.id) || new Set();
-                eligibleCartItems = cart.filter(i => i.category && allowedCats.has(String(i.category || '').trim().toLowerCase()));
+                const norm = s => String(s || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+                const normalizedAllowed = new Set(Array.from(allowedCats).map(c => norm(c)));
+                eligibleCartItems = cart.filter(i => {
+                    if (!i.category) return false;
+                    const catNorm = norm(i.category);
+                    return normalizedAllowed.has(catNorm) || Array.from(normalizedAllowed).some(allowed => catNorm.includes(allowed) || allowed.includes(catNorm));
+                });
             }
 
             const eligibleQuantity = eligibleCartItems.reduce((sum, item) => sum + parseInt(item.qty || 1, 10), 0);
@@ -320,10 +451,15 @@ export async function calculateDiscounts({
             if (ruleDiscount > 0 || effDiscountType === 'FREE_SHIPPING') {
                 if (isCouponRule) {
                     couponDiscount += ruleDiscount;
-                } else if (rule.target_type === 'SPECIFIC_PRODUCTS' || rule.target_type === 'SPECIFIC_CATEGORIES') {
-                    productDiscount += ruleDiscount;
+                    if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {
+                        nonStackableCouponApplied = true;
+                    }
                 } else {
-                    cartDiscount += ruleDiscount;
+                    // Storewide (ALL_PRODUCTS), Category, and Saree specific discounts under PRODUCT basis all add to productDiscount
+                    productDiscount += ruleDiscount;
+                    if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {
+                        nonStackableProductApplied = true;
+                    }
                 }
 
                 // Specifically allocate this rule discount across eligible items
@@ -356,10 +492,6 @@ export async function calculateDiscounts({
                     isCoupon: isCouponRule,
                     calculationBasis: 'PRODUCT'
                 });
-
-                if (!rule.stackable || rule.stackable === 0 || rule.stackable === false) {
-                    nonStackableApplied = true;
-                }
             }
         }
 
@@ -443,7 +575,11 @@ export async function validateCouponCode(couponCode, { subtotal = 0, cartItems =
         if (rule.target_type === 'SPECIFIC_PRODUCTS') {
             const { data: prods } = await mysqlClient.from('discount_rule_products').select('product_id').eq('discount_rule_id', rule.id);
             const allowedProds = new Set((prods || []).map(p => String(p.product_id).trim()));
-            const eligibleCartItems = (cartItems || []).filter(i => allowedProds.has(String(i.id).trim()));
+            const eligibleCartItems = (cartItems || []).filter(i => {
+                const id1 = String(i.id || '').trim();
+                const id2 = String(i.product_id || '').trim();
+                return (id1 && allowedProds.has(id1)) || (id2 && allowedProds.has(id2));
+            });
 
             if (eligibleCartItems.length === 0) {
                 return { valid: false, message: 'This coupon is valid only for specific selected sarees which are not in your cart.' };
@@ -457,8 +593,32 @@ export async function validateCouponCode(couponCode, { subtotal = 0, cartItems =
             }
         } else if (rule.target_type === 'SPECIFIC_CATEGORIES') {
             const { data: cats } = await mysqlClient.from('discount_rule_categories').select('category').eq('discount_rule_id', rule.id);
-            const allowedCats = new Set((cats || []).map(c => String(c.category || '').trim().toLowerCase()));
-            const eligibleCartItems = (cartItems || []).filter(i => i.category && allowedCats.has(String(i.category || '').trim().toLowerCase()));
+            const norm = s => String(s || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+            const allowedCats = new Set((cats || []).map(c => norm(c.category)));
+
+            // Ensure categories on cart items if missing
+            const missingCatItems = (cartItems || []).filter(i => !i.category && (i.id || i.product_id));
+            if (missingCatItems.length > 0) {
+                try {
+                    const ids = missingCatItems.map(i => String(i.id || i.product_id).trim());
+                    const { data: dbP } = await mysqlClient.from('products').select('id, category').in('id', ids);
+                    if (dbP && dbP.length > 0) {
+                        const cMap = new Map(dbP.map(p => [String(p.id).trim(), p.category]));
+                        cartItems.forEach(i => {
+                            if (!i.category) {
+                                const c = cMap.get(String(i.id || i.product_id).trim());
+                                if (c) i.category = c;
+                            }
+                        });
+                    }
+                } catch (e) {}
+            }
+
+            const eligibleCartItems = (cartItems || []).filter(i => {
+                if (!i.category) return false;
+                const cNorm = norm(i.category);
+                return allowedCats.has(cNorm) || Array.from(allowedCats).some(a => cNorm.includes(a) || a.includes(cNorm));
+            });
 
             if (eligibleCartItems.length === 0) {
                 return { valid: false, message: 'This coupon is valid only for selected saree categories which are not in your cart.' };

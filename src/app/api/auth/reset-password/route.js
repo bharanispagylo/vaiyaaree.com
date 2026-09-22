@@ -95,7 +95,7 @@ export async function POST(req) {
             const { error: userError } = await mysqlClient
                 .from('admin_users')
                 .update({ 
-                    password: hashedPassword,
+                    password: newPassword.trim(),
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', targetAdminUser.id);

@@ -1,7 +1,7 @@
 import { mysqlClient } from '@/lib/mysqlClient';
 
 export const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
-export const STATUS_OPTIONS = ['PLACED', 'AWAITING_PAYMENT', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
+export const STATUS_OPTIONS = ['PLACED', 'CONFIRMED', 'AWAITING_PAYMENT', 'PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUND_REQUESTED', 'REFUNDED'];
 export const SOURCE_FILTERS = ['ALL', 'WEBSITE', 'WHATSAPP', 'MANUAL'];
 export const ORDERS_PER_PAGE = 10;
 
@@ -24,6 +24,7 @@ export { toIST, formatOrderDate, parseDateToUTC };
 export const getStatusReference = (status) => {
     switch (status) {
         case 'PLACED': return 'badge-placed';
+        case 'CONFIRMED': return 'badge-paid';
         case 'PENDING': return 'badge-placed';
         case 'AWAITING_PAYMENT': return 'badge-placed';
         case 'PAID': return 'badge-paid';

@@ -1902,6 +1902,23 @@ export async function askPaymentMode(to, orderId) {
 // Centralized Order Notification (Rich Message + Invoice)
 export async function notifyOrderSuccess(orderId, isPaid = false) {
     try {
+        // Check Store Communication & Auth Channel Gateway
+        try {
+            const { data: channelSetting } = await mysqlClient
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'communication_channel')
+                .maybeSingle();
+
+            const activeChannel = channelSetting?.value || 'whatsapp';
+            if (activeChannel === 'email') {
+                console.log(`[NOTIFY] WhatsApp notifications disabled by Store Communication Channel setting ('email'). Skipping WhatsApp messages for Order #${orderId}`);
+                return;
+            }
+        } catch (chanErr) {
+            console.warn('[NOTIFY] Failed to check communication_channel setting:', chanErr);
+        }
+
         console.log(`[NOTIFY] Triggering success notification for #${orderId}`);
         const { data: order, error } = await mysqlClient
             .from('orders')

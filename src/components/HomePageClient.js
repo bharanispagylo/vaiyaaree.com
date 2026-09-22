@@ -24,7 +24,6 @@ export default function HomePageClient() {
     const [exploreProducts, setExploreProducts] = useState([]);
     const [allCategories, setAllCategories] = useState([]);
     const [sectionsConfig, setSectionsConfig] = useState([]);
-    const [selectedGalleryImage, setSelectedGalleryImage] = useState(null);
 
     useEffect(() => {
         const fetchPageData = async () => {
@@ -268,7 +267,6 @@ export default function HomePageClient() {
                     featuredProducts={featuredProducts}
                     exploreProducts={exploreProducts}
                     allCategories={allCategories}
-                    onOpenGalleryImage={setSelectedGalleryImage}
                 />
             ))}
 
@@ -276,39 +274,6 @@ export default function HomePageClient() {
             <HorizontalRangoliBorder height={54} color="#d47a06" accentColor="#a06650" />
 
             <ShopFooter />
-
-            {/* Modal for Zoomed Gallery Lightbox Popup */}
-            {selectedGalleryImage && (
-                <div
-                    style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 99999,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out',
-                        animation: 'fadeIn 0.3s cubic-bezier(0.165, 0.84, 0.44, 1)',
-                        padding: '1.5rem'
-                    }}
-                    onClick={() => setSelectedGalleryImage(null)}
-                >
-                    <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
-                        <button
-                            style={{
-                                position: 'absolute', top: '-40px', right: '-40px', background: 'none', border: 'none',
-                                color: '#ffffff', fontSize: '3rem', cursor: 'pointer', fontWeight: 200, padding: '10px',
-                                fontFamily: 'var(--font-roboto), sans-serif'
-                            }}
-                            onClick={(e) => { e.stopPropagation(); setSelectedGalleryImage(null); }}
-                            aria-label="Close zoomed image"
-                        >
-                            &times;
-                        </button>
-                        <img
-                            src={selectedGalleryImage}
-                            style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 25px 60px rgba(0,0,0,0.6)', border: '2px solid rgba(255,255,255,0.15)' }}
-                            alt="Zoomed saree showcase"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </div>
-                </div>
-            )}
 
             <style>{`
                 .gallery-swiper-container .swiper-button-next,

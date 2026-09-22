@@ -78,7 +78,8 @@ export function useOrdersManager() {
             if (error) throw error;
             if (data) {
                 const totalOrders = data.length;
-                const pendingOrders = data.filter(o => ['PLACED', 'AWAITING_PAYMENT', 'PENDING', 'PENDING_VERIFICATION', 'PACKING'].includes(o.status)).length;
+                const pendingOrders = data.filter(o => ['PLACED', 'CONFIRMED', 'AWAITING_PAYMENT', 'PENDING', 'PENDING_VERIFICATION', 'PAID', 'PACKING'].includes(o.status)).length;
+                const awaitingPaymentOrders = data.filter(o => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING_VERIFICATION').length;
                 const cancelledOrders = data.filter(o => o.status === 'CANCELLED').length;
                 const returnOrders = data.filter(o => ['REFUNDED', 'REFUND_REQUESTED', 'RETURNED', 'PARTIAL_RETURN'].includes(o.status) || (o.status || '').toUpperCase().includes('RETURN') || (o.status || '').toUpperCase().includes('REFUND')).length;
 
@@ -87,7 +88,8 @@ export function useOrdersManager() {
                     TOTAL: totalOrders,
                     PENDING: pendingOrders,
                     PLACED: data.filter(o => o.status === 'PLACED').length,
-                    'AWAITING_PAYMENT': data.filter(o => o.status === 'AWAITING_PAYMENT' || o.status === 'PENDING' || o.status === 'PENDING_VERIFICATION').length,
+                    CONFIRMED: data.filter(o => o.status === 'CONFIRMED').length,
+                    'AWAITING_PAYMENT': awaitingPaymentOrders,
                     PAID: data.filter(o => o.status === 'PAID').length,
                     PACKING: data.filter(o => o.status === 'PACKING').length,
                     SHIPPED: data.filter(o => o.status === 'SHIPPED').length,
@@ -118,9 +120,9 @@ export function useOrdersManager() {
             // 1. Status Filter
             if (statusFilter !== 'ALL' && statusFilter !== 'TOTAL') {
                 if (statusFilter === 'AWAITING_PAYMENT') {
-                    query = query.or('status.eq.AWAITING_PAYMENT,status.eq.PENDING,status.eq.PENDING_VERIFICATION');
+                    query = query.or('status.eq.AWAITING_PAYMENT,status.eq.PENDING_VERIFICATION');
                 } else if (statusFilter === 'PENDING') {
-                    query = query.or('status.eq.PLACED,status.eq.AWAITING_PAYMENT,status.eq.PENDING,status.eq.PENDING_VERIFICATION,status.eq.PACKING');
+                    query = query.or('status.eq.PLACED,status.eq.CONFIRMED,status.eq.AWAITING_PAYMENT,status.eq.PENDING,status.eq.PENDING_VERIFICATION,status.eq.PAID,status.eq.PACKING');
                 } else if (statusFilter === 'REFUNDED' || statusFilter === 'RETURNED' || statusFilter === 'RETURN_ORDERS') {
                     query = query.or('status.eq.REFUNDED,status.eq.REFUND_REQUESTED,status.eq.RETURNED,status.eq.PARTIAL_RETURN');
                 } else {
@@ -178,6 +180,28 @@ export function useOrdersManager() {
         }
     }, []);
 
+    // Load active catalog products with their variants for manual order creation and item enrichment
+    const fetchCatalogProducts = useCallback(async () => {
+        try {
+            const [{ data: prods }, { data: vars }] = await Promise.all([
+                mysqlClient.from('products').select('id, name, price, stock, category, sku, image_url, type, is_active, product_catalog_image_id').order('name', { ascending: true }),
+                mysqlClient.from('product_variants').select('id, product_id, name, sku, price, stock, image_url').order('created_at', { ascending: true })
+            ]);
+            const varsByProd = {};
+            (vars || []).forEach(v => {
+                if (!varsByProd[v.product_id]) varsByProd[v.product_id] = [];
+                varsByProd[v.product_id].push(v);
+            });
+            const enriched = (prods || []).map(p => ({
+                ...p,
+                variants: varsByProd[p.id] || []
+            }));
+            setAllProducts(enriched);
+        } catch (e) {
+            console.warn('Error loading catalog products in orders manager:', e.message);
+        }
+    }, []);
+
     // Initial load and filter sync
     useEffect(() => {
         fetchOrders();
@@ -185,7 +209,8 @@ export function useOrdersManager() {
 
     useEffect(() => {
         fetchShippingConfig();
-    }, [fetchShippingConfig]);
+        fetchCatalogProducts();
+    }, [fetchShippingConfig, fetchCatalogProducts]);
 
     // Open single order details and enrich items
     const openOrderDetail = useCallback(async (order) => {
@@ -291,6 +316,7 @@ export function useOrdersManager() {
         setNotification,
         fetchOrders,
         fetchOrderCounts,
+        fetchCatalogProducts,
         openOrderDetail,
         toggleSelectItem,
         toggleSelectAll

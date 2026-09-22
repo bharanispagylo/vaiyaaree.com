@@ -76,16 +76,6 @@ export async function POST(req) {
                     ? trimmedPassword
                     : cleanPassword;
 
-                // Lazy migration to PBKDF2 if password is using old hash or plaintext
-                if (!user.password || !user.password.startsWith('pbkdf2:')) {
-                    const newPbkdf2Hash = hashPassword(effectivePassword);
-                    await mysqlClient.from('admin_users').update({ 
-                        password: newPbkdf2Hash,
-                        updated_at: new Date().toISOString()
-                    }).eq('id', user.id);
-                    console.log(`[AUTH] Successfully migrated user ${cleanUsername} to PBKDF2 password hash.`);
-                }
-
                 // Check if 2FA Email OTP is enabled for this admin user
                 if (Boolean(user.otp_enabled)) {
                     if (!user.email) {

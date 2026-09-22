@@ -421,31 +421,51 @@ export async function generateInvoicePDF(order) {
             }
         });
     }
+    // Calculate tax percentages
+    const orderTaxable = (order.taxable_amount && Number(order.taxable_amount) > 0)
+        ? Number(order.taxable_amount)
+        : Math.max(0, (Number(order.subtotal) || 0) - (Number(order.discount_amount) || 0));
+
+    const getTaxRatePercent = (amount, fallbackPercent) => {
+        const amt = parseFloat(amount || 0);
+        if (amt <= 0) return fallbackPercent;
+        if (orderTaxable > 0) {
+            const calculated = Math.round((amt / orderTaxable) * 1000) / 10;
+            if (calculated > 0 && calculated <= 30) return calculated;
+        }
+        return fallbackPercent;
+    };
+
+    const cgstRatePercent = order.cgst_rate ? (order.cgst_rate < 1 ? order.cgst_rate * 100 : order.cgst_rate) : getTaxRatePercent(order.cgst, 2.5);
+    const sgstRatePercent = order.sgst_rate ? (order.sgst_rate < 1 ? order.sgst_rate * 100 : order.sgst_rate) : getTaxRatePercent(order.sgst, 2.5);
+    const igstRatePercent = order.igst_rate ? (order.igst_rate < 1 ? order.igst_rate * 100 : order.igst_rate) : getTaxRatePercent(order.igst, 5);
+
     if (order.cgst > 0) {
         doc.rect(margin, y, 190, 6.5);
         doc.line(170, y, 170, y + 6.5);
-        doc.text("CGST:", 168, y + 4.5, { align: "right" });
+        doc.text(`CGST (${cgstRatePercent}%):`, 168, y + 4.5, { align: "right" });
         doc.text(parseFloat(order.cgst).toFixed(2), 198, y + 4.5, { align: "right" });
         y += 6.5;
     }
     if (order.sgst > 0) {
         doc.rect(margin, y, 190, 6.5);
         doc.line(170, y, 170, y + 6.5);
-        doc.text("SGST:", 168, y + 4.5, { align: "right" });
+        doc.text(`SGST (${sgstRatePercent}%):`, 168, y + 4.5, { align: "right" });
         doc.text(parseFloat(order.sgst).toFixed(2), 198, y + 4.5, { align: "right" });
         y += 6.5;
     }
     if (order.igst > 0) {
         doc.rect(margin, y, 190, 6.5);
         doc.line(170, y, 170, y + 6.5);
-        doc.text("IGST:", 168, y + 4.5, { align: "right" });
+        doc.text(`IGST (${igstRatePercent}%):`, 168, y + 4.5, { align: "right" });
         doc.text(parseFloat(order.igst).toFixed(2), 198, y + 4.5, { align: "right" });
         y += 6.5;
     }
     if ((!order.cgst && !order.sgst && !order.igst) && order.tax_amount > 0) {
         doc.rect(margin, y, 190, 6.5);
         doc.line(170, y, 170, y + 6.5);
-        doc.text("Tax:", 168, y + 4.5, { align: "right" });
+        const taxPercent = getTaxRatePercent(order.tax_amount, 5);
+        doc.text(`Tax (${taxPercent}%):`, 168, y + 4.5, { align: "right" });
         doc.text(parseFloat(order.tax_amount).toFixed(2), 198, y + 4.5, { align: "right" });
         y += 6.5;
     }
