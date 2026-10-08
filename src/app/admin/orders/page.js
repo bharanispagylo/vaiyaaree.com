@@ -109,23 +109,23 @@ export default function OrdersPage() {
                             orderActivityLogs={ordersManager.orderActivityLogs}
                             loading={ordersManager.loading}
                             allProducts={ordersManager.allProducts}
-                            onBack={() => { 
-                                ordersManager.setSelectedOrder(null); 
-                                ordersManager.setOrderItems([]); 
-                                ordersManager.setIsEditingItems(false); 
-                                ordersManager.setNotification(null); 
+                            onBack={() => {
+                                ordersManager.setSelectedOrder(null);
+                                ordersManager.setOrderItems([]);
+                                ordersManager.setIsEditingItems(false);
+                                ordersManager.setNotification(null);
                             }}
                             onSaveEdits={orderOps.saveOrderEdits}
-                            onCancelEdit={() => { 
-                                ordersManager.setIsEditingItems(false); 
-                                ordersManager.openOrderDetail(ordersManager.selectedOrder); 
+                            onCancelEdit={() => {
+                                ordersManager.setIsEditingItems(false);
+                                ordersManager.openOrderDetail(ordersManager.selectedOrder);
                             }}
                             onPrepareEditing={() => prepareOrderForEditing(ordersManager.selectedOrder)}
                             onUpdateItem={orderOps.handleUpdateItem}
                             onRemoveItem={orderOps.handleRemoveItem}
-                            onReturnItemClick={(item) => { 
-                                orderOps.setReturningItem(item); 
-                                orderOps.setReturnQty(1); 
+                            onReturnItemClick={(item) => {
+                                orderOps.setReturningItem(item);
+                                orderOps.setReturnQty(1);
                             }}
                             onUpdateStatus={orderOps.updateOrderStatus}
                             openCourierModal={orderOps.openCourierModal}

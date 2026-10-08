@@ -181,8 +181,12 @@ export default function SettingsPage() {
                                         <input className="input-field" placeholder="ABCDE1234F" />
                                     </div>
                                     <div>
-                                        <label className="label">Default Tax Rate (%)</label>
-                                        <input className="input-field" type="number" defaultValue="5" min="0" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                        <label className="label">CGST Rate (%)</label>
+                                        <input className="input-field" type="number" step="0.1" defaultValue="2.5" min="0" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
+                                    </div>
+                                    <div>
+                                        <label className="label">SGST Rate (%)</label>
+                                        <input className="input-field" type="number" step="0.1" defaultValue="2.5" min="0" onKeyDown={(e) => { if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault(); }} />
                                     </div>
                                 </div>
                                 <div>

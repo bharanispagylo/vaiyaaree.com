@@ -217,7 +217,7 @@ export default function CartDrawer() {
                             </span>
                         </div>
 
-                        <p className={styles.taxNotice}>Taxes and shipping calculated at checkout.</p>
+                        <p className={styles.taxNotice}>Taxes calculated at checkout.</p>
 
                         <div className={styles.footerBtnGroup}>
                             <button

@@ -714,12 +714,6 @@ export default function OrderDetailPage() {
                             return null;
                         })()}
 
-                        <div className={styles.billRow}>
-                            <span>Shipping Charges</span>
-                            <span className={styles.billRowVal} style={{ color: Number(order.shipping_cost || 0) === 0 ? '#16a34a' : 'inherit' }}>
-                                {Number(order.shipping_cost || 0) === 0 ? 'FREE' : `₹${Number(order.shipping_cost).toLocaleString()}.00`}
-                            </span>
-                        </div>
 
                         <div className={styles.billRow} style={{ fontWeight: 700, color: 'hsl(var(--text-main))' }}>
                             <span>Total Order Value</span>

@@ -19,7 +19,6 @@ const PAGE_TITLES = {
     '/admin/invoices': 'Invoices',
     '/admin/invoices/report': 'Invoice Report',
     '/admin/invoices/settings': 'Invoice Settings',
-    '/admin/shipping': 'Shipping Settings',
     '/admin/couriers': 'Couriers',
     '/admin/broadcast': 'Broadcast',
     '/admin/whatsapp': 'WhatsApp Funnel',

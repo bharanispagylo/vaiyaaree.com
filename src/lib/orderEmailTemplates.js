@@ -3,6 +3,7 @@
  * Designed for cross-client email compatibility (Gmail, Outlook, Apple Mail, Yahoo)
  * Brand Palette: Royal Burgundy (#5d0821, #3e0516), Warm Gold (#dfaa5b, #c8933b), Slate Dark (#0f172a, #334155)
  */
+import { getDiscountDetails } from './discountHelper.js';
 
 export const ORDER_EMAIL_STATUSES = [
     { key: 'PLACED', label: 'Order Placed', color: '#0284c7', bg: '#e0f2fe', icon: '🛍️' },
@@ -349,7 +350,7 @@ export function buildOrderStatusEmailHtml({
     const items = order.order_items || [];
     const itemsSubtotal = items.reduce((sum, it) => sum + (Number(it.price_at_time || it.price || 0) * (it.quantity || 1)), 0);
     const subtotal = Number(order.subtotal || itemsSubtotal || order.total_amount || 0);
-    const totalDiscount = Number(order.total_discount || order.cart_discount || order.product_discount || order.coupon_discount || 0);
+    const totalDiscount = Number(order.total_discount || order.discount_amount || order.cart_discount || order.product_discount || order.coupon_discount || 0);
     const shippingCost = Number(order.shipping_cost || 0);
     const taxAmount = Number(order.tax_amount || 0);
     const grandTotal = Number(order.total_amount || (subtotal - totalDiscount + shippingCost + taxAmount));
@@ -595,7 +596,31 @@ export function buildOrderStatusEmailHtml({
                                             </td>
                                         </tr>
                                     </table>
-                                    ` : ''}
+                                    ` : (isCodMethod ? `
+                                    ${spacerHtml(16)}
+                                    <!-- PURE COD (NO ADVANCE) NOTICE BOX -->
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="width: 100%; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; border-collapse: separate;">
+                                        <tr>
+                                            <td style="padding: 16px 20px;">
+                                                <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                                                    <tr>
+                                                        <td width="36" style="vertical-align: top; padding-right: 12px; font-size: 24px; line-height: 1;">
+                                                            💵
+                                                        </td>
+                                                        <td style="vertical-align: top;">
+                                                            <div style="font-size: 13px; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                                                                Cash on Delivery (COD) Order
+                                                            </div>
+                                                            <div style="font-size: 13.5px; color: #78350f; line-height: 1.55;">
+                                                                This order is placed under <strong>Cash on Delivery with no advance payment</strong>. The full order amount of <strong style="color: #5d0821; font-size: 15px;">₹${grandTotal.toLocaleString('en-IN')}.00</strong> is payable in cash to our courier delivery executive upon arrival.
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    ` : '')}
                                     ${spacerHtml(22)}
 
                                     <!-- TRACKING DETAILS IF SHIPPED -->
@@ -649,17 +674,51 @@ export function buildOrderStatusEmailHtml({
                                                         <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">Items Subtotal</td>
                                                         <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">₹${subtotal.toLocaleString('en-IN')}.00</td>
                                                     </tr>
-                                                    ${totalDiscount > 0 ? `
+                                                    ${(() => {
+                                                        const discounts = getDiscountDetails(order);
+                                                        if (discounts && discounts.length > 0) {
+                                                            const rendered = discounts.map(disc => {
+                                                                const displayLabel = disc.label ? disc.label.replace(/:$/, '').trim() : 'Discount';
+                                                                const amt = Number(disc.amount || 0);
+                                                                if (amt <= 0) return '';
+                                                                return `
                                                     <tr>
-                                                        <td style="padding: 5px 0; font-size: 13.5px; color: #16a34a; font-weight: 700;">Offers & Discounts Applied</td>
+                                                        <td style="padding: 5px 0; font-size: 13.5px; color: #16a34a; font-weight: 700;">${displayLabel}</td>
+                                                        <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #16a34a;">-₹${amt.toLocaleString('en-IN')}.00</td>
+                                                    </tr>`;
+                                                            }).filter(Boolean).join('');
+                                                            if (rendered) return rendered;
+                                                        }
+                                                        if (totalDiscount > 0) {
+                                                            const fallbackCode = (order.coupon_code || order.couponCode || order.discount_title || order.discount_name || '').trim();
+                                                            const fallbackLabel = (fallbackCode && fallbackCode.toLowerCase() !== 'discount')
+                                                                ? `Discount (${fallbackCode})`
+                                                                : 'Discount';
+                                                            return `
+                                                    <tr>
+                                                        <td style="padding: 5px 0; font-size: 13.5px; color: #16a34a; font-weight: 700;">${fallbackLabel}</td>
                                                         <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #16a34a;">-₹${totalDiscount.toLocaleString('en-IN')}.00</td>
-                                                    </tr>` : ''}
+                                                    </tr>`;
+                                                        }
+                                                        return '';
+                                                    })()}
                                                     ${(() => {
             if (taxAmount <= 0) return '';
             const emailTaxType = order.tax_type || '';
             const emailRawCgst = Number(order.cgst_amount || order.cgst || 0);
             const emailRawSgst = Number(order.sgst_amount || order.sgst || 0);
             const emailRawIgst = Number(order.igst_amount || order.igst || 0);
+
+            const emailCgstRate = (order.cgst_rate !== undefined && order.cgst_rate !== null && order.cgst_rate !== '')
+                ? (Number(order.cgst_rate) < 1 ? Number(order.cgst_rate) * 100 : Number(order.cgst_rate))
+                : (Number(settings?.cgst_rate) || 2.5);
+            const emailSgstRate = (order.sgst_rate !== undefined && order.sgst_rate !== null && order.sgst_rate !== '')
+                ? (Number(order.sgst_rate) < 1 ? Number(order.sgst_rate) * 100 : Number(order.sgst_rate))
+                : (Number(settings?.sgst_rate) || 2.5);
+            const emailIgstRate = (order.igst_rate !== undefined && order.igst_rate !== null && order.igst_rate !== '')
+                ? (Number(order.igst_rate) < 1 ? Number(order.igst_rate) * 100 : Number(order.igst_rate))
+                : (Number(settings?.igst_rate) || (emailCgstRate + emailSgstRate));
+
             let emailIsIgst = false;
             if (emailTaxType === 'IGST' || emailTaxType === 'IGST_INTERNATIONAL') {
                 emailIsIgst = true;
@@ -676,28 +735,28 @@ export function buildOrderStatusEmailHtml({
             if (emailIsIgst) {
                 const igstDisplay = emailRawIgst > 0 ? emailRawIgst : taxAmount;
                 return `<tr>
-                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">IGST (5%)</td>
+                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">IGST (${emailIgstRate}%)</td>
                                                                 <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">₹${igstDisplay.toLocaleString('en-IN')}.00</td>
                                                             </tr>`;
             } else {
                 const cgstDisplay = emailRawCgst > 0 ? emailRawCgst : Math.round(taxAmount / 2);
                 const sgstDisplay = emailRawSgst > 0 ? emailRawSgst : Math.round(taxAmount / 2);
                 return `<tr>
-                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">CGST (2.5%)</td>
+                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">CGST (${emailCgstRate}%)</td>
                                                                 <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">₹${cgstDisplay.toLocaleString('en-IN')}.00</td>
                                                             </tr>
                                                             <tr>
-                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">SGST (2.5%)</td>
+                                                                <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">SGST (${emailSgstRate}%)</td>
                                                                 <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">₹${sgstDisplay.toLocaleString('en-IN')}.00</td>
                                                             </tr>`;
             }
         })()}
-                                                    <tr>
+                                                    ${shippingCost > 0 ? `<tr>
                                                         <td style="padding: 5px 0; font-size: 13.5px; color: #64748b;">Shipping & Delivery</td>
-                                                        <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: ${shippingCost === 0 ? '#16a34a' : '#0f172a'};">
-                                                             ${shippingCost === 0 ? 'FREE' : `₹${shippingCost.toLocaleString('en-IN')}.00`}
+                                                        <td align="right" style="padding: 5px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">
+                                                             ₹${shippingCost.toLocaleString('en-IN')}.00
                                                         </td>
-                                                    </tr>
+                                                    </tr>` : ''}
                                                     <tr>
                                                         <td style="padding: 14px 0 0 0; border-top: 1px solid #e2e8f0; font-size: 15px; font-weight: 800; color: #0f172a;">
                                                             Total Order Amount
@@ -723,7 +782,16 @@ export function buildOrderStatusEmailHtml({
                                                             ₹${codBalanceDue.toLocaleString('en-IN')}.00
                                                         </td>
                                                     </tr>
-                                                    ` : ''}
+                                                    ` : (isCodMethod ? `
+                                                    <tr>
+                                                        <td style="padding: 12px 0 0 0; border-top: 1px dashed #cbd5e1; font-size: 15px; font-weight: 900; color: #92400e;">
+                                                            💵 Cash Payable on Delivery
+                                                        </td>
+                                                        <td align="right" style="padding: 12px 0 0 0; border-top: 1px dashed #cbd5e1; font-size: 19px; font-weight: 900; color: #5d0821;">
+                                                            ₹${grandTotal.toLocaleString('en-IN')}.00
+                                                        </td>
+                                                    </tr>
+                                                    ` : '')}
                                                 </table>
                                             </td>
                                         </tr>
@@ -818,6 +886,21 @@ export function getSampleDemoOrder(status = 'PLACED') {
         tracking_url: 'https://www.bluedart.com',
         subtotal: 7800,
         total_discount: 1560,
+        discount_amount: 1560,
+        coupon_code: 'FESTIVE20',
+        order_discounts: [
+            {
+                discount_name: 'FESTIVE20',
+                discount_amount: 1560,
+                discount_type: 'PERCENTAGE',
+                discount_value: 20
+            }
+        ],
+        cgst_rate: 2.5,
+        sgst_rate: 2.5,
+        igst_rate: 5,
+        cgst_amount: 156,
+        sgst_amount: 156,
         shipping_cost: 0,
         tax_amount: 312,
         total_amount: 6552,

@@ -14,7 +14,7 @@ export async function POST(req) {
             // Fetch real order from database
             const { data: dbOrder } = await mysqlClient
                 .from('orders')
-                .select('*, order_items(*, products(*))')
+                .select('*, order_items(*, products(*)), order_discounts(*)')
                 .eq('id', orderId)
                 .maybeSingle();
 
@@ -53,7 +53,10 @@ export async function POST(req) {
             shop_name: 'Vaiyaaree Sarees',
             shop_phone: '8667793292',
             shop_email: 'vaiyaaree@gmail.com',
-            shop_address: '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.'
+            shop_address: '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.',
+            cgst_rate: '2.5',
+            sgst_rate: '2.5',
+            igst_rate: '5'
         };
 
         try {
@@ -64,6 +67,9 @@ export async function POST(req) {
                     if (item.key === 'business_phone' || item.key === 'shop_phone') settings.shop_phone = item.value;
                     if (item.key === 'shop_email') settings.shop_email = item.value;
                     if (item.key === 'shop_address') settings.shop_address = item.value;
+                    if (item.key === 'cgst_rate') settings.cgst_rate = item.value;
+                    if (item.key === 'sgst_rate') settings.sgst_rate = item.value;
+                    if (item.key === 'igst_rate') settings.igst_rate = item.value;
                 });
             }
         } catch (e) {

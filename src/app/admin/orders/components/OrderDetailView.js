@@ -68,8 +68,8 @@ export default function OrderDetailView({
         : 0;
 
     // Resolve Razorpay payment details
-    const razorpayPaymentId = selectedOrder.razorpay_payment_id || 
-        selectedOrder.transaction_id || 
+    const razorpayPaymentId = selectedOrder.razorpay_payment_id ||
+        selectedOrder.transaction_id ||
         (() => {
             if (Array.isArray(orderActivityLogs)) {
                 for (const log of orderActivityLogs) {
@@ -80,7 +80,7 @@ export default function OrderDetailView({
             return null;
         })();
 
-    const razorpayOrderId = selectedOrder.razorpay_order_id || 
+    const razorpayOrderId = selectedOrder.razorpay_order_id ||
         (() => {
             if (Array.isArray(orderActivityLogs)) {
                 for (const log of orderActivityLogs) {
@@ -92,7 +92,7 @@ export default function OrderDetailView({
         })();
 
     const razorpaySignature = selectedOrder.razorpay_signature || null;
-    const razorpayRefundId = selectedOrder.razorpay_refund_id || 
+    const razorpayRefundId = selectedOrder.razorpay_refund_id ||
         (() => {
             if (Array.isArray(orderActivityLogs)) {
                 for (const log of orderActivityLogs) {
@@ -107,24 +107,25 @@ export default function OrderDetailView({
 
     const paymentMethodText = String(selectedOrder.payment_method || '').trim();
     const isPaidOnline = Boolean(
-        razorpayPaymentId || 
-        razorpayOrderId || 
+        razorpayPaymentId ||
+        razorpayOrderId ||
         ['RAZORPAY', 'ONLINE', 'UPI'].some(m => paymentMethodText.toUpperCase().includes(m)) ||
         (selectedOrder.status === 'PAID' && (selectedOrder.id?.startsWith('WEB-') || selectedOrder.source === 'WEBSITE'))
     );
 
     return (
-        <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+        <div className="animate-enter" style={{ paddingBottom: '0.1rem' }}>
             <div className="card shadow-premium" style={{
-                width: '100%', 
-                maxWidth: '1500px', 
-                margin: '0 auto', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                border: '1px solid hsl(var(--border-subtle))', 
-                borderRadius: '24px', 
-                background: '#ffffff', 
-                overflow: 'hidden'
+                width: '100%',
+                maxWidth: '1500px',
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                border: '1px solid hsl(var(--border-subtle))',
+                borderRadius: '24px',
+                background: '#ffffff',
+                overflow: 'hidden',
+                padding: '2rem'
             }}>
                 {/* 1. Header Bar */}
                 <OrderDetailHeader

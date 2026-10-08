@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Script from 'next/script';
-import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock, Sparkles, Mail, Eye, EyeOff } from 'lucide-react';
+import { MessageCircle, ShoppingBag, Truck, CreditCard, ChevronLeft, Download, CheckCircle, Package, Clock, MapPin, Check, Tag, ShieldCheck, Loader2, X, Lock, Sparkles, Mail, Eye, EyeOff, FileText } from 'lucide-react';
 import { useShop } from '@/context/ShopContext';
 import ModalPortal from '@/components/ModalPortal';
 import Link from 'next/link';
@@ -61,12 +60,6 @@ function CheckoutContent() {
         return false;
     }, [isGuestMode, searchParams]);
 
-    // Refresh live shipping rates directly from DB on checkout mount
-    useEffect(() => {
-        if (typeof fetchShippingRates === 'function') {
-            fetchShippingRates();
-        }
-    }, []);
 
     const availableCouponOffers = useMemo(() => {
         return (activeDiscountRules || []).filter(r => {
@@ -571,7 +564,26 @@ function CheckoutContent() {
                     .eq('customer_id', user.id)
                     .order('is_default', { ascending: false });
                 if (!error && data && !isCancelled) {
-                    setSavedAddresses(data);
+                    let hasDefShipping = false;
+                    let hasDefBilling = false;
+                    const normalized = data.map(addr => {
+                        const isDef = Boolean(Number(addr.is_default) === 1 || addr.is_default === '1' || addr.is_default === true);
+                        const isBilling = addr.address_type === 'billing';
+                        if (isBilling) {
+                            if (isDef && !hasDefBilling) {
+                                hasDefBilling = true;
+                                return { ...addr, is_default: 1 };
+                            }
+                            return { ...addr, is_default: 0 };
+                        } else {
+                            if (isDef && !hasDefShipping) {
+                                hasDefShipping = true;
+                                return { ...addr, is_default: 1 };
+                            }
+                            return { ...addr, is_default: 0 };
+                        }
+                    });
+                    setSavedAddresses(normalized);
                 }
             } catch (err) {
                 console.warn('[CHECKOUT] Error fetching saved addresses:', err);
@@ -1671,29 +1683,23 @@ function CheckoutContent() {
 
                         {taxDetails.cgst > 0 && (
                             <div className={styles.summaryRow}>
-                                <span>CGST (2.5%)</span>
+                                <span>CGST ({taxDetails.cgstRate ?? 2.5}%)</span>
                                 <span>₹{taxDetails.cgst.toLocaleString('en-IN')}.00</span>
                             </div>
                         )}
                         {taxDetails.sgst > 0 && (
                             <div className={styles.summaryRow}>
-                                <span>SGST (2.5%)</span>
+                                <span>SGST ({taxDetails.sgstRate ?? 2.5}%)</span>
                                 <span>₹{taxDetails.sgst.toLocaleString('en-IN')}.00</span>
                             </div>
                         )}
                         {taxDetails.igst > 0 && (
                             <div className={styles.summaryRow}>
-                                <span>IGST (5%)</span>
+                                <span>IGST ({taxDetails.igstRate ?? 5}%)</span>
                                 <span>₹{taxDetails.igst.toLocaleString('en-IN')}.00</span>
                             </div>
                         )}
 
-                        <div className={styles.summaryRow}>
-                            <span>Shipping</span>
-                            <span className={taxDetails.shipping === 0 ? styles.freeText : ''}>
-                                {taxDetails.shipping === 0 ? 'FREE' : `₹${taxDetails.shipping.toLocaleString('en-IN')}.00`}
-                            </span>
-                        </div>
 
                         {effectiveCodFee > 0 && (
                             <div className={styles.summaryRow} style={{ color: '#16a34a', fontWeight: 600 }}>
@@ -1986,7 +1992,11 @@ function CheckoutContent() {
                                         >
                                             <div className={styles.addressPickerCardTitle}>
                                                 {pickerTarget === 'billing' ? <FileText size={16} /> : <Truck size={16} />}
-                                                <span>{addr.title || (addr.address_type === 'billing' ? 'Billing Address' : 'Shipping Address')}</span>
+                                                <span>
+                                                    {(!isDefault && (addr.title === 'Default Shipping' || addr.title === 'Default Billing'))
+                                                        ? (addr.address_type === 'billing' ? 'Billing Address' : 'Shipping Address')
+                                                        : (addr.title || (addr.address_type === 'billing' ? 'Billing Address' : 'Shipping Address'))}
+                                                </span>
                                                 {isDefault && (
                                                     <span style={{ marginLeft: 'auto', background: '#dcfce7', color: '#166534', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>
                                                         DEFAULT

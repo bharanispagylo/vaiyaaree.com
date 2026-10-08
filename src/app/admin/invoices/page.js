@@ -7,8 +7,8 @@ import { Search, Loader2, FileText, Download, Eye, Printer, MessageCircle, Setti
 import Link from 'next/link';
 
 const numberToWords = (num) => {
-    const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-    const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
     if ((num = num.toString()).length > 9) return 'overflow';
     const n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
     if (!n) return; var str = '';
@@ -120,7 +120,7 @@ export default function InvoicesPage() {
     const [notification, setNotification] = useState(null);
     const [invoicePage, setInvoicePage] = useState(1);
     const [stats, setStats] = useState({ totalRevenue: 0, paidTotal: 0, unpaidTotal: 0 });
-    
+
     // Multi-select & Delete States
     const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
     const [confirmDelete, setConfirmDelete] = useState(null);
@@ -705,7 +705,7 @@ export default function InvoicesPage() {
 
             {/*  INVOICE VIEW (FULL PAGE)  */}
             {selectedInvoice && (
-                <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+                <div className="animate-enter" style={{ paddingBottom: '0.1rem' }}>
                     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
                         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <button onClick={() => setSelectedInvoice(null)} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem' }}>
@@ -767,7 +767,7 @@ export default function InvoicesPage() {
                                                 </div>
                                             </td>
                                         </tr>
-                                        
+
                                         {/* Details Headers */}
                                         <tr>
                                             <td style={{ padding: '3px 5px', width: '50%', borderBottom: '1px solid black', borderRight: '1px solid black', fontWeight: 'bold', background: '#f9f9f9' }}>
@@ -833,7 +833,7 @@ export default function InvoicesPage() {
                                                 <td style={{ padding: '5px' }}></td>
                                             </tr>
                                         ))}
-                                        
+
                                         {/* Additional charges & Discounts */}
                                         {getDiscountDetails(selectedInvoice).map((disc, idx) => (
                                             <tr key={`disc-${idx}`} style={{ borderTop: '1px solid #e5e7eb' }}>
@@ -898,7 +898,7 @@ export default function InvoicesPage() {
                                         {/* Amount in words */}
                                         <tr style={{ borderBottom: '1px solid black' }}>
                                             <td colSpan={5} style={{ padding: '5px' }}>
-                                                <strong>Amount Chargeable (in words): </strong> 
+                                                <strong>Amount Chargeable (in words): </strong>
                                                 {numberToWords(Math.round(selectedInvoice.total_amount || 0))}
                                             </td>
                                         </tr>
@@ -952,7 +952,7 @@ export default function InvoicesPage() {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '11px', color: '#666' }}>
                                 {settings.bill_footer}
                             </div>

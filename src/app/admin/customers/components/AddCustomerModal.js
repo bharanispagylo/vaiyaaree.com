@@ -239,7 +239,7 @@ export default function AddCustomerModal({ isOpen, onClose, onCustomerAdded }) {
                                             style={{ width: '110px', padding: '0.55rem 0.4rem', fontWeight: 700, fontSize: '0.8rem', borderRadius: '8px', background: '#ffffff' }}
                                         >
                                             {COUNTRY_CODES.map(c => (
-                                                <option key={c.code} value={c.code}>
+                                                <option key={`${c.code}-${c.iso}`} value={c.code}>
                                                     {c.flag} {c.code}
                                                 </option>
                                             ))}

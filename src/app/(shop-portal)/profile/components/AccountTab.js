@@ -87,6 +87,10 @@ export default function AccountTab({
         const displayPhone = formatDisplayPhone(addr.country_code || '+91', addr.phone);
         const displayWA = addr.whatsapp ? formatDisplayPhone(addr.whatsapp_country_code || addr.country_code || '+91', addr.whatsapp) : null;
 
+        const titleText = (addr.title && addr.title.toLowerCase() === 'default shipping' && !isDefault)
+            ? 'Shipping Address'
+            : (addr.title || (type === 'billing' ? 'Billing Address' : 'Shipping Address'));
+
         return (
             <div key={addr.id} className={styles.addressCard}>
                 {isDefault && (
@@ -96,7 +100,7 @@ export default function AccountTab({
                 )}
                 <h4 className={styles.addressTitle}>
                     {type === 'billing' ? <FileText size={16} /> : <Truck size={16} />}
-                    {addr.title || (type === 'billing' ? 'Billing Address' : 'Shipping Address')}
+                    {titleText}
                 </h4>
                 <p className={styles.addressName}>{addr.full_name || addr.name || 'Recipient'}</p>
                 {addr.email && (

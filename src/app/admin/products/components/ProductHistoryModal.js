@@ -11,7 +11,7 @@ export default function ProductHistoryModal({
     if (!product) return null;
 
     return (
-        <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+        <div className="animate-enter" style={{ paddingBottom: '0.1rem' }}>
             <div className="card shadow-premium" style={{
                 width: '100%',
                 maxWidth: '800px',

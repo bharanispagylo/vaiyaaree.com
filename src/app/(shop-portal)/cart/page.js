@@ -321,10 +321,6 @@ export default function CartPage() {
                                 );
                             })()}
 
-                            <div className={styles.summaryLine}>
-                                <span>Shipping</span>
-                                <span>Calculated at checkout</span>
-                            </div>
                             <div className={styles.divider} />
                             <div className={styles.summaryTotal}>
                                 <span>Total</span>

@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { mysqlClient } from '@/lib/mysqlClient';
-import { 
-    ArrowLeft, Users, IndianRupee, RefreshCw, TrendingUp, 
-    Award, Crown, Star, Medal, Calendar, ShoppingCart, Loader2 
+import {
+    ArrowLeft, Users, IndianRupee, RefreshCw, TrendingUp,
+    Award, Crown, Star, Medal, Calendar, ShoppingCart, Loader2
 } from 'lucide-react';
-import { 
-    ResponsiveContainer, BarChart, Bar, PieChart, Pie, 
-    Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, AreaChart, Area 
+import {
+    ResponsiveContainer, BarChart, Bar, PieChart, Pie,
+    Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, AreaChart, Area
 } from 'recharts';
 
 const TIER_COLORS = {
@@ -24,7 +24,7 @@ const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 export default function CustomerAnalysisPage() {
     const [timeRange, setTimeRange] = useState('ALL'); // 'DAILY', 'MONTHLY', 'QUARTERLY', 'ALL'
     const [loading, setLoading] = useState(true);
-    
+
     const [stats, setStats] = useState({
         totalCustomers: 0,
         averageSpend: 0,
@@ -227,7 +227,7 @@ export default function CustomerAnalysisPage() {
     };
 
     return (
-        <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+        <div className="animate-enter" style={{ paddingBottom: '0.1rem' }}>
             {/* Header with Back Button */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
@@ -326,8 +326,8 @@ export default function CustomerAnalysisPage() {
                                     <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border-subtle))" />
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} />
                                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'hsl(var(--text-muted))' }} allowDecimals={false} />
-                                    <Tooltip 
-                                        contentStyle={{ background: '#1e293b', color: '#ffffff', borderRadius: '10px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }} 
+                                    <Tooltip
+                                        contentStyle={{ background: '#1e293b', color: '#ffffff', borderRadius: '10px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}
                                         itemStyle={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 600 }}
                                         labelStyle={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, marginBottom: '4px' }}
                                     />

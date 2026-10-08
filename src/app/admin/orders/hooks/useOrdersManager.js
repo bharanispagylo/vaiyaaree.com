@@ -168,16 +168,7 @@ export function useOrdersManager() {
     }, [ordersPage, debouncedSearchTerm, statusFilter, sourceFilter, fetchOrderCounts]);
 
     const fetchShippingConfig = useCallback(async () => {
-        try {
-            const [zonesRes, mappingsRes] = await Promise.all([
-                mysqlClient.from('shipping_zones').select('*'),
-                mysqlClient.from('shipping_zone_states').select('*')
-            ]);
-            if (zonesRes.data) setShippingZones(zonesRes.data);
-            if (mappingsRes.data) setShippingMappings(mappingsRes.data);
-        } catch (e) {
-            console.warn('Shipping zones config warning:', e.message);
-        }
+        // Shipping & logistics zone configuration removed
     }, []);
 
     // Load active catalog products with their variants for manual order creation and item enrichment

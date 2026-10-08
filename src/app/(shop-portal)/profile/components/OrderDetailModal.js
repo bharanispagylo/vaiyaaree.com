@@ -586,12 +586,6 @@ export default function OrderDetailModal({
                                     return null;
                                 })()}
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'hsl(var(--text-muted, #64748b))' }}>
-                                    <span>Shipping Charges</span>
-                                    <span style={{ fontWeight: 700, color: Number(order.shipping_cost || 0) === 0 ? '#16a34a' : 'hsl(var(--text-main, #0f172a))' }}>
-                                        {Number(order.shipping_cost || 0) === 0 ? 'FREE' : `₹${Number(order.shipping_cost).toLocaleString()}.00`}
-                                    </span>
-                                </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, color: 'hsl(var(--text-main, #0f172a))' }}>
                                     <span>Total Order Value</span>

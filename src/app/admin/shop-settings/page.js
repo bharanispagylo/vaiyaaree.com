@@ -14,6 +14,24 @@ import { useShop } from '@/context/ShopContext';
 import MediaPicker from '@/components/MediaPicker';
 import { GOOGLE_FONTS_LIST, FONT_PAIRING_PRESETS, getGoogleFontsStylesheetUrl } from '@/lib/googleFontsList';
 
+const PercentIcon = ({ size = 15, color = 'currentColor' }) => (
+    <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ display: 'inline-block', verticalAlign: 'middle' }}
+    >
+        <line x1="19" y1="5" x2="5" y2="19" />
+        <circle cx="6.5" cy="6.5" r="2.5" />
+        <circle cx="17.5" cy="17.5" r="2.5" />
+    </svg>
+);
+
 // Settings Groups and Vertical Tabs
 const SETTINGS_GROUPS = [
     {
@@ -144,6 +162,9 @@ export default function ShopSettingsPage() {
                 header_phone: '+91 86677 93292',
                 shop_address: 'Coimbatore, Tamil Nadu - 641015.',
                 shop_gstin: '',
+                cgst_rate: '2.5',
+                sgst_rate: '2.5',
+                igst_rate: '5',
                 communication_channel: 'whatsapp',
                 wa_chatbot_enabled: 'true',
                 coming_soon_enabled: 'false',
@@ -390,6 +411,67 @@ export default function ShopSettingsPage() {
                                             placeholder="e.g. 33AAAAA0000A1Z5"
                                         />
                                         <p className="hint">Printed on customer GST invoices and tax audit reports.</p>
+                                    </div>
+                                </div>
+
+                                {/* Tax & GST Configuration (CGST & SGST Rates) */}
+                                <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem', padding: '1.25rem 1.5rem', background: '#fdfbf7', borderRadius: '14px', border: '1.5px solid #f0e6d2' }}>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5d0821', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <PercentIcon size={15} color="#5d0821" /> Tax & GST Configuration (CGST & SGST)
+                                    </div>
+                                    <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 1rem 0', lineHeight: 1.5 }}>
+                                        Set your standard CGST and SGST rates. These values will be applied dynamically during Storefront Checkout, Invoice PDFs, and Order Notification Emails.
+                                    </p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
+                                        <div className="field-group">
+                                            <label style={{ fontSize: '0.82rem', fontWeight: 700 }}><PercentIcon size={13} color="#5d0821" /> CGST Rate (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                min="0"
+                                                max="50"
+                                                value={settings.cgst_rate !== undefined ? settings.cgst_rate : '2.5'}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    handleUpdate('cgst_rate', val);
+                                                    const sg = parseFloat(settings.sgst_rate || '2.5') || 0;
+                                                    handleUpdate('igst_rate', String((parseFloat(val) || 0) + sg));
+                                                }}
+                                                placeholder="2.5"
+                                            />
+                                            <p className="hint">Central GST for intrastate orders</p>
+                                        </div>
+                                        <div className="field-group">
+                                            <label style={{ fontSize: '0.82rem', fontWeight: 700 }}><PercentIcon size={13} color="#5d0821" /> SGST Rate (%)</label>
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                min="0"
+                                                max="50"
+                                                value={settings.sgst_rate !== undefined ? settings.sgst_rate : '2.5'}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    handleUpdate('sgst_rate', val);
+                                                    const cg = parseFloat(settings.cgst_rate || '2.5') || 0;
+                                                    handleUpdate('igst_rate', String(cg + (parseFloat(val) || 0)));
+                                                }}
+                                                placeholder="2.5"
+                                            />
+                                            <p className="hint">State GST for intrastate orders</p>
+                                        </div>
+                                        <div className="field-group">
+                                            <label style={{ fontSize: '0.82rem', fontWeight: 700 }}><PercentIcon size={13} color="#5d0821" /> IGST Rate (%) (Auto Combined)</label>
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                min="0"
+                                                max="100"
+                                                value={settings.igst_rate !== undefined ? settings.igst_rate : String((parseFloat(settings.cgst_rate || '2.5') || 0) + (parseFloat(settings.sgst_rate || '2.5') || 0))}
+                                                onChange={(e) => handleUpdate('igst_rate', e.target.value)}
+                                                placeholder="5.0"
+                                            />
+                                            <p className="hint">Combined IGST for interstate & intl</p>
+                                        </div>
                                     </div>
                                 </div>
 

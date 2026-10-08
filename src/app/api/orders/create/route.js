@@ -76,11 +76,14 @@ export async function POST(request) {
 
             // 1. Fetch business state & checkout/COD settings
             const [settingRows] = await conn.query(
-                "SELECT `key`, `value` FROM `app_settings` WHERE `key` IN ('business_state', 'cod_enabled', 'cod_min_order', 'cod_max_order', 'cod_advance_enabled', 'cod_advance_amount')"
+                "SELECT `key`, `value` FROM `app_settings` WHERE `key` IN ('business_state', 'cod_enabled', 'cod_min_order', 'cod_max_order', 'cod_advance_enabled', 'cod_advance_amount', 'cgst_rate', 'sgst_rate', 'igst_rate')"
             );
             const settingMap = {};
             (settingRows || []).forEach(r => { settingMap[r.key] = r.value; });
             const businessState = settingMap.business_state || 'Tamil Nadu';
+            const cfgCgstRate = settingMap.cgst_rate !== undefined && settingMap.cgst_rate !== '' ? parseFloat(settingMap.cgst_rate) : 2.5;
+            const cfgSgstRate = settingMap.sgst_rate !== undefined && settingMap.sgst_rate !== '' ? parseFloat(settingMap.sgst_rate) : 2.5;
+            const cfgIgstRate = settingMap.igst_rate !== undefined && settingMap.igst_rate !== '' ? parseFloat(settingMap.igst_rate) : (cfgCgstRate + cfgSgstRate);
 
             if (!isReplacementOrder && !isManualOrder && paymentMethod === 'COD' && (settingMap.cod_enabled === 'false' || settingMap.cod_enabled === '0')) {
                 throw new Error('Cash on Delivery (COD) is currently disabled.');
@@ -287,78 +290,18 @@ export async function POST(request) {
 
             const taxableSubtotal = isReplacementOrder ? 0 : discountResult.taxableAmount;
 
-            // 4. Shipping Calculation from DB
+            // 4. Shipping Calculation: Shipping & Logistics zone fees removed (Free Delivery)
             const effectiveCountry = (rawShippingCountry || shippingAddress?.country || billingAddress?.country || 'India').trim();
             const isInternational = effectiveCountry.toLowerCase() !== 'india' && effectiveCountry.toLowerCase() !== 'in';
-            const shippingCity = (shippingAddress?.city || '').trim().toLowerCase();
             const normShippingState = (shippingState || shippingAddress?.state || 'Tamil Nadu').trim();
             const normBizState = businessState.trim().toLowerCase();
 
-            const [dbZones] = await conn.query("SELECT * FROM `shipping_zones`");
-            const [dbMappings] = await conn.query("SELECT * FROM `shipping_zone_states`");
-
             let calculatedShippingCost = 0;
-            let validatedZoneId = shippingZoneId || null;
-            let activeZone = null;
+            let validatedZoneId = null;
 
-            if (isReplacementOrder && (typeof shippingCost !== 'number' || shippingCost <= 0)) {
-                calculatedShippingCost = 0;
-            } else if (isManualOrder && typeof shippingCost === 'number') {
-                // Respect manual shipping cost set by admin
+            if (isManualOrder && typeof shippingCost === 'number') {
+                // Respect manual shipping cost set by admin if explicitly provided
                 calculatedShippingCost = Math.max(0, shippingCost);
-            } else if (dbZones && dbZones.length > 0) {
-                const isZoneIntl = (z) => z.is_international === 1 || z.is_international === true || String(z.is_international).toLowerCase() === 'true';
-
-                if (isInternational) {
-                    const intlZones = dbZones.filter(z => isZoneIntl(z));
-                    const intlZoneIds = new Set(intlZones.map(z => z.id));
-                    const mappings = dbMappings || [];
-
-                    const countryMapping = mappings.find(m =>
-                        intlZoneIds.has(m.zone_id) &&
-                        m.state_name?.trim().toLowerCase() === effectiveCountry.toLowerCase()
-                    );
-
-                    activeZone = countryMapping ? (intlZones.find(z => z.id === countryMapping.zone_id) || intlZones[0]) : (intlZones[0] || null);
-                } else {
-                    const domesticZones = dbZones.filter(z => !isZoneIntl(z));
-                    const domesticZoneIds = new Set(domesticZones.map(z => z.id));
-                    const mappings = dbMappings || [];
-
-                    const cleanShippingState = normShippingState.toLowerCase();
-                    const cleanShippingCity = shippingCity.toLowerCase();
-
-                    const districtMapping = mappings.find(m =>
-                        domesticZoneIds.has(m.zone_id) &&
-                        m.state_name?.trim().toLowerCase() === cleanShippingState &&
-                        m.district_name?.trim().toLowerCase() === cleanShippingCity
-                    );
-
-                    if (districtMapping) {
-                        activeZone = domesticZones.find(z => z.id === districtMapping.zone_id);
-                    } else {
-                        const stateMapping = mappings.find(m =>
-                            domesticZoneIds.has(m.zone_id) &&
-                            m.state_name?.trim().toLowerCase() === cleanShippingState &&
-                            !m.district_name
-                        );
-                        activeZone = stateMapping ? domesticZones.find(z => z.id === stateMapping.zone_id) : (domesticZones[0] || null);
-                    }
-                }
-
-                if (activeZone) {
-                    validatedZoneId = activeZone.id;
-                    const rate = parseFloat(activeZone.rate || 0);
-                    const threshold = parseFloat(activeZone.free_threshold || 0);
-                    // Free shipping threshold applies to taxableSubtotal (net cart subtotal after discounts), matching Checkout calculation
-                    calculatedShippingCost = (threshold > 0 && taxableSubtotal >= threshold) ? 0 : rate;
-                } else {
-                    const defaultDomesticRate = (dbZones && dbZones.find(z => !isZoneIntl(z))) ? parseFloat(dbZones.find(z => !isZoneIntl(z)).rate || 0) : 50;
-                    const defaultIntlRate = (dbZones && dbZones.find(z => isZoneIntl(z))) ? parseFloat(dbZones.find(z => isZoneIntl(z)).rate || 0) : 0;
-                    calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? defaultIntlRate : defaultDomesticRate);
-                }
-            } else {
-                calculatedShippingCost = typeof shippingCost === 'number' ? shippingCost : (isInternational ? 100 : 50);
             }
 
             // Check if Free Shipping discount rule or shipping discount is active
@@ -379,12 +322,12 @@ export async function POST(request) {
             let cgst = 0, sgst = 0, igst = 0;
             if (!isReplacementOrder && taxableSubtotal > 0) {
                 if (isInternational) {
-                    igst = Math.round(taxableSubtotal * 0.05);
+                    igst = Math.round(taxableSubtotal * (cfgIgstRate / 100));
                 } else if (normShippingState.toLowerCase() === normBizState) {
-                    cgst = Math.round(taxableSubtotal * 0.025);
-                    sgst = Math.round(taxableSubtotal * 0.025);
+                    cgst = Math.round(taxableSubtotal * (cfgCgstRate / 100));
+                    sgst = Math.round(taxableSubtotal * (cfgSgstRate / 100));
                 } else {
-                    igst = Math.round(taxableSubtotal * 0.05);
+                    igst = Math.round(taxableSubtotal * (cfgIgstRate / 100));
                 }
             }
             const taxAmount = cgst + sgst + igst;
@@ -481,17 +424,17 @@ export async function POST(request) {
             let balanceAmount = totalAmount;
 
             if (isManualOrder) {
-                initialStatus = (reqStatus || orderStatus || (isReplacementOrder ? 'PLACED' : (paymentMethod === 'COD' ? 'PLACED' : 'PAID'))).toUpperCase();
-                if (initialStatus === 'PAID') {
+                const isCodMethod = (paymentMethod || '').toUpperCase() === 'COD' || (paymentMethod || '').toUpperCase().includes('CASH ON DELIVERY');
+                initialStatus = (reqStatus || orderStatus || (isReplacementOrder ? 'PLACED' : (isCodMethod ? 'PLACED' : 'PAID'))).toUpperCase();
+                if (isCodMethod) {
+                    // Manual Order COD: NEVER automatically add Advance Paid or COD Advance.
+                    // Entire total amount is due on delivery without confusing admin.
+                    codAdvanceRequired = 0;
+                    advancePaid = 0;
+                    balanceAmount = totalAmount;
+                } else if (initialStatus === 'PAID') {
                     advancePaid = totalAmount;
                     balanceAmount = 0;
-                } else if (paymentMethod === 'COD') {
-                    if (isCodAdvanceEnabled && codAdvanceSetting > 0 && !isReplacementOrder) {
-                        codAdvanceRequired = Math.min(totalAmount, codAdvanceSetting);
-                        balanceAmount = Math.max(0, totalAmount - codAdvanceRequired);
-                    } else {
-                        balanceAmount = totalAmount;
-                    }
                 } else {
                     balanceAmount = totalAmount;
                     advancePaid = 0;
@@ -669,37 +612,57 @@ export async function POST(request) {
                 }
             }
 
-            // 10. Persist Customer Address in Address Book
+            // 10. Persist Customer Address in Address Book (avoid duplicate addresses & duplicate defaults)
             if (customerId && shippingAddress) {
-                const addrId = `addr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
                 const addrName = shippingAddress.name || shippingAddress.full_name || customerName || '';
                 const addrPhone = shippingAddress.phone || customerPhone || '';
-                const addrLine = shippingAddress.address_line || shippingAddress.address || '';
-                const addrCity = shippingAddress.city || '';
-                const addrState = shippingAddress.state || normShippingState;
-                const addrPincode = shippingAddress.pincode || shippingAddress.zip || '';
+                const addrLine = (shippingAddress.address_line || shippingAddress.address || '').trim();
+                const addrCity = (shippingAddress.city || '').trim();
+                const addrState = (shippingAddress.state || normShippingState || '').trim();
+                const addrPincode = (shippingAddress.pincode || shippingAddress.zip || '').trim();
                 const addrCountry = shippingAddress.country || 'India';
 
-                await conn.query(
-                    `INSERT INTO \`customer_addresses\` (
-                        \`id\`, \`customer_id\`, \`name\`, \`phone\`, \`address\`, \`address_line\`,
-                        \`city\`, \`state\`, \`pincode\`, \`country\`, \`is_default\`, \`created_at\`, \`updated_at\`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
-                    ON DUPLICATE KEY UPDATE
-                        \`name\` = VALUES(\`name\`),
-                        \`phone\` = VALUES(\`phone\`),
-                        \`address\` = VALUES(\`address\`),
-                        \`address_line\` = VALUES(\`address_line\`),
-                        \`city\` = VALUES(\`city\`),
-                        \`state\` = VALUES(\`state\`),
-                        \`pincode\` = VALUES(\`pincode\`),
-                        \`country\` = VALUES(\`country\`),
-                        \`updated_at\` = NOW()`,
-                    [
-                        addrId, customerId, addrName, addrPhone, addrLine, addrLine,
-                        addrCity, addrState, addrPincode, addrCountry
-                    ]
-                );
+                if (addrLine) {
+                    try {
+                        const [existingRows] = await conn.query(
+                            `SELECT id, is_default FROM \`customer_addresses\` 
+                             WHERE \`customer_id\` = ? AND (\`address_line\` = ? OR \`address\` = ?) AND \`pincode\` = ? 
+                             LIMIT 1`,
+                            [customerId, addrLine, addrLine, addrPincode]
+                        );
+
+                        if (existingRows && existingRows.length > 0) {
+                            await conn.query(
+                                `UPDATE \`customer_addresses\` 
+                                 SET \`name\` = ?, \`phone\` = ?, \`city\` = ?, \`state\` = ?, \`country\` = ?, \`updated_at\` = NOW() 
+                                 WHERE \`id\` = ?`,
+                                [addrName, addrPhone, addrCity, addrState, addrCountry, existingRows[0].id]
+                            );
+                        } else {
+                            const [hasAnyDef] = await conn.query(
+                                `SELECT id FROM \`customer_addresses\` 
+                                 WHERE \`customer_id\` = ? AND (\`address_type\` = 'shipping' OR \`address_type\` IS NULL) AND \`is_default\` = 1 
+                                 LIMIT 1`,
+                                [customerId]
+                            );
+                            const isDefault = hasAnyDef && hasAnyDef.length > 0 ? 0 : 1;
+                            const addrId = `addr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+                            await conn.query(
+                                `INSERT INTO \`customer_addresses\` (
+                                    \`id\`, \`customer_id\`, \`title\`, \`address_type\`, \`name\`, \`full_name\`, \`phone\`, \`address\`, \`address_line\`,
+                                    \`city\`, \`state\`, \`pincode\`, \`country\`, \`is_default\`, \`created_at\`, \`updated_at\`
+                                ) VALUES (?, ?, 'Delivery Address', 'shipping', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+                                [
+                                    addrId, customerId, addrName, addrName, addrPhone, addrLine, addrLine,
+                                    addrCity, addrState, addrPincode, addrCountry, isDefault
+                                ]
+                            );
+                        }
+                    } catch (addrSaveErr) {
+                        console.warn('[ORDER-CREATE] Address persist warning:', addrSaveErr);
+                    }
+                }
 
                 // Also sync address to the customer's main profile record
                 try {
@@ -737,16 +700,21 @@ export async function POST(request) {
                 balanceAmount,
                 subtotal,
                 taxAmount,
+                taxType,
                 cgst,
                 sgst,
                 igst,
+                cgstRate: cfgCgstRate,
+                sgstRate: cfgSgstRate,
+                igstRate: cfgIgstRate,
                 shippingCost: finalShippingCost,
                 initialStatus,
                 customerName,
                 customerPhone,
                 customerEmail,
                 paymentMethod,
-                cartItems: verifiedCartItems
+                cartItems: verifiedCartItems,
+                discountResult
             };
         });
 
@@ -784,12 +752,37 @@ export async function POST(request) {
                         total_amount: orderResult.totalAmount,
                         subtotal: orderResult.subtotal,
                         tax_amount: orderResult.taxAmount,
+                        tax_type: orderResult.taxType,
+                        cgst: orderResult.cgst,
+                        sgst: orderResult.sgst,
+                        igst: orderResult.igst,
+                        cgst_amount: orderResult.cgst,
+                        sgst_amount: orderResult.sgst,
+                        igst_amount: orderResult.igst,
+                        cgst_rate: orderResult.cgstRate,
+                        sgst_rate: orderResult.sgstRate,
+                        igst_rate: orderResult.igstRate,
+                        shipping_cost: orderResult.shippingCost,
                         shipping_fee: orderResult.shippingCost,
+                        total_discount: discountResult.totalDiscount,
+                        discount_amount: discountResult.totalDiscount,
+                        cart_discount: discountResult.cartDiscount,
+                        product_discount: discountResult.productDiscount,
+                        coupon_discount: discountResult.couponDiscount,
+                        coupon_code: discountResult.appliedCouponCode || couponCode || null,
                         payment_method: orderResult.paymentMethod,
                         status: orderResult.initialStatus,
+                        cod_advance_required: orderResult.codAdvanceRequired,
+                        advance_paid: orderResult.advancePaid,
+                        balance_amount: orderResult.balanceAmount,
                         shipping_address: shippingAddress,
                         billing_address: billingAddress,
-                        order_items: orderResult.cartItems || []
+                        order_items: orderResult.cartItems || [],
+                        order_discounts: (discountResult.appliedRules || []).map(r => ({
+                            discount_name: r.name || r.discount_name || discountResult.appliedCouponCode || 'Discount',
+                            discount_amount: r.discountAmount || r.amount || 0,
+                            discount_type: r.discountType || 'PERCENTAGE'
+                        }))
                     },
                     extraData: extraNotifData
                 });

@@ -536,7 +536,7 @@ export default function CheckoutAuthModal({ onSuccess, onClose, onContinueAsGues
                                                     style={{ width: '115px', padding: '0.75rem 0.4rem', borderRadius: '10px', border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: 700, background: '#faf9f6', outline: 'none' }}
                                                 >
                                                     {COUNTRY_CODES.map(c => (
-                                                        <option key={c.code} value={c.code}>
+                                                        <option key={`${c.code}-${c.iso}`} value={c.code}>
                                                             {c.flag} {c.code}
                                                         </option>
                                                     ))}
@@ -716,7 +716,7 @@ export default function CheckoutAuthModal({ onSuccess, onClose, onContinueAsGues
                                         style={{ width: '115px', padding: '0.75rem 0.4rem', borderRadius: '9px', border: '1px solid #ddd', fontSize: '0.85rem', fontWeight: 700, background: '#faf9f6', outline: 'none' }}
                                     >
                                         {COUNTRY_CODES.map(c => (
-                                            <option key={c.code} value={c.code}>
+                                            <option key={`${c.code}-${c.iso}`} value={c.code}>
                                                 {c.flag} {c.code}
                                             </option>
                                         ))}

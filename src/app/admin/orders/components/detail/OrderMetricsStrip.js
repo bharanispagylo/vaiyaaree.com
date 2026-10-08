@@ -13,8 +13,8 @@ export default function OrderMetricsStrip({
     const totalAmount = Number(selectedOrder.total_amount || 0);
     const activeItemCount = orderItems.reduce((sum, item) => sum + Math.max(0, Number(item.quantity || 0) - Number(item.returned_quantity || 0)), 0);
     const isPaid = ['PAID', 'PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes((selectedOrder.status || '').toUpperCase());
-
-    const isCodAdvance = (selectedOrder.payment_method || '').toUpperCase() === 'COD' && (Number(selectedOrder.cod_advance_required || 0) > 0 || Number(selectedOrder.advance_paid || 0) > 0);
+    const isCod = (selectedOrder.payment_method || '').toUpperCase() === 'COD' || (selectedOrder.payment_method || '').toUpperCase().includes('CASH ON DELIVERY');
+    const isCodAdvance = isCod && (Number(selectedOrder.cod_advance_required || 0) > 0 || Number(selectedOrder.advance_paid || 0) > 0);
     const advancePaidVal = Number(selectedOrder.advance_paid || 0);
     const balanceDueVal = Number(selectedOrder.balance_amount !== undefined ? selectedOrder.balance_amount : Math.max(0, totalAmount - advancePaidVal));
 
@@ -76,8 +76,12 @@ export default function OrderMetricsStrip({
                     width: '42px',
                     height: '42px',
                     borderRadius: '12px',
-                    background: isCodAdvance ? (advancePaidVal > 0 ? '#ecfdf5' : '#fffbeb') : (isPaid ? '#eff6ff' : '#fef2f2'),
-                    color: isCodAdvance ? (advancePaidVal > 0 ? '#059669' : '#d97706') : (isPaid ? '#1d4ed8' : '#dc2626'),
+                    background: isCodAdvance 
+                        ? (advancePaidVal > 0 ? '#ecfdf5' : '#fffbeb') 
+                        : (isCod ? (isPaid ? '#ecfdf5' : '#fffbeb') : (isPaid ? '#eff6ff' : '#fef2f2')),
+                    color: isCodAdvance 
+                        ? (advancePaidVal > 0 ? '#059669' : '#d97706') 
+                        : (isCod ? (isPaid ? '#059669' : '#d97706') : (isPaid ? '#1d4ed8' : '#dc2626')),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -93,11 +97,15 @@ export default function OrderMetricsStrip({
                         <span style={{
                             fontSize: '0.85rem',
                             fontWeight: 800,
-                            color: isCodAdvance ? (advancePaidVal > 0 ? '#15803d' : '#b45309') : (isPaid ? '#15803d' : '#b91c1c')
+                            color: isCodAdvance 
+                                ? (advancePaidVal > 0 ? '#15803d' : '#b45309') 
+                                : (isCod ? (isPaid ? '#15803d' : '#b45309') : (isPaid ? '#15803d' : '#b91c1c'))
                         }}>
                             {isCodAdvance 
                                 ? (advancePaidVal > 0 ? `COD Advance Paid (₹${advancePaidVal})` : 'Awaiting COD Advance')
-                                : (isPaid ? (isPaidOnline ? 'Razorpay Paid' : 'Paid (Direct)') : 'Awaiting Payment')}
+                                : (isCod 
+                                    ? (isPaid ? 'COD Received / Paid' : 'Cash on Delivery (Pending)')
+                                    : (isPaid ? (isPaidOnline ? 'Razorpay Paid' : 'Paid (Direct)') : 'Awaiting Payment'))}
                         </span>
                     </div>
                     {razorpayPaymentId && (

@@ -507,7 +507,7 @@ function CheckoutAuthContent() {
                                                         className={styles.countryCodeSelect}
                                                     >
                                                         {COUNTRY_CODES.map(c => (
-                                                            <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                                                            <option key={`${c.code}-${c.iso}`} value={c.code}>{c.flag} {c.code}</option>
                                                         ))}
                                                     </select>
                                                     <div className={styles.inputWrapper} style={{ flex: 1 }}>
@@ -629,7 +629,7 @@ function CheckoutAuthContent() {
                                             className={styles.countryCodeSelect}
                                         >
                                             {COUNTRY_CODES.map(c => (
-                                                <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                                                <option key={`${c.code}-${c.iso}`} value={c.code}>{c.flag} {c.code}</option>
                                             ))}
                                         </select>
                                         <div className={styles.inputWrapper} style={{ flex: 1 }}>

@@ -113,10 +113,21 @@ export async function dispatchNotification({
     let orderNotifConfig = { enabled: true, send_pdf_invoice: true };
     let communicationChannel = 'both'; // 'whatsapp' | 'email' | 'both'
 
+    let settingsMap = {
+        shop_name: 'Vaiyaaree Sarees',
+        shop_phone: '8667793292',
+        shop_email: 'vaiyaaree@gmail.com',
+        shop_address: '16, Dhanalakshmi Nagar Extension, Masakalipalayam Road, Uppili Palayam, Coimbatore, Tamil Nadu - 641015.',
+        cgst_rate: '2.5',
+        sgst_rate: '2.5',
+        igst_rate: '5'
+    };
+
     try {
         const { data: settings } = await mysqlClient.from('app_settings').select('*');
         if (settings) {
             settings.forEach(s => {
+                settingsMap[s.key] = s.value;
                 if (s.key === 'communication_channel' && s.value) {
                     communicationChannel = s.value;
                 }
@@ -143,9 +154,44 @@ export async function dispatchNotification({
         if (fallback) adminEmails.push(fallback);
     }
 
-    // Auto-enrich order items & product images if missing or incomplete
+    // Auto-enrich order items, discounts & tax details if missing or incomplete
     if (order && order.id) {
         try {
+            // Auto-enrich order discount details from DB if missing
+            if (!order.order_discounts || order.order_discounts.length === 0) {
+                try {
+                    const { data: dbDiscounts } = await mysqlClient
+                        .from('order_discounts')
+                        .select('*')
+                        .eq('order_id', order.id);
+                    if (dbDiscounts && dbDiscounts.length > 0) {
+                        order.order_discounts = dbDiscounts;
+                    }
+                } catch (dErr) { }
+            }
+
+            // Auto-enrich order discount and tax fields from orders table if missing
+            if (!order.coupon_code || order.discount_amount === undefined || order.cgst === undefined || order.cgst_rate === undefined) {
+                try {
+                    const { data: dbOrder } = await mysqlClient
+                        .from('orders')
+                        .select('coupon_code, discount_amount, total_discount, cgst, sgst, igst, cgst_rate, sgst_rate, igst_rate, subtotal, tax_amount, total_amount')
+                        .eq('id', order.id)
+                        .maybeSingle();
+                    if (dbOrder) {
+                        if (!order.coupon_code && dbOrder.coupon_code) order.coupon_code = dbOrder.coupon_code;
+                        if (order.discount_amount === undefined && dbOrder.discount_amount !== undefined) order.discount_amount = dbOrder.discount_amount;
+                        if (order.total_discount === undefined && dbOrder.total_discount !== undefined) order.total_discount = dbOrder.total_discount;
+                        if (order.cgst === undefined && dbOrder.cgst !== undefined) order.cgst = dbOrder.cgst;
+                        if (order.sgst === undefined && dbOrder.sgst !== undefined) order.sgst = dbOrder.sgst;
+                        if (order.igst === undefined && dbOrder.igst !== undefined) order.igst = dbOrder.igst;
+                        if (order.cgst_rate === undefined && dbOrder.cgst_rate !== undefined) order.cgst_rate = dbOrder.cgst_rate;
+                        if (order.sgst_rate === undefined && dbOrder.sgst_rate !== undefined) order.sgst_rate = dbOrder.sgst_rate;
+                        if (order.igst_rate === undefined && dbOrder.igst_rate !== undefined) order.igst_rate = dbOrder.igst_rate;
+                    }
+                } catch (oErr) { }
+            }
+
             let items = order.order_items || [];
             if (!Array.isArray(items) || items.length === 0) {
                 const { data: dbItems } = await mysqlClient
@@ -257,7 +303,7 @@ export async function dispatchNotification({
     }
 
     // 2. Build Message Content for Event
-    const content = buildEventMessages(eventType, { order, returnReq, extraData, displayInv, customerName });
+    const content = buildEventMessages(eventType, { order, returnReq, extraData, displayInv, customerName, settings: settingsMap });
 
     // Determine active communication channels based on Store Gateway & explicit caller overrides
     const isWhatsAppChannelActive = communicationChannel === 'whatsapp' || communicationChannel === 'both';
@@ -659,14 +705,22 @@ function renderAdminAlertHtml({
 /**
  * Message Template Builder across all 24 events
  */
-function buildEventMessages(eventType, { order, returnReq, extraData, displayInv, customerName }) {
+function buildEventMessages(eventType, { order, returnReq, extraData, displayInv, customerName, settings = {} }) {
     const totalAmount = order?.total_amount ? `₹${parseFloat(order.total_amount).toLocaleString()}` : (extraData.amount ? `₹${parseFloat(extraData.amount).toLocaleString()}` : '₹0');
-    const brand = 'Vaiyaaree Sarees';
+    const brand = settings?.shop_name || 'Vaiyaaree Sarees';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.vaiyaaree.com';
     const customerPhoneVal = order?.customer_phone || order?.billing_phone || extraData?.phone || '';
     const customerEmailVal = order?.customer_email || order?.billing_email || extraData?.email || '';
     const paymentMethodVal = order?.payment_method || extraData?.paymentMethod || 'COD / Online';
     const orderItemsVal = order?.order_items || extraData?.items || [];
+
+    const getStatusHtml = (st, notes = '') => buildOrderStatusEmailHtml({
+        order,
+        status: st,
+        settings,
+        baseUrl: appUrl,
+        customNotes: notes
+    });
 
     let customerEmail = null;
     let customerWhatsApp = null;
@@ -711,7 +765,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'PLACED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'PLACED', baseUrl: appUrl })
+                    html: getStatusHtml('PLACED')
                 };
             } else {
                 customerEmail = {
@@ -747,7 +801,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'PAID', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'PAID', baseUrl: appUrl })
+                    html: getStatusHtml('PAID')
                 };
             } else {
                 customerEmail = {
@@ -780,7 +834,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'AWAITING_PAYMENT', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'AWAITING_PAYMENT', baseUrl: appUrl })
+                    html: getStatusHtml('AWAITING_PAYMENT')
                 };
             } else {
                 customerEmail = {
@@ -814,7 +868,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'PACKING', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'PACKING', baseUrl: appUrl })
+                    html: getStatusHtml('PACKING')
                 };
             } else {
                 customerEmail = {
@@ -833,7 +887,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'SHIPPED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'SHIPPED', baseUrl: appUrl })
+                    html: getStatusHtml('SHIPPED')
                 };
             } else {
                 customerEmail = {
@@ -854,7 +908,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'SHIPPED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'SHIPPED', baseUrl: appUrl, customNotes: 'Your package is out for delivery today!' })
+                    html: getStatusHtml('SHIPPED', 'Your package is out for delivery today!')
                 };
             } else {
                 customerEmail = {
@@ -869,7 +923,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'DELIVERED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'DELIVERED', baseUrl: appUrl })
+                    html: getStatusHtml('DELIVERED')
                 };
             } else {
                 customerEmail = {
@@ -947,7 +1001,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'CANCELLED', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'CANCELLED', baseUrl: appUrl })
+                    html: getStatusHtml('CANCELLED')
                 };
             } else {
                 customerEmail = {
@@ -991,7 +1045,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'RETURN', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'RETURN', baseUrl: appUrl, customNotes: returnReq?.reason ? `Return Reason: ${returnReq.reason}` : '' })
+                    html: getStatusHtml('RETURN', returnReq?.reason ? `Return Reason: ${returnReq.reason}` : '')
                 };
             } else {
                 customerEmail = {
@@ -1029,7 +1083,7 @@ function buildEventMessages(eventType, { order, returnReq, extraData, displayInv
             if (order) {
                 customerEmail = {
                     subject: getOrderEmailSubject({ order, status: 'REFUND', shopName: brand }),
-                    html: buildOrderStatusEmailHtml({ order, status: 'REFUND', baseUrl: appUrl, customNotes: extraData.refundId ? `Razorpay Refund ID: ${extraData.refundId}` : '' })
+                    html: getStatusHtml('REFUND', extraData.refundId ? `Razorpay Refund ID: ${extraData.refundId}` : '')
                 };
             } else {
                 customerEmail = {

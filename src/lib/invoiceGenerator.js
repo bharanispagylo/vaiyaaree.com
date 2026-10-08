@@ -157,6 +157,21 @@ export async function generateInvoicePDF(order) {
         console.error("PDF Branding Error:", e);
     }
 
+    // Auto-fetch order_discounts if not passed on the order object
+    if (order && order.id && (!order.order_discounts || order.order_discounts.length === 0)) {
+        try {
+            const { data: dbDiscounts } = await mysqlClient
+                .from('order_discounts')
+                .select('*')
+                .eq('order_id', order.id);
+            if (dbDiscounts && dbDiscounts.length > 0) {
+                order.order_discounts = dbDiscounts;
+            }
+        } catch (dErr) {
+            console.error("PDF Order Discounts Fetch Error:", dErr);
+        }
+    }
+
     const margin = 10;
     let y = 10;
 
@@ -250,6 +265,8 @@ export async function generateInvoicePDF(order) {
     let displayPayMethod = order.payment_method || 'N/A';
     if (isCodInvoice && codAdvVal > 0) {
         displayPayMethod = `COD (Adv: Rs.${codAdvVal}, Due: Rs.${codBalVal})`;
+    } else if (isCodInvoice) {
+        displayPayMethod = 'Cash on Delivery (COD)';
     }
 
     doc.setFont("helvetica", "bold");
@@ -421,50 +438,48 @@ export async function generateInvoicePDF(order) {
             }
         });
     }
-    // Calculate tax percentages
-    const orderTaxable = (order.taxable_amount && Number(order.taxable_amount) > 0)
-        ? Number(order.taxable_amount)
-        : Math.max(0, (Number(order.subtotal) || 0) - (Number(order.discount_amount) || 0));
+    // Tax percentages from configured settings or order record
+    const configuredCgstRate = (branding.cgst_rate !== undefined && branding.cgst_rate !== null && branding.cgst_rate !== '') ? parseFloat(branding.cgst_rate) : 2.5;
+    const configuredSgstRate = (branding.sgst_rate !== undefined && branding.sgst_rate !== null && branding.sgst_rate !== '') ? parseFloat(branding.sgst_rate) : 2.5;
+    const configuredIgstRate = (branding.igst_rate !== undefined && branding.igst_rate !== null && branding.igst_rate !== '') ? parseFloat(branding.igst_rate) : (configuredCgstRate + configuredSgstRate);
 
-    const getTaxRatePercent = (amount, fallbackPercent) => {
-        const amt = parseFloat(amount || 0);
-        if (amt <= 0) return fallbackPercent;
-        if (orderTaxable > 0) {
-            const calculated = Math.round((amt / orderTaxable) * 1000) / 10;
-            if (calculated > 0 && calculated <= 30) return calculated;
-        }
-        return fallbackPercent;
-    };
+    const cgstRatePercent = (order.cgst_rate !== undefined && order.cgst_rate !== null && order.cgst_rate !== '')
+        ? (parseFloat(order.cgst_rate) < 1 ? parseFloat(order.cgst_rate) * 100 : parseFloat(order.cgst_rate))
+        : configuredCgstRate;
+    const sgstRatePercent = (order.sgst_rate !== undefined && order.sgst_rate !== null && order.sgst_rate !== '')
+        ? (parseFloat(order.sgst_rate) < 1 ? parseFloat(order.sgst_rate) * 100 : parseFloat(order.sgst_rate))
+        : configuredSgstRate;
+    const igstRatePercent = (order.igst_rate !== undefined && order.igst_rate !== null && order.igst_rate !== '')
+        ? (parseFloat(order.igst_rate) < 1 ? parseFloat(order.igst_rate) * 100 : parseFloat(order.igst_rate))
+        : configuredIgstRate;
 
-    const cgstRatePercent = order.cgst_rate ? (order.cgst_rate < 1 ? order.cgst_rate * 100 : order.cgst_rate) : getTaxRatePercent(order.cgst, 2.5);
-    const sgstRatePercent = order.sgst_rate ? (order.sgst_rate < 1 ? order.sgst_rate * 100 : order.sgst_rate) : getTaxRatePercent(order.sgst, 2.5);
-    const igstRatePercent = order.igst_rate ? (order.igst_rate < 1 ? order.igst_rate * 100 : order.igst_rate) : getTaxRatePercent(order.igst, 5);
-
-    if (order.cgst > 0) {
+    if (parseFloat(order.cgst || 0) > 0) {
         doc.rect(margin, y, 190, 6.5);
         doc.line(170, y, 170, y + 6.5);
         doc.text(`CGST (${cgstRatePercent}%):`, 168, y + 4.5, { align: "right" });
         doc.text(parseFloat(order.cgst).toFixed(2), 198, y + 4.5, { align: "right" });
         y += 6.5;
     }
-    if (order.sgst > 0) {
+    if (parseFloat(order.sgst || 0) > 0) {
         doc.rect(margin, y, 190, 6.5);
         doc.line(170, y, 170, y + 6.5);
         doc.text(`SGST (${sgstRatePercent}%):`, 168, y + 4.5, { align: "right" });
         doc.text(parseFloat(order.sgst).toFixed(2), 198, y + 4.5, { align: "right" });
         y += 6.5;
     }
-    if (order.igst > 0) {
+    if (parseFloat(order.igst || 0) > 0) {
         doc.rect(margin, y, 190, 6.5);
         doc.line(170, y, 170, y + 6.5);
         doc.text(`IGST (${igstRatePercent}%):`, 168, y + 4.5, { align: "right" });
         doc.text(parseFloat(order.igst).toFixed(2), 198, y + 4.5, { align: "right" });
         y += 6.5;
     }
-    if ((!order.cgst && !order.sgst && !order.igst) && order.tax_amount > 0) {
+    if ((!parseFloat(order.cgst || 0) && !parseFloat(order.sgst || 0) && !parseFloat(order.igst || 0)) && parseFloat(order.tax_amount || 0) > 0) {
         doc.rect(margin, y, 190, 6.5);
         doc.line(170, y, 170, y + 6.5);
-        const taxPercent = getTaxRatePercent(order.tax_amount, 5);
+        const taxPercent = (order.tax_rate !== undefined && order.tax_rate !== null && order.tax_rate !== '')
+            ? (parseFloat(order.tax_rate) < 1 ? parseFloat(order.tax_rate) * 100 : parseFloat(order.tax_rate))
+            : configuredIgstRate;
         doc.text(`Tax (${taxPercent}%):`, 168, y + 4.5, { align: "right" });
         doc.text(parseFloat(order.tax_amount).toFixed(2), 198, y + 4.5, { align: "right" });
         y += 6.5;

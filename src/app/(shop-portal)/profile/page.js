@@ -23,8 +23,9 @@ function ProfileContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
-    // Tab state (orders, track, history, account, refund, return)
-    const initialTab = searchParams.get('tab') || 'orders';
+    // Tab state (orders, track, history, account)
+    const rawInitialTab = searchParams.get('tab') || 'orders';
+    const initialTab = ['refund', 'return'].includes(rawInitialTab) ? 'orders' : rawInitialTab;
     const [activeTab, setActiveTab] = useState(initialTab);
 
     // Profile & Address state
@@ -147,8 +148,10 @@ function ProfileContent() {
     useEffect(() => {
         const tab = searchParams.get('tab');
         const trackId = searchParams.get('id') || searchParams.get('orderId');
-        if (tab && ['orders', 'track', 'history', 'account', 'refund', 'return'].includes(tab)) {
+        if (tab && ['orders', 'track', 'history', 'account'].includes(tab)) {
             setActiveTab(tab);
+        } else if (tab && ['refund', 'return'].includes(tab)) {
+            setActiveTab('orders');
         }
         if (trackId) {
             const formattedInv = String(trackId).replace(/^[A-Z]+-/, 'INV-');
@@ -294,7 +297,71 @@ function ProfileContent() {
                 .order('is_default', { ascending: false });
             
             if (!error && data && data.length > 0) {
-                setAddresses(data);
+                // Enforce strictly ONE default per address_type ('shipping' and 'billing')
+                let foundDefaultShipping = false;
+                let foundDefaultBilling = false;
+                const demoteIds = [];
+                const normalized = [];
+
+                // Sort so items currently marked default (and freshest by date) come first
+                const sorted = [...data].sort((a, b) => {
+                    const defA = (a.is_default === 1 || a.is_default === '1' || a.is_default === true) ? 1 : 0;
+                    const defB = (b.is_default === 1 || b.is_default === '1' || b.is_default === true) ? 1 : 0;
+                    if (defB !== defA) return defB - defA;
+                    const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+                    const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+                    return dateB - dateA;
+                });
+
+                for (const addr of sorted) {
+                    const isBilling = String(addr.address_type || '').toLowerCase() === 'billing' ||
+                                      String(addr.title || '').toLowerCase().includes('billing');
+                    const isDef = Boolean(Number(addr.is_default) === 1 || addr.is_default === '1' || addr.is_default === true);
+
+                    if (isBilling) {
+                        if (isDef && !foundDefaultBilling) {
+                            foundDefaultBilling = true;
+                            normalized.push({ ...addr, is_default: 1 });
+                        } else {
+                            if (isDef) demoteIds.push(addr.id);
+                            normalized.push({ ...addr, is_default: 0 });
+                        }
+                    } else {
+                        if (isDef && !foundDefaultShipping) {
+                            foundDefaultShipping = true;
+                            normalized.push({ ...addr, is_default: 1 });
+                        } else {
+                            if (isDef) demoteIds.push(addr.id);
+                            normalized.push({ ...addr, is_default: 0 });
+                        }
+                    }
+                }
+
+                // If no shipping address was marked default but shipping addresses exist, promote the first one
+                const firstShipIdx = normalized.findIndex(a => String(a.address_type || '').toLowerCase() !== 'billing' && !String(a.title || '').toLowerCase().includes('billing'));
+                if (firstShipIdx !== -1 && !foundDefaultShipping) {
+                    normalized[firstShipIdx].is_default = 1;
+                    try {
+                        await mysqlClient.from('customer_addresses')
+                            .update({ is_default: 1 })
+                            .eq('id', normalized[firstShipIdx].id);
+                    } catch (_) { }
+                }
+
+                // Auto-heal DB: demote any duplicate addresses from 1 to 0
+                if (demoteIds.length > 0) {
+                    try {
+                        for (const demoteId of demoteIds) {
+                            await mysqlClient.from('customer_addresses')
+                                .update({ is_default: 0 })
+                                .eq('id', demoteId);
+                        }
+                    } catch (dErr) {
+                        console.warn('[ADDRESSES] Auto-demoted duplicate defaults error:', dErr);
+                    }
+                }
+
+                setAddresses(normalized);
             } else {
                 const phone = user.phone || '';
                 const { data: custData } = await mysqlClient
@@ -534,7 +601,8 @@ function ProfileContent() {
             const waCountryCodeVal = formData.get('whatsapp_country_code') || '+91';
             const countryVal = formData.get('country') || 'India';
             const targetType = addressFormType || 'shipping';
-            const isDefaultVal = formData.get('is_default') === 'on' || formData.get('is_default') === 'true' || addresses.length === 0;
+            const isDefaultVal = formData.get('is_default') === 'on' || formData.get('is_default') === 'true' || 
+                (targetType === 'billing' ? billingAddresses.length === 0 : shippingAddresses.length === 0);
 
             const addressData = {
                 customer_id: user.id,
@@ -558,10 +626,19 @@ function ProfileContent() {
 
             // If marking default, reset other addresses of the same type
             if (isDefaultVal) {
-                await mysqlClient.from('customer_addresses')
-                    .update({ is_default: 0 })
-                    .eq('customer_id', user.id)
-                    .eq('address_type', targetType);
+                const targetIsBilling = targetType === 'billing';
+                const idsToReset = addresses
+                    .filter(a => {
+                        const isB = String(a.address_type || '').toLowerCase() === 'billing' || String(a.title || '').toLowerCase().includes('billing');
+                        return isB === targetIsBilling;
+                    })
+                    .map(a => a.id);
+
+                for (const resetId of idsToReset) {
+                    await mysqlClient.from('customer_addresses')
+                        .update({ is_default: 0 })
+                        .eq('id', resetId);
+                }
             }
 
             if (editingAddress && editingAddress.id) {
@@ -590,13 +667,22 @@ function ProfileContent() {
     // Set Default Address Logic
     async function handleSetDefaultAddress(addressId, type = 'shipping') {
         try {
-            await mysqlClient.from('customer_addresses')
-                .update({ is_default: 0 })
-                .eq('customer_id', user.id)
-                .eq('address_type', type);
+            const targetIsBilling = type === 'billing';
+            const idsToReset = addresses
+                .filter(a => {
+                    const isB = String(a.address_type || '').toLowerCase() === 'billing' || String(a.title || '').toLowerCase().includes('billing');
+                    return isB === targetIsBilling && a.id !== addressId;
+                })
+                .map(a => a.id);
+
+            for (const resetId of idsToReset) {
+                await mysqlClient.from('customer_addresses')
+                    .update({ is_default: 0 })
+                    .eq('id', resetId);
+            }
 
             const { error } = await mysqlClient.from('customer_addresses')
-                .update({ is_default: 1 })
+                .update({ is_default: 1, address_type: type })
                 .eq('id', addressId);
 
             if (error) throw error;
@@ -977,14 +1063,6 @@ function ProfileContent() {
                         <span className={styles.statNum}>{orders.length}</span>
                         <span className={styles.statLabel}>Total Orders</span>
                     </div>
-                    <div className={styles.statBadge}>
-                        <span className={styles.statNum}>{refunds.length}</span>
-                        <span className={styles.statLabel}>Refunds</span>
-                    </div>
-                    <div className={styles.statBadge}>
-                        <span className={styles.statNum}>{returns.length}</span>
-                        <span className={styles.statLabel}>Returns</span>
-                    </div>
                 </div>
             </div>
 
@@ -1021,24 +1099,6 @@ function ProfileContent() {
                 >
                     <User size={18} />
                     <span>Account & Addresses</span>
-                </button>
-
-                <button 
-                    className={`${styles.tabBtn} ${activeTab === 'refund' ? styles.tabBtnActive : ''}`} 
-                    onClick={() => handleTabChange('refund')}
-                >
-                    <IndianRupee size={18} />
-                    <span>Refund</span>
-                    {refunds.length > 0 && <span className={styles.tabBadge}>{refunds.length}</span>}
-                </button>
-
-                <button 
-                    className={`${styles.tabBtn} ${activeTab === 'return' ? styles.tabBtnActive : ''}`} 
-                    onClick={() => handleTabChange('return')}
-                >
-                    <RotateCcw size={18} />
-                    <span>Return</span>
-                    {returns.length > 0 && <span className={styles.tabBadge}>{returns.length}</span>}
                 </button>
             </div>
 
@@ -1118,31 +1178,7 @@ function ProfileContent() {
                         />
                     )}
 
-                    {activeTab === 'refund' && (
-                        <RefundsTab
-                            eligibleRefundOrders={eligibleRefundOrders}
-                            eligibleRefundProducts={eligibleRefundProducts}
-                            refundForm={refundForm}
-                            setRefundForm={setRefundForm}
-                            handleSubmitRefund={handleSubmitRefund}
-                            handleDamagedImageUpload={handleDamagedImageUpload}
-                            submittingRefund={submittingRefund}
-                            loadingRefunds={loadingRefunds}
-                            refunds={refunds}
-                            fetchRefunds={fetchRefunds}
-                        />
-                    )}
 
-                    {activeTab === 'return' && (
-                        <ReturnsTab
-                            user={user}
-                            mysqlClient={mysqlClient}
-                            addresses={addresses}
-                            orders={orders}
-                            returns={returns}
-                            fetchReturns={fetchReturns}
-                        />
-                    )}
                 </div>
             </div>
 

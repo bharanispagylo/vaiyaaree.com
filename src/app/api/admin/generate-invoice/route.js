@@ -21,7 +21,7 @@ export async function POST(request) {
         // 2. Fetch order details (needed for ownership check)
         const { data: order, error: orderError } = await mysqlClient
             .from('orders')
-            .select('*, order_items(*)')
+            .select('*, order_items(*), order_discounts(*)')
             .eq('id', orderId)
             .single();
 

@@ -442,7 +442,7 @@ export default function CustomerDetail({
                                                 style={{ width: '100px', fontSize: '0.8rem', padding: '0.5rem 0.4rem', borderRadius: '8px', background: '#f8fafc' }}
                                             >
                                                 {COUNTRY_CODES.map(c => (
-                                                    <option key={c.code} value={c.code}>
+                                                    <option key={`${c.code}-${c.iso}`} value={c.code}>
                                                         {c.flag} {c.code}
                                                     </option>
                                                 ))}

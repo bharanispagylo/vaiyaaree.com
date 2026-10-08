@@ -479,10 +479,7 @@ function TrackContent() {
                                         <span>₹{order.igst.toLocaleString('en-IN')}.00</span>
                                     </div>
                                 )}
-                                <div className={styles.summaryLine}>
-                                    <span>Shipping</span>
-                                    <span>{order.shipping_cost > 0 ? `₹${order.shipping_cost.toLocaleString('en-IN')}.00` : 'FREE'}</span>
-                                </div>
+
                                 <div className={styles.totalRow}>
                                     <span>Grand Total</span>
                                     <span>₹{(order.total_amount || 0).toLocaleString('en-IN')}.00</span>

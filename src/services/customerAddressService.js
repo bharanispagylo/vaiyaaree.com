@@ -85,9 +85,31 @@ export async function saveCustomerAddress(addressData) {
 
         if (!customer_id) return null;
 
-        const id = rawId || `addr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const addrText = address_line || address || '';
         const personName = full_name || name || '';
+
+        // If no rawId provided, check if matching address already exists for this customer
+        let id = rawId;
+        if (!id && addrText) {
+            const [existing] = await pool.query(
+                `SELECT id FROM customer_addresses WHERE customer_id = ? AND (address_line = ? OR address = ?) AND (pincode = ? OR pincode IS NULL) LIMIT 1`,
+                [customer_id, addrText, addrText, pincode || '']
+            );
+            if (existing && existing.length > 0) {
+                id = existing[0].id;
+            }
+        }
+        if (!id) {
+            id = `addr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        }
+
+        // If marked as default, demote existing addresses of the same type to 0
+        if (is_default) {
+            await pool.query(
+                `UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ? AND (address_type = ? OR (? = 'shipping' AND (address_type IS NULL OR address_type = '')))`,
+                [customer_id, address_type, address_type]
+            );
+        }
 
         const sql = `
             INSERT INTO customer_addresses

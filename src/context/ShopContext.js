@@ -43,12 +43,11 @@ export function ShopProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
     const [isSessionLoading, setIsSessionLoading] = useState(true);
-    const [shippingZones, setShippingZones] = useState([
-        { id: 'intl_default', name: 'International Standard', rate: 100, free_threshold: 10000, is_international: 1 },
-        { id: 'dom_default', name: 'Domestic Group', rate: 50, free_threshold: 2005, is_international: 0 }
-    ]);
+    const [shippingZones, setShippingZones] = useState([]);
     const [zoneMappings, setZoneMappings] = useState([]);
     const [businessState, setBusinessState] = useState('Tamil Nadu');
+    const [cgstRate, setCgstRate] = useState(2.5);
+    const [sgstRate, setSgstRate] = useState(2.5);
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [hasMounted, setHasMounted] = useState(false);
     const [isCartLoaded, setIsCartLoaded] = useState(false); // Guard for DB sync
@@ -462,7 +461,7 @@ export function ShopProvider({ children }) {
             const { data } = await mysqlClient
                 .from('app_settings')
                 .select('key, value')
-                .in('key', ['communication_channel', 'wa_chatbot_enabled', 'support_email', 'support_phone']);
+                .in('key', ['communication_channel', 'wa_chatbot_enabled', 'support_email', 'support_phone', 'cgst_rate', 'sgst_rate', 'business_state']);
             
             if (data && data.length > 0) {
                 const map = {};
@@ -478,6 +477,15 @@ export function ShopProvider({ children }) {
                 }
                 if (map.support_email) setSupportEmail(map.support_email);
                 if (map.support_phone) setSupportPhone(map.support_phone);
+                if (map.cgst_rate !== undefined && map.cgst_rate !== '') {
+                    const parsed = parseFloat(map.cgst_rate);
+                    if (!isNaN(parsed)) setCgstRate(parsed);
+                }
+                if (map.sgst_rate !== undefined && map.sgst_rate !== '') {
+                    const parsed = parseFloat(map.sgst_rate);
+                    if (!isNaN(parsed)) setSgstRate(parsed);
+                }
+                if (map.business_state) setBusinessState(map.business_state);
             }
         } catch (e) {
             console.error('Fetch communication settings error:', e);
@@ -876,18 +884,7 @@ export function ShopProvider({ children }) {
     }
 
     async function fetchShippingRates() {
-        try {
-            const { data: zones } = await mysqlClient.from('shipping_zones').select('*');
-            const { data: mappings } = await mysqlClient.from('shipping_zone_states').select('*');
-            if (zones && Array.isArray(zones) && zones.length > 0) {
-                setShippingZones(zones);
-            }
-            if (mappings && Array.isArray(mappings)) {
-                setZoneMappings(mappings);
-            }
-        } catch (err) {
-            console.error('Shipping Rates Fetch Error:', err);
-        }
+        // Shipping & logistics zone configuration removed
     }
 
     async function fetchBusinessState() {
@@ -1213,87 +1210,25 @@ export function ShopProvider({ children }) {
         const normalizedFormState = (shippingState || '').trim().toLowerCase();
         const normalizedBizState = (businessState || 'Tamil Nadu').trim().toLowerCase();
         
+        const cgstPct = typeof cgstRate === 'number' ? cgstRate : 2.5;
+        const sgstPct = typeof sgstRate === 'number' ? sgstRate : 2.5;
+        const igstPct = cgstPct + sgstPct;
+
         if (isInternational) {
-            igst = Math.round(taxableSubtotal * 0.05);
+            igst = Math.round(taxableSubtotal * (igstPct / 100));
         } else if (normalizedFormState === normalizedBizState) {
-            cgst = Math.round(taxableSubtotal * 0.025);
-            sgst = Math.round(taxableSubtotal * 0.025);
+            cgst = Math.round(taxableSubtotal * (cgstPct / 100));
+            sgst = Math.round(taxableSubtotal * (sgstPct / 100));
         } else {
-            igst = Math.round(taxableSubtotal * 0.05);
+            igst = Math.round(taxableSubtotal * (igstPct / 100));
         }
 
-        let shipping = 0;
-        let activeZone = null;
-        
-        if (isInternational) {
-            const intlZones = shippingZones.filter(z => isZoneIntl(z));
-            const intlZoneIds = new Set(intlZones.map(z => z.id));
+        const shipping = 0;
+        const activeZone = null;
 
-            // Try matching specific country mapping first
-            const countryMapping = zoneMappings.find(m => 
-                intlZoneIds.has(m.zone_id) &&
-                m.state_name?.trim().toLowerCase() === shippingCountry.trim().toLowerCase()
-            );
-
-            if (countryMapping) {
-                activeZone = intlZones.find(z => z.id === countryMapping.zone_id) || null;
-            }
-            if (!activeZone) {
-                activeZone = intlZones[0] || null;
-            }
-        } else {
-            const domesticZones = shippingZones.filter(z => !isZoneIntl(z));
-            const domesticZoneIds = new Set(domesticZones.map(z => z.id));
-            const cleanState = (shippingState || '').trim().toLowerCase();
-            const cleanCity = (shippingCity || '').trim().toLowerCase();
-
-            const districtMapping = zoneMappings.find(m => 
-                domesticZoneIds.has(m.zone_id) &&
-                (m.state_name || '').trim().toLowerCase() === cleanState && 
-                (m.district_name || '').trim().toLowerCase() === cleanCity
-            );
-
-            if (districtMapping) {
-                activeZone = domesticZones.find(z => z.id === districtMapping.zone_id);
-            } else {
-                const stateMapping = zoneMappings.find(m => 
-                    domesticZoneIds.has(m.zone_id) && 
-                    (m.state_name || '').trim().toLowerCase() === cleanState && 
-                    !m.district_name
-                );
-                if (stateMapping) {
-                    activeZone = domesticZones.find(z => z.id === stateMapping.zone_id);
-                } else {
-                    activeZone = domesticZones[0] || null;
-                }
-            }
-        }
-
-        if (activeZone) {
-            const rate = parseFloat(activeZone.rate || 0);
-            const threshold = parseFloat(activeZone.free_threshold || 0);
-            if (threshold > 0 && taxableSubtotal >= threshold) {
-                shipping = 0;
-            } else {
-                shipping = rate;
-            }
-        } else {
-            const intlZones = shippingZones.filter(z => isZoneIntl(z));
-            const domesticZones = shippingZones.filter(z => !isZoneIntl(z));
-            const fallbackIntlRate = intlZones[0] ? parseFloat(intlZones[0].rate || 0) : 100;
-            const fallbackRate = domesticZones[0] ? parseFloat(domesticZones[0].rate || 0) : 50;
-            shipping = isInternational ? fallbackIntlRate : fallbackRate;
-        }
-
-        // Apply Free Shipping discount rules or shipping discount if active
-        const hasFreeShippingRule = (discountData?.appliedRules || []).some(r => r.discountType === 'FREE_SHIPPING');
-        if (hasFreeShippingRule || (discountData?.shippingDiscount > 0)) {
-            shipping = 0;
-        }
-
-        const totalOrder = Math.round(taxableSubtotal + cgst + sgst + igst + shipping);
-        return { cgst, sgst, igst, shipping, totalOrder, activeZone, isInternational, totalDiscount, taxableSubtotal };
-    }, [cartTotal, discountData, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.billingCountry, checkoutForm.shippingCountry, checkoutForm.sameAsBilling, businessState, shippingZones, zoneMappings]);
+        const totalOrder = Math.round(taxableSubtotal + cgst + sgst + igst);
+        return { cgst, sgst, igst, cgstRate: cgstPct, sgstRate: sgstPct, igstRate: igstPct, shipping, totalOrder, activeZone, isInternational, totalDiscount, taxableSubtotal };
+    }, [cartTotal, discountData, checkoutForm.billingState, checkoutForm.shippingState, checkoutForm.billingCity, checkoutForm.shippingCity, checkoutForm.billingCountry, checkoutForm.shippingCountry, checkoutForm.sameAsBilling, businessState, cgstRate, sgstRate]);
 
     const clearCartAfterSuccess = () => {
         setCart([]);
@@ -1563,26 +1498,6 @@ export function ShopProvider({ children }) {
                             localStorage.setItem('cast_prince_user', JSON.stringify(safeUpdated));
                         }
                     }
-
-                    // Also save address record into customer_addresses table for profile & future checkouts
-                    if (checkoutForm.billingAddress) {
-                        try {
-                            const newAddr = {
-                                id: `addr_${Date.now()}`,
-                                customer_id: user.id,
-                                name: checkoutForm.billingName || user.name || 'Default Address',
-                                phone: checkoutForm.billingPhone || user.phone || '',
-                                address: checkoutForm.billingAddress,
-                                address_line: checkoutForm.billingAddress,
-                                city: checkoutForm.billingCity || '',
-                                state: checkoutForm.billingState || 'Tamil Nadu',
-                                pincode: checkoutForm.billingPincode || '',
-                                country: checkoutForm.billingCountry || 'India',
-                                is_default: 1
-                            };
-                            await mysqlClient.from('customer_addresses').insert(newAddr);
-                        } catch (aErr) {}
-                    }
                 } catch (syncErr) {
                     console.error('[PROFILE-SYNC] Failed to update customer profile:', syncErr);
                 }
@@ -1600,8 +1515,8 @@ export function ShopProvider({ children }) {
                 billingAddress: billingAddressObj,
                 paymentMethod: effectiveMethod,
                 cart: cart,
-                shippingCost: taxDetails.shipping,
-                shippingZoneId: taxDetails.activeZone?.id,
+                shippingCost: 0,
+                shippingZoneId: null,
                 shippingState: checkoutForm.sameAsBilling ? checkoutForm.billingState : checkoutForm.shippingState,
                 shippingCountry: shippingCountry,
                 couponCode: appliedCoupon?.couponCode || null,
@@ -1791,6 +1706,8 @@ export function ShopProvider({ children }) {
             waChatbotEnabled,
             supportEmail,
             supportPhone,
+            cgstRate,
+            sgstRate,
             fetchCommunicationSettings,
             appliedCoupon, couponMessage, couponError, applyCoupon, removeCoupon,
             dbCategories, fetchDbCategories,

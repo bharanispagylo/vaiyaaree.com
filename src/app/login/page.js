@@ -37,6 +37,11 @@ function LoginContent({ initialMode }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         const mode = searchParams.get('mode');
@@ -233,8 +238,10 @@ function LoginContent({ initialMode }) {
                                 <Truck size={20} />
                             </div>
                             <div className={styles.highlightInfo}>
-                                <strong>Express Shipping & Safe Transit</strong>
-                                <span>{isEmailOnly ? 'Fast insured delivery with live Email updates' : 'Fast insured delivery with live SMS & WhatsApp updates'}</span>
+                                <strong>Fast & Safe Transit</strong>
+                                <span suppressHydrationWarning>
+                                    {mounted && isEmailOnly ? 'Fast insured delivery with live Email updates' : 'Fast insured delivery with live SMS & WhatsApp updates'}
+                                </span>
                             </div>
                         </div>
 
@@ -335,16 +342,16 @@ function LoginContent({ initialMode }) {
                     {activeTab === 'login' && (
                         <form onSubmit={handleLoginSubmit}>
                             <div className={styles.formGroup}>
-                                <label className={styles.formLabel}>
-                                    {isEmailOnly ? 'Email Address' : (isWhatsAppOnly ? 'WhatsApp Mobile Number' : 'Mobile Number or Email')}
+                                <label className={styles.formLabel} suppressHydrationWarning>
+                                    {mounted && isEmailOnly ? 'Email Address' : (mounted && isWhatsAppOnly ? 'WhatsApp Mobile Number' : 'Mobile Number or Email')}
                                 </label>
                                 <div className={styles.inputWrapper}>
-                                    {isEmailOnly ? <Mail size={18} className={styles.fieldIcon} /> : <User size={18} className={styles.fieldIcon} />}
+                                    {mounted && isEmailOnly ? <Mail size={18} className={styles.fieldIcon} /> : <User size={18} className={styles.fieldIcon} />}
                                     <input
-                                        type={isEmailOnly ? "email" : "text"}
+                                        type={mounted && isEmailOnly ? "email" : "text"}
                                         value={loginIdentifier}
                                         onChange={e => setLoginIdentifier(e.target.value)}
-                                        placeholder={isEmailOnly ? "your@email.com" : (isWhatsAppOnly ? "e.g. 9876543210" : "e.g. 9876543210 or your@email.com")}
+                                        placeholder={mounted && isEmailOnly ? "your@email.com" : (mounted && isWhatsAppOnly ? "e.g. 9876543210" : "e.g. 9876543210 or your@email.com")}
                                         className={styles.formInput}
                                         required
                                         autoFocus
@@ -447,7 +454,7 @@ function LoginContent({ initialMode }) {
                                         className={styles.countryCodeSelect}
                                     >
                                         {COUNTRY_CODES.map(c => (
-                                            <option key={c.code} value={c.code}>
+                                            <option key={`${c.code}-${c.iso}`} value={c.code}>
                                                 {c.flag} {c.code}
                                             </option>
                                         ))}

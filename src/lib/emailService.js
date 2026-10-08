@@ -222,6 +222,18 @@ export async function sendOrderStatusEmail(order, status = 'PLACED', specificEma
                 }
             }
 
+            if (!order.order_discounts || !Array.isArray(order.order_discounts) || order.order_discounts.length === 0) {
+                try {
+                    const { data: dbDiscounts } = await mysqlClient
+                        .from('order_discounts')
+                        .select('*')
+                        .eq('order_id', order.id);
+                    if (dbDiscounts && dbDiscounts.length > 0) {
+                        order.order_discounts = dbDiscounts;
+                    }
+                } catch (discErr) { }
+            }
+
             if (Array.isArray(items) && items.length > 0) {
                 const prodIdsToFetch = [];
                 const variantIdsToFetch = [];

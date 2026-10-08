@@ -170,7 +170,7 @@ const PREMIUM_IMAGES = [
 //  TAX & SHIPPING RULES 
 const HOME_STATE = 'Tamil Nadu';
 const GST_RATE = 0.05; // 5% for Sarees
-const FLAT_SHIPPING = 100;
+const FLAT_SHIPPING = 0;
 
 const INDIAN_STATES = [
     "Tamil Nadu", "Karnataka", "Kerala", "Andhra Pradesh", "Telangana",
@@ -1892,7 +1892,7 @@ export async function askPaymentMode(to, orderId) {
     if (shipping > 0) {
         summaryMsg += `Shipping: *₹${shipping.toLocaleString()}*\n`;
     }
-    summaryMsg += `\n *Total Billing: ₹${total.toLocaleString()}*\n(Inc. Discount, GST & Shipping)\n\nHow would you like to pay?`;
+    summaryMsg += `\n *Total Billing: ₹${total.toLocaleString()}*\n(Inc. Discount & GST)\n\nHow would you like to pay?`;
 
     await sendButtons(to, summaryMsg, [
         { id: `pay_upi_${orderId}`, title: " UPI / Online" },
@@ -1963,7 +1963,7 @@ export async function notifyOrderSuccess(orderId, isPaid = false) {
             `• Subtotal: ₹${rawSubtotal.toLocaleString('en-IN')}\n` +
             (rawDiscount > 0 ? `• Discount: -₹${rawDiscount.toLocaleString('en-IN')}\n` : '') +
             (rawTax > 0 ? `• GST: ₹${rawTax.toLocaleString('en-IN')}\n` : '') +
-            `• Shipping: ${rawShipping > 0 ? `₹${rawShipping.toLocaleString('en-IN')}` : 'Free (₹0.00)'}\n` +
+            (rawShipping > 0 ? `• Shipping: ₹${rawShipping.toLocaleString('en-IN')}\n` : '') +
             `• *Grand Total: ₹${total}*`;
 
         const message =

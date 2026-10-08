@@ -1,6 +1,9 @@
 /**
- * Utility helper to format detailed discount rule percentage, name, and amount
+ * Utility helper to format detailed discount rule name/coupon and amount
  * for display across Admin Web Invoices, PDF Invoices, Email Notifications, and WhatsApp Messages.
+ * 
+ * NOTE: Strictly adds discount info (Coupon code or Title). Does NOT calculate
+ * or append percentage during Invoice PDF or Email generation.
  */
 export function getDiscountDetails(order) {
     if (!order) return [];
@@ -25,68 +28,48 @@ export function getDiscountDetails(order) {
     }, 0);
 
     const discountsList = order.order_discounts || order.discounts || [];
+    const orderCoupon = (order.coupon_code || order.couponCode || order.discount_title || order.discount_name || '').trim();
 
     if (Array.isArray(discountsList) && discountsList.length > 0) {
         return discountsList.map(d => {
-            const name = d.discount_name || d.name || order.coupon_code || 'Discount';
+            let name = (d.discount_name || d.name || '').trim();
+            if ((!name || name.toLowerCase() === 'promotion' || name.toLowerCase() === 'discount') && orderCoupon) {
+                name = orderCoupon;
+            }
+            if (!name) {
+                name = orderCoupon || 'Discount';
+            }
+
             const val = parseFloat(d.discount_value || 0);
             const type = (d.discount_type || 'PERCENTAGE').toUpperCase();
             const amt = parseFloat(d.discount_amount || d.amount || 0) || totalDiscount;
 
-            let pctStr = '';
-            if (type === 'PERCENTAGE' && val > 0) {
-                pctStr = `${val}%`;
-            } else if (subtotal > 0 && amt > 0) {
-                const calcPct = Math.round((amt / subtotal) * 100);
-                pctStr = calcPct > 0 ? `${calcPct}%` : '';
-            }
-
-            let label = 'Discount';
-            if (name && pctStr) {
-                label = `Discount (${name} - ${pctStr}):`;
-            } else if (name) {
+            // Only add discount info (Coupon code or Title). No percentage calculation.
+            let label = 'Discount:';
+            if (name && name.toLowerCase() !== 'discount') {
                 label = `Discount (${name}):`;
-            } else if (pctStr) {
-                label = `Discount (${pctStr}):`;
-            } else {
-                label = 'Discount:';
             }
 
             return {
                 name,
                 type,
                 value: val,
-                percentage: pctStr,
+                percentage: '',
                 label,
                 amount: amt
             };
         });
     }
 
-    // Fallback: calculate percentage from totalDiscount vs subtotal
-    let pctStr = '';
-    if (subtotal > 0 && totalDiscount > 0) {
-        const calcPct = Math.round((totalDiscount / subtotal) * 100);
-        if (calcPct > 0) {
-            pctStr = `${calcPct}%`;
-        }
-    }
-
-    const couponCode = order.coupon_code || order.couponCode;
-    let label = 'Discount';
-    if (couponCode && pctStr) {
-        label = `Discount (${couponCode} - ${pctStr}):`;
-    } else if (couponCode) {
-        label = `Discount (${couponCode}):`;
-    } else if (pctStr) {
-        label = `Discount (${pctStr}):`;
-    } else {
-        label = 'Discount:';
+    // Fallback when discounts list is not available: use coupon code or title, no percentage calculation
+    let label = 'Discount:';
+    if (orderCoupon && orderCoupon.toLowerCase() !== 'discount') {
+        label = `Discount (${orderCoupon}):`;
     }
 
     return [{
-        name: couponCode || 'Discount',
-        percentage: pctStr,
+        name: orderCoupon || 'Discount',
+        percentage: '',
         label,
         amount: totalDiscount
     }];

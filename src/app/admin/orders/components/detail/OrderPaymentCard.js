@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CreditCard, CheckCircle2, Copy, Check, ShieldCheck, ExternalLink } from 'lucide-react';
+import { CreditCard, CheckCircle2, Copy, Check, ShieldCheck, ExternalLink, Clock } from 'lucide-react';
 import { toIST } from '../../utils/ordersHelpers';
 
 export default function OrderPaymentCard({
@@ -127,7 +127,22 @@ export default function OrderPaymentCard({
                             alignItems: 'center',
                             gap: '5px'
                         }}>
-                            <CheckCircle2 size={13} /> Captured & Paid
+                            <CheckCircle2 size={13} /> {isCod ? 'Cash Collected & Paid' : 'Captured & Paid'}
+                        </span>
+                    ) : isCod ? (
+                        <span style={{
+                            padding: '0.25rem 0.65rem',
+                            borderRadius: '20px',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            background: '#fffbeb',
+                            border: '1px solid #fde68a',
+                            color: '#b45309',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                        }}>
+                            <Clock size={13} /> Full Amount Due on Delivery (₹{totalAmount.toLocaleString('en-IN')})
                         </span>
                     ) : selectedOrder.status === 'REFUNDED' ? (
                         <span style={{
@@ -309,29 +324,36 @@ export default function OrderPaymentCard({
                 }}>
                     <div>
                         <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
-                            {(selectedOrder.payment_method || '').toUpperCase() === 'COD' && Number(selectedOrder.cod_advance_required || 0) > 0
+                            {hasCodAdvance
                                 ? 'Advance Captured'
-                                : 'Captured Amount'}
+                                : (isCod ? (isOrderPaid ? 'Cash Collected' : 'Cash Due on Delivery') : 'Captured Amount')}
                         </span>
-                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#16a34a' }}>
+                        <span style={{ fontWeight: 800, fontSize: '0.95rem', color: isCod && !hasCodAdvance && !isOrderPaid ? '#b45309' : '#16a34a' }}>
                             ₹{Number(
-                                (selectedOrder.payment_method || '').toUpperCase() === 'COD' && (Number(selectedOrder.advance_paid || 0) > 0 || Number(selectedOrder.cod_advance_required || 0) > 0)
+                                hasCodAdvance
                                     ? (selectedOrder.advance_paid || selectedOrder.cod_advance_required)
                                     : (selectedOrder.total_amount || 0)
                             ).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
-                        {(selectedOrder.payment_method || '').toUpperCase() === 'COD' && Number(selectedOrder.balance_amount || 0) > 0 && (
+                        {isCod && hasCodAdvance && Number(selectedOrder.balance_amount || 0) > 0 && (
                             <span style={{ display: 'block', fontSize: '0.72rem', color: '#b45309', fontWeight: 600, marginTop: '2px' }}>
                                 (₹{Number(selectedOrder.balance_amount).toLocaleString('en-IN')} Cash Due on Delivery)
+                            </span>
+                        )}
+                        {isCod && !hasCodAdvance && (
+                            <span style={{ display: 'block', fontSize: '0.72rem', color: isOrderPaid ? '#15803d' : '#b45309', fontWeight: 600, marginTop: '2px' }}>
+                                {isOrderPaid ? '✓ Full Amount Collected in Cash' : '• 100% Cash Collection on Delivery (No Advance)'}
                             </span>
                         )}
                     </div>
                     <div>
                         <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
-                            Payment Gateway
+                            Payment Method
                         </span>
                         <span style={{ fontWeight: 700, color: '#1e40af', fontSize: '0.82rem' }}>
-                            {(selectedOrder.payment_method || '').toUpperCase() === 'COD' ? 'Razorpay (COD Advance)' : 'Razorpay Standard'}
+                            {isCod 
+                                ? (hasCodAdvance ? 'Razorpay (COD Advance)' : 'Cash on Delivery (Courier Collection)') 
+                                : 'Razorpay Standard'}
                         </span>
                     </div>
                 </div>

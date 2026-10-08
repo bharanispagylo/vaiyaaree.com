@@ -47,14 +47,7 @@ const menuItems = [
             { name: 'Customer Analysis', href: '/admin/customers/analysis' }
         ]
     },
-    {
-        name: 'Shipping',
-        icon: Truck,
-        children: [
-            { name: 'Shipping Settings', href: '/admin/shipping' },
-            { name: 'Couriers', href: '/admin/couriers' }
-        ]
-    },
+    { name: 'Couriers', href: '/admin/couriers', icon: Truck },
     {
         name: 'Social Media',
         icon: Megaphone,

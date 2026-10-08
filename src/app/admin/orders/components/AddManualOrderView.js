@@ -133,16 +133,7 @@ export default function AddManualOrderView({
 
     const shipping = (() => {
         if (newOrder.manual_shipping_cost !== '') return parseFloat(newOrder.manual_shipping_cost) || 0;
-        if (newOrder.is_replacement) return 0;
-        if (subtotal === 0) return 0;
-        const state = newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state;
-        const mapping = shippingMappings.find(m => m.state_name === state);
-        const zoneId = mapping ? mapping.zone_id : (shippingZones.find(z => z.name.toLowerCase().includes('default'))?.id || shippingZones[0]?.id);
-        const zone = shippingZones.find(z => z.id === zoneId);
-
-        if (!zone) return 100;
-        if (taxableSubtotal >= zone.free_threshold) return 0;
-        return zone.rate || 0;
+        return 0;
     })();
 
     const effectiveState = newOrder.same_as_billing ? newOrder.billing_state : newOrder.shipping_state;
@@ -307,10 +298,11 @@ export default function AddManualOrderView({
             const cleanPhone = newOrder.billing_phone.replace(/\D/g, '');
             const normalizedPhone = cleanPhone.startsWith('91') ? cleanPhone : (cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone);
 
+            const isCodMethod = (newOrder.payment_method || '').toUpperCase() === 'COD';
             const orderPayload = {
                 source: 'MANUAL',
                 customerId: newOrder.customer_id || null,
-                status: newOrder.status || 'PAID',
+                status: newOrder.status || (isCodMethod ? 'PLACED' : 'PAID'),
                 isReplacement: Boolean(newOrder.is_replacement),
                 is_replacement: Boolean(newOrder.is_replacement),
                 discountAmount: discountAmount,
@@ -320,6 +312,8 @@ export default function AddManualOrderView({
                 customerPhone: normalizedPhone,
                 customerEmail: newOrder.billing_email || null,
                 paymentMethod: newOrder.payment_method || 'UPI',
+                codAdvanceRequired: 0,
+                advancePaid: 0,
                 billingAddress: {
                     name: newOrder.customer_name,
                     phone: normalizedPhone,
@@ -437,7 +431,7 @@ export default function AddManualOrderView({
     });
 
     return (
-        <div className="animate-enter" style={{ paddingBottom: '4rem' }}>
+        <div className="animate-enter" style={{ paddingBottom: '0.1rem' }}>
             <div className="card shadow-premium" style={{
                 width: '100%', maxWidth: '1500px', margin: '0 auto', display: 'flex', flexDirection: 'column', border: '1px solid hsl(var(--border-subtle))', borderRadius: '24px', background: '#ffffff', overflow: 'hidden'
             }}>
@@ -704,9 +698,21 @@ export default function AddManualOrderView({
 
                         <div>
                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Payment Method</label>
-                            <select value={newOrder.payment_method || 'UPI'} onChange={e => setNewOrder({ ...newOrder, payment_method: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}>
+                            <select
+                                value={newOrder.payment_method || 'UPI'}
+                                onChange={e => {
+                                    const m = e.target.value;
+                                    setNewOrder(prev => ({
+                                        ...prev,
+                                        payment_method: m,
+                                        // When selecting COD, default to PLACED so admin is not confused by 'PAID' or advance
+                                        status: m === 'COD' ? 'PLACED' : (prev.status === 'PLACED' ? 'PAID' : prev.status)
+                                    }));
+                                }}
+                                style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}
+                            >
                                 <option value="UPI">UPI / GPay / PhonePe</option>
-                                <option value="COD">Cash on Delivery (COD)</option>
+                                <option value="COD">Cash on Delivery (COD - No Advance)</option>
                                 <option value="CASH">Cash in Hand / Store Counter</option>
                                 <option value="BANK_TRANSFER">Direct Bank Transfer (NEFT/IMPS)</option>
                                 <option value="CARD">Credit / Debit Card</option>
@@ -715,12 +721,21 @@ export default function AddManualOrderView({
 
                         <div>
                             <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>Order & Payment Status</label>
-                            <select value={newOrder.status || 'PAID'} onChange={e => setNewOrder({ ...newOrder, status: e.target.value })} style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}>
+                            <select
+                                value={newOrder.status || (newOrder.payment_method === 'COD' ? 'PLACED' : 'PAID')}
+                                onChange={e => setNewOrder({ ...newOrder, status: e.target.value })}
+                                style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', background: '#f1f5f9', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', cursor: 'pointer' }}
+                            >
+                                <option value="PLACED">{newOrder.payment_method === 'COD' ? 'PLACED (Full Cash Due on Delivery - No Advance)' : 'PLACED (Order Created / Pending Payment)'}</option>
                                 <option value="PAID">PAID (Payment Complete & Verified)</option>
-                                <option value="PLACED">PLACED (Order Created / Pending Payment)</option>
                                 <option value="AWAITING_PAYMENT">AWAITING_PAYMENT (Awaiting Customer Transfer)</option>
                                 <option value="PACKING">PACKING (Order in Processing / Packing)</option>
                             </select>
+                            {newOrder.payment_method === 'COD' && (
+                                <span style={{ fontSize: '0.72rem', color: '#166534', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                                    ✓ Pure COD: No advance required. Full amount collected on delivery.
+                                </span>
+                            )}
                         </div>
 
                         {/* Order Discount Option */}
@@ -1128,7 +1143,7 @@ export default function AddManualOrderView({
 
                             {discountAmount > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.9rem' }}>
-                                    <span>Taxable Subtotal:</span>
+                                    <span> Subtotal:</span>
                                     <span style={{ fontWeight: 700 }}>₹{taxableSubtotal.toLocaleString()}</span>
                                 </div>
                             )}
