@@ -64,6 +64,7 @@ const menuItems = [
             { name: 'Shop Settings', href: '/admin/shop-settings' },
             { name: 'Footer Settings', href: '/admin/settings/footer' },
             { name: 'Checkout Settings', href: '/admin/settings/checkout' },
+            { name: 'Invoice Settings', href: '/admin/invoices/settings' },
             { name: 'Navigation Menus', href: '/admin/menus' },
             { name: 'Home Page Builder', href: '/admin/settings/homepage-builder' },
             { name: 'Email Settings', href: '/admin/emails' },

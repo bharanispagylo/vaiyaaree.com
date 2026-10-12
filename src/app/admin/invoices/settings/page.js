@@ -26,12 +26,14 @@ export default function InvoiceSettingsPage() {
         bank_name: 'STATE BANK INDIA',
         bank_account: '170902000000962',
         bank_ifsc: 'SBI0001709',
-        bank_upi: 'vaiyaaree@upi'
+        bank_upi: 'vaiyaaree@upi',
+        authorized_signatory: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [notification, setNotification] = useState(null);
     const [showMediaPicker, setShowMediaPicker] = useState(false);
+    const [mediaPickerTarget, setMediaPickerTarget] = useState('shop_logo');
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -69,7 +71,8 @@ export default function InvoiceSettingsPage() {
                 { key: 'bank_name', value: String(settings.bank_name || '') },
                 { key: 'bank_account', value: String(settings.bank_account || '') },
                 { key: 'bank_ifsc', value: String(settings.bank_ifsc || '') },
-                { key: 'bank_upi', value: String(settings.bank_upi || '') }
+                { key: 'bank_upi', value: String(settings.bank_upi || '') },
+                { key: 'authorized_signatory', value: String(settings.authorized_signatory || '') }
             ];
 
             const { error } = await mysqlClient
@@ -147,7 +150,7 @@ export default function InvoiceSettingsPage() {
                             <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Logo Image URL</label>
                             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                 <input type="text" value={settings.shop_logo} onChange={e => setSettings({ ...settings, shop_logo: e.target.value })} placeholder="https://..." style={{ flex: 1, padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
-                                <button type="button" onClick={() => setShowMediaPicker(true)} className="btn btn-secondary" style={{ padding: '0.75rem', height: 'auto' }} title="Open Media Library">
+                                <button type="button" onClick={() => { setMediaPickerTarget('shop_logo'); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem', height: 'auto' }} title="Open Media Library">
                                     <Upload size={18} />
                                 </button>
                                 {settings.shop_logo && (
@@ -156,6 +159,22 @@ export default function InvoiceSettingsPage() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        <div>
+                            <label style={{ fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--text-muted))', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'block' }}>Authorized Signatory (Signature / Stamp)</label>
+                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                <input type="text" value={settings.authorized_signatory || ''} onChange={e => setSettings({ ...settings, authorized_signatory: e.target.value })} placeholder="Signature image URL or path" style={{ flex: 1, padding: '0.85rem', borderRadius: '10px', background: 'hsl(var(--bg-app))', border: '1px solid hsl(var(--border-subtle))', color: 'hsl(var(--text-main))', outline: 'none' }} />
+                                <button type="button" onClick={() => { setMediaPickerTarget('authorized_signatory'); setShowMediaPicker(true); }} className="btn btn-secondary" style={{ padding: '0.75rem', height: 'auto' }} title="Choose Signature Image">
+                                    <Upload size={18} />
+                                </button>
+                                {settings.authorized_signatory && (
+                                    <div style={{ width: '55px', height: '45px', borderRadius: '8px', overflow: 'hidden', border: '1px solid hsl(var(--border-subtle))', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <img src={settings.authorized_signatory} alt="Signatory" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                                    </div>
+                                )}
+                            </div>
+                            <span style={{ fontSize: '0.72rem', color: 'hsl(var(--text-muted))', marginTop: '4px', display: 'block' }}>Embedded automatically on all Order Invoices across all order statuses.</span>
                         </div>
 
                         <div>
@@ -392,7 +411,19 @@ export default function InvoiceSettingsPage() {
                                 </div>
                                 <div style={{ width: '50%', padding: '5px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'center' }}>
                                     <div style={{ fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>For {settings.shop_name}</div>
-                                    <div style={{ marginTop: '50px', fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>Authorized Signatory</div>
+                                    {settings.authorized_signatory ? (
+                                        <div style={{ margin: '6px 0', textAlign: 'right', paddingRight: '25px', width: '100%' }}>
+                                            <img
+                                                src={settings.authorized_signatory.startsWith('http') || settings.authorized_signatory.startsWith('/') ? settings.authorized_signatory : `/images/${settings.authorized_signatory}`}
+                                                alt="Authorized Signatory"
+                                                style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain' }}
+                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div style={{ height: '42px' }} />
+                                    )}
+                                    <div style={{ fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>Authorized Signatory</div>
                                 </div>
                             </div>
                         </div>
@@ -406,9 +437,9 @@ export default function InvoiceSettingsPage() {
 
             {showMediaPicker && (
                 <MediaPicker
-                    currentImage={settings.shop_logo}
+                    currentImage={settings[mediaPickerTarget] || ''}
                     onSelect={(url) => {
-                        setSettings({ ...settings, shop_logo: url });
+                        setSettings({ ...settings, [mediaPickerTarget]: url });
                         setShowMediaPicker(false);
                     }}
                     onClose={() => setShowMediaPicker(false)}

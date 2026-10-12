@@ -137,7 +137,8 @@ export async function generateInvoicePDF(order) {
         bank_ifsc: "SBI0001709",
         bank_upi: "vaiyaaree@upi",
         business_email: "vaiyaaree@gmail.com",
-        shop_email: "vaiyaaree@gmail.com"
+        shop_email: "vaiyaaree@gmail.com",
+        authorized_signatory: ""
     };
 
     try {
@@ -631,6 +632,33 @@ export async function generateInvoicePDF(order) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
     doc.text(`For ${branding.shop_name}`, 155, y + 5, { align: "center" });
+
+    // Inject Authorized Signatory Image (for all orders & all statuses)
+    const signatoryImgUrl = branding.authorized_signatory || branding.authorized_signatory_url || branding.signature_url || branding.invoice_signatory;
+    if (signatoryImgUrl) {
+        try {
+            const sigBase64 = await urlToBase64(signatoryImgUrl);
+            if (sigBase64) {
+                const imgProps = doc.getImageProperties(sigBase64);
+                const aspect = imgProps.width / imgProps.height;
+                const maxH = 12; // 12mm max height so it fits cleanly between 'For ...' and 'Authorized Signatory'
+                const maxW = 45; // 45mm max width
+                let sigH = maxH;
+                let sigW = sigH * aspect;
+                if (sigW > maxW) {
+                    sigW = maxW;
+                    sigH = sigW / aspect;
+                }
+                const sigX = 155 - (sigW / 2);
+                const sigY = y + 6.5 + Math.max(0, (maxH - sigH) / 2);
+                const format = (sigBase64.includes('image/jpeg') || sigBase64.includes('image/jpg')) ? 'JPEG' : 'PNG';
+                doc.addImage(sigBase64, format, sigX, sigY, sigW, sigH, undefined, 'FAST');
+            }
+        } catch (sigErr) {
+            console.error("[INVOICE] Failed to inject authorized signatory image:", sigErr);
+        }
+    }
+
     doc.text("Authorized Signatory", 155, y + 22, { align: "center" });
     
     y += 25;

@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import {
     Upload, Search, Loader2, Image as ImageIcon,
-    X, Check, Plus, Grid, List as ListIcon, RefreshCw
+    X, Check, Plus, Grid, List as ListIcon, RefreshCw,
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { mysqlClient } from '@/lib/mysqlClient'; // still needed for getPublicUrl
 import { parseUploadResponse } from '@/lib/uploadHelper';
@@ -25,7 +26,10 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
     });
 
     const fileInputRef = useRef(null);
+    const gridScrollRef = useRef(null);
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(24);
     const [useExistingWatermark, setUseExistingWatermark] = useState(false);
 
     const toggleSelect = (url, isWatermarked = false) => {
@@ -162,6 +166,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
 
             // Refresh the list and select the new image
             await fetchFiles();
+            setCurrentPage(1);
             if (multiple) {
                 setSelectedUrls(prev => [...prev, data.url]);
             } else {
@@ -175,6 +180,10 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
         }
     };
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, activeGroup, itemsPerPage]);
+
     const filteredFiles = files.filter(f => {
         const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
         if (!matchesSearch) return false;
@@ -185,120 +194,267 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
         return true;
     });
 
+    const totalPages = Math.max(1, Math.ceil(filteredFiles.length / itemsPerPage));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, filteredFiles.length);
+    const paginatedFiles = filteredFiles.slice(startIndex, endIndex);
+
+    const handlePageChange = (page) => {
+        const next = Math.max(1, Math.min(page, totalPages));
+        setCurrentPage(next);
+        if (gridScrollRef.current) {
+            gridScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const getPageNumbers = () => {
+        if (totalPages <= 7) {
+            return Array.from({ length: totalPages }, (_, i) => i + 1);
+        }
+        const pages = [];
+        if (safeCurrentPage <= 4) {
+            pages.push(1, 2, 3, 4, 5, '...', totalPages);
+        } else if (safeCurrentPage >= totalPages - 3) {
+            pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+        } else {
+            pages.push(1, '...', safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, '...', totalPages);
+        }
+        return pages;
+    };
+
     return (
-        <div className="modal-overlay" style={{ zIndex: 999999, position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={onClose}>
-            <div className="modal-box shadow-premium" style={{
-                maxWidth: '1200px', width: '95vw', height: '90vh', padding: 0,
-                borderRadius: '32px', background: '#ffffff', display: 'flex',
-                flexDirection: 'column', overflow: 'hidden', border: 'none', zIndex: 1000000, position: 'relative'
-            }} onClick={e => e.stopPropagation()}>
-                {/* Header */}
+        <div
+            className="drawer-overlay"
+            style={{
+                zIndex: 999999,
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(15, 23, 42, 0.65)',
+                backdropFilter: 'blur(6px)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'stretch'
+            }}
+            onClick={onClose}
+        >
+            <div
+                className="drawer-box"
+                style={{
+                    width: '75%',
+                    minWidth: '320px',
+                    height: '100vh',
+                    background: '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    border: 'none',
+                    borderLeft: '1px solid #e2e8f0',
+                    borderTopLeftRadius: '24px',
+                    borderBottomLeftRadius: '24px',
+                    zIndex: 1000000,
+                    position: 'relative',
+                    boxShadow: '-16px 0 50px rgba(0, 0, 0, 0.2)'
+                }}
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Compact Header */}
                 <div style={{
-                    padding: '2rem 2.5rem', borderBottom: '1px solid hsl(var(--border-subtle))',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    background: '#ffffff'
+                    padding: '1rem 2rem',
+                    borderBottom: '1px solid #e2e8f0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: '#ffffff',
+                    gap: '1rem'
                 }}>
-                    <div>
-                        <h2 style={{ fontSize: '1.4rem', fontWeight: 900, margin: 0, color: 'hsl(var(--text-main))' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0, color: 'hsl(var(--text-main))' }}>
                             {multiple ? `Select Images (${selectedUrls.length})` : 'Select Image'}
                         </h2>
-                        <p style={{ fontSize: '0.825rem', color: 'hsl(var(--text-muted))', margin: '4px 0 0', fontWeight: 500 }}>
-                            {multiple ? 'Select multiple assets for your gallery (JPEG, PNG, SVG - Max 10MB).' : 'Choose from media library or upload new assets (JPEG, PNG, SVG - Max 10MB).'}
-                        </p>
+                        <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            color: '#64748b',
+                            background: '#f1f5f9',
+                            padding: '3px 9px',
+                            borderRadius: '6px'
+                        }}>
+                            {files.length} assets
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>
+                            JPEG, PNG, SVG • Max 10MB
+                        </span>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="btn-icon danger"
-                        style={{ width: '40px', height: '40px' }}
-                    >
-                        <X size={20} />
-                    </button>
+
+                    {/* Actions: Upload + Refresh + Close */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="btn btn-primary"
+                            disabled={uploading}
+                            style={{
+                                padding: '0 1.15rem',
+                                borderRadius: '10px',
+                                height: '38px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                fontSize: '0.825rem',
+                                fontWeight: 700
+                            }}
+                        >
+                            {uploading ? <Loader2 className="animate-spin" size={15} /> : <Upload size={15} />}
+                            {uploading ? 'Uploading...' : 'Upload New'}
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleUpload}
+                            style={{ display: 'none' }}
+                            accept=".jpg, .jpeg, .png, .svg, image/jpeg, image/png, image/svg+xml"
+                        />
+                        <button
+                            onClick={fetchFiles}
+                            className="btn-icon"
+                            title="Refresh Library"
+                            style={{
+                                width: '38px',
+                                height: '38px',
+                                borderRadius: '10px',
+                                border: '1px solid #e2e8f0',
+                                background: '#ffffff',
+                                color: '#475569',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="btn-icon danger"
+                            title="Close Drawer"
+                            style={{ width: '38px', height: '38px', borderRadius: '10px' }}
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
 
-                {/* Toolbar */}
-                <div style={{ padding: '1.5rem 2.5rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        <div style={{ position: 'relative', flex: 1 }}>
-                            <Search size={18} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                {/* Compact Toolbar / Filters */}
+                <div style={{
+                    padding: '0.75rem 2rem',
+                    background: '#f8fafc',
+                    borderBottom: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    flexWrap: 'wrap'
+                }}>
+                    {/* Left: Search input & Tabs */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap', flex: 1, minWidth: '320px' }}>
+                        <div style={{ position: 'relative', width: '260px', minWidth: '200px' }}>
+                            <Search size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                             <input
                                 type="text"
                                 placeholder="Search library..."
                                 style={{
-                                    width: '100%', padding: '0.85rem 1rem 0.85rem 3.25rem', borderRadius: '14px',
-                                    border: '1px solid #e2e8f0', background: 'white',
-                                    outline: 'none', fontSize: '1rem', fontWeight: 500, color: '#1e293b'
+                                    width: '100%',
+                                    padding: '0.45rem 0.85rem 0.45rem 2.4rem',
+                                    borderRadius: '10px',
+                                    border: '1px solid #cbd5e1',
+                                    background: '#ffffff',
+                                    outline: 'none',
+                                    fontSize: '0.825rem',
+                                    fontWeight: 500,
+                                    color: '#1e293b'
                                 }}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="btn btn-primary"
-                            disabled={uploading}
-                            style={{ padding: '0.85rem 1.75rem', borderRadius: '14px', height: '48px', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem' }}
-                        >
-                            {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                            {uploading ? 'Uploading...' : 'Upload New'}
-                        </button>
-                        <input type="file" ref={fileInputRef} onChange={handleUpload} style={{ display: 'none' }} accept=".jpg, .jpeg, .png, .svg, image/jpeg, image/png, image/svg+xml" />
-                        <button onClick={fetchFiles} className="btn-icon primary" style={{ width: '48px', height: '48px', borderRadius: '14px' }}>
-                            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-                        </button>
-                    </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {/* Filter Tabs */}
+                        <div style={{
+                            display: 'inline-flex',
+                            background: '#e2e8f0',
+                            padding: '3px',
+                            borderRadius: '10px',
+                            gap: '2px'
+                        }}>
                             {[
                                 { id: 'all', label: 'All Images', count: files.length },
                                 { id: 'watermark', label: 'With Watermark', count: files.filter(f => f.folder === 'with-watermark' || watermarkImages.includes(f.url)).length },
                                 { id: 'no-watermark', label: 'Without Watermark', count: files.filter(f => f.folder !== 'with-watermark' && !watermarkImages.includes(f.url)).length }
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveGroup(tab.id)}
-                                    style={{
-                                        padding: '0.5rem 1.25rem', borderRadius: '10px', border: 'none', cursor: 'pointer',
-                                        fontSize: '0.85rem', fontWeight: activeGroup === tab.id ? 800 : 700,
-                                        background: activeGroup === tab.id ? 'hsl(var(--primary))' : 'transparent',
-                                        color: activeGroup === tab.id ? 'white' : '#64748b',
-                                        transition: 'all 0.2s',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.025em'
-                                    }}
-                                >
-                                    {tab.label} <span style={{ opacity: 0.6, fontSize: '0.75rem', marginLeft: '4px' }}>{tab.count}</span>
-                                </button>
-                            ))}
+                            ].map(tab => {
+                                const isActive = activeGroup === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveGroup(tab.id)}
+                                        style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            fontSize: '0.75rem',
+                                            fontWeight: isActive ? 800 : 700,
+                                            background: isActive ? 'hsl(var(--primary))' : 'transparent',
+                                            color: isActive ? '#ffffff' : '#64748b',
+                                            transition: 'all 0.15s ease',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '5px'
+                                        }}
+                                    >
+                                        <span>{tab.label}</span>
+                                        <span style={{
+                                            fontSize: '0.7rem',
+                                            background: isActive ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.06)',
+                                            color: isActive ? '#ffffff' : '#64748b',
+                                            padding: '1px 5px',
+                                            borderRadius: '5px'
+                                        }}>
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
-
-                        {/* Checkbox option for using existing watermark image */}
-                        <label style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            background: useExistingWatermark ? '#f0fdf4' : '#ffffff',
-                            border: useExistingWatermark ? '1px solid #86efac' : '1px solid #cbd5e1',
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            color: useExistingWatermark ? '#15803d' : '#475569'
-                        }}>
-                            <input
-                                type="checkbox"
-                                checked={useExistingWatermark}
-                                onChange={(e) => setUseExistingWatermark(e.target.checked)}
-                                style={{ accentColor: '#16a34a', cursor: 'pointer' }}
-                            />
-                            <span>Use existing watermark image</span>
-                        </label>
                     </div>
+
+                    {/* Right: Watermark Checkbox */}
+                    <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: useExistingWatermark ? '#f0fdf4' : '#ffffff',
+                        border: useExistingWatermark ? '1px solid #86efac' : '1px solid #cbd5e1',
+                        padding: '5px 10px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: useExistingWatermark ? '#15803d' : '#475569',
+                        whiteSpace: 'nowrap',
+                        userSelect: 'none'
+                    }}>
+                        <input
+                            type="checkbox"
+                            checked={useExistingWatermark}
+                            onChange={(e) => setUseExistingWatermark(e.target.checked)}
+                            style={{ accentColor: '#16a34a', cursor: 'pointer', width: '14px', height: '14px' }}
+                        />
+                        <span>Use existing watermark image</span>
+                    </label>
                 </div>
 
                 {/* Grid */}
-                <div style={{ flex: 1, padding: '2.5rem', overflowY: 'auto' }}>
+                <div ref={gridScrollRef} style={{ flex: 1, padding: '1.5rem 2rem', overflowY: 'auto' }}>
                     {loading ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1.5rem' }}>
                             <Loader2 className="animate-spin" size={48} color="hsl(var(--primary))" />
@@ -311,7 +467,7 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '2rem' }}>
-                            {filteredFiles.map((file, idx) => {
+                            {paginatedFiles.map((file, idx) => {
                                 const itemKey = file.id || file.url || (file.folder && file.name ? `${file.folder}-${file.name}` : `media-${idx}`);
                                 const isItemWatermarked = file.folder === 'with-watermark' || watermarkImages.includes(file.url);
                                 return (
@@ -378,27 +534,196 @@ export default function MediaPicker({ onSelect, onClose, currentImage, catalogId
                 </div>
 
                 {/* Footer */}
-                <div style={{ padding: '1.5rem 2.5rem', borderTop: '1px solid hsl(var(--border-subtle))', textAlign: 'right', background: '#f8fafc' }}>
-                    <button onClick={onClose} className="btn modal-btn-secondary" style={{ padding: '0.75rem 2rem', borderRadius: '12px' }}>Close Library</button>
-                    <button 
-                        onClick={() => { 
-                            if (multiple) {
-                                onSelect(selectedUrls);
-                            } else if (currentImage) {
-                                onSelect(currentImage); 
-                            }
-                            onClose(); 
-                        }} 
-                        className="btn modal-btn-primary" 
-                        style={{ padding: '0.75rem 2.5rem', borderRadius: '12px', marginLeft: '1rem' }}
-                    >
-                        Confirm Selection {multiple && selectedUrls.length > 0 && `(${selectedUrls.length})`}
-                    </button>
+                <div style={{
+                    padding: '1.25rem 2.5rem',
+                    borderTop: '1px solid hsl(var(--border-subtle))',
+                    background: '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '1rem'
+                }}>
+                    {/* Left: Info & per-page selector */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.825rem', color: '#64748b', fontWeight: 600 }}>
+                            {filteredFiles.length === 0 ? (
+                                '0 images'
+                            ) : (
+                                <>
+                                    Showing <strong style={{ color: '#0f172a' }}>{startIndex + 1}–{endIndex}</strong> of <strong style={{ color: '#0f172a' }}>{filteredFiles.length}</strong> images
+                                </>
+                            )}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '0.775rem', color: '#94a3b8', fontWeight: 600 }}>Per page:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                    setItemsPerPage(Number(e.target.value));
+                                }}
+                                style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #cbd5e1',
+                                    background: '#ffffff',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    color: '#334155',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value={18}>18</option>
+                                <option value={24}>24</option>
+                                <option value={48}>48</option>
+                                <option value={96}>96</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Center: Pagination controls */}
+                    {totalPages > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <button
+                                className="pagination-btn"
+                                onClick={() => handlePageChange(1)}
+                                disabled={safeCurrentPage === 1}
+                                title="First Page"
+                                aria-label="First Page"
+                            >
+                                <ChevronsLeft size={16} />
+                            </button>
+                            <button
+                                className="pagination-btn"
+                                onClick={() => handlePageChange(safeCurrentPage - 1)}
+                                disabled={safeCurrentPage === 1}
+                                title="Previous Page"
+                                aria-label="Previous Page"
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+
+                            {getPageNumbers().map((p, idx) => (
+                                p === '...' ? (
+                                    <span key={`dots-${idx}`} className="pagination-ellipsis">…</span>
+                                ) : (
+                                    <button
+                                        key={`page-${p}`}
+                                        className={`pagination-btn ${safeCurrentPage === p ? 'active' : ''}`}
+                                        onClick={() => handlePageChange(p)}
+                                    >
+                                        {p}
+                                    </button>
+                                )
+                            ))}
+
+                            <button
+                                className="pagination-btn"
+                                onClick={() => handlePageChange(safeCurrentPage + 1)}
+                                disabled={safeCurrentPage === totalPages}
+                                title="Next Page"
+                                aria-label="Next Page"
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                            <button
+                                className="pagination-btn"
+                                onClick={() => handlePageChange(totalPages)}
+                                disabled={safeCurrentPage === totalPages}
+                                title="Last Page"
+                                aria-label="Last Page"
+                            >
+                                <ChevronsRight size={16} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Right: Action buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: totalPages > 1 ? 0 : 'auto' }}>
+                        <button onClick={onClose} className="btn modal-btn-secondary" style={{ padding: '0.65rem 1.5rem', borderRadius: '12px' }}>
+                            Close Library
+                        </button>
+                        <button 
+                            onClick={() => { 
+                                if (multiple) {
+                                    onSelect(selectedUrls);
+                                } else if (currentImage) {
+                                    onSelect(currentImage); 
+                                }
+                                onClose(); 
+                            }} 
+                            className="btn modal-btn-primary" 
+                            style={{ padding: '0.65rem 2rem', borderRadius: '12px' }}
+                        >
+                            Confirm Selection {multiple && selectedUrls.length > 0 && `(${selectedUrls.length})`}
+                        </button>
+                    </div>
                 </div>
             </div>
             <style jsx>{`
-                .shadow-premium { box-shadow: 0 30px 60px -12px rgba(0,0,0,0.25); }
+                .drawer-overlay {
+                    animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                .drawer-box {
+                    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); }
+                    to { transform: translateX(0); }
+                }
+                @media (max-width: 900px) {
+                    .drawer-box {
+                        width: 100% !important;
+                        border-radius: 0 !important;
+                    }
+                }
                 img:hover + .img-overlay { opacity: 1; }
+                .pagination-btn {
+                    min-width: 34px;
+                    height: 34px;
+                    padding: 0 8px;
+                    border-radius: 8px;
+                    border: 1px solid #e2e8f0;
+                    background: #ffffff;
+                    color: #475569;
+                    font-size: 0.825rem;
+                    font-weight: 600;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .pagination-btn:hover:not(:disabled) {
+                    background: #f1f5f9;
+                    border-color: #cbd5e1;
+                    color: #0f172a;
+                }
+                .pagination-btn.active {
+                    background: hsl(var(--primary));
+                    color: #ffffff;
+                    border-color: hsl(var(--primary));
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                }
+                .pagination-btn:disabled {
+                    opacity: 0.35;
+                    cursor: not-allowed;
+                    background: #f8fafc;
+                }
+                .pagination-ellipsis {
+                    min-width: 28px;
+                    height: 34px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #94a3b8;
+                    font-size: 0.825rem;
+                    font-weight: 600;
+                }
             `}</style>
         </div>
     );

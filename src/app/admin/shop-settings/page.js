@@ -7,7 +7,7 @@ import {
     Hash, Info, CheckCircle2, AlertCircle, Loader2,
     Upload, Globe, Phone, Mail, Clock, ArrowRight, CreditCard, ShieldCheck, Lock,
     MessageCircle, Bot, Sparkles, Radio, ShieldAlert, Truck, Sliders, Type, Palette,
-    Layout, Layers, Send, HelpCircle, Key, Server, Eye
+    Layout, Layers, Send, HelpCircle, Key, Server, Eye, FileSignature
 } from 'lucide-react';
 import Link from 'next/link';
 import { useShop } from '@/context/ShopContext';
@@ -71,6 +71,7 @@ export default function ShopSettingsPage() {
     const [notification, setNotification] = useState(null);
     const [hasMounted, setHasMounted] = useState(false);
     const [showMediaPicker, setShowMediaPicker] = useState(false);
+    const [mediaPickerTarget, setMediaPickerTarget] = useState('shop_logo');
     const [testEmailRecipient, setTestEmailRecipient] = useState('vaiyaaree@gmail.com');
     const [testingEmail, setTestingEmail] = useState(false);
     const [activeTab, setActiveTab] = useState('general');
@@ -156,6 +157,7 @@ export default function ShopSettingsPage() {
                 theme_font_heading: 'Cinzel',
                 shop_name: 'Vaiyaaree Sarees',
                 shop_logo: '/images/vaiyaaree-logo.png',
+                authorized_signatory: '',
                 header_logo_text: 'VAIYAAREE',
                 header_logo_caption: 'SILKS & WEAVES',
                 header_announcement_text: 'FREE ALL-INDIA SHIPPING • 100% AUTHENTIC HANDLOOM SILKS',
@@ -487,7 +489,10 @@ export default function ShopSettingsPage() {
                                         />
                                         <button
                                             type="button"
-                                            onClick={() => setShowMediaPicker(true)}
+                                            onClick={() => {
+                                                setMediaPickerTarget('shop_logo');
+                                                setShowMediaPicker(true);
+                                            }}
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: '6px',
                                                 padding: '0.75rem 1.25rem', borderRadius: '10px',
@@ -498,6 +503,76 @@ export default function ShopSettingsPage() {
                                             <Upload size={16} /> Choose Media
                                         </button>
                                     </div>
+                                </div>
+
+                                {/* Authorized Signatory Upload Section */}
+                                <div className="field-group" style={{ padding: '1.25rem 1.5rem', background: '#fdfbf7', borderRadius: '14px', border: '1.5px solid #f0e6d2' }}>
+                                    <label style={{ fontSize: '0.84rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#5d0821', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                                        <FileSignature size={16} color="#5d0821" /> Authorized Signatory (Invoice Signature / Stamp)
+                                    </label>
+                                    <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 0.85rem 0', lineHeight: 1.5 }}>
+                                        Upload the official authorized signatory signature or digital stamp. This image will automatically be embedded above &quot;Authorized Signatory&quot; on all generated Tax Invoices across all order statuses.
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <input
+                                            type="text"
+                                            value={settings.authorized_signatory || ''}
+                                            onChange={(e) => handleUpdate('authorized_signatory', e.target.value)}
+                                            placeholder="Upload or choose signature image (e.g. /uploads/signature.png)"
+                                            style={{ flex: 1, minWidth: '240px' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMediaPickerTarget('authorized_signatory');
+                                                setShowMediaPicker(true);
+                                            }}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                                padding: '0.75rem 1.25rem', borderRadius: '10px',
+                                                border: '1.5px solid #5d0821', background: '#5d0821',
+                                                color: '#ffffff', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Upload size={16} /> Choose Signature
+                                        </button>
+                                        {settings.authorized_signatory && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleUpdate('authorized_signatory', '')}
+                                                style={{
+                                                    padding: '0.75rem 1rem', borderRadius: '10px',
+                                                    border: '1px solid #fca5a5', background: '#fef2f2',
+                                                    color: '#dc2626', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer'
+                                                }}
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Real-time Signatory Preview */}
+                                    {settings.authorized_signatory && (
+                                        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: '#ffffff', padding: '0.85rem 1.25rem', borderRadius: '10px', border: '1px solid #e2e8f0', width: 'fit-content' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '150px' }}>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#334155' }}>
+                                                    For {settings.shop_name || 'Vaiyaaree'}
+                                                </span>
+                                                <img
+                                                    src={settings.authorized_signatory.startsWith('http') || settings.authorized_signatory.startsWith('/') ? settings.authorized_signatory : `/images/${settings.authorized_signatory}`}
+                                                    alt="Authorized Signatory Preview"
+                                                    style={{ maxHeight: '42px', maxWidth: '150px', objectFit: 'contain', margin: '4px 0' }}
+                                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                />
+                                                <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#64748b', borderTop: '1px solid #cbd5e1', paddingTop: '2px', width: '100%', textAlign: 'center' }}>
+                                                    Authorized Signatory
+                                                </span>
+                                            </div>
+                                            <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <CheckCircle2 size={14} /> Active on Invoices
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
@@ -1252,9 +1327,9 @@ export default function ShopSettingsPage() {
 
             {showMediaPicker && (
                 <MediaPicker
-                    currentImage={settings.shop_logo}
+                    currentImage={settings[mediaPickerTarget] || ''}
                     onSelect={(url) => {
-                        handleUpdate('shop_logo', url);
+                        handleUpdate(mediaPickerTarget, url);
                         setShowMediaPicker(false);
                     }}
                     onClose={() => setShowMediaPicker(false)}

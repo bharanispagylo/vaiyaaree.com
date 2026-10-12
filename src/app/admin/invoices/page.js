@@ -146,7 +146,8 @@ export default function InvoicesPage() {
         bank_name: 'STATE BANK INDIA',
         bank_account: '170902000000962',
         bank_ifsc: 'SBI0001709',
-        bank_upi: 'vaiyaaree@upi'
+        bank_upi: 'vaiyaaree@upi',
+        authorized_signatory: ''
     });
 
     const fetchSettings = useCallback(async () => {
@@ -948,7 +949,19 @@ export default function InvoicesPage() {
                                     </div>
                                     <div style={{ width: '50%', padding: '5px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'center' }}>
                                         <div style={{ fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>For {settings.shop_name}</div>
-                                        <div style={{ marginTop: '50px', fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>Authorized Signatory</div>
+                                        {settings.authorized_signatory ? (
+                                            <div style={{ margin: '6px 0', textAlign: 'right', paddingRight: '25px', width: '100%' }}>
+                                                <img
+                                                    src={settings.authorized_signatory.startsWith('http') || settings.authorized_signatory.startsWith('/') ? settings.authorized_signatory : `/images/${settings.authorized_signatory}`}
+                                                    alt="Authorized Signatory"
+                                                    style={{ maxHeight: '42px', maxWidth: '140px', objectFit: 'contain' }}
+                                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div style={{ height: '42px' }} />
+                                        )}
+                                        <div style={{ fontWeight: 'bold', width: '100%', textAlign: 'right', paddingRight: '20px' }}>Authorized Signatory</div>
                                     </div>
                                 </div>
                             </div>
